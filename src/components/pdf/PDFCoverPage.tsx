@@ -15,14 +15,27 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
 
   return (
     <div className="pdf-page relative flex flex-col overflow-hidden">
-      {/* Background Image */}
+      {/* Background Image - Using img tag for better print support */}
       {quote.cover.imageUrl && (
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${quote.cover.imageUrl})` }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-navy/70 via-navy/50 to-navy/80" />
-        </div>
+        <>
+          <img 
+            src={quote.cover.imageUrl} 
+            alt="Cover background"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ 
+              WebkitPrintColorAdjust: 'exact',
+              printColorAdjust: 'exact'
+            }}
+          />
+          <div 
+            className="absolute inset-0"
+            style={{ 
+              background: 'linear-gradient(to bottom, rgba(26, 43, 72, 0.75), rgba(26, 43, 72, 0.55), rgba(26, 43, 72, 0.85))',
+              WebkitPrintColorAdjust: 'exact',
+              printColorAdjust: 'exact'
+            }} 
+          />
+        </>
       )}
       
       {/* Content */}
