@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { Quote, Template } from '@/types/quote';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -96,19 +96,12 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null);
   const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Track if data has been loaded to prevent unnecessary refetches
+  const hasLoadedRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
 
-  // Fetch data when user changes
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    } else {
-      setQuotes([]);
-      setTemplates([]);
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
@@ -139,17 +132,36 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       if (quotesError) throw quotesError;
 
       setQuotes((quotesData || []).map(dbToQuote));
+      hasLoadedRef.current = true;
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Error al cargar los datos');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  const refreshData = async () => {
+  // Fetch data only when user changes (not on every re-render)
+  useEffect(() => {
+    if (user) {
+      // Only fetch if user changed or data hasn't been loaded yet
+      if (lastUserIdRef.current !== user.id || !hasLoadedRef.current) {
+        lastUserIdRef.current = user.id;
+        fetchData();
+      }
+    } else {
+      // User logged out
+      setQuotes([]);
+      setTemplates([]);
+      setIsLoading(false);
+      hasLoadedRef.current = false;
+      lastUserIdRef.current = null;
+    }
+  }, [user, fetchData]);
+
+  const refreshData = useCallback(async () => {
     await fetchData();
-  };
+  }, [fetchData]);
 
   const addQuote = async (quote: Quote) => {
     if (!user) {
