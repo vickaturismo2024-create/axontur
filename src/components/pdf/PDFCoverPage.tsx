@@ -50,30 +50,37 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
       
       {/* Content */}
       <div className="relative z-10 flex flex-1 flex-col h-full">
-        {/* Header with Logo */}
-        <div className="flex items-center justify-between" style={{ paddingBottom: '20px' }}>
-          {template.logoUrl ? (
-            <img src={template.logoUrl} alt="Logo" className="h-10 max-w-[120px] object-contain" />
-          ) : (
-            <div className="flex items-center gap-2">
-              <div 
-                className="flex items-center justify-center rounded-lg"
-                style={{ 
-                  width: '36px', 
-                  height: '36px', 
-                  backgroundColor: 'hsl(38 70% 55%)',
-                  WebkitPrintColorAdjust: 'exact',
-                  printColorAdjust: 'exact'
-                }}
-              >
-                <Plane className="h-4 w-4" style={{ color: 'hsl(215 50% 23%)' }} />
+        {/* Header with Logo - positioned top right */}
+        <div className="flex items-center justify-end" style={{ paddingBottom: '12px' }}>
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-white/60">
+              Armado el {format(new Date(), "d/MM/yyyy")}
+            </p>
+            {template.logoUrl ? (
+              <img 
+                src={template.logoUrl} 
+                alt="Logo" 
+                className="object-contain"
+                style={{ height: '32px', maxWidth: '100px' }}
+              />
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <div 
+                  className="flex items-center justify-center rounded"
+                  style={{ 
+                    width: '24px', 
+                    height: '24px', 
+                    backgroundColor: 'hsl(38 70% 55%)',
+                    WebkitPrintColorAdjust: 'exact',
+                    printColorAdjust: 'exact'
+                  }}
+                >
+                  <Plane className="h-3 w-3" style={{ color: 'hsl(215 50% 23%)' }} />
+                </div>
+                <span className="text-sm font-medium text-white/90">Vicka Turismo</span>
               </div>
-              <span className="font-serif text-lg font-bold text-white">Vicka Turismo</span>
-            </div>
-          )}
-          <p className="text-xs text-white/70">
-            Armado el {format(new Date(), "d/MM/yyyy")}
-          </p>
+            )}
+          </div>
         </div>
 
         {/* Main Content - Centered */}
