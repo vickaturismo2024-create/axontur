@@ -18,7 +18,10 @@ import {
   Pencil,
   Save,
   X,
-  MessageCircle
+  MessageCircle,
+  Square,
+  Minus,
+  Layers
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -42,6 +45,8 @@ const Templates = () => {
         primary: '#1e3a5f',
         secondary: '#d4c4a8',
         accent: '#c9a227',
+        background: '#ffffff',
+        cardBackground: '#f8f9fa',
       },
       fonts: {
         heading: 'Playfair Display',
@@ -51,6 +56,10 @@ const Templates = () => {
         borderRadius: '12px',
         cardShadow: true,
         separatorStyle: 'line',
+        borderStyle: 'none',
+        borderWidth: '1px',
+        backgroundPattern: 'none',
+        cardStyle: 'elevated',
       },
       whatsappAgents: [
         { name: 'Victoria', phone: '5491123456789' },
@@ -318,6 +327,46 @@ const Templates = () => {
                       />
                     </div>
                   </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fondo</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editingTemplate.colors.background || '#ffffff'}
+                        onChange={(e) => updateEditingTemplate({ 
+                          colors: { ...editingTemplate.colors, background: e.target.value } 
+                        })}
+                        className="h-10 w-10 cursor-pointer rounded border"
+                      />
+                      <Input
+                        value={editingTemplate.colors.background || '#ffffff'}
+                        onChange={(e) => updateEditingTemplate({ 
+                          colors: { ...editingTemplate.colors, background: e.target.value } 
+                        })}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fondo Cards</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editingTemplate.colors.cardBackground || '#f8f9fa'}
+                        onChange={(e) => updateEditingTemplate({ 
+                          colors: { ...editingTemplate.colors, cardBackground: e.target.value } 
+                        })}
+                        className="h-10 w-10 cursor-pointer rounded border"
+                      />
+                      <Input
+                        value={editingTemplate.colors.cardBackground || '#f8f9fa'}
+                        onChange={(e) => updateEditingTemplate({ 
+                          colors: { ...editingTemplate.colors, cardBackground: e.target.value } 
+                        })}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -345,6 +394,209 @@ const Templates = () => {
                         fonts: { ...editingTemplate.fonts, body: e.target.value } 
                       })}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Estilos de Cards */}
+              <div>
+                <Label className="mb-2 flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  Estilo de Cards
+                </Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Tipo de card</Label>
+                    <select
+                      value={editingTemplate.styles.cardStyle}
+                      onChange={(e) => updateEditingTemplate({ 
+                        styles: { ...editingTemplate.styles, cardStyle: e.target.value as any } 
+                      })}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="flat">Plano</option>
+                      <option value="elevated">Elevado (sombra)</option>
+                      <option value="outlined">Con borde</option>
+                      <option value="glass">Efecto cristal</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Radio de bordes</Label>
+                    <select
+                      value={editingTemplate.styles.borderRadius}
+                      onChange={(e) => updateEditingTemplate({ 
+                        styles: { ...editingTemplate.styles, borderRadius: e.target.value } 
+                      })}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="0px">Sin bordes redondeados</option>
+                      <option value="4px">Mínimo (4px)</option>
+                      <option value="8px">Pequeño (8px)</option>
+                      <option value="12px">Medio (12px)</option>
+                      <option value="16px">Grande (16px)</option>
+                      <option value="20px">Extra grande (20px)</option>
+                      <option value="9999px">Completamente redondeado</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Sombra en cards</Label>
+                    <Switch
+                      checked={editingTemplate.styles.cardShadow}
+                      onCheckedChange={(checked) => updateEditingTemplate({
+                        styles: { ...editingTemplate.styles, cardShadow: checked }
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bordes decorativos */}
+              <div>
+                <Label className="mb-2 flex items-center gap-2">
+                  <Square className="h-4 w-4" />
+                  Bordes Decorativos
+                </Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Estilo de borde</Label>
+                    <select
+                      value={editingTemplate.styles.borderStyle}
+                      onChange={(e) => updateEditingTemplate({ 
+                        styles: { ...editingTemplate.styles, borderStyle: e.target.value as any } 
+                      })}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="none">Sin borde</option>
+                      <option value="solid">Sólido</option>
+                      <option value="dashed">Punteado</option>
+                      <option value="double">Doble</option>
+                      <option value="decorative">Decorativo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Grosor de borde</Label>
+                    <select
+                      value={editingTemplate.styles.borderWidth}
+                      onChange={(e) => updateEditingTemplate({ 
+                        styles: { ...editingTemplate.styles, borderWidth: e.target.value } 
+                      })}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="1px">Fino (1px)</option>
+                      <option value="2px">Medio (2px)</option>
+                      <option value="3px">Grueso (3px)</option>
+                      <option value="4px">Extra grueso (4px)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Separadores */}
+              <div>
+                <Label className="mb-2 flex items-center gap-2">
+                  <Minus className="h-4 w-4" />
+                  Estilo de Separadores
+                </Label>
+                <div className="space-y-3">
+                  <select
+                    value={editingTemplate.styles.separatorStyle}
+                    onChange={(e) => updateEditingTemplate({ 
+                      styles: { ...editingTemplate.styles, separatorStyle: e.target.value as any } 
+                    })}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="none">Sin separador</option>
+                    <option value="line">Línea simple</option>
+                    <option value="dots">Puntos</option>
+                    <option value="gradient">Degradado</option>
+                    <option value="decorative">Decorativo (con ornamentos)</option>
+                  </select>
+                  {/* Separator Preview */}
+                  <div className="rounded border p-4">
+                    <p className="mb-2 text-xs text-muted-foreground">Vista previa:</p>
+                    <div className="flex items-center justify-center py-2">
+                      {editingTemplate.styles.separatorStyle === 'line' && (
+                        <div className="h-px w-full" style={{ backgroundColor: editingTemplate.colors.accent }} />
+                      )}
+                      {editingTemplate.styles.separatorStyle === 'dots' && (
+                        <div className="flex w-full items-center justify-center gap-2">
+                          {[...Array(5)].map((_, i) => (
+                            <div 
+                              key={i} 
+                              className="h-2 w-2 rounded-full" 
+                              style={{ backgroundColor: editingTemplate.colors.accent }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {editingTemplate.styles.separatorStyle === 'gradient' && (
+                        <div 
+                          className="h-1 w-full rounded-full"
+                          style={{ 
+                            background: `linear-gradient(90deg, transparent, ${editingTemplate.colors.accent}, transparent)` 
+                          }}
+                        />
+                      )}
+                      {editingTemplate.styles.separatorStyle === 'decorative' && (
+                        <div className="flex w-full items-center gap-2">
+                          <div className="h-px flex-1" style={{ backgroundColor: editingTemplate.colors.accent }} />
+                          <div 
+                            className="h-3 w-3 rotate-45" 
+                            style={{ backgroundColor: editingTemplate.colors.accent }}
+                          />
+                          <div className="h-px flex-1" style={{ backgroundColor: editingTemplate.colors.accent }} />
+                        </div>
+                      )}
+                      {editingTemplate.styles.separatorStyle === 'none' && (
+                        <span className="text-xs text-muted-foreground">Sin separador</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Patrón de fondo */}
+              <div>
+                <Label className="mb-2 flex items-center gap-2">
+                  <Layout className="h-4 w-4" />
+                  Patrón de Fondo
+                </Label>
+                <div className="space-y-3">
+                  <select
+                    value={editingTemplate.styles.backgroundPattern}
+                    onChange={(e) => updateEditingTemplate({ 
+                      styles: { ...editingTemplate.styles, backgroundPattern: e.target.value as any } 
+                    })}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="none">Sin patrón</option>
+                    <option value="dots">Puntos</option>
+                    <option value="lines">Líneas diagonales</option>
+                    <option value="grid">Cuadrícula</option>
+                    <option value="waves">Ondas</option>
+                  </select>
+                  {/* Pattern Preview */}
+                  <div 
+                    className="h-20 rounded border"
+                    style={{
+                      backgroundColor: editingTemplate.colors.background || '#ffffff',
+                      backgroundImage: 
+                        editingTemplate.styles.backgroundPattern === 'dots' 
+                          ? `radial-gradient(${editingTemplate.colors.primary}15 1px, transparent 1px)`
+                          : editingTemplate.styles.backgroundPattern === 'lines'
+                          ? `repeating-linear-gradient(45deg, ${editingTemplate.colors.primary}10, ${editingTemplate.colors.primary}10 1px, transparent 1px, transparent 10px)`
+                          : editingTemplate.styles.backgroundPattern === 'grid'
+                          ? `linear-gradient(${editingTemplate.colors.primary}10 1px, transparent 1px), linear-gradient(90deg, ${editingTemplate.colors.primary}10 1px, transparent 1px)`
+                          : editingTemplate.styles.backgroundPattern === 'waves'
+                          ? `url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 14 50 14c10.271 0 15.362 1.222 24.629 4.928.955.383 1.869.74 2.75 1.072h6.225c-2.51-.73-5.139-1.691-8.233-2.928C65.888 13.278 60.562 12 50 12c-10.626 0-16.855 1.397-26.66 5.063l-1.767.662c-2.475.923-4.66 1.674-6.724 2.275h6.335zm0-20C13.258 2.892 8.077 4 0 4V2c5.744 0 9.951-.574 14.85-2h6.334zM77.38 0C85.239 2.966 90.502 4 100 4V2c-6.842 0-11.386-.542-16.396-2h-6.225zM0 14c8.44 0 13.718-1.21 22.272-4.402l1.768-.661C33.64 5.347 39.647 4 50 4c10.271 0 15.362 1.222 24.629 4.928C84.112 12.722 89.438 14 100 14v-2c-10.271 0-15.362-1.222-24.629-4.928C65.888 3.278 60.562 2 50 2 39.374 2 33.145 3.397 23.34 7.063l-1.767.662C13.223 10.84 8.163 12 0 12v2z' fill='${encodeURIComponent(editingTemplate.colors.primary)}' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E")`
+                          : 'none',
+                      backgroundSize: 
+                        editingTemplate.styles.backgroundPattern === 'dots' ? '20px 20px'
+                        : editingTemplate.styles.backgroundPattern === 'grid' ? '20px 20px'
+                        : 'auto',
+                    }}
+                  >
+                    <p className="p-2 text-xs text-muted-foreground">Vista previa del patrón</p>
                   </div>
                 </div>
               </div>

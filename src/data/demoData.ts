@@ -10,6 +10,8 @@ export const defaultTemplate: Template = {
     primary: '#1e3a5f',
     secondary: '#d4c4a8',
     accent: '#c9a227',
+    background: '#ffffff',
+    cardBackground: '#f8f9fa',
   },
   fonts: {
     heading: 'Playfair Display',
@@ -19,6 +21,10 @@ export const defaultTemplate: Template = {
     borderRadius: '12px',
     cardShadow: true,
     separatorStyle: 'line',
+    borderStyle: 'none',
+    borderWidth: '1px',
+    backgroundPattern: 'none',
+    cardStyle: 'elevated',
   },
   whatsappAgents: [
     { name: 'Victoria', phone: '5491123456789' },
@@ -256,9 +262,16 @@ export const demoTemplates: Template[] = [
     id: 'modern',
     name: 'Moderno Minimalista',
     colors: {
+      ...defaultTemplate.colors,
       primary: '#2c3e50',
       secondary: '#ecf0f1',
       accent: '#e74c3c',
+    },
+    styles: {
+      ...defaultTemplate.styles,
+      borderRadius: '4px',
+      cardStyle: 'flat',
+      separatorStyle: 'gradient',
     },
   },
   {
@@ -266,9 +279,17 @@ export const demoTemplates: Template[] = [
     id: 'tropical',
     name: 'Tropical Vibrante',
     colors: {
+      ...defaultTemplate.colors,
       primary: '#00695c',
       secondary: '#e0f2f1',
       accent: '#ff6f00',
+    },
+    styles: {
+      ...defaultTemplate.styles,
+      borderRadius: '20px',
+      cardStyle: 'glass',
+      separatorStyle: 'decorative',
+      backgroundPattern: 'waves',
     },
   },
 ];
