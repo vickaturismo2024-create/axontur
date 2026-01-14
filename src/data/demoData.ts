@@ -37,6 +37,7 @@ export const defaultTemplate: Template = {
     transfers: true,
     insurance: true,
     itinerary: true,
+    cruise: true,
   },
 };
 
@@ -89,7 +90,8 @@ export const demoQuotes: Quote[] = [
         notes: 'Escala en Ciudad de México (1.5hs)',
       },
     ],
-    lodging: {
+    lodgings: [{
+      id: 'l1',
       name: 'Grand Fiesta Americana Coral Beach',
       category: '5 Estrellas',
       address: 'Boulevard Kukulcán Km 9.5, Zona Hotelera, 77500 Cancún, Q.R.',
@@ -99,7 +101,8 @@ export const demoQuotes: Quote[] = [
       roomType: 'Suite Ocean View',
       nights: 7,
       notes: 'Vista al mar, acceso a spa incluido',
-    },
+      destination: 'Cancún',
+    }],
     transfers: [
       {
         id: 't1',
@@ -225,7 +228,8 @@ export const demoQuotes: Quote[] = [
         notes: 'Vuelo directo',
       },
     ],
-    lodging: {
+    lodgings: [{
+      id: 'l1',
       name: 'Hotel Le Marais',
       category: '4 Estrellas Superior',
       address: '15 Rue de Rivoli, 75004 París, Francia',
@@ -235,7 +239,8 @@ export const demoQuotes: Quote[] = [
       roomType: '2 Habitaciones Familiares Conectadas',
       nights: 8,
       notes: 'Ubicación céntrica, cerca del Louvre',
-    },
+      destination: 'París',
+    }],
     transfers: [],
     insurance: {
       company: 'Europass',

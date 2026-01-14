@@ -18,6 +18,7 @@ export interface Flight {
 }
 
 export interface Lodging {
+  id: string;
   name: string;
   category: string;
   address: string;
@@ -27,6 +28,7 @@ export interface Lodging {
   roomType: string;
   nights: number;
   notes: string;
+  destination?: string; // Para viajes multi-destino
 }
 
 export interface Transfer {
@@ -67,6 +69,41 @@ export interface WhatsAppAgent {
   phone: string;
 }
 
+// Crucero
+export interface CruisePort {
+  id: string;
+  day: number;
+  port: string;
+  country: string;
+  arrival: string;
+  departure: string;
+  description?: string;
+}
+
+export interface Cruise {
+  enabled: boolean;
+  cruiseLine: string;
+  shipName: string;
+  cabinType: string;
+  cabinNumber: string;
+  deck: string;
+  embarkationPort: string;
+  embarkationDate: string;
+  disembarkationPort: string;
+  disembarkationDate: string;
+  nights: number;
+  itinerary: CruisePort[];
+  // Extras incluidos
+  tipsIncluded: boolean;
+  tipsAmount: number;
+  beveragePackage: string;
+  wifiPackage: string;
+  diningPackage: string;
+  excursionsIncluded: boolean;
+  excursionsNotes: string;
+  notes: string;
+}
+
 export interface Template {
   id: string;
   name: string;
@@ -99,6 +136,7 @@ export interface Template {
     transfers: boolean;
     insurance: boolean;
     itinerary: boolean;
+    cruise: boolean;
   };
 }
 
@@ -121,9 +159,11 @@ export interface Quote {
     imageUrl: string;
   };
   flights: Flight[];
-  lodging: Lodging;
+  lodgings: Lodging[]; // Ahora soporta múltiples alojamientos
+  lodging?: Lodging; // Legacy - para compatibilidad
   transfers: Transfer[];
   insurance: Insurance;
   pricing: Pricing;
   itineraryDays: ItineraryDay[];
+  cruise?: Cruise; // Información de crucero
 }
