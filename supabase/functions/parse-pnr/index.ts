@@ -1,0 +1,142 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { pnrText } = await req.json();
+    
+    if (!pnrText || typeof pnrText !== 'string') {
+      return new Response(
+        JSON.stringify({ error: "PNR text is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    const systemPrompt = `You are an expert at parsing airline PNR (Passenger Name Record) data from GDS systems like Amadeus, Sabre, Galileo, and Worldspan.
+
+Extract flight information from the PNR text provided and return structured JSON data.
+
+IMPORTANT: You must use the extract_flights function to return the data. Return ALL flight segments found in the PNR.
+
+For each flight segment, extract:
+- origin: Origin airport code and city (e.g., "Buenos Aires (EZE)")
+- destination: Destination airport code and city (e.g., "Cancún (CUN)")
+- date: Flight date in YYYY-MM-DD format
+- departureTime: Departure time in HH:MM format (24h)
+- arrivalTime: Arrival time in HH:MM format, add "+1" if arrives next day (e.g., "06:30+1")
+- airline: Full airline name
+- flightNumber: Flight number with airline code (e.g., "AM456")
+- luggage: Luggage allowance if mentioned, otherwise empty
+- notes: Any additional notes like cabin class, stops, connection info
+
+Common GDS formats:
+- Amadeus: "1 AR1234 Y 15MAR EZEEZE HK1 1430 2200"
+- Sabre: "1 AA 1234Y 15MAR DFWLAX HK1 1430 1600"
+- Format variations include airline code, flight number, booking class, date, route, status, times
+
+Parse dates carefully - they may be in formats like "15MAR", "15MAR24", "2024-03-15", etc.
+Convert city codes to readable names when possible (EZE = Buenos Aires, CUN = Cancún, MIA = Miami, etc).`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Parse the following PNR/flight information:\n\n${pnrText}` }
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "extract_flights",
+              description: "Extract flight segments from PNR data",
+              parameters: {
+                type: "object",
+                properties: {
+                  flights: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        origin: { type: "string", description: "Origin city and airport code" },
+                        destination: { type: "string", description: "Destination city and airport code" },
+                        date: { type: "string", description: "Flight date in YYYY-MM-DD format" },
+                        departureTime: { type: "string", description: "Departure time in HH:MM format" },
+                        arrivalTime: { type: "string", description: "Arrival time in HH:MM format, add +1 if next day" },
+                        airline: { type: "string", description: "Full airline name" },
+                        flightNumber: { type: "string", description: "Flight number with airline code" },
+                        luggage: { type: "string", description: "Luggage allowance if mentioned" },
+                        notes: { type: "string", description: "Additional notes like cabin class, stops" }
+                      },
+                      required: ["origin", "destination", "date", "departureTime", "arrivalTime", "airline", "flightNumber"]
+                    }
+                  }
+                },
+                required: ["flights"]
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "extract_flights" } }
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const errorText = await response.text();
+      console.error("AI gateway error:", response.status, errorText);
+      throw new Error(`AI gateway error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract the tool call result
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall || toolCall.function.name !== "extract_flights") {
+      throw new Error("Failed to extract flight data from AI response");
+    }
+
+    const flightData = JSON.parse(toolCall.function.arguments);
+    
+    return new Response(
+      JSON.stringify({ flights: flightData.flights }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("Error parsing PNR:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Failed to parse PNR" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

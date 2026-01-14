@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { defaultTemplate } from '@/data/demoData';
+import { PNRParserDialog } from '@/components/quotes/PNRParserDialog';
 
 interface QuoteWizardProps {
   initialQuote?: Quote;
@@ -108,6 +109,16 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
   const removeFlight = (id: string) => {
     updateQuote({ flights: quote.flights.filter(f => f.id !== id) });
+  };
+
+  const handleFlightsParsed = (parsedFlights: Omit<Flight, 'id'>[]) => {
+    const flightsWithIds = parsedFlights.map(flight => ({
+      ...flight,
+      id: crypto.randomUUID(),
+      luggage: flight.luggage || '',
+      notes: flight.notes || '',
+    }));
+    updateQuote({ flights: [...quote.flights, ...flightsWithIds] });
   };
 
   const addTransfer = () => {
@@ -520,10 +531,13 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                     </CardContent>
                   </Card>
                 ))}
-                <Button variant="outline" onClick={addFlight} className="w-full">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Agregar vuelo
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={addFlight} className="flex-1">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Agregar vuelo
+                  </Button>
+                  <PNRParserDialog onFlightsParsed={handleFlightsParsed} />
+                </div>
               </div>
             )}
 
