@@ -153,9 +153,9 @@ Convert city codes to readable names when possible (EZE = Buenos Aires, CUN = Ca
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      // Log only status code, not full error text that may contain sensitive info
+      console.error("AI gateway error:", response.status);
+      throw new Error("Error processing request");
     }
 
     const data = await response.json();
@@ -176,9 +176,10 @@ Convert city codes to readable names when possible (EZE = Buenos Aires, CUN = Ca
     );
 
   } catch (error) {
-    console.error("Error parsing PNR:", error);
+    // Log error type only, not full details
+    console.error("Error parsing PNR:", error instanceof Error ? error.name : "Unknown");
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Failed to parse PNR" }),
+      JSON.stringify({ error: "Error al procesar el PNR. Por favor, intenta nuevamente." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
