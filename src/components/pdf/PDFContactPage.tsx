@@ -8,108 +8,196 @@ interface PDFContactPageProps {
 }
 
 export function PDFContactPage({ quote, template }: PDFContactPageProps) {
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.lodging.address)}`;
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.lodging.address || '')}`;
 
   return (
     <div className="pdf-page flex flex-col">
-      <h2 className="mb-6 border-b border-border pb-3 font-serif text-2xl font-bold text-foreground">
+      <h2 
+        className="font-serif font-bold border-b"
+        style={{ 
+          marginBottom: '16px', 
+          paddingBottom: '10px', 
+          fontSize: '18px',
+          borderColor: 'hsl(40 20% 88%)',
+          color: 'hsl(215 50% 15%)'
+        }}
+      >
         Ubicación y Contacto
       </h2>
 
       {/* Ubicación del alojamiento */}
-      <div className="mb-8 rounded-lg border border-border bg-white p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <MapPin className="h-4 w-4 text-primary" />
-          </div>
-          <h3 className="font-serif text-lg font-semibold">Ubicación del Alojamiento</h3>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <h4 className="font-semibold text-foreground">{quote.lodging.name}</h4>
-            <p className="mt-1 text-sm text-muted-foreground">{quote.lodging.address}</p>
-            
-            <a 
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      {quote.lodging.name && (
+        <div 
+          className="rounded-lg border bg-white"
+          style={{ 
+            marginBottom: '20px', 
+            padding: '16px',
+            borderColor: 'hsl(40 20% 88%)'
+          }}
+        >
+          <div className="flex items-center" style={{ marginBottom: '12px', gap: '8px' }}>
+            <div 
+              className="flex items-center justify-center rounded"
+              style={{ 
+                width: '24px', 
+                height: '24px',
+                backgroundColor: 'hsl(215 50% 23% / 0.1)',
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }}
             >
-              <ExternalLink className="h-4 w-4" />
-              Ver en Google Maps
-            </a>
+              <MapPin style={{ width: '12px', height: '12px', color: 'hsl(215 50% 23%)' }} />
+            </div>
+            <h3 className="font-serif font-semibold" style={{ fontSize: '14px' }}>Ubicación del Alojamiento</h3>
           </div>
 
-          {/* Placeholder de mapa */}
-          <div className="overflow-hidden rounded-lg bg-muted">
-            <div className="flex h-48 items-center justify-center bg-gradient-to-br from-muted to-secondary">
-              <div className="text-center">
-                <MapPin className="mx-auto h-8 w-8 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Mapa de ubicación
-                </p>
+          <div className="grid grid-cols-2" style={{ gap: '16px' }}>
+            <div>
+              <h4 className="font-semibold" style={{ fontSize: '13px', color: 'hsl(215 50% 15%)' }}>
+                {quote.lodging.name}
+              </h4>
+              <p style={{ marginTop: '4px', fontSize: '11px', color: 'hsl(215 20% 45%)' }}>
+                {quote.lodging.address}
+              </p>
+              
+              <a 
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-lg text-white"
+                style={{ 
+                  marginTop: '12px', 
+                  padding: '8px 12px', 
+                  fontSize: '11px',
+                  gap: '6px',
+                  backgroundColor: 'hsl(215 50% 23%)',
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact'
+                }}
+              >
+                <ExternalLink style={{ width: '12px', height: '12px' }} />
+                Ver en Google Maps
+              </a>
+            </div>
+
+            {/* Placeholder de mapa */}
+            <div 
+              className="overflow-hidden rounded-lg"
+              style={{ 
+                backgroundColor: 'hsl(40 20% 94%)',
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }}
+            >
+              <div 
+                className="flex items-center justify-center"
+                style={{ 
+                  height: '120px',
+                  background: 'linear-gradient(to bottom right, hsl(40 20% 94%), hsl(38 45% 85%))',
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact'
+                }}
+              >
+                <div className="text-center">
+                  <MapPin style={{ margin: '0 auto', width: '24px', height: '24px', color: 'hsl(215 20% 45%)' }} />
+                  <p style={{ marginTop: '6px', fontSize: '10px', color: 'hsl(215 20% 45%)' }}>
+                    Mapa de ubicación
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Contactos con QR */}
-      <div className="mb-8">
-        <h3 className="mb-4 flex items-center gap-2 font-serif text-lg font-semibold">
-          <MessageCircle className="h-5 w-5 text-green-600" />
-          Contactanos por WhatsApp
-        </h3>
+      {template.whatsappAgents && template.whatsappAgents.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <h3 
+            className="flex items-center font-serif font-semibold"
+            style={{ marginBottom: '12px', fontSize: '14px', gap: '8px' }}
+          >
+            <MessageCircle style={{ width: '16px', height: '16px', color: 'hsl(142 70% 35%)' }} />
+            Contactanos por WhatsApp
+          </h3>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {template.whatsappAgents.map((agent, index) => (
-            <div 
-              key={index}
-              className="flex items-center gap-4 rounded-lg border border-border bg-white p-4"
-            >
-              <div className="rounded-lg bg-white p-2 shadow-sm">
-                <QRCode 
-                  value={`https://wa.me/${agent.phone}`}
-                  size={80}
-                  level="M"
-                />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground">{agent.name}</p>
-                <p className="text-sm text-muted-foreground">+{agent.phone}</p>
-                <a 
-                  href={`https://wa.me/${agent.phone}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-1 text-xs text-green-600 hover:underline"
+          <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+            {template.whatsappAgents.map((agent, index) => (
+              <div 
+                key={index}
+                className="flex items-center rounded-lg border bg-white"
+                style={{ 
+                  padding: '12px', 
+                  gap: '12px',
+                  borderColor: 'hsl(40 20% 88%)'
+                }}
+              >
+                <div 
+                  className="rounded-lg bg-white"
+                  style={{ 
+                    padding: '6px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }}
                 >
-                  Abrir chat
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                  <QRCode 
+                    value={`https://wa.me/${agent.phone}`}
+                    size={60}
+                    level="M"
+                  />
+                </div>
+                <div>
+                  <p className="font-semibold" style={{ fontSize: '12px', color: 'hsl(215 50% 15%)' }}>
+                    {agent.name}
+                  </p>
+                  <p style={{ fontSize: '11px', color: 'hsl(215 20% 45%)' }}>+{agent.phone}</p>
+                  <a 
+                    href={`https://wa.me/${agent.phone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center"
+                    style={{ 
+                      marginTop: '4px', 
+                      fontSize: '10px', 
+                      gap: '4px',
+                      color: 'hsl(142 70% 35%)'
+                    }}
+                  >
+                    Abrir chat
+                    <ExternalLink style={{ width: '10px', height: '10px' }} />
+                  </a>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Información de la agencia */}
-      <div className="mt-auto rounded-lg bg-primary p-6 text-primary-foreground">
+      <div 
+        className="rounded-lg text-white"
+        style={{ 
+          marginTop: 'auto', 
+          padding: '16px',
+          backgroundColor: 'hsl(215 50% 23%)',
+          WebkitPrintColorAdjust: 'exact',
+          printColorAdjust: 'exact'
+        }}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-serif text-xl font-bold">Vicka Turismo</h3>
-            <p className="mt-1 text-sm text-primary-foreground/80">
+            <h3 className="font-serif font-bold" style={{ fontSize: '16px' }}>Vicka Turismo</h3>
+            <p style={{ marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
               Tu viaje soñado, nuestra pasión
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              <span className="text-sm">+54 11 2345-6789</span>
+          <div className="flex items-center" style={{ gap: '16px' }}>
+            <div className="flex items-center" style={{ gap: '6px', fontSize: '11px' }}>
+              <Phone style={{ width: '12px', height: '12px' }} />
+              <span>+54 11 2345-6789</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Instagram className="h-4 w-4" />
-              <span className="text-sm">@vickaturismo</span>
+            <div className="flex items-center" style={{ gap: '6px', fontSize: '11px' }}>
+              <Instagram style={{ width: '12px', height: '12px' }} />
+              <span>@vickaturismo</span>
             </div>
           </div>
         </div>
@@ -117,7 +205,10 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
 
       {/* Footer */}
       {template.footerText && (
-        <p className="mt-4 text-center text-xs text-muted-foreground">
+        <p 
+          className="text-center"
+          style={{ marginTop: '12px', fontSize: '10px', color: 'hsl(215 20% 45%)' }}
+        >
           {template.footerText}
         </p>
       )}
