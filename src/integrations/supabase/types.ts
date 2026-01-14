@@ -14,7 +14,107 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      quotes: {
+        Row: {
+          client: Json
+          cover: Json
+          created_at: string
+          flights: Json
+          id: string
+          insurance: Json
+          itinerary_days: Json
+          lodging: Json
+          pricing: Json
+          template_id: string | null
+          transfers: Json
+          trip: Json
+          updated_at: string
+        }
+        Insert: {
+          client?: Json
+          cover?: Json
+          created_at?: string
+          flights?: Json
+          id?: string
+          insurance?: Json
+          itinerary_days?: Json
+          lodging?: Json
+          pricing?: Json
+          template_id?: string | null
+          transfers?: Json
+          trip?: Json
+          updated_at?: string
+        }
+        Update: {
+          client?: Json
+          cover?: Json
+          created_at?: string
+          flights?: Json
+          id?: string
+          insurance?: Json
+          itinerary_days?: Json
+          lodging?: Json
+          pricing?: Json
+          template_id?: string | null
+          transfers?: Json
+          trip?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      templates: {
+        Row: {
+          colors: Json
+          created_at: string
+          fonts: Json
+          footer_text: string | null
+          id: string
+          is_default: boolean | null
+          logo_url: string | null
+          name: string
+          sections_toggles: Json
+          styles: Json
+          updated_at: string
+          whatsapp_agents: Json
+        }
+        Insert: {
+          colors?: Json
+          created_at?: string
+          fonts?: Json
+          footer_text?: string | null
+          id?: string
+          is_default?: boolean | null
+          logo_url?: string | null
+          name: string
+          sections_toggles?: Json
+          styles?: Json
+          updated_at?: string
+          whatsapp_agents?: Json
+        }
+        Update: {
+          colors?: Json
+          created_at?: string
+          fonts?: Json
+          footer_text?: string | null
+          id?: string
+          is_default?: boolean | null
+          logo_url?: string | null
+          name?: string
+          sections_toggles?: Json
+          styles?: Json
+          updated_at?: string
+          whatsapp_agents?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

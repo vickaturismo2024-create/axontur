@@ -36,11 +36,13 @@ import { defaultTemplate } from '@/data/demoData';
 interface QuoteWizardProps {
   initialQuote?: Quote;
   templates: Template[];
+  defaultTemplate?: Template | null;
   onSave: (quote: Quote) => void;
   onCancel: () => void;
 }
 
 const steps = [
+  { id: 'template', label: 'Plantilla', icon: Palette },
   { id: 'general', label: 'Datos Generales', icon: User },
   { id: 'cover', label: 'Portada', icon: Image },
   { id: 'flights', label: 'Vuelos', icon: Plane },
@@ -52,11 +54,11 @@ const steps = [
   { id: 'preview', label: 'Vista Previa', icon: Eye },
 ];
 
-const emptyQuote: Quote = {
+const createEmptyQuote = (defaultTemplateId?: string): Quote => ({
   id: crypto.randomUUID(),
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  templateId: 'default',
+  templateId: defaultTemplateId || 'default',
   client: { name: '', phone: '', email: '' },
   trip: { destination: '', startDate: '', endDate: '', travelers: 1, currency: 'USD' },
   cover: { title: 'PRESUPUESTO DE VIAJE', subtitle: '', imageUrl: '' },
@@ -66,14 +68,17 @@ const emptyQuote: Quote = {
   insurance: { company: '', plan: '', coverage: '', notes: '' },
   pricing: { totalPrice: 0, pricePerPerson: 0, taxes: 0, paymentMethod: '', conditions: '', observations: '' },
   itineraryDays: [],
-};
+});
 
-export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: QuoteWizardProps) {
+export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, onCancel }: QuoteWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [quote, setQuote] = useState<Quote>(initialQuote || emptyQuote);
+  const [quote, setQuote] = useState<Quote>(() => {
+    if (initialQuote) return initialQuote;
+    return createEmptyQuote(defaultTemplate?.id);
+  });
   const [showPreviewPanel, setShowPreviewPanel] = useState(false);
 
-  const currentTemplate = templates.find(t => t.id === quote.templateId) || defaultTemplate;
+  const currentTemplate = templates.find(t => t.id === quote.templateId) || defaultTemplate || (templates[0] ?? null);
 
   const updateQuote = (updates: Partial<Quote>) => {
     setQuote(prev => ({ ...prev, ...updates, updatedAt: new Date().toISOString() }));
@@ -199,8 +204,69 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Datos Generales */}
+            {/* Plantilla */}
             {currentStep === 0 && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h3 className="text-lg font-medium">Selecciona una plantilla de diseño</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Define el estilo visual de tu presupuesto. Podrás cambiarlo más adelante.
+                  </p>
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      onClick={() => updateQuote({ templateId: template.id })}
+                      className={`cursor-pointer rounded-lg border-2 p-4 transition-all hover:shadow-md ${
+                        quote.templateId === template.id
+                          ? 'border-primary bg-primary/5 shadow-md'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      {/* Color Preview */}
+                      <div className="mb-3 flex gap-2">
+                        <div 
+                          className="h-8 w-8 rounded-full border"
+                          style={{ backgroundColor: template.colors.primary }}
+                        />
+                        <div 
+                          className="h-8 w-8 rounded-full border"
+                          style={{ backgroundColor: template.colors.secondary }}
+                        />
+                        <div 
+                          className="h-8 w-8 rounded-full border"
+                          style={{ backgroundColor: template.colors.accent }}
+                        />
+                      </div>
+                      <h4 className="font-serif font-medium">{template.name}</h4>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {template.fonts.heading} / {template.fonts.body}
+                      </p>
+                      {quote.templateId === template.id && (
+                        <div className="mt-2 flex items-center gap-1 text-xs text-primary">
+                          <span className="h-2 w-2 rounded-full bg-primary"></span>
+                          Seleccionada
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {templates.length === 0 && (
+                  <div className="rounded-lg border border-dashed p-8 text-center">
+                    <p className="text-muted-foreground">No hay plantillas disponibles.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Ve a la sección de Plantillas para crear una.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Datos Generales */}
+            {currentStep === 1 && (
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-4">
                   <h4 className="font-medium">Datos del Cliente</h4>
@@ -290,9 +356,9 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             )}
 
             {/* Portada */}
-            {currentStep === 1 && (
+            {currentStep === 2 && (
               <div className="space-y-6">
-                {/* Selector de plantilla */}
+                {/* Selector de plantilla (editable) */}
                 <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
                   <Label className="mb-2 flex items-center gap-2">
                     <Palette className="h-4 w-4 text-gold" />
@@ -326,7 +392,7 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
                     </SelectContent>
                   </Select>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    La plantilla define colores, tipografías y estilo del PDF
+                    Puedes cambiar la plantilla en cualquier momento
                   </p>
                 </div>
 
@@ -360,7 +426,7 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             )}
 
             {/* Vuelos */}
-            {currentStep === 2 && (
+            {currentStep === 3 && (
               <div className="space-y-4">
                 {quote.flights.map((flight, idx) => (
                   <Card key={flight.id} className="relative">
@@ -462,7 +528,7 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             )}
 
             {/* Alojamiento */}
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label>Nombre del hotel</Label>
@@ -542,7 +608,7 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             )}
 
             {/* Traslados */}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <div className="space-y-4">
                 {quote.transfers.map((transfer, idx) => (
                   <Card key={transfer.id} className="relative">
@@ -603,7 +669,7 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             )}
 
             {/* Asistencia */}
-            {currentStep === 5 && (
+            {currentStep === 6 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label>Compañía</Label>
@@ -642,7 +708,7 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             )}
 
             {/* Precio */}
-            {currentStep === 6 && (
+            {currentStep === 7 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label>Precio total</Label>
@@ -701,7 +767,7 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             )}
 
             {/* Itinerario */}
-            {currentStep === 7 && (
+            {currentStep === 8 && (
               <div className="space-y-4">
                 {quote.itineraryDays.map((day) => (
                   <Card key={day.id} className="relative">
@@ -762,7 +828,7 @@ export function QuoteWizard({ initialQuote, templates, onSave, onCancel }: Quote
             )}
 
             {/* Vista Previa */}
-            {currentStep === 8 && (
+            {currentStep === 9 && (
               <div className="rounded-lg border border-border bg-muted/30 p-4">
                 <PDFPreview quote={quote} template={currentTemplate} />
               </div>

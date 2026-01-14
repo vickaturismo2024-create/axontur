@@ -21,7 +21,8 @@ import {
   MessageCircle,
   Square,
   Minus,
-  Layers
+  Layers,
+  Star
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/dialog';
 
 const Templates = () => {
-  const { templates, addTemplate, updateTemplate, deleteTemplate } = useQuotes();
+  const { templates, addTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, defaultTemplateId, isLoading } = useQuotes();
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -185,8 +186,14 @@ const Templates = () => {
                     title="Acento"
                   />
                 </div>
-                <CardTitle className="font-serif text-lg">
+                <CardTitle className="flex items-center gap-2 font-serif text-lg">
                   {template.name}
+                  {defaultTemplateId === template.id && (
+                    <span className="flex items-center gap-1 rounded-full bg-gold/20 px-2 py-0.5 text-xs text-gold-dark">
+                      <Star className="h-3 w-3 fill-current" />
+                      Predeterminada
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -212,6 +219,17 @@ const Templates = () => {
                     <Copy className="mr-1 h-4 w-4" />
                     Duplicar
                   </Button>
+                  {defaultTemplateId !== template.id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDefaultTemplate(template.id)}
+                      className="text-gold-dark"
+                    >
+                      <Star className="mr-1 h-4 w-4" />
+                      Predeterminar
+                    </Button>
+                  )}
                   {template.id !== 'default' && (
                     <Button
                       variant="ghost"

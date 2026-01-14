@@ -6,22 +6,40 @@ import { useQuotes } from '@/contexts/QuotesContext';
 const QuoteEditor = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { quotes, templates, addQuote, updateQuote } = useQuotes();
+  const { quotes, templates, addQuote, updateQuote, isLoading, getDefaultTemplate } = useQuotes();
 
   const existingQuote = id !== 'new' ? quotes.find(q => q.id === id) : undefined;
 
-  const handleSave = (quote: typeof quotes[0]) => {
-    if (existingQuote) {
-      updateQuote(quote);
-    } else {
-      addQuote(quote);
+  const handleSave = async (quote: typeof quotes[0]) => {
+    try {
+      if (existingQuote) {
+        await updateQuote(quote);
+      } else {
+        await addQuote(quote);
+      }
+      navigate('/');
+    } catch (error) {
+      console.error('Error saving quote:', error);
     }
-    navigate('/');
   };
 
   const handleCancel = () => {
     navigate('/');
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto flex items-center justify-center px-4 py-16">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-muted-foreground">Cargando...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,6 +60,7 @@ const QuoteEditor = () => {
         <QuoteWizard
           initialQuote={existingQuote}
           templates={templates}
+          defaultTemplate={getDefaultTemplate()}
           onSave={handleSave}
           onCancel={handleCancel}
         />
