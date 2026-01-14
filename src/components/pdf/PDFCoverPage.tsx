@@ -13,6 +13,10 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
     return format(new Date(dateString), "d 'de' MMMM, yyyy", { locale: es });
   };
 
+  // Template colors
+  const primaryColor = template.colors.primary;
+  const accentColor = template.colors.accent;
+
   // Default background if no image
   const hasImage = quote.cover.imageUrl && quote.cover.imageUrl.trim() !== '';
 
@@ -20,7 +24,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
     <div 
       className="pdf-page relative flex flex-col overflow-hidden"
       style={{
-        background: hasImage ? undefined : 'linear-gradient(135deg, hsl(215 50% 23%) 0%, hsl(215 40% 35%) 100%)',
+        background: hasImage ? undefined : `linear-gradient(135deg, ${primaryColor} 0%, ${template.colors.secondary} 100%)`,
         WebkitPrintColorAdjust: 'exact',
         printColorAdjust: 'exact'
       }}
@@ -40,7 +44,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
           <div 
             className="absolute inset-0"
             style={{ 
-              background: 'linear-gradient(to bottom, rgba(26, 43, 72, 0.75), rgba(26, 43, 72, 0.55), rgba(26, 43, 72, 0.85))',
+              background: `linear-gradient(to bottom, ${primaryColor}cc, ${primaryColor}99, ${primaryColor}dd)`,
               WebkitPrintColorAdjust: 'exact',
               printColorAdjust: 'exact'
             }} 
@@ -70,12 +74,12 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
                   style={{ 
                     width: '24px', 
                     height: '24px', 
-                    backgroundColor: 'hsl(38 70% 55%)',
+                    backgroundColor: accentColor,
                     WebkitPrintColorAdjust: 'exact',
                     printColorAdjust: 'exact'
                   }}
                 >
-                  <Plane className="h-3 w-3" style={{ color: 'hsl(215 50% 23%)' }} />
+                  <Plane className="h-3 w-3" style={{ color: primaryColor }} />
                 </div>
                 <span className="text-sm font-medium text-white/90">Vicka Turismo</span>
               </div>
@@ -90,7 +94,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
             style={{ 
               marginBottom: '16px', 
               fontSize: '14px',
-              color: 'hsl(38 70% 55%)',
+              color: accentColor,
               WebkitPrintColorAdjust: 'exact',
               printColorAdjust: 'exact'
             }}
@@ -120,7 +124,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
                 className="uppercase tracking-wider"
                 style={{ 
                   fontSize: '11px', 
-                  color: 'hsl(38 70% 55%)',
+                  color: accentColor,
                   WebkitPrintColorAdjust: 'exact',
                   printColorAdjust: 'exact'
                 }}
@@ -135,7 +139,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
               style={{ 
                 height: '24px', 
                 width: '1px', 
-                backgroundColor: 'rgba(201, 162, 39, 0.5)',
+                backgroundColor: `${accentColor}80`,
                 WebkitPrintColorAdjust: 'exact',
                 printColorAdjust: 'exact'
               }} 
@@ -145,7 +149,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
                 className="uppercase tracking-wider"
                 style={{ 
                   fontSize: '11px', 
-                  color: 'hsl(38 70% 55%)',
+                  color: accentColor,
                   WebkitPrintColorAdjust: 'exact',
                   printColorAdjust: 'exact'
                 }}
@@ -160,7 +164,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
               style={{ 
                 height: '24px', 
                 width: '1px', 
-                backgroundColor: 'rgba(201, 162, 39, 0.5)',
+                backgroundColor: `${accentColor}80`,
                 WebkitPrintColorAdjust: 'exact',
                 printColorAdjust: 'exact'
               }} 
@@ -170,7 +174,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
                 className="uppercase tracking-wider"
                 style={{ 
                   fontSize: '11px', 
-                  color: 'hsl(38 70% 55%)',
+                  color: accentColor,
                   WebkitPrintColorAdjust: 'exact',
                   printColorAdjust: 'exact'
                 }}
