@@ -123,19 +123,20 @@ export const whatsappAgentSchema = z.object({
 
 // Color validation (hex or hsl)
 const colorSchema = z.string().max(50).default('');
+const optionalColorSchema = z.string().max(50).optional().default('');
 
 // Template validation
 export const templateSchema = z.object({
   id: z.string().max(100),
   name: z.string().max(100, 'El nombre es demasiado largo'),
-  logoUrl: safeUrlSchema.default(''),
+  logoUrl: safeUrlSchema.optional().default(''),
   colors: z.object({
     primary: colorSchema,
     secondary: colorSchema,
     accent: colorSchema,
-    background: colorSchema.optional(),
-    cardBackground: colorSchema.optional(),
-  }),
+    background: optionalColorSchema,
+    cardBackground: optionalColorSchema,
+  }).passthrough(),
   fonts: z.object({
     heading: z.string().max(100).default('Playfair Display'),
     body: z.string().max(100).default('Inter'),
