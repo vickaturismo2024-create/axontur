@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Quote, Template } from '@/types/quote';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface QuotesContextType {
@@ -21,6 +22,7 @@ interface QuotesContextType {
   deleteTemplate: (id: string) => Promise<void>;
   setDefaultTemplate: (id: string) => Promise<void>;
   getDefaultTemplate: () => Template | null;
+  refreshData: () => Promise<void>;
 }
 
 const QuotesContext = createContext<QuotesContextType | undefined>(undefined);
@@ -39,7 +41,7 @@ const dbToTemplate = (row: any): Template => ({
 });
 
 // Helper to convert Template to DB row
-const templateToDb = (template: Template, isDefault?: boolean) => ({
+const templateToDb = (template: Template, userId: string, isDefault?: boolean) => ({
   id: template.id,
   name: template.name,
   logo_url: template.logoUrl,
@@ -50,6 +52,7 @@ const templateToDb = (template: Template, isDefault?: boolean) => ({
   footer_text: template.footerText,
   sections_toggles: template.sectionsToggles,
   is_default: isDefault,
+  user_id: userId,
 });
 
 // Helper to convert DB row to Quote
@@ -70,7 +73,7 @@ const dbToQuote = (row: any): Quote => ({
 });
 
 // Helper to convert Quote to DB row
-const quoteToDb = (quote: Quote) => ({
+const quoteToDb = (quote: Quote, userId: string) => ({
   id: quote.id,
   template_id: quote.templateId,
   client: quote.client,
@@ -82,9 +85,11 @@ const quoteToDb = (quote: Quote) => ({
   insurance: quote.insurance,
   pricing: quote.pricing,
   itinerary_days: quote.itineraryDays,
+  user_id: userId,
 });
 
 export function QuotesProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
@@ -92,12 +97,20 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
   const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch data on mount
+  // Fetch data when user changes
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    } else {
+      setQuotes([]);
+      setTemplates([]);
+      setIsLoading(false);
+    }
+  }, [user]);
 
   const fetchData = async () => {
+    if (!user) return;
+    
     setIsLoading(true);
     try {
       // Fetch templates
@@ -134,9 +147,18 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshData = async () => {
+    await fetchData();
+  };
+
   const addQuote = async (quote: Quote) => {
+    if (!user) {
+      toast.error('Debés iniciar sesión para crear presupuestos');
+      return;
+    }
+
     try {
-      const dbQuote = quoteToDb(quote);
+      const dbQuote = quoteToDb(quote, user.id);
       const { error } = await supabase
         .from('quotes')
         .insert([dbQuote] as any);
@@ -153,8 +175,13 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
   };
 
   const updateQuote = async (quote: Quote) => {
+    if (!user) {
+      toast.error('Debés iniciar sesión para actualizar presupuestos');
+      return;
+    }
+
     try {
-      const dbQuote = quoteToDb(quote);
+      const dbQuote = quoteToDb(quote, user.id);
       const { error } = await supabase
         .from('quotes')
         .update(dbQuote as any)
@@ -206,8 +233,13 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
   };
 
   const addTemplate = async (template: Template) => {
+    if (!user) {
+      toast.error('Debés iniciar sesión para crear plantillas');
+      return;
+    }
+
     try {
-      const dbTemplate = templateToDb(template, false);
+      const dbTemplate = templateToDb(template, user.id, false);
       const { error } = await supabase
         .from('templates')
         .insert([dbTemplate] as any);
@@ -224,9 +256,14 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTemplate = async (template: Template) => {
+    if (!user) {
+      toast.error('Debés iniciar sesión para actualizar plantillas');
+      return;
+    }
+
     try {
       const isDefault = defaultTemplateId === template.id;
-      const dbTemplate = templateToDb(template, isDefault);
+      const dbTemplate = templateToDb(template, user.id, isDefault);
       const { error } = await supabase
         .from('templates')
         .update(dbTemplate as any)
@@ -318,6 +355,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
         deleteTemplate,
         setDefaultTemplate,
         getDefaultTemplate,
+        refreshData,
       }}
     >
       {children}

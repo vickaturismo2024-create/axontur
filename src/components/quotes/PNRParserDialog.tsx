@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { FileText, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Flight } from '@/types/quote';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PNRParserDialogProps {
   onFlightsParsed: (flights: Omit<Flight, 'id'>[]) => void;
@@ -33,13 +34,19 @@ export function PNRParserDialog({ onFlightsParsed }: PNRParserDialogProps) {
     setIsLoading(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Debés iniciar sesión para usar esta función');
+        return;
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pnr`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ pnrText }),
         }
@@ -47,6 +54,10 @@ export function PNRParserDialog({ onFlightsParsed }: PNRParserDialogProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 401) {
+          toast.error('Sesión expirada. Por favor, iniciá sesión nuevamente.');
+          return;
+        }
         if (response.status === 429) {
           toast.error('Límite de solicitudes excedido. Intentá de nuevo más tarde.');
           return;
@@ -107,8 +118,6 @@ export function PNRParserDialog({ onFlightsParsed }: PNRParserDialogProps) {
               placeholder={`Ejemplo de formato Amadeus:
 1 AR1234 Y 15MAR EZEEZE HK2 0830 1645
 2 AM 456 Y 15MAR MEXIMIA HK2 1900 2230
-3 AM 457 Y 22MAR MIACUN HK2 0900 1100
-4 AR1235 Y 22MAR CUNEZE HK2 1800 0630+1
 
 O cualquier formato de GDS...`}
               rows={10}
