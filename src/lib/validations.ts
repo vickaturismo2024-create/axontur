@@ -37,6 +37,7 @@ export const flightSchema = z.object({
 
 // Lodging validation
 export const lodgingSchema = z.object({
+  id: z.string().max(100).optional(),
   name: z.string().max(300).default(''),
   category: z.string().max(100).default(''),
   address: z.string().max(500).default(''),
@@ -46,6 +47,7 @@ export const lodgingSchema = z.object({
   roomType: z.string().max(100).default(''),
   nights: z.number().min(0).max(365).default(0),
   notes: z.string().max(2000).default(''),
+  destination: z.string().max(200).optional(),
 }).partial();
 
 // Transfer validation
@@ -55,6 +57,105 @@ export const transferSchema = z.object({
   description: z.string().max(500).default(''),
   dateTime: z.string().max(50).default(''),
   included: z.boolean().default(false),
+});
+
+// Train validation
+export const trainSchema = z.object({
+  id: z.string().max(100),
+  origin: z.string().max(200).default(''),
+  destination: z.string().max(200).default(''),
+  date: z.string().max(50).default(''),
+  departureTime: z.string().max(50).default(''),
+  arrivalTime: z.string().max(50).default(''),
+  company: z.string().max(200).default(''),
+  trainNumber: z.string().max(50).default(''),
+  class: z.string().max(100).default(''),
+  seat: z.string().max(50).default(''),
+  notes: z.string().max(1000).default(''),
+});
+
+// Ferry validation
+export const ferrySchema = z.object({
+  id: z.string().max(100),
+  origin: z.string().max(200).default(''),
+  destination: z.string().max(200).default(''),
+  date: z.string().max(50).default(''),
+  departureTime: z.string().max(50).default(''),
+  arrivalTime: z.string().max(50).default(''),
+  company: z.string().max(200).default(''),
+  vessel: z.string().max(200).default(''),
+  cabinType: z.string().max(100).default(''),
+  notes: z.string().max(1000).default(''),
+});
+
+// Rental Car validation
+export const rentalCarSchema = z.object({
+  id: z.string().max(100),
+  company: z.string().max(200).default(''),
+  pickupLocation: z.string().max(300).default(''),
+  dropoffLocation: z.string().max(300).default(''),
+  pickupDate: z.string().max(50).default(''),
+  pickupTime: z.string().max(50).default(''),
+  dropoffDate: z.string().max(50).default(''),
+  dropoffTime: z.string().max(50).default(''),
+  carType: z.string().max(100).default(''),
+  extras: z.string().max(500).default(''),
+  notes: z.string().max(1000).default(''),
+});
+
+// Activity validation
+export const activitySchema = z.object({
+  id: z.string().max(100),
+  name: z.string().max(200).default(''),
+  description: z.string().max(1000).default(''),
+  date: z.string().max(50).default(''),
+  time: z.string().max(50).default(''),
+  duration: z.string().max(50).default(''),
+  location: z.string().max(300).default(''),
+  included: z.boolean().default(false),
+  price: z.number().min(0).max(99999999).optional(),
+  notes: z.string().max(1000).default(''),
+});
+
+// Cruise Port validation
+export const cruisePortSchema = z.object({
+  id: z.string().max(100),
+  day: z.number().min(1).max(365).default(1),
+  port: z.string().max(200).default(''),
+  country: z.string().max(100).default(''),
+  arrivalTime: z.string().max(50).default(''),
+  departureTime: z.string().max(50).default(''),
+  notes: z.string().max(500).default(''),
+});
+
+// Cruise Extras validation
+export const cruiseExtrasSchema = z.object({
+  tips: z.string().max(500).default(''),
+  beverages: z.string().max(500).default(''),
+  wifi: z.string().max(500).default(''),
+  excursions: z.string().max(500).default(''),
+  specialDining: z.string().max(500).default(''),
+  spa: z.string().max(500).default(''),
+  other: z.string().max(1000).default(''),
+});
+
+// Cruise validation
+export const cruiseSchema = z.object({
+  id: z.string().max(100),
+  shipName: z.string().max(200).default(''),
+  company: z.string().max(200).default(''),
+  cabinType: z.string().max(100).default(''),
+  cabinNumber: z.string().max(50).default(''),
+  deck: z.string().max(50).default(''),
+  embarkationPort: z.string().max(200).default(''),
+  embarkationDate: z.string().max(50).default(''),
+  disembarkationPort: z.string().max(200).default(''),
+  disembarkationDate: z.string().max(50).default(''),
+  nights: z.number().min(0).max(365).default(0),
+  regime: z.string().max(100).default(''),
+  itinerary: z.array(cruisePortSchema).max(50).default([]),
+  extras: cruiseExtrasSchema.default({}),
+  notes: z.string().max(2000).default(''),
 });
 
 // Insurance validation
@@ -99,6 +200,7 @@ export const tripSchema = z.object({
   endDate: z.string().max(50).default(''),
   travelers: z.number().min(1).max(100).default(1),
   currency: z.string().max(10).default('USD'),
+  type: z.enum(['standard', 'cruise', 'multiDestination']).optional(),
 });
 
 // Full Quote validation
@@ -112,7 +214,13 @@ export const quoteSchema = z.object({
   cover: coverSchema,
   flights: z.array(flightSchema).max(50).default([]),
   lodging: lodgingSchema.default({}),
+  lodgings: z.array(lodgingSchema).max(20).optional(),
   transfers: z.array(transferSchema).max(50).default([]),
+  trains: z.array(trainSchema).max(50).optional(),
+  ferries: z.array(ferrySchema).max(50).optional(),
+  rentalCars: z.array(rentalCarSchema).max(20).optional(),
+  activities: z.array(activitySchema).max(100).optional(),
+  cruise: cruiseSchema.optional(),
   insurance: insuranceSchema.default({}),
   pricing: pricingSchema.default({}),
   itineraryDays: z.array(itineraryDaySchema).max(100).default([]),
@@ -171,6 +279,11 @@ export const templateSchema = z.object({
     transfers: z.boolean().default(true),
     insurance: z.boolean().default(true),
     itinerary: z.boolean().default(true),
+    trains: z.boolean().optional().default(false),
+    ferries: z.boolean().optional().default(false),
+    rentalCars: z.boolean().optional().default(false),
+    activities: z.boolean().optional().default(false),
+    cruise: z.boolean().optional().default(false),
   }),
 });
 
