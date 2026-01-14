@@ -45,6 +45,22 @@ serve(async (req) => {
       );
     }
 
+    // Validate input length to prevent abuse
+    if (pnrText.length > 10000) {
+      return new Response(
+        JSON.stringify({ error: "PNR text too long (max 10000 characters)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Sanitize input to mitigate prompt injection attacks
+    const sanitizedPnr = pnrText
+      .replace(/system\s*:/gi, '[FILTERED]')
+      .replace(/assistant\s*:/gi, '[FILTERED]')
+      .replace(/\bignore\s+(all\s+)?(previous\s+)?instructions?\b/gi, '[FILTERED]')
+      .replace(/\bforget\s+(all\s+)?(previous\s+)?instructions?\b/gi, '[FILTERED]')
+      .substring(0, 10000);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
@@ -85,7 +101,7 @@ Convert city codes to readable names when possible (EZE = Buenos Aires, CUN = Ca
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Parse the following PNR/flight information:\n\n${pnrText}` }
+          { role: "user", content: `Parse the following PNR/flight information:\n\n${sanitizedPnr}` }
         ],
         tools: [
           {
