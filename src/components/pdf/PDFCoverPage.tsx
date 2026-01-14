@@ -61,7 +61,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
                 src={template.logoUrl} 
                 alt="Logo" 
                 className="object-contain"
-                style={{ height: '32px', maxWidth: '100px' }}
+                style={{ height: '100px', maxWidth: '200px' }}
               />
             ) : (
               <div className="flex items-center gap-1.5">
