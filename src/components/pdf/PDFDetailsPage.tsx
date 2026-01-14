@@ -1,7 +1,7 @@
 import { Quote, Template } from '@/types/quote';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plane, Building2, Car, Shield, DollarSign, Ship, Anchor } from 'lucide-react';
+import { Plane, Building2, Car, Shield, DollarSign } from 'lucide-react';
 
 interface PDFDetailsPageProps {
   quote: Quote;
@@ -10,12 +10,7 @@ interface PDFDetailsPageProps {
 
 export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
   const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    try {
-      return format(new Date(dateString), "d MMM yyyy", { locale: es });
-    } catch {
-      return dateString;
-    }
+    return format(new Date(dateString), "d MMM yyyy", { locale: es });
   };
 
   // Template colors
@@ -24,9 +19,6 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
   const accentColor = template.colors.accent;
   const bgColor = template.colors.background || '#ffffff';
   const cardBgColor = template.colors.cardBackground || '#f8f9fa';
-
-  // Get lodgings array (support both legacy and new format)
-  const lodgings = quote.lodgings?.length > 0 ? quote.lodgings : (quote.lodging?.name ? [{ ...quote.lodging, id: '1' }] : []);
 
   const SectionCard = ({ 
     icon: Icon, 
@@ -108,10 +100,16 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
                       printColorAdjust: 'exact'
                     }}
                   >
-                    <td style={{ padding: '6px 8px' }}>{flight.origin} → {flight.destination}</td>
+                    <td style={{ padding: '6px 8px' }}>
+                      {flight.origin} → {flight.destination}
+                    </td>
                     <td style={{ padding: '6px 8px' }}>{formatDate(flight.date)}</td>
-                    <td style={{ padding: '6px 8px' }}>{flight.departureTime} - {flight.arrivalTime}</td>
-                    <td style={{ padding: '6px 8px' }}>{flight.airline} {flight.flightNumber}</td>
+                    <td style={{ padding: '6px 8px' }}>
+                      {flight.departureTime} - {flight.arrivalTime}
+                    </td>
+                    <td style={{ padding: '6px 8px' }}>
+                      {flight.airline} {flight.flightNumber}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -125,80 +123,39 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
         </SectionCard>
       )}
 
-      {/* Alojamientos (múltiples) */}
-      {template.sectionsToggles.lodging && lodgings.length > 0 && (
-        <SectionCard icon={Building2} title={lodgings.length > 1 ? "Alojamientos" : "Alojamiento"}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {lodgings.map((lodging, idx) => (
-              <div key={lodging.id || idx} className="rounded border" style={{ padding: '10px', borderColor: secondaryColor }}>
-                {lodging.destination && lodgings.length > 1 && (
-                  <p style={{ fontSize: '10px', marginBottom: '4px', color: accentColor, fontWeight: 600 }}>
-                    📍 {lodging.destination}
-                  </p>
-                )}
-                <div className="grid grid-cols-2" style={{ gap: '12px' }}>
-                  <div>
-                    <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
-                    <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
-                    <p style={{ marginTop: '6px', fontSize: '11px' }}>{lodging.address}</p>
-                  </div>
-                  <div style={{ fontSize: '11px' }}>
-                    <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>
-                    <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>
-                    <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>
-                    <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>
-                    <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>
-                  </div>
-                </div>
-                {lodging.notes && (
-                  <p style={{ marginTop: '8px', padding: '6px', fontSize: '10px', backgroundColor: cardBgColor, borderRadius: '4px', color: `${primaryColor}99` }}>
-                    {lodging.notes}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Crucero */}
-      {template.sectionsToggles.cruise && quote.cruise?.enabled && (
-        <SectionCard icon={Ship} title="Crucero">
-          <div style={{ fontSize: '11px' }}>
-            <div className="grid grid-cols-2" style={{ gap: '12px', marginBottom: '10px' }}>
-              <div>
-                <p><span style={{ color: `${primaryColor}99` }}>Línea:</span> {quote.cruise.cruiseLine}</p>
-                <p><span style={{ color: `${primaryColor}99` }}>Barco:</span> {quote.cruise.shipName}</p>
-                <p><span style={{ color: `${primaryColor}99` }}>Cabina:</span> {quote.cruise.cabinType} - {quote.cruise.cabinNumber}</p>
-              </div>
-              <div>
-                <p><span style={{ color: `${primaryColor}99` }}>Embarque:</span> {quote.cruise.embarkationPort} ({formatDate(quote.cruise.embarkationDate)})</p>
-                <p><span style={{ color: `${primaryColor}99` }}>Desembarque:</span> {quote.cruise.disembarkationPort} ({formatDate(quote.cruise.disembarkationDate)})</p>
-                <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {quote.cruise.nights}</p>
-              </div>
+      {/* Alojamiento */}
+      {template.sectionsToggles.lodging && quote.lodging.name && (
+        <SectionCard icon={Building2} title="Alojamiento">
+          <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+            <div>
+              <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{quote.lodging.name}</h4>
+              <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{quote.lodging.category}</p>
+              <p style={{ marginTop: '6px', fontSize: '11px' }}>{quote.lodging.address}</p>
             </div>
-            {quote.cruise.itinerary?.length > 0 && (
-              <div style={{ marginTop: '8px' }}>
-                <p style={{ fontWeight: 600, marginBottom: '4px', color: primaryColor }}>Itinerario:</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {quote.cruise.itinerary.map(port => (
-                    <p key={port.id} style={{ fontSize: '10px' }}>
-                      <strong>Día {port.day}:</strong> {port.port}, {port.country} ({port.arrival} - {port.departure})
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div style={{ marginTop: '8px', padding: '6px', backgroundColor: cardBgColor, borderRadius: '4px' }}>
-              <p style={{ fontSize: '10px', fontWeight: 600, marginBottom: '2px' }}>Incluye:</p>
-              <p style={{ fontSize: '9px' }}>
-                {quote.cruise.tipsIncluded && '✓ Propinas '}
-                {quote.cruise.beveragePackage && quote.cruise.beveragePackage !== 'none' && `✓ Bebidas (${quote.cruise.beveragePackage}) `}
-                {quote.cruise.wifiPackage && quote.cruise.wifiPackage !== 'none' && `✓ WiFi (${quote.cruise.wifiPackage}) `}
-                {quote.cruise.excursionsIncluded && '✓ Excursiones'}
-              </p>
+            <div style={{ fontSize: '11px' }}>
+              <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(quote.lodging.checkIn)}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(quote.lodging.checkOut)}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {quote.lodging.regime}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {quote.lodging.roomType}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {quote.lodging.nights}</p>
             </div>
           </div>
+          {quote.lodging.notes && (
+            <p 
+              className="rounded"
+              style={{ 
+                marginTop: '8px', 
+                padding: '6px', 
+                fontSize: '10px', 
+                backgroundColor: cardBgColor,
+                color: `${primaryColor}99`,
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }}
+            >
+              {quote.lodging.notes}
+            </p>
+          )}
         </SectionCard>
       )}
 

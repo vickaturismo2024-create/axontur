@@ -72,7 +72,6 @@ const Templates = () => {
         transfers: true,
         insurance: true,
         itinerary: true,
-        cruise: true,
       },
     };
     setEditingTemplate(newTemplate);
@@ -475,65 +474,37 @@ const Templates = () => {
                   <Square className="h-4 w-4" />
                   Bordes Decorativos
                 </Label>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Estilo de borde</Label>
-                      <select
-                        value={editingTemplate.styles.borderStyle || 'none'}
-                        onChange={(e) => updateEditingTemplate({ 
-                          styles: { ...editingTemplate.styles, borderStyle: e.target.value as any } 
-                        })}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="none">Sin borde</option>
-                        <option value="solid">Sólido</option>
-                        <option value="dashed">Punteado</option>
-                        <option value="double">Doble</option>
-                        <option value="decorative">Decorativo</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Grosor de borde</Label>
-                      <select
-                        value={editingTemplate.styles.borderWidth || '1px'}
-                        onChange={(e) => updateEditingTemplate({ 
-                          styles: { ...editingTemplate.styles, borderWidth: e.target.value } 
-                        })}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        disabled={editingTemplate.styles.borderStyle === 'none' || !editingTemplate.styles.borderStyle}
-                      >
-                        <option value="1px">Fino (1px)</option>
-                        <option value="2px">Medio (2px)</option>
-                        <option value="3px">Grueso (3px)</option>
-                        <option value="4px">Extra grueso (4px)</option>
-                      </select>
-                    </div>
-                  </div>
-                  {/* Border Preview */}
-                  <div className="rounded border p-4">
-                    <p className="mb-2 text-xs text-muted-foreground">Vista previa:</p>
-                    <div 
-                      className="h-16 rounded flex items-center justify-center"
-                      style={{
-                        backgroundColor: editingTemplate.colors.cardBackground || '#f8f9fa',
-                        border: editingTemplate.styles.borderStyle === 'none' || !editingTemplate.styles.borderStyle
-                          ? '1px dashed #ccc'
-                          : editingTemplate.styles.borderStyle === 'decorative'
-                            ? `${editingTemplate.styles.borderWidth || '2px'} double ${editingTemplate.colors.accent}`
-                            : `${editingTemplate.styles.borderWidth || '1px'} ${editingTemplate.styles.borderStyle} ${editingTemplate.colors.accent}`,
-                        borderRadius: editingTemplate.styles.borderRadius || '12px',
-                        boxShadow: editingTemplate.styles.borderStyle === 'decorative' 
-                          ? `inset 0 0 0 4px ${editingTemplate.colors.cardBackground || '#f8f9fa'}, inset 0 0 0 5px ${editingTemplate.colors.accent}`
-                          : 'none'
-                      }}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Estilo de borde</Label>
+                    <select
+                      value={editingTemplate.styles.borderStyle}
+                      onChange={(e) => updateEditingTemplate({ 
+                        styles: { ...editingTemplate.styles, borderStyle: e.target.value as any } 
+                      })}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
-                      <span className="text-xs text-muted-foreground">
-                        {editingTemplate.styles.borderStyle === 'none' || !editingTemplate.styles.borderStyle
-                          ? 'Sin borde'
-                          : `Borde ${editingTemplate.styles.borderStyle}`}
-                      </span>
-                    </div>
+                      <option value="none">Sin borde</option>
+                      <option value="solid">Sólido</option>
+                      <option value="dashed">Punteado</option>
+                      <option value="double">Doble</option>
+                      <option value="decorative">Decorativo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Grosor de borde</Label>
+                    <select
+                      value={editingTemplate.styles.borderWidth}
+                      onChange={(e) => updateEditingTemplate({ 
+                        styles: { ...editingTemplate.styles, borderWidth: e.target.value } 
+                      })}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="1px">Fino (1px)</option>
+                      <option value="2px">Medio (2px)</option>
+                      <option value="3px">Grueso (3px)</option>
+                      <option value="4px">Extra grueso (4px)</option>
+                    </select>
                   </div>
                 </div>
               </div>

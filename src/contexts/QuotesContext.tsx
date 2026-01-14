@@ -56,32 +56,21 @@ const templateToDb = (template: Template, userId: string, isDefault?: boolean) =
 });
 
 // Helper to convert DB row to Quote
-const dbToQuote = (row: any): Quote => {
-  // Handle legacy lodging -> lodgings migration
-  let lodgings = row.lodgings || [];
-  if (lodgings.length === 0 && row.lodging && row.lodging.name) {
-    // Migrate legacy single lodging to array
-    lodgings = [{ ...row.lodging, id: crypto.randomUUID() }];
-  }
-  
-  return {
-    id: row.id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    templateId: row.template_id || 'default',
-    client: row.client || { name: '', phone: '', email: '' },
-    trip: row.trip || { destination: '', startDate: '', endDate: '', travelers: 1, currency: 'USD' },
-    cover: row.cover || { title: 'PRESUPUESTO DE VIAJE', subtitle: '', imageUrl: '' },
-    flights: row.flights || [],
-    lodgings: lodgings,
-    lodging: row.lodging || {}, // Keep for backwards compatibility
-    transfers: row.transfers || [],
-    insurance: row.insurance || {},
-    pricing: row.pricing || {},
-    itineraryDays: row.itinerary_days || [],
-    cruise: row.cruise,
-  };
-};
+const dbToQuote = (row: any): Quote => ({
+  id: row.id,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  templateId: row.template_id || 'default',
+  client: row.client || { name: '', phone: '', email: '' },
+  trip: row.trip || { destination: '', startDate: '', endDate: '', travelers: 1, currency: 'USD' },
+  cover: row.cover || { title: 'PRESUPUESTO DE VIAJE', subtitle: '', imageUrl: '' },
+  flights: row.flights || [],
+  lodging: row.lodging || {},
+  transfers: row.transfers || [],
+  insurance: row.insurance || {},
+  pricing: row.pricing || {},
+  itineraryDays: row.itinerary_days || [],
+});
 
 // Helper to convert Quote to DB row
 const quoteToDb = (quote: Quote, userId: string) => ({
@@ -91,13 +80,11 @@ const quoteToDb = (quote: Quote, userId: string) => ({
   trip: quote.trip,
   cover: quote.cover,
   flights: quote.flights,
-  lodging: quote.lodgings?.[0] || quote.lodging || {}, // Store first lodging for backwards compatibility
-  lodgings: quote.lodgings || [],
+  lodging: quote.lodging,
   transfers: quote.transfers,
   insurance: quote.insurance,
   pricing: quote.pricing,
   itinerary_days: quote.itineraryDays,
-  cruise: quote.cruise,
   user_id: userId,
 });
 
