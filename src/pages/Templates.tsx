@@ -72,6 +72,7 @@ const Templates = () => {
         transfers: true,
         insurance: true,
         itinerary: true,
+        cruise: true,
       },
     };
     setEditingTemplate(newTemplate);

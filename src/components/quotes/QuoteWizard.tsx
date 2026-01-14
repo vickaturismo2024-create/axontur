@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Quote, Template, Flight, Transfer, ItineraryDay } from '@/types/quote';
+import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Cruise, CruisePort } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,11 +28,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Palette
+  Palette,
+  Ship,
+  Anchor
 } from 'lucide-react';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { defaultTemplate } from '@/data/demoData';
 import { PNRParserDialog } from '@/components/quotes/PNRParserDialog';
+import { Switch } from '@/components/ui/switch';
 
 interface QuoteWizardProps {
   initialQuote?: Quote;
@@ -48,12 +51,36 @@ const steps = [
   { id: 'cover', label: 'Portada', icon: Image },
   { id: 'flights', label: 'Vuelos', icon: Plane },
   { id: 'lodging', label: 'Alojamiento', icon: Building2 },
+  { id: 'cruise', label: 'Crucero', icon: Ship },
   { id: 'transfers', label: 'Traslados', icon: Car },
   { id: 'insurance', label: 'Asistencia', icon: Shield },
   { id: 'pricing', label: 'Precio', icon: DollarSign },
   { id: 'itinerary', label: 'Itinerario', icon: Calendar },
   { id: 'preview', label: 'Vista Previa', icon: Eye },
 ];
+
+const createEmptyCruise = (): Cruise => ({
+  enabled: false,
+  cruiseLine: '',
+  shipName: '',
+  cabinType: '',
+  cabinNumber: '',
+  deck: '',
+  embarkationPort: '',
+  embarkationDate: '',
+  disembarkationPort: '',
+  disembarkationDate: '',
+  nights: 0,
+  itinerary: [],
+  tipsIncluded: false,
+  tipsAmount: 0,
+  beveragePackage: '',
+  wifiPackage: '',
+  diningPackage: '',
+  excursionsIncluded: false,
+  excursionsNotes: '',
+  notes: '',
+});
 
 const createEmptyQuote = (defaultTemplateId?: string): Quote => ({
   id: crypto.randomUUID(),
@@ -64,11 +91,12 @@ const createEmptyQuote = (defaultTemplateId?: string): Quote => ({
   trip: { destination: '', startDate: '', endDate: '', travelers: 1, currency: 'USD' },
   cover: { title: 'PRESUPUESTO DE VIAJE', subtitle: '', imageUrl: '' },
   flights: [],
-  lodging: { name: '', category: '', address: '', checkIn: '', checkOut: '', regime: '', roomType: '', nights: 0, notes: '' },
+  lodgings: [],
   transfers: [],
   insurance: { company: '', plan: '', coverage: '', notes: '' },
   pricing: { totalPrice: 0, pricePerPerson: 0, taxes: 0, paymentMethod: '', conditions: '', observations: '' },
   itineraryDays: [],
+  cruise: createEmptyCruise(),
 });
 
 export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, onCancel }: QuoteWizardProps) {
@@ -121,6 +149,34 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     updateQuote({ flights: [...quote.flights, ...flightsWithIds] });
   };
 
+  // Lodgings management
+  const addLodging = () => {
+    const newLodging: Lodging = {
+      id: crypto.randomUUID(),
+      name: '',
+      category: '',
+      address: '',
+      checkIn: '',
+      checkOut: '',
+      regime: '',
+      roomType: '',
+      nights: 0,
+      notes: '',
+      destination: '',
+    };
+    updateQuote({ lodgings: [...(quote.lodgings || []), newLodging] });
+  };
+
+  const updateLodging = (id: string, updates: Partial<Lodging>) => {
+    updateQuote({
+      lodgings: (quote.lodgings || []).map(l => l.id === id ? { ...l, ...updates } : l),
+    });
+  };
+
+  const removeLodging = (id: string) => {
+    updateQuote({ lodgings: (quote.lodgings || []).filter(l => l.id !== id) });
+  };
+
   const addTransfer = () => {
     const newTransfer: Transfer = {
       id: crypto.randomUUID(),
@@ -140,6 +196,40 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
   const removeTransfer = (id: string) => {
     updateQuote({ transfers: quote.transfers.filter(t => t.id !== id) });
+  };
+
+  // Cruise management
+  const updateCruise = (updates: Partial<Cruise>) => {
+    updateQuote({ cruise: { ...(quote.cruise || createEmptyCruise()), ...updates } });
+  };
+
+  const addCruisePort = () => {
+    const cruise = quote.cruise || createEmptyCruise();
+    const newPort: CruisePort = {
+      id: crypto.randomUUID(),
+      day: cruise.itinerary.length + 1,
+      port: '',
+      country: '',
+      arrival: '',
+      departure: '',
+      description: '',
+    };
+    updateCruise({ itinerary: [...cruise.itinerary, newPort] });
+  };
+
+  const updateCruisePort = (id: string, updates: Partial<CruisePort>) => {
+    const cruise = quote.cruise || createEmptyCruise();
+    updateCruise({
+      itinerary: cruise.itinerary.map(p => p.id === id ? { ...p, ...updates } : p),
+    });
+  };
+
+  const removeCruisePort = (id: string) => {
+    const cruise = quote.cruise || createEmptyCruise();
+    const updatedPorts = cruise.itinerary
+      .filter(p => p.id !== id)
+      .map((p, idx) => ({ ...p, day: idx + 1 }));
+    updateCruise({ itinerary: updatedPorts });
   };
 
   const addItineraryDay = () => {
@@ -541,88 +631,457 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
               </div>
             )}
 
-            {/* Alojamiento */}
+            {/* Alojamiento - Múltiples hoteles */}
             {currentStep === 4 && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Nombre del hotel</Label>
-                  <Input
-                    value={quote.lodging.name}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, name: e.target.value } })}
-                    placeholder="Grand Fiesta Americana"
+              <div className="space-y-4">
+                <div className="mb-4 rounded-lg border border-gold/30 bg-gold/5 p-3">
+                  <p className="text-sm text-muted-foreground">
+                    <Building2 className="mr-2 inline h-4 w-4" />
+                    Puedes agregar múltiples alojamientos para viajes con varios destinos (ej: tour por Europa, viaje por Asia).
+                  </p>
+                </div>
+                
+                {(quote.lodgings || []).map((lodging, idx) => (
+                  <Card key={lodging.id} className="relative">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-2 h-8 w-8 text-destructive"
+                      onClick={() => removeLodging(lodging.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Alojamiento {idx + 1}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <Label>Destino (ciudad)</Label>
+                          <Input
+                            value={lodging.destination || ''}
+                            onChange={(e) => updateLodging(lodging.id, { destination: e.target.value })}
+                            placeholder="París, Roma, Barcelona..."
+                          />
+                        </div>
+                        <div>
+                          <Label>Nombre del hotel</Label>
+                          <Input
+                            value={lodging.name}
+                            onChange={(e) => updateLodging(lodging.id, { name: e.target.value })}
+                            placeholder="Grand Fiesta Americana"
+                          />
+                        </div>
+                        <div>
+                          <Label>Categoría</Label>
+                          <Input
+                            value={lodging.category}
+                            onChange={(e) => updateLodging(lodging.id, { category: e.target.value })}
+                            placeholder="5 Estrellas"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Dirección</Label>
+                          <Input
+                            value={lodging.address}
+                            onChange={(e) => updateLodging(lodging.id, { address: e.target.value })}
+                            placeholder="Boulevard Kukulcán Km 9.5, Zona Hotelera..."
+                          />
+                        </div>
+                        <div>
+                          <Label>Check-in</Label>
+                          <Input
+                            type="date"
+                            value={lodging.checkIn}
+                            onChange={(e) => updateLodging(lodging.id, { checkIn: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Check-out</Label>
+                          <Input
+                            type="date"
+                            value={lodging.checkOut}
+                            onChange={(e) => updateLodging(lodging.id, { checkOut: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Régimen</Label>
+                          <Input
+                            value={lodging.regime}
+                            onChange={(e) => updateLodging(lodging.id, { regime: e.target.value })}
+                            placeholder="All Inclusive"
+                          />
+                        </div>
+                        <div>
+                          <Label>Tipo de habitación</Label>
+                          <Input
+                            value={lodging.roomType}
+                            onChange={(e) => updateLodging(lodging.id, { roomType: e.target.value })}
+                            placeholder="Suite Ocean View"
+                          />
+                        </div>
+                        <div>
+                          <Label>Noches</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={lodging.nights}
+                            onChange={(e) => updateLodging(lodging.id, { nights: parseInt(e.target.value) || 0 })}
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Notas</Label>
+                          <Textarea
+                            value={lodging.notes}
+                            onChange={(e) => updateLodging(lodging.id, { notes: e.target.value })}
+                            placeholder="Vista al mar, amenities..."
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                <Button variant="outline" onClick={addLodging} className="w-full">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar alojamiento
+                </Button>
+              </div>
+            )}
+
+            {/* Crucero */}
+            {currentStep === 5 && (
+              <div className="space-y-6">
+                {/* Toggle para activar crucero */}
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <Ship className="h-5 w-5 text-gold" />
+                    <div>
+                      <Label className="text-base font-medium">¿Este viaje incluye un crucero?</Label>
+                      <p className="text-sm text-muted-foreground">Activa esta opción para agregar información del crucero</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={quote.cruise?.enabled || false}
+                    onCheckedChange={(checked) => updateCruise({ enabled: checked })}
                   />
                 </div>
-                <div>
-                  <Label>Categoría</Label>
-                  <Input
-                    value={quote.lodging.category}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, category: e.target.value } })}
-                    placeholder="5 Estrellas"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Dirección</Label>
-                  <Input
-                    value={quote.lodging.address}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, address: e.target.value } })}
-                    placeholder="Boulevard Kukulcán Km 9.5, Zona Hotelera..."
-                  />
-                </div>
-                <div>
-                  <Label>Check-in</Label>
-                  <Input
-                    type="date"
-                    value={quote.lodging.checkIn}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, checkIn: e.target.value } })}
-                  />
-                </div>
-                <div>
-                  <Label>Check-out</Label>
-                  <Input
-                    type="date"
-                    value={quote.lodging.checkOut}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, checkOut: e.target.value } })}
-                  />
-                </div>
-                <div>
-                  <Label>Régimen</Label>
-                  <Input
-                    value={quote.lodging.regime}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, regime: e.target.value } })}
-                    placeholder="All Inclusive"
-                  />
-                </div>
-                <div>
-                  <Label>Tipo de habitación</Label>
-                  <Input
-                    value={quote.lodging.roomType}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, roomType: e.target.value } })}
-                    placeholder="Suite Ocean View"
-                  />
-                </div>
-                <div>
-                  <Label>Noches</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={quote.lodging.nights}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, nights: parseInt(e.target.value) || 0 } })}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Notas</Label>
-                  <Textarea
-                    value={quote.lodging.notes}
-                    onChange={(e) => updateQuote({ lodging: { ...quote.lodging, notes: e.target.value } })}
-                    placeholder="Vista al mar, amenities..."
-                    rows={2}
-                  />
-                </div>
+
+                {quote.cruise?.enabled && (
+                  <>
+                    {/* Información general del crucero */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Ship className="h-4 w-4" />
+                          Información del Crucero
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label>Línea de crucero</Label>
+                            <Input
+                              value={quote.cruise.cruiseLine}
+                              onChange={(e) => updateCruise({ cruiseLine: e.target.value })}
+                              placeholder="MSC, Royal Caribbean, Norwegian..."
+                            />
+                          </div>
+                          <div>
+                            <Label>Nombre del barco</Label>
+                            <Input
+                              value={quote.cruise.shipName}
+                              onChange={(e) => updateCruise({ shipName: e.target.value })}
+                              placeholder="MSC Grandiosa, Symphony of the Seas..."
+                            />
+                          </div>
+                          <div>
+                            <Label>Tipo de cabina</Label>
+                            <Select
+                              value={quote.cruise.cabinType}
+                              onValueChange={(value) => updateCruise({ cabinType: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="interior">Interior</SelectItem>
+                                <SelectItem value="exterior">Exterior con vista</SelectItem>
+                                <SelectItem value="balcony">Balcón</SelectItem>
+                                <SelectItem value="suite">Suite</SelectItem>
+                                <SelectItem value="yacht-club">Yacht Club / Haven</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Número de cabina</Label>
+                            <Input
+                              value={quote.cruise.cabinNumber}
+                              onChange={(e) => updateCruise({ cabinNumber: e.target.value })}
+                              placeholder="10245"
+                            />
+                          </div>
+                          <div>
+                            <Label>Cubierta (Deck)</Label>
+                            <Input
+                              value={quote.cruise.deck}
+                              onChange={(e) => updateCruise({ deck: e.target.value })}
+                              placeholder="Deck 10"
+                            />
+                          </div>
+                          <div>
+                            <Label>Noches de crucero</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={quote.cruise.nights}
+                              onChange={(e) => updateCruise({ nights: parseInt(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Embarque y desembarque */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Anchor className="h-4 w-4" />
+                          Embarque y Desembarque
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label>Puerto de embarque</Label>
+                            <Input
+                              value={quote.cruise.embarkationPort}
+                              onChange={(e) => updateCruise({ embarkationPort: e.target.value })}
+                              placeholder="Barcelona, Miami, Southampton..."
+                            />
+                          </div>
+                          <div>
+                            <Label>Fecha de embarque</Label>
+                            <Input
+                              type="date"
+                              value={quote.cruise.embarkationDate}
+                              onChange={(e) => updateCruise({ embarkationDate: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label>Puerto de desembarque</Label>
+                            <Input
+                              value={quote.cruise.disembarkationPort}
+                              onChange={(e) => updateCruise({ disembarkationPort: e.target.value })}
+                              placeholder="Roma, Miami, Southampton..."
+                            />
+                          </div>
+                          <div>
+                            <Label>Fecha de desembarque</Label>
+                            <Input
+                              type="date"
+                              value={quote.cruise.disembarkationDate}
+                              onChange={(e) => updateCruise({ disembarkationDate: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Itinerario de puertos */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <MapPin className="h-4 w-4" />
+                          Itinerario de Puertos
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {(quote.cruise.itinerary || []).map((port, idx) => (
+                          <div key={port.id} className="relative rounded-lg border p-4">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-2 top-2 h-7 w-7 text-destructive"
+                              onClick={() => removeCruisePort(port.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                            <div className="mb-2 text-sm font-medium text-muted-foreground">
+                              Día {port.day}
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-4">
+                              <div>
+                                <Label className="text-xs">Puerto</Label>
+                                <Input
+                                  value={port.port}
+                                  onChange={(e) => updateCruisePort(port.id, { port: e.target.value })}
+                                  placeholder="Marsella"
+                                  className="h-9"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">País</Label>
+                                <Input
+                                  value={port.country}
+                                  onChange={(e) => updateCruisePort(port.id, { country: e.target.value })}
+                                  placeholder="Francia"
+                                  className="h-9"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Llegada</Label>
+                                <Input
+                                  value={port.arrival}
+                                  onChange={(e) => updateCruisePort(port.id, { arrival: e.target.value })}
+                                  placeholder="08:00"
+                                  className="h-9"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Salida</Label>
+                                <Input
+                                  value={port.departure}
+                                  onChange={(e) => updateCruisePort(port.id, { departure: e.target.value })}
+                                  placeholder="18:00"
+                                  className="h-9"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <Button variant="outline" onClick={addCruisePort} className="w-full">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Agregar puerto
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Extras y paquetes */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <DollarSign className="h-4 w-4" />
+                          Extras y Paquetes
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="flex items-center justify-between rounded-lg border p-3">
+                            <div>
+                              <Label>Propinas incluidas</Label>
+                              <p className="text-xs text-muted-foreground">Gratuities prepagadas</p>
+                            </div>
+                            <Switch
+                              checked={quote.cruise.tipsIncluded}
+                              onCheckedChange={(checked) => updateCruise({ tipsIncluded: checked })}
+                            />
+                          </div>
+                          {quote.cruise.tipsIncluded && (
+                            <div>
+                              <Label>Monto propinas (USD/día)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={quote.cruise.tipsAmount}
+                                onChange={(e) => updateCruise({ tipsAmount: parseFloat(e.target.value) || 0 })}
+                                placeholder="18"
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <Label>Paquete de bebidas</Label>
+                            <Select
+                              value={quote.cruise.beveragePackage}
+                              onValueChange={(value) => updateCruise({ beveragePackage: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No incluido</SelectItem>
+                                <SelectItem value="soft">Solo soft drinks</SelectItem>
+                                <SelectItem value="classic">Clásico (alcoholic + soft)</SelectItem>
+                                <SelectItem value="premium">Premium (todo incluido)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Paquete de WiFi</Label>
+                            <Select
+                              value={quote.cruise.wifiPackage}
+                              onValueChange={(value) => updateCruise({ wifiPackage: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No incluido</SelectItem>
+                                <SelectItem value="basic">Básico (social media)</SelectItem>
+                                <SelectItem value="standard">Estándar (streaming)</SelectItem>
+                                <SelectItem value="premium">Premium (ilimitado)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Paquete gastronómico</Label>
+                            <Select
+                              value={quote.cruise.diningPackage}
+                              onValueChange={(value) => updateCruise({ diningPackage: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No incluido</SelectItem>
+                                <SelectItem value="specialty">Restaurantes de especialidad</SelectItem>
+                                <SelectItem value="unlimited">Ilimitado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center justify-between rounded-lg border p-3">
+                            <div>
+                              <Label>Excursiones incluidas</Label>
+                              <p className="text-xs text-muted-foreground">Shore excursions prepagadas</p>
+                            </div>
+                            <Switch
+                              checked={quote.cruise.excursionsIncluded}
+                              onCheckedChange={(checked) => updateCruise({ excursionsIncluded: checked })}
+                            />
+                          </div>
+                        </div>
+                        {quote.cruise.excursionsIncluded && (
+                          <div className="mt-4">
+                            <Label>Detalle de excursiones</Label>
+                            <Textarea
+                              value={quote.cruise.excursionsNotes}
+                              onChange={(e) => updateCruise({ excursionsNotes: e.target.value })}
+                              placeholder="Listar las excursiones incluidas..."
+                              rows={3}
+                            />
+                          </div>
+                        )}
+                        <div className="mt-4">
+                          <Label>Notas adicionales del crucero</Label>
+                          <Textarea
+                            value={quote.cruise.notes}
+                            onChange={(e) => updateCruise({ notes: e.target.value })}
+                            placeholder="Información adicional, dress code, horarios especiales..."
+                            rows={2}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
               </div>
             )}
 
             {/* Traslados */}
-            {currentStep === 5 && (
+            {currentStep === 6 && (
               <div className="space-y-4">
                 {quote.transfers.map((transfer, idx) => (
                   <Card key={transfer.id} className="relative">
@@ -683,7 +1142,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             )}
 
             {/* Asistencia */}
-            {currentStep === 6 && (
+            {currentStep === 7 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label>Compañía</Label>
@@ -722,7 +1181,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             )}
 
             {/* Precio */}
-            {currentStep === 7 && (
+            {currentStep === 8 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label>Precio total</Label>
@@ -781,7 +1240,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             )}
 
             {/* Itinerario */}
-            {currentStep === 8 && (
+            {currentStep === 9 && (
               <div className="space-y-4">
                 {quote.itineraryDays.map((day) => (
                   <Card key={day.id} className="relative">
@@ -842,7 +1301,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             )}
 
             {/* Vista Previa */}
-            {currentStep === 9 && (
+            {currentStep === 10 && (
               <div className="rounded-lg border border-border bg-muted/30 p-4">
                 <PDFPreview quote={quote} template={currentTemplate} />
               </div>
