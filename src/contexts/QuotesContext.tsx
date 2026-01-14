@@ -3,7 +3,7 @@ import { Quote, Template } from '@/types/quote';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-
+import { validateQuote, validateTemplate, logError, getSafeErrorMessage } from '@/lib/validations';
 interface QuotesContextType {
   quotes: Quote[];
   templates: Template[];
@@ -134,7 +134,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       setQuotes((quotesData || []).map(dbToQuote));
       hasLoadedRef.current = true;
     } catch (error) {
-      console.error('Error fetching data:', error);
+      logError('fetchData', error);
       toast.error('Error al cargar los datos');
     } finally {
       setIsLoading(false);
@@ -170,18 +170,20 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const dbQuote = quoteToDb(quote, user.id);
+      // Validate input before database operation
+      const validatedQuote = validateQuote(quote);
+      const dbQuote = quoteToDb(validatedQuote as Quote, user.id);
       const { error } = await supabase
         .from('quotes')
         .insert([dbQuote] as any);
 
       if (error) throw error;
 
-      setQuotes((prev) => [quote, ...prev]);
+      setQuotes((prev) => [validatedQuote as Quote, ...prev]);
       toast.success('Presupuesto creado');
     } catch (error) {
-      console.error('Error adding quote:', error);
-      toast.error('Error al crear el presupuesto');
+      logError('addQuote', error);
+      toast.error(getSafeErrorMessage(error));
       throw error;
     }
   };
@@ -193,7 +195,9 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const dbQuote = quoteToDb(quote, user.id);
+      // Validate input before database operation
+      const validatedQuote = validateQuote(quote);
+      const dbQuote = quoteToDb(validatedQuote as Quote, user.id);
       const { error } = await supabase
         .from('quotes')
         .update(dbQuote as any)
@@ -201,11 +205,11 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      setQuotes((prev) => prev.map((q) => (q.id === quote.id ? quote : q)));
+      setQuotes((prev) => prev.map((q) => (q.id === quote.id ? validatedQuote as Quote : q)));
       toast.success('Presupuesto actualizado');
     } catch (error) {
-      console.error('Error updating quote:', error);
-      toast.error('Error al actualizar el presupuesto');
+      logError('updateQuote', error);
+      toast.error(getSafeErrorMessage(error));
       throw error;
     }
   };
@@ -222,7 +226,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       setQuotes((prev) => prev.filter((q) => q.id !== id));
       toast.success('Presupuesto eliminado');
     } catch (error) {
-      console.error('Error deleting quote:', error);
+      logError('deleteQuote', error);
       toast.error('Error al eliminar el presupuesto');
       throw error;
     }
@@ -251,18 +255,20 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const dbTemplate = templateToDb(template, user.id, false);
+      // Validate input before database operation
+      const validatedTemplate = validateTemplate(template);
+      const dbTemplate = templateToDb(validatedTemplate as Template, user.id, false);
       const { error } = await supabase
         .from('templates')
         .insert([dbTemplate] as any);
 
       if (error) throw error;
 
-      setTemplates((prev) => [...prev, template]);
+      setTemplates((prev) => [...prev, validatedTemplate as Template]);
       toast.success('Plantilla creada');
     } catch (error) {
-      console.error('Error adding template:', error);
-      toast.error('Error al crear la plantilla');
+      logError('addTemplate', error);
+      toast.error(getSafeErrorMessage(error));
       throw error;
     }
   };
@@ -274,8 +280,10 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      // Validate input before database operation
+      const validatedTemplate = validateTemplate(template);
       const isDefault = defaultTemplateId === template.id;
-      const dbTemplate = templateToDb(template, user.id, isDefault);
+      const dbTemplate = templateToDb(validatedTemplate as Template, user.id, isDefault);
       const { error } = await supabase
         .from('templates')
         .update(dbTemplate as any)
@@ -283,11 +291,11 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      setTemplates((prev) => prev.map((t) => (t.id === template.id ? template : t)));
+      setTemplates((prev) => prev.map((t) => (t.id === template.id ? validatedTemplate as Template : t)));
       toast.success('Plantilla actualizada');
     } catch (error) {
-      console.error('Error updating template:', error);
-      toast.error('Error al actualizar la plantilla');
+      logError('updateTemplate', error);
+      toast.error(getSafeErrorMessage(error));
       throw error;
     }
   };
@@ -307,7 +315,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       }
       toast.success('Plantilla eliminada');
     } catch (error) {
-      console.error('Error deleting template:', error);
+      logError('deleteTemplate', error);
       toast.error('Error al eliminar la plantilla');
       throw error;
     }
@@ -334,7 +342,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       setDefaultTemplateId(id);
       toast.success('Plantilla predeterminada actualizada');
     } catch (error) {
-      console.error('Error setting default template:', error);
+      logError('setDefaultTemplate', error);
       toast.error('Error al establecer plantilla predeterminada');
       throw error;
     }
