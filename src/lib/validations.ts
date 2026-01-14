@@ -1,14 +1,17 @@
 import { z } from 'zod';
 
 // Safe URL validation - blocks javascript: URIs, allows data: for images
-const safeUrlSchema = z.string().max(100000).refine(
-  (url) => {
-    if (!url) return true; // Allow empty strings
-    const trimmed = url.trim().toLowerCase();
-    // Block javascript: URIs but allow data: for base64 images
-    return !trimmed.startsWith('javascript:');
-  },
-  { message: 'URL no válida' }
+const safeUrlSchema = z.preprocess(
+  (val) => (val === null || val === undefined ? '' : String(val)),
+  z.string().refine(
+    (url) => {
+      if (!url || url.length === 0) return true; // Allow empty strings
+      const trimmed = url.trim().toLowerCase();
+      // Block javascript: URIs but allow data: for base64 images
+      return !trimmed.startsWith('javascript:');
+    },
+    { message: 'URL no válida' }
+  )
 );
 
 // Client validation
@@ -129,7 +132,17 @@ const optionalColorSchema = z.string().max(50).optional().default('');
 export const templateSchema = z.object({
   id: z.string().max(100),
   name: z.string().max(100, 'El nombre es demasiado largo'),
-  logoUrl: safeUrlSchema.optional().default(''),
+  logoUrl: z.preprocess(
+    (val) => (val === null || val === undefined ? '' : String(val)),
+    z.string().refine(
+      (url) => {
+        if (!url || url.length === 0) return true;
+        const trimmed = url.trim().toLowerCase();
+        return !trimmed.startsWith('javascript:');
+      },
+      { message: 'URL no válida' }
+    )
+  ).optional().default(''),
   colors: z.object({
     primary: colorSchema,
     secondary: colorSchema,
