@@ -75,6 +75,8 @@ export interface Template {
     primary: string;
     secondary: string;
     accent: string;
+    background?: string;
+    cardBackground?: string;
   };
   fonts: {
     heading: string;
@@ -83,7 +85,11 @@ export interface Template {
   styles: {
     borderRadius: string;
     cardShadow: boolean;
-    separatorStyle: 'line' | 'dots' | 'none';
+    separatorStyle: 'line' | 'dots' | 'gradient' | 'decorative' | 'none';
+    borderStyle: 'none' | 'solid' | 'dashed' | 'double' | 'decorative';
+    borderWidth: string;
+    backgroundPattern: 'none' | 'dots' | 'lines' | 'grid' | 'waves';
+    cardStyle: 'flat' | 'elevated' | 'outlined' | 'glass';
   };
   whatsappAgents: WhatsAppAgent[];
   footerText: string;
