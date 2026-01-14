@@ -10,16 +10,23 @@ interface PDFContactPageProps {
 export function PDFContactPage({ quote, template }: PDFContactPageProps) {
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.lodging.address || '')}`;
 
+  // Template colors
+  const primaryColor = template.colors.primary;
+  const secondaryColor = template.colors.secondary;
+  const accentColor = template.colors.accent;
+  const bgColor = template.colors.background || '#ffffff';
+  const cardBgColor = template.colors.cardBackground || '#f8f9fa';
+
   return (
-    <div className="pdf-page flex flex-col">
+    <div className="pdf-page flex flex-col" style={{ backgroundColor: cardBgColor }}>
       <h2 
         className="font-serif font-bold border-b"
         style={{ 
           marginBottom: '16px', 
           paddingBottom: '10px', 
           fontSize: '18px',
-          borderColor: 'hsl(40 20% 88%)',
-          color: 'hsl(215 50% 15%)'
+          borderColor: secondaryColor,
+          color: primaryColor
         }}
       >
         Ubicación y Contacto
@@ -28,11 +35,12 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
       {/* Ubicación del alojamiento */}
       {quote.lodging.name && (
         <div 
-          className="rounded-lg border bg-white"
+          className="rounded-lg border"
           style={{ 
             marginBottom: '20px', 
             padding: '16px',
-            borderColor: 'hsl(40 20% 88%)'
+            backgroundColor: bgColor,
+            borderColor: secondaryColor
           }}
         >
           <div className="flex items-center" style={{ marginBottom: '12px', gap: '8px' }}>
@@ -41,22 +49,22 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
               style={{ 
                 width: '24px', 
                 height: '24px',
-                backgroundColor: 'hsl(215 50% 23% / 0.1)',
+                backgroundColor: `${primaryColor}1a`,
                 WebkitPrintColorAdjust: 'exact',
                 printColorAdjust: 'exact'
               }}
             >
-              <MapPin style={{ width: '12px', height: '12px', color: 'hsl(215 50% 23%)' }} />
+              <MapPin style={{ width: '12px', height: '12px', color: primaryColor }} />
             </div>
-            <h3 className="font-serif font-semibold" style={{ fontSize: '14px' }}>Ubicación del Alojamiento</h3>
+            <h3 className="font-serif font-semibold" style={{ fontSize: '14px', color: primaryColor }}>Ubicación del Alojamiento</h3>
           </div>
 
           <div className="grid grid-cols-2" style={{ gap: '16px' }}>
             <div>
-              <h4 className="font-semibold" style={{ fontSize: '13px', color: 'hsl(215 50% 15%)' }}>
+              <h4 className="font-semibold" style={{ fontSize: '13px', color: primaryColor }}>
                 {quote.lodging.name}
               </h4>
-              <p style={{ marginTop: '4px', fontSize: '11px', color: 'hsl(215 20% 45%)' }}>
+              <p style={{ marginTop: '4px', fontSize: '11px', color: `${primaryColor}99` }}>
                 {quote.lodging.address}
               </p>
               
@@ -70,7 +78,7 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
                   padding: '8px 12px', 
                   fontSize: '11px',
                   gap: '6px',
-                  backgroundColor: 'hsl(215 50% 23%)',
+                  backgroundColor: primaryColor,
                   WebkitPrintColorAdjust: 'exact',
                   printColorAdjust: 'exact'
                 }}
@@ -84,7 +92,7 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
             <div 
               className="overflow-hidden rounded-lg"
               style={{ 
-                backgroundColor: 'hsl(40 20% 94%)',
+                backgroundColor: cardBgColor,
                 WebkitPrintColorAdjust: 'exact',
                 printColorAdjust: 'exact'
               }}
@@ -93,14 +101,14 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
                 className="flex items-center justify-center"
                 style={{ 
                   height: '120px',
-                  background: 'linear-gradient(to bottom right, hsl(40 20% 94%), hsl(38 45% 85%))',
+                  background: `linear-gradient(to bottom right, ${cardBgColor}, ${secondaryColor})`,
                   WebkitPrintColorAdjust: 'exact',
                   printColorAdjust: 'exact'
                 }}
               >
                 <div className="text-center">
-                  <MapPin style={{ margin: '0 auto', width: '24px', height: '24px', color: 'hsl(215 20% 45%)' }} />
-                  <p style={{ marginTop: '6px', fontSize: '10px', color: 'hsl(215 20% 45%)' }}>
+                  <MapPin style={{ margin: '0 auto', width: '24px', height: '24px', color: `${primaryColor}99` }} />
+                  <p style={{ marginTop: '6px', fontSize: '10px', color: `${primaryColor}99` }}>
                     Mapa de ubicación
                   </p>
                 </div>
@@ -115,7 +123,7 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
         <div style={{ marginBottom: '20px' }}>
           <h3 
             className="flex items-center font-serif font-semibold"
-            style={{ marginBottom: '12px', fontSize: '14px', gap: '8px' }}
+            style={{ marginBottom: '12px', fontSize: '14px', gap: '8px', color: primaryColor }}
           >
             <MessageCircle style={{ width: '16px', height: '16px', color: 'hsl(142 70% 35%)' }} />
             Contactanos por WhatsApp
@@ -125,17 +133,19 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
             {template.whatsappAgents.map((agent, index) => (
               <div 
                 key={index}
-                className="flex items-center rounded-lg border bg-white"
+                className="flex items-center rounded-lg border"
                 style={{ 
                   padding: '12px', 
                   gap: '12px',
-                  borderColor: 'hsl(40 20% 88%)'
+                  backgroundColor: bgColor,
+                  borderColor: secondaryColor
                 }}
               >
                 <div 
-                  className="rounded-lg bg-white"
+                  className="rounded-lg"
                   style={{ 
                     padding: '6px',
+                    backgroundColor: bgColor,
                     boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                   }}
                 >
@@ -143,13 +153,14 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
                     value={`https://wa.me/${agent.phone}`}
                     size={60}
                     level="M"
+                    fgColor={primaryColor}
                   />
                 </div>
                 <div>
-                  <p className="font-semibold" style={{ fontSize: '12px', color: 'hsl(215 50% 15%)' }}>
+                  <p className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>
                     {agent.name}
                   </p>
-                  <p style={{ fontSize: '11px', color: 'hsl(215 20% 45%)' }}>+{agent.phone}</p>
+                  <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>+{agent.phone}</p>
                   <a 
                     href={`https://wa.me/${agent.phone}`}
                     target="_blank"
@@ -178,7 +189,7 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
         style={{ 
           marginTop: 'auto', 
           padding: '16px',
-          backgroundColor: 'hsl(215 50% 23%)',
+          backgroundColor: primaryColor,
           WebkitPrintColorAdjust: 'exact',
           printColorAdjust: 'exact'
         }}
@@ -207,7 +218,7 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
       {template.footerText && (
         <p 
           className="text-center"
-          style={{ marginTop: '12px', fontSize: '10px', color: 'hsl(215 20% 45%)' }}
+          style={{ marginTop: '12px', fontSize: '10px', color: `${primaryColor}99` }}
         >
           {template.footerText}
         </p>

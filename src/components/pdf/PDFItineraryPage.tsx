@@ -14,20 +14,27 @@ export function PDFItineraryPage({ quote, template }: PDFItineraryPageProps) {
     return format(new Date(dateString), "EEEE d 'de' MMMM", { locale: es });
   };
 
+  // Template colors
+  const primaryColor = template.colors.primary;
+  const secondaryColor = template.colors.secondary;
+  const accentColor = template.colors.accent;
+  const bgColor = template.colors.background || '#ffffff';
+  const cardBgColor = template.colors.cardBackground || '#f8f9fa';
+
   if (!template.sectionsToggles.itinerary || quote.itineraryDays.length === 0) {
     return null;
   }
 
   return (
-    <div className="pdf-page">
+    <div className="pdf-page" style={{ backgroundColor: cardBgColor }}>
       <h2 
         className="font-serif font-bold border-b"
         style={{ 
           marginBottom: '16px', 
           paddingBottom: '10px', 
           fontSize: '18px',
-          borderColor: 'hsl(40 20% 88%)',
-          color: 'hsl(215 50% 15%)'
+          borderColor: secondaryColor,
+          color: primaryColor
         }}
       >
         Itinerario día a día
@@ -42,7 +49,7 @@ export function PDFItineraryPage({ quote, template }: PDFItineraryPageProps) {
             top: '0', 
             height: '100%', 
             width: '2px',
-            background: 'linear-gradient(to bottom, hsl(215 50% 23%), hsl(38 70% 55%), hsl(215 50% 23% / 0.3))',
+            background: `linear-gradient(to bottom, ${primaryColor}, ${accentColor}, ${primaryColor}4d)`,
             WebkitPrintColorAdjust: 'exact',
             printColorAdjust: 'exact'
           }} 
@@ -58,7 +65,7 @@ export function PDFItineraryPage({ quote, template }: PDFItineraryPageProps) {
                   zIndex: 10,
                   width: '30px', 
                   height: '30px',
-                  backgroundColor: 'hsl(215 50% 23%)',
+                  backgroundColor: primaryColor,
                   boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
                   WebkitPrintColorAdjust: 'exact',
                   printColorAdjust: 'exact'
@@ -70,16 +77,17 @@ export function PDFItineraryPage({ quote, template }: PDFItineraryPageProps) {
               {/* Content */}
               <div className="flex-1" style={{ paddingBottom: '4px' }}>
                 <div 
-                  className="rounded-lg border bg-white"
+                  className="rounded-lg border"
                   style={{ 
                     padding: '10px',
-                    borderColor: 'hsl(40 20% 88%)'
+                    backgroundColor: bgColor,
+                    borderColor: secondaryColor
                   }}
                 >
                   {day.date && (
                     <div 
                       className="flex items-center"
-                      style={{ marginBottom: '4px', gap: '4px', fontSize: '10px', color: 'hsl(215 20% 45%)' }}
+                      style={{ marginBottom: '4px', gap: '4px', fontSize: '10px', color: `${primaryColor}99` }}
                     >
                       <Calendar style={{ width: '10px', height: '10px' }} />
                       {formatDate(day.date)}
@@ -88,12 +96,12 @@ export function PDFItineraryPage({ quote, template }: PDFItineraryPageProps) {
 
                   <h3 
                     className="font-serif font-semibold"
-                    style={{ fontSize: '13px', color: 'hsl(215 50% 15%)' }}
+                    style={{ fontSize: '13px', color: primaryColor }}
                   >
                     {day.title}
                   </h3>
 
-                  <p style={{ marginTop: '4px', fontSize: '11px', color: 'hsl(215 20% 45%)' }}>
+                  <p style={{ marginTop: '4px', fontSize: '11px', color: `${primaryColor}99` }}>
                     {day.description}
                   </p>
 
@@ -111,7 +119,7 @@ export function PDFItineraryPage({ quote, template }: PDFItineraryPageProps) {
                               marginTop: '1px', 
                               width: '12px', 
                               height: '12px', 
-                              color: 'hsl(38 70% 55%)',
+                              color: accentColor,
                               WebkitPrintColorAdjust: 'exact',
                               printColorAdjust: 'exact'
                             }} 
@@ -134,12 +142,12 @@ export function PDFItineraryPage({ quote, template }: PDFItineraryPageProps) {
         style={{ 
           marginTop: '20px', 
           padding: '12px',
-          background: 'linear-gradient(to right, hsl(38 45% 85% / 0.5), hsl(38 70% 55% / 0.2))',
+          background: `linear-gradient(to right, ${secondaryColor}80, ${accentColor}33)`,
           WebkitPrintColorAdjust: 'exact',
           printColorAdjust: 'exact'
         }}
       >
-        <p style={{ fontSize: '12px', color: 'hsl(215 50% 15%)' }}>
+        <p style={{ fontSize: '12px', color: primaryColor }}>
           <span className="font-semibold">{quote.itineraryDays.length} días</span> de aventura 
           en <span className="font-semibold">{quote.trip.destination}</span>
         </p>

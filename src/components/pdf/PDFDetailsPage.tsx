@@ -13,6 +13,13 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
     return format(new Date(dateString), "d MMM yyyy", { locale: es });
   };
 
+  // Template colors
+  const primaryColor = template.colors.primary;
+  const secondaryColor = template.colors.secondary;
+  const accentColor = template.colors.accent;
+  const bgColor = template.colors.background || '#ffffff';
+  const cardBgColor = template.colors.cardBackground || '#f8f9fa';
+
   const SectionCard = ({ 
     icon: Icon, 
     title, 
@@ -23,11 +30,12 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
     children: React.ReactNode 
   }) => (
     <div 
-      className="rounded-lg border bg-white"
+      className="rounded-lg border"
       style={{ 
         marginBottom: '12px', 
         padding: '12px',
-        borderColor: 'hsl(40 20% 88%)',
+        backgroundColor: bgColor,
+        borderColor: secondaryColor,
         WebkitPrintColorAdjust: 'exact',
         printColorAdjust: 'exact'
       }}
@@ -38,29 +46,29 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
           style={{ 
             width: '24px', 
             height: '24px',
-            backgroundColor: 'hsl(215 50% 23% / 0.1)',
+            backgroundColor: `${primaryColor}1a`,
             WebkitPrintColorAdjust: 'exact',
             printColorAdjust: 'exact'
           }}
         >
-          <Icon style={{ width: '12px', height: '12px', color: 'hsl(215 50% 23%)' }} />
+          <Icon style={{ width: '12px', height: '12px', color: primaryColor }} />
         </div>
-        <h3 className="font-serif font-semibold" style={{ fontSize: '14px', color: 'hsl(215 50% 15%)' }}>{title}</h3>
+        <h3 className="font-serif font-semibold" style={{ fontSize: '14px', color: primaryColor }}>{title}</h3>
       </div>
       {children}
     </div>
   );
 
   return (
-    <div className="pdf-page">
+    <div className="pdf-page" style={{ backgroundColor: cardBgColor }}>
       <h2 
         className="font-serif font-bold border-b"
         style={{ 
           marginBottom: '16px', 
           paddingBottom: '10px', 
           fontSize: '18px',
-          borderColor: 'hsl(40 20% 88%)',
-          color: 'hsl(215 50% 15%)'
+          borderColor: secondaryColor,
+          color: primaryColor
         }}
       >
         Detalles del Viaje
@@ -71,15 +79,15 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
         <SectionCard icon={Plane} title="Vuelos">
           <div 
             className="overflow-hidden rounded border"
-            style={{ borderColor: 'hsl(40 20% 88%)' }}
+            style={{ borderColor: secondaryColor }}
           >
             <table className="w-full" style={{ fontSize: '11px' }}>
-              <thead style={{ backgroundColor: 'hsl(40 20% 94%)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+              <thead style={{ backgroundColor: cardBgColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                 <tr>
-                  <th className="text-left font-medium" style={{ padding: '6px 8px' }}>Ruta</th>
-                  <th className="text-left font-medium" style={{ padding: '6px 8px' }}>Fecha</th>
-                  <th className="text-left font-medium" style={{ padding: '6px 8px' }}>Horario</th>
-                  <th className="text-left font-medium" style={{ padding: '6px 8px' }}>Vuelo</th>
+                  <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Ruta</th>
+                  <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Fecha</th>
+                  <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Horario</th>
+                  <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Vuelo</th>
                 </tr>
               </thead>
               <tbody>
@@ -87,7 +95,7 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
                   <tr 
                     key={flight.id} 
                     style={{ 
-                      backgroundColor: idx % 2 === 0 ? 'white' : 'hsl(40 20% 97%)',
+                      backgroundColor: idx % 2 === 0 ? bgColor : cardBgColor,
                       WebkitPrintColorAdjust: 'exact',
                       printColorAdjust: 'exact'
                     }}
@@ -108,7 +116,7 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
             </table>
           </div>
           {quote.flights[0]?.luggage && (
-            <p style={{ marginTop: '6px', fontSize: '10px', color: 'hsl(215 20% 45%)' }}>
+            <p style={{ marginTop: '6px', fontSize: '10px', color: `${primaryColor}99` }}>
               Equipaje: {quote.flights[0].luggage}
             </p>
           )}
@@ -120,16 +128,16 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
         <SectionCard icon={Building2} title="Alojamiento">
           <div className="grid grid-cols-2" style={{ gap: '12px' }}>
             <div>
-              <h4 className="font-semibold" style={{ fontSize: '12px', color: 'hsl(215 50% 15%)' }}>{quote.lodging.name}</h4>
-              <p style={{ fontSize: '11px', color: 'hsl(215 20% 45%)' }}>{quote.lodging.category}</p>
+              <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{quote.lodging.name}</h4>
+              <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{quote.lodging.category}</p>
               <p style={{ marginTop: '6px', fontSize: '11px' }}>{quote.lodging.address}</p>
             </div>
             <div style={{ fontSize: '11px' }}>
-              <p><span style={{ color: 'hsl(215 20% 45%)' }}>Check-in:</span> {formatDate(quote.lodging.checkIn)}</p>
-              <p><span style={{ color: 'hsl(215 20% 45%)' }}>Check-out:</span> {formatDate(quote.lodging.checkOut)}</p>
-              <p><span style={{ color: 'hsl(215 20% 45%)' }}>Régimen:</span> {quote.lodging.regime}</p>
-              <p><span style={{ color: 'hsl(215 20% 45%)' }}>Habitación:</span> {quote.lodging.roomType}</p>
-              <p><span style={{ color: 'hsl(215 20% 45%)' }}>Noches:</span> {quote.lodging.nights}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(quote.lodging.checkIn)}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(quote.lodging.checkOut)}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {quote.lodging.regime}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {quote.lodging.roomType}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {quote.lodging.nights}</p>
             </div>
           </div>
           {quote.lodging.notes && (
@@ -139,8 +147,8 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
                 marginTop: '8px', 
                 padding: '6px', 
                 fontSize: '10px', 
-                backgroundColor: 'hsl(40 20% 97%)',
-                color: 'hsl(215 20% 45%)',
+                backgroundColor: cardBgColor,
+                color: `${primaryColor}99`,
                 WebkitPrintColorAdjust: 'exact',
                 printColorAdjust: 'exact'
               }}
@@ -165,8 +173,8 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
                   style={{ 
                     padding: '2px 6px', 
                     fontSize: '9px',
-                    backgroundColor: transfer.included ? 'hsl(142 70% 95%)' : 'hsl(45 93% 95%)',
-                    color: transfer.included ? 'hsl(142 70% 30%)' : 'hsl(45 93% 30%)',
+                    backgroundColor: transfer.included ? 'hsl(142 70% 95%)' : `${accentColor}33`,
+                    color: transfer.included ? 'hsl(142 70% 30%)' : primaryColor,
                     WebkitPrintColorAdjust: 'exact',
                     printColorAdjust: 'exact'
                   }}
@@ -184,15 +192,15 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
         <SectionCard icon={Shield} title="Asistencia al Viajero">
           <div className="grid grid-cols-2" style={{ gap: '12px', fontSize: '11px' }}>
             <div>
-              <p><span style={{ color: 'hsl(215 20% 45%)' }}>Compañía:</span> {quote.insurance.company}</p>
-              <p><span style={{ color: 'hsl(215 20% 45%)' }}>Plan:</span> {quote.insurance.plan}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Compañía:</span> {quote.insurance.company}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Plan:</span> {quote.insurance.plan}</p>
             </div>
             <div>
-              <p><span style={{ color: 'hsl(215 20% 45%)' }}>Cobertura:</span> {quote.insurance.coverage}</p>
+              <p><span style={{ color: `${primaryColor}99` }}>Cobertura:</span> {quote.insurance.coverage}</p>
             </div>
           </div>
           {quote.insurance.notes && (
-            <p style={{ marginTop: '6px', fontSize: '10px', color: 'hsl(215 20% 45%)' }}>{quote.insurance.notes}</p>
+            <p style={{ marginTop: '6px', fontSize: '10px', color: `${primaryColor}99` }}>{quote.insurance.notes}</p>
           )}
         </SectionCard>
       )}
@@ -203,7 +211,7 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
           className="rounded-lg text-white"
           style={{ 
             padding: '12px',
-            background: 'linear-gradient(135deg, hsl(215 50% 23%) 0%, hsl(215 40% 35%) 100%)',
+            background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
             WebkitPrintColorAdjust: 'exact',
             printColorAdjust: 'exact'
           }}
@@ -224,9 +232,9 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
           </div>
         </div>
         <div style={{ marginTop: '10px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <p><span style={{ color: 'hsl(215 20% 45%)' }}>Impuestos:</span> {quote.trip.currency} {quote.pricing.taxes.toLocaleString()}</p>
-          <p><span style={{ color: 'hsl(215 20% 45%)' }}>Forma de pago:</span> {quote.pricing.paymentMethod}</p>
-          <p><span style={{ color: 'hsl(215 20% 45%)' }}>Condiciones:</span> {quote.pricing.conditions}</p>
+          <p><span style={{ color: `${primaryColor}99` }}>Impuestos:</span> {quote.trip.currency} {quote.pricing.taxes.toLocaleString()}</p>
+          <p><span style={{ color: `${primaryColor}99` }}>Forma de pago:</span> {quote.pricing.paymentMethod}</p>
+          <p><span style={{ color: `${primaryColor}99` }}>Condiciones:</span> {quote.pricing.conditions}</p>
           {quote.pricing.observations && (
             <p 
               className="rounded"
@@ -234,8 +242,8 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
                 marginTop: '6px', 
                 padding: '6px', 
                 fontSize: '10px',
-                backgroundColor: 'hsl(45 93% 95%)',
-                color: 'hsl(30 80% 30%)',
+                backgroundColor: `${accentColor}33`,
+                color: primaryColor,
                 WebkitPrintColorAdjust: 'exact',
                 printColorAdjust: 'exact'
               }}
