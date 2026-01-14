@@ -13,15 +13,25 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
     return format(new Date(dateString), "d 'de' MMMM, yyyy", { locale: es });
   };
 
+  // Default background if no image
+  const hasImage = quote.cover.imageUrl && quote.cover.imageUrl.trim() !== '';
+
   return (
-    <div className="pdf-page relative flex flex-col overflow-hidden">
+    <div 
+      className="pdf-page relative flex flex-col overflow-hidden"
+      style={{
+        background: hasImage ? undefined : 'linear-gradient(135deg, hsl(215 50% 23%) 0%, hsl(215 40% 35%) 100%)',
+        WebkitPrintColorAdjust: 'exact',
+        printColorAdjust: 'exact'
+      }}
+    >
       {/* Background Image - Using img tag for better print support */}
-      {quote.cover.imageUrl && (
+      {hasImage && (
         <>
           <img 
             src={quote.cover.imageUrl} 
             alt="Cover background"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             style={{ 
               WebkitPrintColorAdjust: 'exact',
               printColorAdjust: 'exact'
@@ -39,62 +49,147 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
       )}
       
       {/* Content */}
-      <div className="relative z-10 flex flex-1 flex-col">
+      <div className="relative z-10 flex flex-1 flex-col h-full">
         {/* Header with Logo */}
-        <div className="flex items-center justify-between pb-8">
+        <div className="flex items-center justify-between" style={{ paddingBottom: '20px' }}>
           {template.logoUrl ? (
-            <img src={template.logoUrl} alt="Logo" className="h-12" />
+            <img src={template.logoUrl} alt="Logo" className="h-10 max-w-[120px] object-contain" />
           ) : (
             <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold">
-                <Plane className="h-5 w-5 text-navy" />
+              <div 
+                className="flex items-center justify-center rounded-lg"
+                style={{ 
+                  width: '36px', 
+                  height: '36px', 
+                  backgroundColor: 'hsl(38 70% 55%)',
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact'
+                }}
+              >
+                <Plane className="h-4 w-4" style={{ color: 'hsl(215 50% 23%)' }} />
               </div>
-              <span className="font-serif text-xl font-bold text-white">Vicka Turismo</span>
+              <span className="font-serif text-lg font-bold text-white">Vicka Turismo</span>
             </div>
           )}
-          <p className="text-sm text-white/70">
+          <p className="text-xs text-white/70">
             Armado el {format(new Date(), "d/MM/yyyy")}
           </p>
         </div>
 
-        {/* Main Content */}
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <p className="mb-4 text-lg uppercase tracking-[0.3em] text-gold">
+        {/* Main Content - Centered */}
+        <div className="flex flex-1 flex-col items-center justify-center text-center" style={{ padding: '40px 0' }}>
+          <p 
+            className="uppercase tracking-[0.25em]"
+            style={{ 
+              marginBottom: '16px', 
+              fontSize: '14px',
+              color: 'hsl(38 70% 55%)',
+              WebkitPrintColorAdjust: 'exact',
+              printColorAdjust: 'exact'
+            }}
+          >
             {quote.cover.title || 'PRESUPUESTO DE VIAJE'}
           </p>
           
-          <h1 className="mb-6 font-serif text-5xl font-bold leading-tight text-white">
+          <h1 
+            className="font-serif font-bold leading-tight text-white"
+            style={{ marginBottom: '20px', fontSize: '42px' }}
+          >
             {quote.trip.destination}
           </h1>
           
           {quote.cover.subtitle && (
-            <p className="mb-8 max-w-md text-lg text-white/80">
+            <p 
+              className="text-white/80"
+              style={{ marginBottom: '32px', maxWidth: '350px', fontSize: '14px', lineHeight: '1.5' }}
+            >
               {quote.cover.subtitle}
             </p>
           )}
 
-          <div className="flex items-center gap-8 text-white/90">
+          <div className="flex items-center text-white/90" style={{ gap: '24px' }}>
             <div className="text-center">
-              <p className="text-sm uppercase tracking-wider text-gold">Desde</p>
-              <p className="mt-1 font-serif text-lg">{formatDate(quote.trip.startDate)}</p>
+              <p 
+                className="uppercase tracking-wider"
+                style={{ 
+                  fontSize: '11px', 
+                  color: 'hsl(38 70% 55%)',
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact'
+                }}
+              >
+                Desde
+              </p>
+              <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: '14px' }}>
+                {formatDate(quote.trip.startDate)}
+              </p>
             </div>
-            <div className="h-8 w-px bg-gold/50" />
+            <div 
+              style={{ 
+                height: '24px', 
+                width: '1px', 
+                backgroundColor: 'rgba(201, 162, 39, 0.5)',
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }} 
+            />
             <div className="text-center">
-              <p className="text-sm uppercase tracking-wider text-gold">Hasta</p>
-              <p className="mt-1 font-serif text-lg">{formatDate(quote.trip.endDate)}</p>
+              <p 
+                className="uppercase tracking-wider"
+                style={{ 
+                  fontSize: '11px', 
+                  color: 'hsl(38 70% 55%)',
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact'
+                }}
+              >
+                Hasta
+              </p>
+              <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: '14px' }}>
+                {formatDate(quote.trip.endDate)}
+              </p>
             </div>
-            <div className="h-8 w-px bg-gold/50" />
+            <div 
+              style={{ 
+                height: '24px', 
+                width: '1px', 
+                backgroundColor: 'rgba(201, 162, 39, 0.5)',
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }} 
+            />
             <div className="text-center">
-              <p className="text-sm uppercase tracking-wider text-gold">Pasajeros</p>
-              <p className="mt-1 font-serif text-lg">{quote.trip.travelers}</p>
+              <p 
+                className="uppercase tracking-wider"
+                style={{ 
+                  fontSize: '11px', 
+                  color: 'hsl(38 70% 55%)',
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact'
+                }}
+              >
+                Pasajeros
+              </p>
+              <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: '14px' }}>
+                {quote.trip.travelers}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Client Info */}
-        <div className="mt-auto border-t border-white/20 pt-6 text-center">
-          <p className="text-sm text-white/60">Preparado para</p>
-          <p className="mt-1 font-serif text-xl text-white">{quote.client.name}</p>
+        <div 
+          className="text-center"
+          style={{ 
+            marginTop: 'auto', 
+            borderTop: '1px solid rgba(255,255,255,0.2)', 
+            paddingTop: '20px' 
+          }}
+        >
+          <p className="text-white/60" style={{ fontSize: '12px' }}>Preparado para</p>
+          <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: '18px' }}>
+            {quote.client.name}
+          </p>
         </div>
       </div>
     </div>
