@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
-// Safe URL validation - blocks javascript: and data: URIs
-const safeUrlSchema = z.string().max(2000).refine(
+// Safe URL validation - blocks javascript: URIs, allows data: for images
+const safeUrlSchema = z.string().max(100000).refine(
   (url) => {
     if (!url) return true; // Allow empty strings
     const trimmed = url.trim().toLowerCase();
-    return !trimmed.startsWith('javascript:') && !trimmed.startsWith('data:');
+    // Block javascript: URIs but allow data: for base64 images
+    return !trimmed.startsWith('javascript:');
   },
   { message: 'URL no válida' }
 );
