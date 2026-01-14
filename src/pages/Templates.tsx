@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { 
   Plus, 
   Palette, 
@@ -242,14 +243,13 @@ const Templates = () => {
               </div>
 
               {/* Logo */}
-              <div>
-                <Label>URL del logo</Label>
-                <Input
-                  value={editingTemplate.logoUrl}
-                  onChange={(e) => updateEditingTemplate({ logoUrl: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
+              <ImageUpload
+                label="Logo de la agencia"
+                value={editingTemplate.logoUrl}
+                onChange={(value) => updateEditingTemplate({ logoUrl: value })}
+                placeholder="https://ejemplo.com/logo.png"
+                previewClassName="h-24"
+              />
 
               {/* Colores */}
               <div>
