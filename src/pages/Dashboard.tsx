@@ -24,7 +24,7 @@ import { defaultTemplate } from '@/data/demoData';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { quotes, templates, duplicateQuote, deleteQuote } = useQuotes();
+  const { quotes, templates, duplicateQuote, deleteQuote, isLoading, getDefaultTemplate } = useQuotes();
   const [searchQuery, setSearchQuery] = useState('');
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
 
@@ -40,14 +40,22 @@ const Dashboard = () => {
     navigate(`/quote/${quote.id}`);
   };
 
-  const handleDuplicate = (id: string) => {
-    const newQuote = duplicateQuote(id);
-    navigate(`/quote/${newQuote.id}`);
+  const handleDuplicate = async (id: string) => {
+    try {
+      const newQuote = await duplicateQuote(id);
+      navigate(`/quote/${newQuote.id}`);
+    } catch (error) {
+      console.error('Error duplicating quote:', error);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('¿Estás seguro de eliminar este presupuesto?')) {
-      deleteQuote(id);
+      try {
+        await deleteQuote(id);
+      } catch (error) {
+        console.error('Error deleting quote:', error);
+      }
     }
   };
 
@@ -56,13 +64,26 @@ const Dashboard = () => {
   };
 
   const handleExport = (quote: Quote) => {
-    // Por ahora, abrir en una nueva ventana para imprimir
     navigate(`/export/${quote.id}`);
   };
 
   const getTemplate = (templateId: string) => {
-    return templates.find(t => t.id === templateId) || defaultTemplate;
+    return templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto flex items-center justify-center px-4 py-16">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-muted-foreground">Cargando...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

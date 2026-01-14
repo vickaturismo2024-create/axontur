@@ -1,44 +1,195 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Quote, Template } from '@/types/quote';
-import { demoQuotes, demoTemplates } from '@/data/demoData';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface QuotesContextType {
   quotes: Quote[];
   templates: Template[];
   currentQuote: Quote | null;
   currentTemplate: Template | null;
+  defaultTemplateId: string | null;
+  isLoading: boolean;
   setCurrentQuote: (quote: Quote | null) => void;
   setCurrentTemplate: (template: Template | null) => void;
-  addQuote: (quote: Quote) => void;
-  updateQuote: (quote: Quote) => void;
-  deleteQuote: (id: string) => void;
-  duplicateQuote: (id: string) => Quote;
-  addTemplate: (template: Template) => void;
-  updateTemplate: (template: Template) => void;
-  deleteTemplate: (id: string) => void;
+  addQuote: (quote: Quote) => Promise<void>;
+  updateQuote: (quote: Quote) => Promise<void>;
+  deleteQuote: (id: string) => Promise<void>;
+  duplicateQuote: (id: string) => Promise<Quote>;
+  addTemplate: (template: Template) => Promise<void>;
+  updateTemplate: (template: Template) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  setDefaultTemplate: (id: string) => Promise<void>;
+  getDefaultTemplate: () => Template | null;
 }
 
 const QuotesContext = createContext<QuotesContextType | undefined>(undefined);
 
+// Helper to convert DB row to Template
+const dbToTemplate = (row: any): Template => ({
+  id: row.id,
+  name: row.name,
+  logoUrl: row.logo_url || '',
+  colors: row.colors || { primary: '#1e3a5f', secondary: '#d4c4a8', accent: '#c9a227' },
+  fonts: row.fonts || { heading: 'Playfair Display', body: 'Inter' },
+  styles: row.styles || { borderRadius: '12px', cardShadow: true, separatorStyle: 'line', borderStyle: 'none', borderWidth: '1px', backgroundPattern: 'none', cardStyle: 'elevated' },
+  whatsappAgents: row.whatsapp_agents || [],
+  footerText: row.footer_text || '',
+  sectionsToggles: row.sections_toggles || { flights: true, lodging: true, transfers: true, insurance: true, itinerary: true },
+});
+
+// Helper to convert Template to DB row
+const templateToDb = (template: Template, isDefault?: boolean) => ({
+  id: template.id,
+  name: template.name,
+  logo_url: template.logoUrl,
+  colors: template.colors,
+  fonts: template.fonts,
+  styles: template.styles,
+  whatsapp_agents: template.whatsappAgents,
+  footer_text: template.footerText,
+  sections_toggles: template.sectionsToggles,
+  is_default: isDefault,
+});
+
+// Helper to convert DB row to Quote
+const dbToQuote = (row: any): Quote => ({
+  id: row.id,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  templateId: row.template_id || 'default',
+  client: row.client || { name: '', phone: '', email: '' },
+  trip: row.trip || { destination: '', startDate: '', endDate: '', travelers: 1, currency: 'USD' },
+  cover: row.cover || { title: 'PRESUPUESTO DE VIAJE', subtitle: '', imageUrl: '' },
+  flights: row.flights || [],
+  lodging: row.lodging || {},
+  transfers: row.transfers || [],
+  insurance: row.insurance || {},
+  pricing: row.pricing || {},
+  itineraryDays: row.itinerary_days || [],
+});
+
+// Helper to convert Quote to DB row
+const quoteToDb = (quote: Quote) => ({
+  id: quote.id,
+  template_id: quote.templateId,
+  client: quote.client,
+  trip: quote.trip,
+  cover: quote.cover,
+  flights: quote.flights,
+  lodging: quote.lodging,
+  transfers: quote.transfers,
+  insurance: quote.insurance,
+  pricing: quote.pricing,
+  itinerary_days: quote.itineraryDays,
+});
+
 export function QuotesProvider({ children }: { children: ReactNode }) {
-  const [quotes, setQuotes] = useState<Quote[]>(demoQuotes);
-  const [templates, setTemplates] = useState<Template[]>(demoTemplates);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null);
+  const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const addQuote = (quote: Quote) => {
-    setQuotes((prev) => [...prev, quote]);
+  // Fetch data on mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch templates
+      const { data: templatesData, error: templatesError } = await supabase
+        .from('templates')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (templatesError) throw templatesError;
+
+      const fetchedTemplates = (templatesData || []).map(dbToTemplate);
+      setTemplates(fetchedTemplates);
+
+      // Find default template
+      const defaultTemplate = templatesData?.find((t: any) => t.is_default);
+      if (defaultTemplate) {
+        setDefaultTemplateId(defaultTemplate.id);
+      }
+
+      // Fetch quotes
+      const { data: quotesData, error: quotesError } = await supabase
+        .from('quotes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (quotesError) throw quotesError;
+
+      setQuotes((quotesData || []).map(dbToQuote));
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Error al cargar los datos');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const updateQuote = (quote: Quote) => {
-    setQuotes((prev) => prev.map((q) => (q.id === quote.id ? quote : q)));
+  const addQuote = async (quote: Quote) => {
+    try {
+      const dbQuote = quoteToDb(quote);
+      const { error } = await supabase
+        .from('quotes')
+        .insert([dbQuote] as any);
+
+      if (error) throw error;
+
+      setQuotes((prev) => [quote, ...prev]);
+      toast.success('Presupuesto creado');
+    } catch (error) {
+      console.error('Error adding quote:', error);
+      toast.error('Error al crear el presupuesto');
+      throw error;
+    }
   };
 
-  const deleteQuote = (id: string) => {
-    setQuotes((prev) => prev.filter((q) => q.id !== id));
+  const updateQuote = async (quote: Quote) => {
+    try {
+      const dbQuote = quoteToDb(quote);
+      const { error } = await supabase
+        .from('quotes')
+        .update(dbQuote as any)
+        .eq('id', quote.id);
+
+      if (error) throw error;
+
+      setQuotes((prev) => prev.map((q) => (q.id === quote.id ? quote : q)));
+      toast.success('Presupuesto actualizado');
+    } catch (error) {
+      console.error('Error updating quote:', error);
+      toast.error('Error al actualizar el presupuesto');
+      throw error;
+    }
   };
 
-  const duplicateQuote = (id: string): Quote => {
+  const deleteQuote = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('quotes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setQuotes((prev) => prev.filter((q) => q.id !== id));
+      toast.success('Presupuesto eliminado');
+    } catch (error) {
+      console.error('Error deleting quote:', error);
+      toast.error('Error al eliminar el presupuesto');
+      throw error;
+    }
+  };
+
+  const duplicateQuote = async (id: string): Promise<Quote> => {
     const original = quotes.find((q) => q.id === id);
     if (!original) throw new Error('Quote not found');
     
@@ -49,20 +200,102 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       updatedAt: new Date().toISOString(),
       client: { ...original.client, name: `${original.client.name} (copia)` },
     };
-    addQuote(newQuote);
+    
+    await addQuote(newQuote);
     return newQuote;
   };
 
-  const addTemplate = (template: Template) => {
-    setTemplates((prev) => [...prev, template]);
+  const addTemplate = async (template: Template) => {
+    try {
+      const dbTemplate = templateToDb(template, false);
+      const { error } = await supabase
+        .from('templates')
+        .insert([dbTemplate] as any);
+
+      if (error) throw error;
+
+      setTemplates((prev) => [...prev, template]);
+      toast.success('Plantilla creada');
+    } catch (error) {
+      console.error('Error adding template:', error);
+      toast.error('Error al crear la plantilla');
+      throw error;
+    }
   };
 
-  const updateTemplate = (template: Template) => {
-    setTemplates((prev) => prev.map((t) => (t.id === template.id ? template : t)));
+  const updateTemplate = async (template: Template) => {
+    try {
+      const isDefault = defaultTemplateId === template.id;
+      const dbTemplate = templateToDb(template, isDefault);
+      const { error } = await supabase
+        .from('templates')
+        .update(dbTemplate as any)
+        .eq('id', template.id);
+
+      if (error) throw error;
+
+      setTemplates((prev) => prev.map((t) => (t.id === template.id ? template : t)));
+      toast.success('Plantilla actualizada');
+    } catch (error) {
+      console.error('Error updating template:', error);
+      toast.error('Error al actualizar la plantilla');
+      throw error;
+    }
   };
 
-  const deleteTemplate = (id: string) => {
-    setTemplates((prev) => prev.filter((t) => t.id !== id));
+  const deleteTemplate = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('templates')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      if (defaultTemplateId === id) {
+        setDefaultTemplateId(null);
+      }
+      toast.success('Plantilla eliminada');
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast.error('Error al eliminar la plantilla');
+      throw error;
+    }
+  };
+
+  const setDefaultTemplate = async (id: string) => {
+    try {
+      // First, unset all templates as default
+      const { error: unsetError } = await supabase
+        .from('templates')
+        .update({ is_default: false } as any)
+        .neq('id', id);
+
+      if (unsetError) throw unsetError;
+
+      // Then set the selected one as default
+      const { error: setError } = await supabase
+        .from('templates')
+        .update({ is_default: true } as any)
+        .eq('id', id);
+
+      if (setError) throw setError;
+
+      setDefaultTemplateId(id);
+      toast.success('Plantilla predeterminada actualizada');
+    } catch (error) {
+      console.error('Error setting default template:', error);
+      toast.error('Error al establecer plantilla predeterminada');
+      throw error;
+    }
+  };
+
+  const getDefaultTemplate = (): Template | null => {
+    if (defaultTemplateId) {
+      return templates.find(t => t.id === defaultTemplateId) || templates[0] || null;
+    }
+    return templates[0] || null;
   };
 
   return (
@@ -72,6 +305,8 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
         templates,
         currentQuote,
         currentTemplate,
+        defaultTemplateId,
+        isLoading,
         setCurrentQuote,
         setCurrentTemplate,
         addQuote,
@@ -81,6 +316,8 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
         addTemplate,
         updateTemplate,
         deleteTemplate,
+        setDefaultTemplate,
+        getDefaultTemplate,
       }}
     >
       {children}
