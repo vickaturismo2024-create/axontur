@@ -42,10 +42,10 @@ const QuoteEditor = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto flex flex-1 flex-col overflow-hidden px-4 py-8">
         <div className="mb-6">
           <h1 className="font-serif text-2xl font-bold text-foreground md:text-3xl">
             {existingQuote ? 'Editar Presupuesto' : 'Nuevo Presupuesto'}
@@ -57,13 +57,15 @@ const QuoteEditor = () => {
           </p>
         </div>
 
-        <QuoteWizard
-          initialQuote={existingQuote}
-          templates={templates}
-          defaultTemplate={getDefaultTemplate()}
-          onSave={handleSave}
-          onCancel={handleCancel}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <QuoteWizard
+            initialQuote={existingQuote}
+            templates={templates}
+            defaultTemplate={getDefaultTemplate()}
+            onSave={handleSave}
+            onCancel={handleCancel}
+          />
+        </div>
       </main>
     </div>
   );

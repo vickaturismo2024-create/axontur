@@ -443,9 +443,9 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   };
 
   return (
-    <div className="flex h-full gap-6">
+    <div className="flex min-h-[calc(100vh-200px)] gap-6">
       {/* Main Content */}
-      <div className="flex-1">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Steps Navigation */}
         <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2">
           {steps.map((step, index) => {
@@ -470,14 +470,14 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
         </div>
 
         {/* Step Content */}
-        <Card className="mb-6">
-          <CardHeader>
+        <Card className="mb-6 flex flex-1 flex-col overflow-hidden">
+          <CardHeader className="shrink-0">
             <CardTitle className="flex items-center gap-2 font-serif">
               {(() => { const Icon = steps[currentStep].icon; return <Icon className="h-5 w-5 text-gold" />; })()}
               {steps[currentStep].label}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 overflow-y-auto">
             {/* Plantilla */}
             {currentStep === 0 && (
               <div className="space-y-6">
