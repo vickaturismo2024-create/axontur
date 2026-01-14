@@ -5,8 +5,9 @@ import { PDFCoverPage } from '@/components/pdf/PDFCoverPage';
 import { PDFDetailsPage } from '@/components/pdf/PDFDetailsPage';
 import { PDFContactPage } from '@/components/pdf/PDFContactPage';
 import { PDFItineraryPage } from '@/components/pdf/PDFItineraryPage';
+import { PDFShareMenu } from '@/components/pdf/PDFShareMenu';
 import { Button } from '@/components/ui/button';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 const ExportPDF = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,7 +37,7 @@ const ExportPDF = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted">
+    <div className="min-h-screen bg-muted print:bg-white print:min-h-0">
       {/* Controls - Hidden when printing */}
       <div className="no-print sticky top-0 z-50 border-b bg-card p-4 shadow-sm">
         <div className="container mx-auto flex items-center justify-between">
@@ -44,18 +45,13 @@ const ExportPDF = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>
-          <div className="flex gap-2">
-            <Button onClick={handlePrint} className="bg-primary">
-              <Printer className="mr-2 h-4 w-4" />
-              Imprimir / Guardar PDF
-            </Button>
-          </div>
+          <PDFShareMenu quote={quote} onPrint={handlePrint} />
         </div>
       </div>
 
-      {/* PDF Pages */}
-      <div className="container mx-auto py-8">
-        <div className="flex flex-col items-center gap-8">
+      {/* PDF Pages - Centered for preview, full-width for print */}
+      <div className="container mx-auto py-8 print:p-0 print:m-0 print:max-w-none">
+        <div className="flex flex-col items-center gap-8 print:gap-0 print:items-stretch">
           {/* Página 1: Portada */}
           <PDFCoverPage quote={quote} template={template} />
 
