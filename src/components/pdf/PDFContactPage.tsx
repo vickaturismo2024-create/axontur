@@ -8,14 +8,19 @@ interface PDFContactPageProps {
 }
 
 export function PDFContactPage({ quote, template }: PDFContactPageProps) {
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.lodging.address || '')}`;
-
   // Template colors
   const primaryColor = template.colors.primary;
   const secondaryColor = template.colors.secondary;
-  const accentColor = template.colors.accent;
   const bgColor = template.colors.background || '#ffffff';
   const cardBgColor = template.colors.cardBackground || '#f8f9fa';
+
+  // Get all lodgings - prioritize lodgings array, fallback to legacy lodging
+  const allLodgings = (quote.lodgings && quote.lodgings.length > 0) 
+    ? quote.lodgings 
+    : (quote.lodging?.name ? [quote.lodging] : []);
+
+  const getMapsUrl = (address: string) => 
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || '')}`;
 
   return (
     <div className="pdf-page flex flex-col" style={{ backgroundColor: cardBgColor }}>
@@ -32,17 +37,9 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
         Ubicación y Contacto
       </h2>
 
-      {/* Ubicación del alojamiento */}
-      {quote.lodging.name && (
-        <div 
-          className="rounded-lg border"
-          style={{ 
-            marginBottom: '20px', 
-            padding: '16px',
-            backgroundColor: bgColor,
-            borderColor: secondaryColor
-          }}
-        >
+      {/* Ubicaciones de alojamientos */}
+      {allLodgings.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
           <div className="flex items-center" style={{ marginBottom: '12px', gap: '8px' }}>
             <div 
               className="flex items-center justify-center rounded"
@@ -56,64 +53,87 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
             >
               <MapPin style={{ width: '12px', height: '12px', color: primaryColor }} />
             </div>
-            <h3 className="font-serif font-semibold" style={{ fontSize: '14px', color: primaryColor }}>Ubicación del Alojamiento</h3>
+            <h3 className="font-serif font-semibold" style={{ fontSize: '14px', color: primaryColor }}>
+              {allLodgings.length > 1 ? 'Ubicaciones de los Alojamientos' : 'Ubicación del Alojamiento'}
+            </h3>
           </div>
 
-          <div className="grid grid-cols-2" style={{ gap: '16px' }}>
-            <div>
-              <h4 className="font-semibold" style={{ fontSize: '13px', color: primaryColor }}>
-                {quote.lodging.name}
-              </h4>
-              <p style={{ marginTop: '4px', fontSize: '11px', color: `${primaryColor}99` }}>
-                {quote.lodging.address}
-              </p>
-              
-              <a 
-                href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center rounded-lg text-white"
-                style={{ 
-                  marginTop: '12px', 
-                  padding: '8px 12px', 
-                  fontSize: '11px',
-                  gap: '6px',
-                  backgroundColor: primaryColor,
-                  WebkitPrintColorAdjust: 'exact',
-                  printColorAdjust: 'exact'
-                }}
-              >
-                <ExternalLink style={{ width: '12px', height: '12px' }} />
-                Ver en Google Maps
-              </a>
-            </div>
-
-            {/* Placeholder de mapa */}
-            <div 
-              className="overflow-hidden rounded-lg"
-              style={{ 
-                backgroundColor: cardBgColor,
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {allLodgings.map((lodging, index) => (
               <div 
-                className="flex items-center justify-center"
+                key={lodging.id || index}
+                className="rounded-lg border"
                 style={{ 
-                  height: '120px',
-                  background: `linear-gradient(to bottom right, ${cardBgColor}, ${secondaryColor})`,
-                  WebkitPrintColorAdjust: 'exact',
-                  printColorAdjust: 'exact'
+                  padding: '12px',
+                  backgroundColor: bgColor,
+                  borderColor: secondaryColor
                 }}
               >
-                <div className="text-center">
-                  <MapPin style={{ margin: '0 auto', width: '24px', height: '24px', color: `${primaryColor}99` }} />
-                  <p style={{ marginTop: '6px', fontSize: '10px', color: `${primaryColor}99` }}>
-                    Mapa de ubicación
-                  </p>
+                <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+                  <div>
+                    {allLodgings.length > 1 && lodging.destination && (
+                      <p style={{ fontSize: '10px', marginBottom: '4px', color: `${primaryColor}80`, fontWeight: 500 }}>
+                        {lodging.destination}
+                      </p>
+                    )}
+                    <h4 className="font-semibold" style={{ fontSize: '13px', color: primaryColor }}>
+                      {lodging.name}
+                    </h4>
+                    <p style={{ marginTop: '4px', fontSize: '11px', color: `${primaryColor}99` }}>
+                      {lodging.address}
+                    </p>
+                    
+                    {lodging.address && (
+                      <a 
+                        href={getMapsUrl(lodging.address)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center rounded-lg text-white"
+                        style={{ 
+                          marginTop: '10px', 
+                          padding: '6px 10px', 
+                          fontSize: '10px',
+                          gap: '4px',
+                          backgroundColor: primaryColor,
+                          WebkitPrintColorAdjust: 'exact',
+                          printColorAdjust: 'exact'
+                        }}
+                      >
+                        <ExternalLink style={{ width: '10px', height: '10px' }} />
+                        Ver en Google Maps
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Placeholder de mapa */}
+                  <div 
+                    className="overflow-hidden rounded-lg"
+                    style={{ 
+                      backgroundColor: cardBgColor,
+                      WebkitPrintColorAdjust: 'exact',
+                      printColorAdjust: 'exact'
+                    }}
+                  >
+                    <div 
+                      className="flex items-center justify-center"
+                      style={{ 
+                        height: allLodgings.length > 1 ? '80px' : '100px',
+                        background: `linear-gradient(to bottom right, ${cardBgColor}, ${secondaryColor})`,
+                        WebkitPrintColorAdjust: 'exact',
+                        printColorAdjust: 'exact'
+                      }}
+                    >
+                      <div className="text-center">
+                        <MapPin style={{ margin: '0 auto', width: '20px', height: '20px', color: `${primaryColor}99` }} />
+                        <p style={{ marginTop: '4px', fontSize: '9px', color: `${primaryColor}99` }}>
+                          Mapa
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
