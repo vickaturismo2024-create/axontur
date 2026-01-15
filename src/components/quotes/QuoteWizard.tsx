@@ -1041,11 +1041,18 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                           <div className="grid gap-4 md:grid-cols-3">
                             <div>
                               <Label>Tipo</Label>
-                              <Input
+                              <Select
                                 value={transfer.type}
-                                onChange={(e) => updateTransfer(transfer.id, { type: e.target.value })}
-                                placeholder="Privado"
-                              />
+                                onValueChange={(value) => updateTransfer(transfer.id, { type: value })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Privado">Privado</SelectItem>
+                                  <SelectItem value="Regular">Regular</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                             <div className="md:col-span-2">
                               <Label>Descripción</Label>
