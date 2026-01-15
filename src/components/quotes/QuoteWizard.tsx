@@ -62,7 +62,7 @@ const steps = [
   { id: 'preview', label: 'Vista Previa', icon: Eye },
 ];
 
-const createEmptyLodging = (): Lodging => ({
+const createEmptyLodging = (isOption: boolean = false, optionLabel: string = ''): Lodging => ({
   id: crypto.randomUUID(),
   name: '',
   category: '',
@@ -74,6 +74,9 @@ const createEmptyLodging = (): Lodging => ({
   nights: 0,
   notes: '',
   destination: '',
+  isOption,
+  optionLabel,
+  pricePerNight: undefined,
 });
 
 const createEmptyTrain = (): Train => ({
@@ -249,8 +252,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   };
 
   // Lodgings
-  const addLodging = () => {
-    updateQuote({ lodgings: [...(quote.lodgings || []), createEmptyLodging()] });
+  const addLodging = (isOption: boolean = false) => {
+    const optionCount = (quote.lodgings || []).filter(l => l.isOption).length;
+    const label = isOption ? `Opción ${optionCount + 1}` : '';
+    updateQuote({ lodgings: [...(quote.lodgings || []), createEmptyLodging(isOption, label)] });
   };
 
   const updateLodging = (id: string, updates: Partial<Lodging>) => {
@@ -821,197 +826,170 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             {/* Alojamiento */}
             {currentStep === 4 && (
               <div className="space-y-6">
-                {quote.trip.type === 'multiDestination' ? (
-                  // Múltiples alojamientos para viajes multi-destino
-                  <div className="space-y-4">
-                    <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Viaje multi-destino:</strong> Agrega un alojamiento por cada destino del tour.
-                      </p>
-                    </div>
-                    {(quote.lodgings || []).map((lodging, idx) => (
-                      <Card key={lodging.id} className="relative">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-2 top-2 h-8 w-8 text-destructive"
-                          onClick={() => removeLodging(lodging.id!)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <CardContent className="pt-6">
-                          <p className="mb-4 font-medium text-gold">Alojamiento {idx + 1}</p>
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="md:col-span-2">
-                              <Label>Destino</Label>
+                {/* Instrucciones según tipo de viaje */}
+                <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    {quote.trip.type === 'multiDestination' 
+                      ? <><strong>Viaje multi-destino:</strong> Agrega un alojamiento por cada destino del tour.</>
+                      : <><strong>Consejo:</strong> Puedes agregar múltiples opciones de alojamiento para que el pasajero elija.</>
+                    }
+                  </p>
+                </div>
+
+                {/* Lista de alojamientos */}
+                <div className="space-y-4">
+                  {(quote.lodgings || []).map((lodging, idx) => (
+                    <Card key={lodging.id} className={`relative ${lodging.isOption ? 'border-dashed border-accent' : ''}`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-2 h-8 w-8 text-destructive"
+                        onClick={() => removeLodging(lodging.id!)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <CardContent className="pt-6">
+                        <div className="mb-4 flex items-center gap-4">
+                          <p className="font-medium text-gold">
+                            {lodging.isOption ? `🏷️ ${lodging.optionLabel || `Opción ${idx + 1}`}` : `Alojamiento ${idx + 1}`}
+                          </p>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={lodging.isOption || false}
+                              onChange={(e) => updateLodging(lodging.id!, { 
+                                isOption: e.target.checked,
+                                optionLabel: e.target.checked ? `Opción ${idx + 1}` : ''
+                              })}
+                              className="rounded border-gray-300"
+                            />
+                            Es una opción alternativa
+                          </label>
+                        </div>
+                        
+                        {lodging.isOption && (
+                          <div className="mb-4 grid gap-4 md:grid-cols-2">
+                            <div>
+                              <Label>Etiqueta de la opción</Label>
                               <Input
-                                value={lodging.destination || ''}
-                                onChange={(e) => updateLodging(lodging.id!, { destination: e.target.value })}
-                                placeholder="París, Francia"
+                                value={lodging.optionLabel || ''}
+                                onChange={(e) => updateLodging(lodging.id!, { optionLabel: e.target.value })}
+                                placeholder="Opción económica, Opción premium..."
                               />
                             </div>
                             <div>
-                              <Label>Nombre del hotel</Label>
-                              <Input
-                                value={lodging.name}
-                                onChange={(e) => updateLodging(lodging.id!, { name: e.target.value })}
-                                placeholder="Grand Fiesta Americana"
-                              />
-                            </div>
-                            <div>
-                              <Label>Categoría</Label>
-                              <Input
-                                value={lodging.category}
-                                onChange={(e) => updateLodging(lodging.id!, { category: e.target.value })}
-                                placeholder="5 Estrellas"
-                              />
-                            </div>
-                            <div className="md:col-span-2">
-                              <Label>Dirección</Label>
-                              <Input
-                                value={lodging.address}
-                                onChange={(e) => updateLodging(lodging.id!, { address: e.target.value })}
-                                placeholder="Boulevard Kukulcán Km 9.5..."
-                              />
-                            </div>
-                            <div>
-                              <Label>Check-in</Label>
-                              <Input
-                                type="date"
-                                value={lodging.checkIn}
-                                onChange={(e) => updateLodging(lodging.id!, { checkIn: e.target.value })}
-                              />
-                            </div>
-                            <div>
-                              <Label>Check-out</Label>
-                              <Input
-                                type="date"
-                                value={lodging.checkOut}
-                                onChange={(e) => updateLodging(lodging.id!, { checkOut: e.target.value })}
-                              />
-                            </div>
-                            <div>
-                              <Label>Régimen</Label>
-                              <Input
-                                value={lodging.regime}
-                                onChange={(e) => updateLodging(lodging.id!, { regime: e.target.value })}
-                                placeholder="All Inclusive"
-                              />
-                            </div>
-                            <div>
-                              <Label>Tipo de habitación</Label>
-                              <Input
-                                value={lodging.roomType}
-                                onChange={(e) => updateLodging(lodging.id!, { roomType: e.target.value })}
-                                placeholder="Suite Ocean View"
-                              />
-                            </div>
-                            <div>
-                              <Label>Noches</Label>
+                              <Label>Precio por noche ({quote.trip.currency})</Label>
                               <Input
                                 type="number"
                                 min={0}
-                                value={lodging.nights}
-                                onChange={(e) => updateLodging(lodging.id!, { nights: parseInt(e.target.value) || 0 })}
-                              />
-                            </div>
-                            <div className="md:col-span-2">
-                              <Label>Notas</Label>
-                              <Textarea
-                                value={lodging.notes}
-                                onChange={(e) => updateLodging(lodging.id!, { notes: e.target.value })}
-                                placeholder="Vista al mar, amenities..."
-                                rows={2}
+                                value={lodging.pricePerNight || ''}
+                                onChange={(e) => updateLodging(lodging.id!, { pricePerNight: parseFloat(e.target.value) || undefined })}
+                                placeholder="150"
                               />
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                    <Button variant="outline" onClick={addLodging} className="w-full">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Agregar alojamiento
-                    </Button>
-                  </div>
-                ) : (
-                  // Alojamiento único para viajes estándar
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <Label>Nombre del hotel</Label>
-                      <Input
-                        value={quote.lodging.name}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, name: e.target.value } })}
-                        placeholder="Grand Fiesta Americana"
-                      />
-                    </div>
-                    <div>
-                      <Label>Categoría</Label>
-                      <Input
-                        value={quote.lodging.category}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, category: e.target.value } })}
-                        placeholder="5 Estrellas"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Dirección</Label>
-                      <Input
-                        value={quote.lodging.address}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, address: e.target.value } })}
-                        placeholder="Boulevard Kukulcán Km 9.5, Zona Hotelera..."
-                      />
-                    </div>
-                    <div>
-                      <Label>Check-in</Label>
-                      <Input
-                        type="date"
-                        value={quote.lodging.checkIn}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, checkIn: e.target.value } })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Check-out</Label>
-                      <Input
-                        type="date"
-                        value={quote.lodging.checkOut}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, checkOut: e.target.value } })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Régimen</Label>
-                      <Input
-                        value={quote.lodging.regime}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, regime: e.target.value } })}
-                        placeholder="All Inclusive"
-                      />
-                    </div>
-                    <div>
-                      <Label>Tipo de habitación</Label>
-                      <Input
-                        value={quote.lodging.roomType}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, roomType: e.target.value } })}
-                        placeholder="Suite Ocean View"
-                      />
-                    </div>
-                    <div>
-                      <Label>Noches</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={quote.lodging.nights}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, nights: parseInt(e.target.value) || 0 } })}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Notas</Label>
-                      <Textarea
-                        value={quote.lodging.notes}
-                        onChange={(e) => updateQuote({ lodging: { ...quote.lodging, notes: e.target.value } })}
-                        placeholder="Vista al mar, amenities..."
-                        rows={2}
-                      />
-                    </div>
-                  </div>
-                )}
+                        )}
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="md:col-span-2">
+                            <Label>Destino / Ciudad</Label>
+                            <Input
+                              value={lodging.destination || ''}
+                              onChange={(e) => updateLodging(lodging.id!, { destination: e.target.value })}
+                              placeholder="París, Francia"
+                            />
+                          </div>
+                          <div>
+                            <Label>Nombre del hotel</Label>
+                            <Input
+                              value={lodging.name}
+                              onChange={(e) => updateLodging(lodging.id!, { name: e.target.value })}
+                              placeholder="Grand Fiesta Americana"
+                            />
+                          </div>
+                          <div>
+                            <Label>Categoría</Label>
+                            <Input
+                              value={lodging.category}
+                              onChange={(e) => updateLodging(lodging.id!, { category: e.target.value })}
+                              placeholder="5 Estrellas"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label>Dirección</Label>
+                            <Input
+                              value={lodging.address}
+                              onChange={(e) => updateLodging(lodging.id!, { address: e.target.value })}
+                              placeholder="Boulevard Kukulcán Km 9.5..."
+                            />
+                          </div>
+                          <div>
+                            <Label>Check-in</Label>
+                            <Input
+                              type="date"
+                              value={lodging.checkIn}
+                              onChange={(e) => updateLodging(lodging.id!, { checkIn: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label>Check-out</Label>
+                            <Input
+                              type="date"
+                              value={lodging.checkOut}
+                              onChange={(e) => updateLodging(lodging.id!, { checkOut: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label>Régimen</Label>
+                            <Input
+                              value={lodging.regime}
+                              onChange={(e) => updateLodging(lodging.id!, { regime: e.target.value })}
+                              placeholder="All Inclusive"
+                            />
+                          </div>
+                          <div>
+                            <Label>Tipo de habitación</Label>
+                            <Input
+                              value={lodging.roomType}
+                              onChange={(e) => updateLodging(lodging.id!, { roomType: e.target.value })}
+                              placeholder="Suite Ocean View"
+                            />
+                          </div>
+                          <div>
+                            <Label>Noches</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={lodging.nights}
+                              onChange={(e) => updateLodging(lodging.id!, { nights: parseInt(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label>Notas</Label>
+                            <Textarea
+                              value={lodging.notes}
+                              onChange={(e) => updateLodging(lodging.id!, { notes: e.target.value })}
+                              placeholder="Vista al mar, amenities..."
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Botones para agregar */}
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => addLodging(false)} className="flex-1">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Agregar alojamiento
+                  </Button>
+                  <Button variant="outline" onClick={() => addLodging(true)} className="flex-1 border-dashed">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Agregar opción alternativa
+                  </Button>
+                </div>
               </div>
             )}
 
