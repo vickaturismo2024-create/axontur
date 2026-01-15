@@ -38,7 +38,7 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
       </h2>
 
       {/* Ubicaciones de alojamientos */}
-      {allLodgings.length > 0 && (
+      {(template.sectionsToggles?.lodging !== false) && allLodgings.length > 0 && (
         <div style={{ marginBottom: '20px' }}>
           <div className="flex items-center" style={{ marginBottom: '12px', gap: '8px' }}>
             <div 
