@@ -14,232 +14,232 @@ const safeUrlSchema = z.preprocess(
   )
 );
 
-// Client validation
+// Client validation - no length restrictions
 export const clientSchema = z.object({
-  name: z.string().max(200, 'El nombre es demasiado largo').default(''),
-  phone: z.string().max(50, 'El teléfono es demasiado largo').default(''),
-  email: z.string().max(255, 'El email es demasiado largo').default(''),
+  name: z.string().default(''),
+  phone: z.string().default(''),
+  email: z.string().default(''),
 });
 
-// Flight validation
+// Flight validation - no length restrictions
 export const flightSchema = z.object({
-  id: z.string().max(100),
-  origin: z.string().max(200, 'El origen es demasiado largo').default(''),
-  destination: z.string().max(200, 'El destino es demasiado largo').default(''),
-  date: z.string().max(50).default(''),
-  departureTime: z.string().max(50).default(''),
-  arrivalTime: z.string().max(50).default(''),
-  airline: z.string().max(200).default(''),
-  flightNumber: z.string().max(50).default(''),
-  luggage: z.string().max(200).default(''),
-  notes: z.string().max(1000).default(''),
+  id: z.string(),
+  origin: z.string().default(''),
+  destination: z.string().default(''),
+  date: z.string().default(''),
+  departureTime: z.string().default(''),
+  arrivalTime: z.string().default(''),
+  airline: z.string().default(''),
+  flightNumber: z.string().default(''),
+  luggage: z.string().default(''),
+  notes: z.string().default(''),
 });
 
-// Lodging validation
+// Lodging validation - no length restrictions
 export const lodgingSchema = z.object({
-  id: z.string().max(100).optional(),
-  name: z.string().max(300).default(''),
-  category: z.string().max(100).default(''),
-  address: z.string().max(500).default(''),
-  checkIn: z.string().max(50).default(''),
-  checkOut: z.string().max(50).default(''),
-  regime: z.string().max(100).default(''),
-  roomType: z.string().max(100).default(''),
-  nights: z.number().min(0).max(365).default(0),
-  notes: z.string().max(2000).default(''),
-  destination: z.string().max(200).optional(),
+  id: z.string().optional(),
+  name: z.string().default(''),
+  category: z.string().default(''),
+  address: z.string().default(''),
+  checkIn: z.string().default(''),
+  checkOut: z.string().default(''),
+  regime: z.string().default(''),
+  roomType: z.string().default(''),
+  nights: z.number().min(0).default(0),
+  notes: z.string().default(''),
+  destination: z.string().optional(),
 }).partial();
 
-// Transfer validation
+// Transfer validation - no length restrictions
 export const transferSchema = z.object({
-  id: z.string().max(100),
-  type: z.string().max(100).default(''),
-  description: z.string().max(500).default(''),
-  dateTime: z.string().max(50).default(''),
+  id: z.string(),
+  type: z.string().default(''),
+  description: z.string().default(''),
+  dateTime: z.string().default(''),
   included: z.boolean().default(false),
 });
 
-// Train validation
+// Train validation - no length restrictions
 export const trainSchema = z.object({
-  id: z.string().max(100),
-  origin: z.string().max(200).default(''),
-  destination: z.string().max(200).default(''),
-  date: z.string().max(50).default(''),
-  departureTime: z.string().max(50).default(''),
-  arrivalTime: z.string().max(50).default(''),
-  company: z.string().max(200).default(''),
-  trainNumber: z.string().max(50).default(''),
-  class: z.string().max(100).default(''),
-  seat: z.string().max(50).default(''),
-  notes: z.string().max(1000).default(''),
+  id: z.string(),
+  origin: z.string().default(''),
+  destination: z.string().default(''),
+  date: z.string().default(''),
+  departureTime: z.string().default(''),
+  arrivalTime: z.string().default(''),
+  company: z.string().default(''),
+  trainNumber: z.string().default(''),
+  class: z.string().default(''),
+  seat: z.string().default(''),
+  notes: z.string().default(''),
 });
 
-// Ferry validation
+// Ferry validation - no length restrictions
 export const ferrySchema = z.object({
-  id: z.string().max(100),
-  origin: z.string().max(200).default(''),
-  destination: z.string().max(200).default(''),
-  date: z.string().max(50).default(''),
-  departureTime: z.string().max(50).default(''),
-  arrivalTime: z.string().max(50).default(''),
-  company: z.string().max(200).default(''),
-  vessel: z.string().max(200).default(''),
-  cabinType: z.string().max(100).default(''),
-  notes: z.string().max(1000).default(''),
+  id: z.string(),
+  origin: z.string().default(''),
+  destination: z.string().default(''),
+  date: z.string().default(''),
+  departureTime: z.string().default(''),
+  arrivalTime: z.string().default(''),
+  company: z.string().default(''),
+  vessel: z.string().default(''),
+  cabinType: z.string().default(''),
+  notes: z.string().default(''),
 });
 
-// Rental Car validation
+// Rental Car validation - no length restrictions
 export const rentalCarSchema = z.object({
-  id: z.string().max(100),
-  company: z.string().max(200).default(''),
-  pickupLocation: z.string().max(300).default(''),
-  dropoffLocation: z.string().max(300).default(''),
-  pickupDate: z.string().max(50).default(''),
-  pickupTime: z.string().max(50).default(''),
-  dropoffDate: z.string().max(50).default(''),
-  dropoffTime: z.string().max(50).default(''),
-  carType: z.string().max(100).default(''),
-  extras: z.string().max(500).default(''),
-  notes: z.string().max(1000).default(''),
+  id: z.string(),
+  company: z.string().default(''),
+  pickupLocation: z.string().default(''),
+  dropoffLocation: z.string().default(''),
+  pickupDate: z.string().default(''),
+  pickupTime: z.string().default(''),
+  dropoffDate: z.string().default(''),
+  dropoffTime: z.string().default(''),
+  carType: z.string().default(''),
+  extras: z.string().default(''),
+  notes: z.string().default(''),
 });
 
-// Activity validation
+// Activity validation - no length restrictions
 export const activitySchema = z.object({
-  id: z.string().max(100),
-  name: z.string().max(200).default(''),
-  description: z.string().max(1000).default(''),
-  date: z.string().max(50).default(''),
-  time: z.string().max(50).default(''),
-  duration: z.string().max(50).default(''),
-  location: z.string().max(300).default(''),
+  id: z.string(),
+  name: z.string().default(''),
+  description: z.string().default(''),
+  date: z.string().default(''),
+  time: z.string().default(''),
+  duration: z.string().default(''),
+  location: z.string().default(''),
   included: z.boolean().default(false),
-  price: z.number().min(0).max(99999999).optional(),
-  notes: z.string().max(1000).default(''),
+  price: z.number().min(0).optional(),
+  notes: z.string().default(''),
 });
 
-// Cruise Port validation
+// Cruise Port validation - no length restrictions
 export const cruisePortSchema = z.object({
-  id: z.string().max(100),
-  day: z.number().min(1).max(365).default(1),
-  port: z.string().max(200).default(''),
-  country: z.string().max(100).default(''),
-  arrivalTime: z.string().max(50).default(''),
-  departureTime: z.string().max(50).default(''),
-  notes: z.string().max(500).default(''),
+  id: z.string(),
+  day: z.number().min(0).default(1),
+  port: z.string().default(''),
+  country: z.string().default(''),
+  arrivalTime: z.string().default(''),
+  departureTime: z.string().default(''),
+  notes: z.string().default(''),
 });
 
-// Cruise Extras validation
+// Cruise Extras validation - no length restrictions
 export const cruiseExtrasSchema = z.object({
-  tips: z.string().max(500).default(''),
-  beverages: z.string().max(500).default(''),
-  wifi: z.string().max(500).default(''),
-  excursions: z.string().max(500).default(''),
-  specialDining: z.string().max(500).default(''),
-  spa: z.string().max(500).default(''),
-  other: z.string().max(1000).default(''),
+  tips: z.string().default(''),
+  beverages: z.string().default(''),
+  wifi: z.string().default(''),
+  excursions: z.string().default(''),
+  specialDining: z.string().default(''),
+  spa: z.string().default(''),
+  other: z.string().default(''),
 });
 
-// Cruise validation
+// Cruise validation - no length restrictions
 export const cruiseSchema = z.object({
-  id: z.string().max(100),
-  shipName: z.string().max(200).default(''),
-  company: z.string().max(200).default(''),
-  cabinType: z.string().max(100).default(''),
-  cabinNumber: z.string().max(50).default(''),
-  deck: z.string().max(50).default(''),
-  embarkationPort: z.string().max(200).default(''),
-  embarkationDate: z.string().max(50).default(''),
-  disembarkationPort: z.string().max(200).default(''),
-  disembarkationDate: z.string().max(50).default(''),
-  nights: z.number().min(0).max(365).default(0),
-  regime: z.string().max(100).default(''),
-  itinerary: z.array(cruisePortSchema).max(50).default([]),
+  id: z.string(),
+  shipName: z.string().default(''),
+  company: z.string().default(''),
+  cabinType: z.string().default(''),
+  cabinNumber: z.string().default(''),
+  deck: z.string().default(''),
+  embarkationPort: z.string().default(''),
+  embarkationDate: z.string().default(''),
+  disembarkationPort: z.string().default(''),
+  disembarkationDate: z.string().default(''),
+  nights: z.number().min(0).default(0),
+  regime: z.string().default(''),
+  itinerary: z.array(cruisePortSchema).default([]),
   extras: cruiseExtrasSchema.default({}),
-  notes: z.string().max(2000).default(''),
+  notes: z.string().default(''),
 });
 
-// Insurance validation
+// Insurance validation - no length restrictions
 export const insuranceSchema = z.object({
-  company: z.string().max(200).default(''),
-  plan: z.string().max(200).default(''),
-  coverage: z.string().max(500).default(''),
-  notes: z.string().max(2000).default(''),
+  company: z.string().default(''),
+  plan: z.string().default(''),
+  coverage: z.string().default(''),
+  notes: z.string().default(''),
 }).partial();
 
-// Pricing validation
+// Pricing validation - no length restrictions
 export const pricingSchema = z.object({
-  totalPrice: z.number().min(0).max(99999999).default(0),
-  pricePerPerson: z.number().min(0).max(99999999).default(0),
-  taxes: z.number().min(0).max(99999999).default(0),
-  paymentMethod: z.string().max(200).default(''),
-  conditions: z.string().max(5000).default(''),
-  observations: z.string().max(5000).default(''),
+  totalPrice: z.number().min(0).default(0),
+  pricePerPerson: z.number().min(0).default(0),
+  taxes: z.number().min(0).default(0),
+  paymentMethod: z.string().default(''),
+  conditions: z.string().default(''),
+  observations: z.string().default(''),
 }).partial();
 
-// Itinerary day validation
+// Itinerary day validation - no length restrictions
 export const itineraryDaySchema = z.object({
-  id: z.string().max(100),
-  dayNumber: z.number().min(0).max(365).default(0),
-  date: z.string().max(50).default(''),
-  title: z.string().max(300).default(''),
-  description: z.string().max(5000).default(''),
-  activities: z.array(z.string().max(500)).max(50).default([]),
+  id: z.string(),
+  dayNumber: z.number().min(0).default(0),
+  date: z.string().default(''),
+  title: z.string().default(''),
+  description: z.string().default(''),
+  activities: z.array(z.string()).default([]),
 });
 
-// Cover validation
+// Cover validation - no length restrictions
 export const coverSchema = z.object({
-  title: z.string().max(200).default('PRESUPUESTO DE VIAJE'),
-  subtitle: z.string().max(300).default(''),
+  title: z.string().default('PRESUPUESTO DE VIAJE'),
+  subtitle: z.string().default(''),
   imageUrl: safeUrlSchema.default(''),
 });
 
-// Trip validation
+// Trip validation - no restrictions (travelers can be 0 for empty quotes)
 export const tripSchema = z.object({
-  destination: z.string().max(200).default(''),
-  startDate: z.string().max(50).default(''),
-  endDate: z.string().max(50).default(''),
-  travelers: z.number().min(1).max(100).default(1),
-  currency: z.string().max(10).default('USD'),
+  destination: z.string().default(''),
+  startDate: z.string().default(''),
+  endDate: z.string().default(''),
+  travelers: z.number().min(0).default(1),
+  currency: z.string().default('USD'),
   type: z.enum(['standard', 'cruise', 'multiDestination']).optional(),
 });
 
-// Full Quote validation
+// Full Quote validation - no restrictions
 export const quoteSchema = z.object({
-  id: z.string().max(100),
+  id: z.string(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
-  templateId: z.string().max(100).default('default'),
+  templateId: z.string().default('default'),
   client: clientSchema,
   trip: tripSchema,
   cover: coverSchema,
-  flights: z.array(flightSchema).max(50).default([]),
+  flights: z.array(flightSchema).default([]),
   lodging: lodgingSchema.default({}),
-  lodgings: z.array(lodgingSchema).max(20).optional(),
-  transfers: z.array(transferSchema).max(50).default([]),
-  trains: z.array(trainSchema).max(50).optional(),
-  ferries: z.array(ferrySchema).max(50).optional(),
-  rentalCars: z.array(rentalCarSchema).max(20).optional(),
-  activities: z.array(activitySchema).max(100).optional(),
+  lodgings: z.array(lodgingSchema).optional(),
+  transfers: z.array(transferSchema).default([]),
+  trains: z.array(trainSchema).optional(),
+  ferries: z.array(ferrySchema).optional(),
+  rentalCars: z.array(rentalCarSchema).optional(),
+  activities: z.array(activitySchema).optional(),
   cruise: cruiseSchema.optional(),
   insurance: insuranceSchema.default({}),
   pricing: pricingSchema.default({}),
-  itineraryDays: z.array(itineraryDaySchema).max(100).default([]),
+  itineraryDays: z.array(itineraryDaySchema).default([]),
 });
 
-// WhatsApp Agent validation
+// WhatsApp Agent validation - no length restrictions
 export const whatsappAgentSchema = z.object({
-  name: z.string().max(100).default(''),
-  phone: z.string().max(50).default(''),
+  name: z.string().default(''),
+  phone: z.string().default(''),
 });
 
 // Color validation (hex or hsl)
-const colorSchema = z.string().max(50).default('');
-const optionalColorSchema = z.string().max(50).optional().default('');
+const colorSchema = z.string().default('');
+const optionalColorSchema = z.string().optional().default('');
 
-// Template validation
+// Template validation - no length restrictions
 export const templateSchema = z.object({
-  id: z.string().max(100),
-  name: z.string().max(100, 'El nombre es demasiado largo'),
+  id: z.string(),
+  name: z.string(),
   logoUrl: z.preprocess(
     (val) => (val === null || val === undefined ? '' : String(val)),
     z.string().refine(
@@ -259,20 +259,20 @@ export const templateSchema = z.object({
     cardBackground: optionalColorSchema,
   }).passthrough(),
   fonts: z.object({
-    heading: z.string().max(100).default('Playfair Display'),
-    body: z.string().max(100).default('Inter'),
+    heading: z.string().default('Playfair Display'),
+    body: z.string().default('Inter'),
   }),
   styles: z.object({
-    borderRadius: z.string().max(50).default('12px'),
+    borderRadius: z.string().default('12px'),
     cardShadow: z.boolean().default(true),
     separatorStyle: z.enum(['line', 'dots', 'gradient', 'decorative', 'none']).default('line'),
     borderStyle: z.enum(['none', 'solid', 'dashed', 'double', 'decorative']).default('none'),
-    borderWidth: z.string().max(20).default('1px'),
+    borderWidth: z.string().default('1px'),
     backgroundPattern: z.enum(['none', 'dots', 'lines', 'grid', 'waves']).default('none'),
     cardStyle: z.enum(['flat', 'elevated', 'outlined', 'glass']).default('elevated'),
   }),
-  whatsappAgents: z.array(whatsappAgentSchema).max(20).default([]),
-  footerText: z.string().max(500).default(''),
+  whatsappAgents: z.array(whatsappAgentSchema).default([]),
+  footerText: z.string().default(''),
   sectionsToggles: z.object({
     flights: z.boolean().default(true),
     lodging: z.boolean().default(true),
