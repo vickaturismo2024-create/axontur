@@ -37,6 +37,11 @@ export const defaultTemplate: Template = {
     transfers: true,
     insurance: true,
     itinerary: true,
+    trains: true,
+    ferries: true,
+    rentalCars: true,
+    activities: true,
+    cruise: true,
   },
 };
 

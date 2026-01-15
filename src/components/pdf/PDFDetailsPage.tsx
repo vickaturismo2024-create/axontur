@@ -204,7 +204,7 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
       )}
 
       {/* Crucero */}
-      {template.sectionsToggles?.cruise && quote.cruise?.shipName && (
+      {(template.sectionsToggles?.cruise !== false) && quote.cruise?.shipName && (
         <SectionCard icon={Anchor} title="Crucero">
           <div className="grid grid-cols-2" style={{ gap: '12px' }}>
             <div>
@@ -336,7 +336,7 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
       )}
 
       {/* Trenes */}
-      {template.sectionsToggles?.trains && quote.trains && quote.trains.length > 0 && (
+      {(template.sectionsToggles?.trains !== false) && quote.trains && quote.trains.length > 0 && (
         <SectionCard icon={Train} title="Trenes">
           <div className="overflow-hidden rounded border" style={{ borderColor: secondaryColor }}>
             <table className="w-full" style={{ fontSize: '11px' }}>
@@ -367,7 +367,7 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
       )}
 
       {/* Ferrys */}
-      {template.sectionsToggles?.ferries && quote.ferries && quote.ferries.length > 0 && (
+      {(template.sectionsToggles?.ferries !== false) && quote.ferries && quote.ferries.length > 0 && (
         <SectionCard icon={Ship} title="Ferrys">
           <div className="overflow-hidden rounded border" style={{ borderColor: secondaryColor }}>
             <table className="w-full" style={{ fontSize: '11px' }}>
@@ -398,7 +398,7 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
       )}
 
       {/* Autos de alquiler */}
-      {template.sectionsToggles?.rentalCars && quote.rentalCars && quote.rentalCars.length > 0 && (
+      {(template.sectionsToggles?.rentalCars !== false) && quote.rentalCars && quote.rentalCars.length > 0 && (
         <SectionCard icon={Car} title="Autos de Alquiler">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {quote.rentalCars.map((car, index) => (
@@ -429,7 +429,7 @@ export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
       )}
 
       {/* Actividades/Excursiones */}
-      {template.sectionsToggles?.activities && quote.activities && quote.activities.length > 0 && (
+      {(template.sectionsToggles?.activities !== false) && quote.activities && quote.activities.length > 0 && (
         <SectionCard icon={Compass} title="Actividades y Excursiones">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {quote.activities.map((activity, index) => (
