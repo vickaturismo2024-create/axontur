@@ -48,6 +48,9 @@ export const lodgingSchema = z.object({
   nights: z.number().min(0).default(0),
   notes: z.string().default(''),
   destination: z.string().optional(),
+  isOption: z.boolean().optional(),
+  optionLabel: z.string().optional(),
+  pricePerNight: z.number().min(0).optional(),
 }).partial();
 
 // Transfer validation - no length restrictions

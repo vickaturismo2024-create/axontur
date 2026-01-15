@@ -38,52 +38,73 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
       </h2>
 
       {/* Ubicaciones de alojamientos */}
-      {(template.sectionsToggles?.lodging !== false) && allLodgings.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <div className="flex items-center" style={{ marginBottom: '12px', gap: '8px' }}>
-            <div 
-              className="flex items-center justify-center rounded"
-              style={{ 
-                width: '24px', 
-                height: '24px',
-                backgroundColor: `${primaryColor}1a`,
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              <MapPin style={{ width: '12px', height: '12px', color: primaryColor }} />
-            </div>
-            <h3 className="font-serif font-semibold" style={{ fontSize: '14px', color: primaryColor }}>
-              {allLodgings.length > 1 ? 'Ubicaciones de los Alojamientos' : 'Ubicación del Alojamiento'}
-            </h3>
-          </div>
+      {(template.sectionsToggles?.lodging !== false) && allLodgings.length > 0 && (() => {
+        // Solo mostrar alojamientos que tengan dirección
+        const lodgingsWithAddress = allLodgings.filter(l => l.address);
+        if (lodgingsWithAddress.length === 0) return null;
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {allLodgings.map((lodging, index) => (
+        return (
+          <div style={{ marginBottom: '20px' }}>
+            <div className="flex items-center" style={{ marginBottom: '12px', gap: '8px' }}>
               <div 
-                key={lodging.id || index}
-                className="rounded-lg border"
+                className="flex items-center justify-center rounded"
                 style={{ 
-                  padding: '12px',
-                  backgroundColor: bgColor,
-                  borderColor: secondaryColor
+                  width: '24px', 
+                  height: '24px',
+                  backgroundColor: `${primaryColor}1a`,
+                  WebkitPrintColorAdjust: 'exact',
+                  printColorAdjust: 'exact'
                 }}
               >
-                <div className="grid grid-cols-2" style={{ gap: '12px' }}>
-                  <div>
-                    {allLodgings.length > 1 && lodging.destination && (
-                      <p style={{ fontSize: '10px', marginBottom: '4px', color: `${primaryColor}80`, fontWeight: 500 }}>
-                        {lodging.destination}
+                <MapPin style={{ width: '12px', height: '12px', color: primaryColor }} />
+              </div>
+              <h3 className="font-serif font-semibold" style={{ fontSize: '14px', color: primaryColor }}>
+                {lodgingsWithAddress.length > 1 ? 'Ubicaciones de los Alojamientos' : 'Ubicación del Alojamiento'}
+              </h3>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {lodgingsWithAddress.map((lodging, index) => (
+                <div 
+                  key={lodging.id || index}
+                  className="rounded-lg border"
+                  style={{ 
+                    padding: '12px',
+                    backgroundColor: bgColor,
+                    borderColor: lodging.isOption ? `${secondaryColor}` : secondaryColor,
+                    borderStyle: lodging.isOption ? 'dashed' : 'solid'
+                  }}
+                >
+                  <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+                    <div>
+                      {lodging.isOption && (
+                        <span 
+                          className="rounded"
+                          style={{ 
+                            display: 'inline-block',
+                            marginBottom: '4px',
+                            padding: '1px 6px', 
+                            fontSize: '9px', 
+                            fontWeight: 600,
+                            backgroundColor: `${secondaryColor}80`,
+                            color: primaryColor
+                          }}
+                        >
+                          🏷️ {lodging.optionLabel || 'Opción'}
+                        </span>
+                      )}
+                      {lodgingsWithAddress.length > 1 && lodging.destination && (
+                        <p style={{ fontSize: '10px', marginBottom: '4px', color: `${primaryColor}80`, fontWeight: 500 }}>
+                          📍 {lodging.destination}
+                        </p>
+                      )}
+                      <h4 className="font-semibold" style={{ fontSize: '13px', color: primaryColor }}>
+                        {lodging.name}
+                      </h4>
+                      <p style={{ marginTop: '4px', fontSize: '11px', color: `${primaryColor}99` }}>
+                        {lodging.address}
                       </p>
-                    )}
-                    <h4 className="font-semibold" style={{ fontSize: '13px', color: primaryColor }}>
-                      {lodging.name}
-                    </h4>
-                    <p style={{ marginTop: '4px', fontSize: '11px', color: `${primaryColor}99` }}>
-                      {lodging.address}
-                    </p>
-                    
-                    {lodging.address && (
+                      
                       <a 
                         href={getMapsUrl(lodging.address)}
                         target="_blank"
@@ -102,41 +123,41 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
                         <ExternalLink style={{ width: '10px', height: '10px' }} />
                         Ver en Google Maps
                       </a>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Placeholder de mapa */}
-                  <div 
-                    className="overflow-hidden rounded-lg"
-                    style={{ 
-                      backgroundColor: cardBgColor,
-                      WebkitPrintColorAdjust: 'exact',
-                      printColorAdjust: 'exact'
-                    }}
-                  >
+                    {/* Placeholder de mapa */}
                     <div 
-                      className="flex items-center justify-center"
+                      className="overflow-hidden rounded-lg"
                       style={{ 
-                        height: allLodgings.length > 1 ? '80px' : '100px',
-                        background: `linear-gradient(to bottom right, ${cardBgColor}, ${secondaryColor})`,
+                        backgroundColor: cardBgColor,
                         WebkitPrintColorAdjust: 'exact',
                         printColorAdjust: 'exact'
                       }}
                     >
-                      <div className="text-center">
-                        <MapPin style={{ margin: '0 auto', width: '20px', height: '20px', color: `${primaryColor}99` }} />
-                        <p style={{ marginTop: '4px', fontSize: '9px', color: `${primaryColor}99` }}>
-                          Mapa
-                        </p>
+                      <div 
+                        className="flex items-center justify-center"
+                        style={{ 
+                          height: lodgingsWithAddress.length > 1 ? '80px' : '100px',
+                          background: `linear-gradient(to bottom right, ${cardBgColor}, ${secondaryColor})`,
+                          WebkitPrintColorAdjust: 'exact',
+                          printColorAdjust: 'exact'
+                        }}
+                      >
+                        <div className="text-center">
+                          <MapPin style={{ margin: '0 auto', width: '20px', height: '20px', color: `${primaryColor}99` }} />
+                          <p style={{ marginTop: '4px', fontSize: '9px', color: `${primaryColor}99` }}>
+                            Mapa
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Contactos con QR */}
       {template.whatsappAgents && template.whatsappAgents.length > 0 && (

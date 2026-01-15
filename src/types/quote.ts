@@ -29,6 +29,9 @@ export interface Lodging {
   nights: number;
   notes: string;
   destination?: string; // Para viajes multi-destino
+  isOption?: boolean; // Es una opción alternativa para el pasajero
+  optionLabel?: string; // Etiqueta para la opción (ej: "Opción 1", "Opción económica")
+  pricePerNight?: number; // Precio por noche para comparar opciones
 }
 
 export interface Transfer {

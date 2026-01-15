@@ -16,48 +16,66 @@ export type Database = {
     Tables: {
       quotes: {
         Row: {
+          activities: Json | null
           client: Json
           cover: Json
           created_at: string
+          cruise: Json | null
+          ferries: Json | null
           flights: Json
           id: string
           insurance: Json
           itinerary_days: Json
           lodging: Json
+          lodgings: Json | null
           pricing: Json
+          rental_cars: Json | null
           template_id: string | null
+          trains: Json | null
           transfers: Json
           trip: Json
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          activities?: Json | null
           client?: Json
           cover?: Json
           created_at?: string
+          cruise?: Json | null
+          ferries?: Json | null
           flights?: Json
           id?: string
           insurance?: Json
           itinerary_days?: Json
           lodging?: Json
+          lodgings?: Json | null
           pricing?: Json
+          rental_cars?: Json | null
           template_id?: string | null
+          trains?: Json | null
           transfers?: Json
           trip?: Json
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          activities?: Json | null
           client?: Json
           cover?: Json
           created_at?: string
+          cruise?: Json | null
+          ferries?: Json | null
           flights?: Json
           id?: string
           insurance?: Json
           itinerary_days?: Json
           lodging?: Json
+          lodgings?: Json | null
           pricing?: Json
+          rental_cars?: Json | null
           template_id?: string | null
+          trains?: Json | null
           transfers?: Json
           trip?: Json
           updated_at?: string
