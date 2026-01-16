@@ -10,13 +10,13 @@ interface PDFItineraryPagesProps {
   template: Template;
 }
 
-// Height estimates for pagination (very conservative)
+// Height estimates for pagination (realistic values)
 const HEIGHTS = {
-  PAGE_MAX: 600,
-  HEADER: 70,
-  DAY_BASE: 170, // Base height for a day
-  ACTIVITY: 35, // Height per activity
-  SUMMARY: 120,
+  PAGE_MAX: 900, // Realistic max for A4 content area
+  HEADER: 50,
+  DAY_BASE: 100, // Base height for a day
+  ACTIVITY: 22, // Height per activity
+  SUMMARY: 80,
 };
 
 interface Section {
