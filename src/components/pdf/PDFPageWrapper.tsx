@@ -18,7 +18,7 @@ export function PDFPageWrapper({
   secondaryColor = '#d4c4a8'
 }: PDFPageWrapperProps) {
   return (
-    <div className="pdf-page" style={{ backgroundColor }}>
+    <div className="pdf-page mb-8 print:mb-0" style={{ backgroundColor }}>
       {title && (
         <h2 
           className="font-serif font-bold border-b"
