@@ -1,5 +1,5 @@
 import { Quote, Template } from '@/types/quote';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plane } from 'lucide-react';
 
@@ -9,8 +9,16 @@ interface PDFCoverPageProps {
 }
 
 export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
+  // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "d 'de' MMMM, yyyy", { locale: es });
+    if (!dateString) return '';
+    try {
+      // parseISO handles YYYY-MM-DD format correctly without timezone offset
+      const date = parseISO(dateString);
+      return format(date, "d 'de' MMMM, yyyy", { locale: es });
+    } catch {
+      return dateString;
+    }
   };
 
   // Template colors

@@ -1,5 +1,5 @@
 import { Quote, Template } from '@/types/quote';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
   Plane, 
@@ -17,6 +17,17 @@ import {
 } from 'lucide-react';
 import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
+
+// Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  try {
+    const date = parseISO(dateString);
+    return format(date, "d MMM yyyy", { locale: es });
+  } catch {
+    return dateString;
+  }
+};
 
 interface PDFDetailsPagesProps {
   quote: Quote;
