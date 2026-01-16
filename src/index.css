@@ -151,13 +151,10 @@
   .pdf-page {
     @apply bg-white shadow-xl;
     width: 210mm;
-    height: 297mm;
     min-height: 297mm;
-    max-height: 297mm;
     padding: 15mm;
     font-family: 'Inter', sans-serif;
     box-sizing: border-box;
-    overflow: hidden;
     position: relative;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -255,7 +252,7 @@
     page-break-after: always;
     page-break-inside: avoid;
     break-after: page;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   .pdf-page:last-child {
