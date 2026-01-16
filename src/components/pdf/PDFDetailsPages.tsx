@@ -61,14 +61,7 @@ interface Section {
 }
 
 export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    try {
-      return format(new Date(dateString), "d MMM yyyy", { locale: es });
-    } catch {
-      return dateString;
-    }
-  };
+  // Use the module-level formatDate function (defined above with parseISO)
 
   // Template colors
   const primaryColor = template.colors.primary;

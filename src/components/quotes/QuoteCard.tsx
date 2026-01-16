@@ -12,7 +12,7 @@ import {
   Trash2,
   Eye 
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface QuoteCardProps {
@@ -32,8 +32,17 @@ export function QuoteCard({
   onPreview,
   onExport 
 }: QuoteCardProps) {
+  // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'd MMM yyyy', { locale: es });
+    if (!dateString) return '';
+    try {
+      // For ISO datetime strings (createdAt), parse normally
+      // For date-only strings (YYYY-MM-DD), use parseISO to avoid timezone offset
+      const date = dateString.includes('T') ? new Date(dateString) : parseISO(dateString);
+      return format(date, 'd MMM yyyy', { locale: es });
+    } catch {
+      return dateString;
+    }
   };
 
   return (
