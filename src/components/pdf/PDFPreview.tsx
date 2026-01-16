@@ -1,8 +1,8 @@
 import { Quote, Template } from '@/types/quote';
 import { PDFCoverPage } from './PDFCoverPage';
-import { PDFDetailsPage } from './PDFDetailsPage';
-import { PDFContactPage } from './PDFContactPage';
-import { PDFItineraryPage } from './PDFItineraryPage';
+import { PDFDetailsPages } from './PDFDetailsPages';
+import { PDFContactPages } from './PDFContactPages';
+import { PDFItineraryPages } from './PDFItineraryPages';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PDFPreviewProps {
@@ -20,21 +20,15 @@ export function PDFPreview({ quote, template }: PDFPreviewProps) {
             <PDFCoverPage quote={quote} template={template} />
           </div>
 
-          {/* Página 2: Detalles */}
-          <div className="mb-8">
-            <PDFDetailsPage quote={quote} template={template} />
-          </div>
+          {/* Páginas de Detalles (múltiples si es necesario) */}
+          <PDFDetailsPages quote={quote} template={template} />
 
-          {/* Página 3: Contacto */}
-          <div className="mb-8">
-            <PDFContactPage quote={quote} template={template} />
-          </div>
+          {/* Páginas de Contacto (múltiples si es necesario) */}
+          <PDFContactPages quote={quote} template={template} />
 
-          {/* Página 4: Itinerario */}
+          {/* Páginas de Itinerario (múltiples si es necesario) */}
           {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
-            <div className="mb-8">
-              <PDFItineraryPage quote={quote} template={template} />
-            </div>
+            <PDFItineraryPages quote={quote} template={template} />
           )}
         </div>
       </div>
