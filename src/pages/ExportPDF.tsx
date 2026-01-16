@@ -2,9 +2,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { defaultTemplate } from '@/data/demoData';
 import { PDFCoverPage } from '@/components/pdf/PDFCoverPage';
-import { PDFDetailsPage } from '@/components/pdf/PDFDetailsPage';
-import { PDFContactPage } from '@/components/pdf/PDFContactPage';
-import { PDFItineraryPage } from '@/components/pdf/PDFItineraryPage';
+import { PDFDetailsPages } from '@/components/pdf/PDFDetailsPages';
+import { PDFContactPages } from '@/components/pdf/PDFContactPages';
+import { PDFItineraryPages } from '@/components/pdf/PDFItineraryPages';
 import { PDFShareMenu } from '@/components/pdf/PDFShareMenu';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
@@ -55,15 +55,15 @@ const ExportPDF = () => {
           {/* Página 1: Portada */}
           <PDFCoverPage quote={quote} template={template} />
 
-          {/* Página 2: Detalles */}
-          <PDFDetailsPage quote={quote} template={template} />
+          {/* Páginas de Detalles (1 o más) */}
+          <PDFDetailsPages quote={quote} template={template} />
 
-          {/* Página 3: Contacto */}
-          <PDFContactPage quote={quote} template={template} />
+          {/* Páginas de Contacto (1 o más) */}
+          <PDFContactPages quote={quote} template={template} />
 
-          {/* Página 4: Itinerario */}
+          {/* Páginas de Itinerario (1 o más) */}
           {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
-            <PDFItineraryPage quote={quote} template={template} />
+            <PDFItineraryPages quote={quote} template={template} />
           )}
         </div>
       </div>
