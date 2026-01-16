@@ -23,22 +23,24 @@ interface PDFDetailsPagesProps {
   template: Template;
 }
 
-// Height estimates in pixels for pagination
+// Height estimates in pixels for pagination (more conservative estimates)
+// A4 page is 297mm with 15mm padding on each side = 267mm content height
+// 267mm ≈ 1009px at 96dpi, but we use more conservative 850px to account for variations
 const HEIGHTS = {
-  PAGE_MAX: 980, // Available height after margins
-  HEADER: 50,
-  SECTION_HEADER: 40,
-  FLIGHT_ROW: 35,
-  LODGING_CARD: 130,
-  CRUISE_BASE: 180,
-  CRUISE_ITINERARY_ROW: 25,
-  TRANSFER_ROW: 30,
-  TRAIN_ROW: 35,
-  FERRY_ROW: 35,
-  RENTAL_CAR: 90,
-  ACTIVITY: 85,
-  INSURANCE: 90,
-  PRICING: 180,
+  PAGE_MAX: 850, // Conservative max height to avoid overflow
+  HEADER: 60,
+  SECTION_HEADER: 50,
+  FLIGHT_ROW: 40,
+  LODGING_CARD: 160,
+  CRUISE_BASE: 220,
+  CRUISE_ITINERARY_ROW: 30,
+  TRANSFER_ROW: 35,
+  TRAIN_ROW: 40,
+  FERRY_ROW: 40,
+  RENTAL_CAR: 110,
+  ACTIVITY: 100,
+  INSURANCE: 110,
+  PRICING: 220,
 };
 
 interface Section {
