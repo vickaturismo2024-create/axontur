@@ -9,15 +9,15 @@ interface PDFContactPagesProps {
   template: Template;
 }
 
-// Height estimates for pagination
+// Height estimates for pagination (conservative)
 const HEIGHTS = {
-  PAGE_MAX: 980,
-  HEADER: 50,
-  SECTION_HEADER: 40,
-  LODGING_LOCATION: 130,
-  WHATSAPP_SECTION: 160,
-  AGENCY_BANNER: 100,
-  FOOTER: 40,
+  PAGE_MAX: 850,
+  HEADER: 60,
+  SECTION_HEADER: 50,
+  LODGING_LOCATION: 160,
+  WHATSAPP_SECTION: 200,
+  AGENCY_BANNER: 120,
+  FOOTER: 50,
 };
 
 interface Section {
