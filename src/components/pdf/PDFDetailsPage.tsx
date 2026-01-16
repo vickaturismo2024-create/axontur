@@ -1,5 +1,5 @@
 import { Quote, Template } from '@/types/quote';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
   Plane, 
@@ -22,10 +22,13 @@ interface PDFDetailsPageProps {
 }
 
 export function PDFDetailsPage({ quote, template }: PDFDetailsPageProps) {
+  // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
-      return format(new Date(dateString), "d MMM yyyy", { locale: es });
+      // parseISO handles YYYY-MM-DD format correctly without timezone offset
+      const date = parseISO(dateString);
+      return format(date, "d MMM yyyy", { locale: es });
     } catch {
       return dateString;
     }
