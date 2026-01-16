@@ -23,24 +23,24 @@ interface PDFDetailsPagesProps {
   template: Template;
 }
 
-// Height estimates in pixels for pagination (more conservative estimates)
+// Height estimates in pixels for pagination
 // A4 page is 297mm with 15mm padding on each side = 267mm content height
-// 267mm ≈ 1009px at 96dpi, but we use more conservative 850px to account for variations
+// 267mm ≈ 1009px at 96dpi, we use 900px as realistic limit
 const HEIGHTS = {
-  PAGE_MAX: 600, // Very conservative to ensure content fits on printed page
-  HEADER: 70,
-  SECTION_HEADER: 60,
-  FLIGHT_ROW: 50,
-  LODGING_CARD: 200,
-  CRUISE_BASE: 260,
-  CRUISE_ITINERARY_ROW: 40,
-  TRANSFER_ROW: 50,
-  TRAIN_ROW: 50,
-  FERRY_ROW: 50,
-  RENTAL_CAR: 140,
-  ACTIVITY: 130,
-  INSURANCE: 140,
-  PRICING: 260,
+  PAGE_MAX: 900, // Realistic max for A4 content area
+  HEADER: 50,
+  SECTION_HEADER: 45,
+  FLIGHT_ROW: 32,
+  LODGING_CARD: 140,
+  CRUISE_BASE: 180,
+  CRUISE_ITINERARY_ROW: 28,
+  TRANSFER_ROW: 32,
+  TRAIN_ROW: 32,
+  FERRY_ROW: 32,
+  RENTAL_CAR: 100,
+  ACTIVITY: 80,
+  INSURANCE: 100,
+  PRICING: 180,
 };
 
 interface Section {
@@ -728,14 +728,8 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     let currentPage: Section[] = [];
     let currentHeight = HEIGHTS.HEADER;
 
-    console.log('[PDFDetailsPages] Total sections:', sections.length);
-    console.log('[PDFDetailsPages] PAGE_MAX:', HEIGHTS.PAGE_MAX);
-
     for (const section of sections) {
-      console.log(`[PDFDetailsPages] Section ${section.id}: height=${section.height}, currentHeight=${currentHeight}, wouldBe=${currentHeight + section.height}`);
-      
       if (currentHeight + section.height > HEIGHTS.PAGE_MAX) {
-        console.log(`[PDFDetailsPages] PAGE BREAK before ${section.id}`);
         if (currentPage.length > 0) {
           pages.push(currentPage);
         }
@@ -751,7 +745,6 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
       pages.push(currentPage);
     }
 
-    console.log('[PDFDetailsPages] Total pages generated:', pages.length);
     return pages;
   };
 
