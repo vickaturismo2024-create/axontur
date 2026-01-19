@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras, Pricing } from '@/types/quote';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -810,6 +811,30 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             rows={2}
                           />
                         </div>
+                        <div className="grid grid-cols-2 gap-2 md:col-span-2">
+                          <div>
+                            <Label>Costo neto ({quote.trip.currency})</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={flight.cost || ''}
+                              onChange={(e) => updateFlight(flight.id, { cost: parseFloat(e.target.value) || undefined })}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <Label>Precio venta ({quote.trip.currency})</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={flight.price || ''}
+                              onChange={(e) => updateFlight(flight.id, { price: parseFloat(e.target.value) || undefined })}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -869,23 +894,13 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                         </div>
                         
                         {lodging.isOption && (
-                          <div className="mb-4 grid gap-4 md:grid-cols-2">
+                          <div className="mb-4">
                             <div>
                               <Label>Etiqueta de la opción</Label>
                               <Input
                                 value={lodging.optionLabel || ''}
                                 onChange={(e) => updateLodging(lodging.id!, { optionLabel: e.target.value })}
                                 placeholder="Opción económica, Opción premium..."
-                              />
-                            </div>
-                            <div>
-                              <Label>Precio por noche ({quote.trip.currency})</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                value={lodging.pricePerNight || ''}
-                                onChange={(e) => updateLodging(lodging.id!, { pricePerNight: parseFloat(e.target.value) || undefined })}
-                                placeholder="150"
                               />
                             </div>
                           </div>
@@ -974,6 +989,86 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                               rows={2}
                             />
                           </div>
+                          
+                          {/* Pricing mode and cost/price fields */}
+                          <div className="md:col-span-2 border-t pt-4 mt-2">
+                            <div className="mb-4 flex items-center gap-4">
+                              <Label className="text-sm font-medium">Modo de precio:</Label>
+                              <RadioGroup
+                                value={lodging.pricingMode || 'perNight'}
+                                onValueChange={(value) => updateLodging(lodging.id!, { 
+                                  pricingMode: value as 'perNight' | 'total' 
+                                })}
+                                className="flex gap-4"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <RadioGroupItem value="perNight" id={`perNight-${lodging.id}`} />
+                                  <Label htmlFor={`perNight-${lodging.id}`} className="font-normal cursor-pointer">Por noche</Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <RadioGroupItem value="total" id={`total-${lodging.id}`} />
+                                  <Label htmlFor={`total-${lodging.id}`} className="font-normal cursor-pointer">Total estadía</Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+
+                            {(lodging.pricingMode || 'perNight') === 'perNight' ? (
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Costo por noche ({quote.trip.currency})</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={lodging.costPerNight || ''}
+                                    onChange={(e) => updateLodging(lodging.id!, { costPerNight: parseFloat(e.target.value) || undefined })}
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Precio por noche ({quote.trip.currency})</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={lodging.pricePerNight || ''}
+                                    onChange={(e) => updateLodging(lodging.id!, { pricePerNight: parseFloat(e.target.value) || undefined })}
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                {lodging.nights > 0 && (lodging.costPerNight || lodging.pricePerNight) && (
+                                  <div className="col-span-2 text-sm text-muted-foreground">
+                                    Total calculado: {lodging.nights} noches × {quote.trip.currency} {(lodging.pricePerNight || 0).toFixed(2)} = {quote.trip.currency} {((lodging.pricePerNight || 0) * lodging.nights).toFixed(2)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Costo total ({lodging.nights} noches)</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={lodging.totalCost || ''}
+                                    onChange={(e) => updateLodging(lodging.id!, { totalCost: parseFloat(e.target.value) || undefined })}
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Precio total ({lodging.nights} noches)</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={lodging.totalPrice || ''}
+                                    onChange={(e) => updateLodging(lodging.id!, { totalPrice: parseFloat(e.target.value) || undefined })}
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -1059,6 +1154,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 />
                                 Incluido en el paquete
                               </label>
+                            </div>
+                            <div>
+                              <Label>Costo neto ({quote.trip.currency})</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={transfer.cost || ''}
+                                onChange={(e) => updateTransfer(transfer.id, { cost: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <Label>Precio venta ({quote.trip.currency})</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={transfer.price || ''}
+                                onChange={(e) => updateTransfer(transfer.id, { price: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
+                              />
                             </div>
                           </div>
                         </CardContent>
@@ -1167,6 +1284,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 rows={2}
                               />
                             </div>
+                            <div>
+                              <Label>Costo neto ({quote.trip.currency})</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={train.cost || ''}
+                                onChange={(e) => updateTrain(train.id, { cost: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <Label>Precio venta ({quote.trip.currency})</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={train.price || ''}
+                                onChange={(e) => updateTrain(train.id, { price: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
+                              />
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -1264,6 +1403,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 onChange={(e) => updateFerry(ferry.id, { notes: e.target.value })}
                                 placeholder="Vista al mar, restaurante a bordo..."
                                 rows={2}
+                              />
+                            </div>
+                            <div>
+                              <Label>Costo neto ({quote.trip.currency})</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={ferry.cost || ''}
+                                onChange={(e) => updateFerry(ferry.id, { cost: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <Label>Precio venta ({quote.trip.currency})</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={ferry.price || ''}
+                                onChange={(e) => updateFerry(ferry.id, { price: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
                               />
                             </div>
                           </div>
@@ -1371,6 +1532,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 rows={2}
                               />
                             </div>
+                            <div>
+                              <Label>Costo neto ({quote.trip.currency})</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={car.cost || ''}
+                                onChange={(e) => updateRentalCar(car.id, { cost: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <Label>Precio venta ({quote.trip.currency})</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={car.price || ''}
+                                onChange={(e) => updateRentalCar(car.id, { price: parseFloat(e.target.value) || undefined })}
+                                placeholder="0.00"
+                              />
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -1459,6 +1642,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                               min={0}
                               value={quote.cruise.nights}
                               onChange={(e) => updateCruise({ nights: parseInt(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div>
+                            <Label>Costo neto total ({quote.trip.currency})</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={quote.cruise.cost || ''}
+                              onChange={(e) => updateCruise({ cost: parseFloat(e.target.value) || undefined })}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <Label>Precio venta total ({quote.trip.currency})</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={quote.cruise.price || ''}
+                              onChange={(e) => updateCruise({ price: parseFloat(e.target.value) || undefined })}
+                              placeholder="0.00"
                             />
                           </div>
                         </div>
@@ -1749,18 +1954,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             Incluida en el paquete
                           </label>
                         </div>
-                        {!activity.included && (
-                          <div>
-                            <Label>Precio (opcional)</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={activity.price || ''}
-                              onChange={(e) => updateActivity(activity.id, { price: parseFloat(e.target.value) || undefined })}
-                              placeholder="150"
-                            />
-                          </div>
-                        )}
+                        <div>
+                          <Label>Costo neto ({quote.trip.currency})</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={activity.cost || ''}
+                            onChange={(e) => updateActivity(activity.id, { cost: parseFloat(e.target.value) || undefined })}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <Label>Precio venta ({quote.trip.currency})</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={activity.price || ''}
+                            onChange={(e) => updateActivity(activity.id, { price: parseFloat(e.target.value) || undefined })}
+                            placeholder="0.00"
+                          />
+                        </div>
                         <div className="md:col-span-2">
                           <Label>Notas</Label>
                           <Textarea
@@ -1815,6 +2030,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                     onChange={(e) => updateQuote({ insurance: { ...quote.insurance, notes: e.target.value } })}
                     placeholder="Cobertura COVID-19 incluida..."
                     rows={2}
+                  />
+                </div>
+                <div>
+                  <Label>Costo neto ({quote.trip.currency})</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={quote.insurance.cost || ''}
+                    onChange={(e) => updateQuote({ insurance: { ...quote.insurance, cost: parseFloat(e.target.value) || undefined } })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Precio venta ({quote.trip.currency})</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={quote.insurance.price || ''}
+                    onChange={(e) => updateQuote({ insurance: { ...quote.insurance, price: parseFloat(e.target.value) || undefined } })}
+                    placeholder="0.00"
                   />
                 </div>
               </div>

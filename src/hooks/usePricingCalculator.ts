@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Quote, Pricing, LodgingOptionPricing, PricingBreakdown } from '@/types/quote';
+import { Quote, Pricing, LodgingOptionPricing, PricingBreakdown, Lodging } from '@/types/quote';
 
 export interface PricingCalculation {
   fixedServices: {
@@ -90,6 +90,21 @@ export function usePricingCalculator(quote: Quote): PricingCalculation {
              breakdown.cruise.price + breakdown.insurance.price,
     };
 
+    // Helper to calculate lodging totals based on pricing mode
+    const calculateLodgingTotals = (lodging: Lodging) => {
+      if (lodging.pricingMode === 'total') {
+        return {
+          cost: lodging.totalCost || 0,
+          price: lodging.totalPrice || 0,
+        };
+      } else {
+        return {
+          cost: (lodging.costPerNight || 0) * (lodging.nights || 0),
+          price: (lodging.pricePerNight || 0) * (lodging.nights || 0),
+        };
+      }
+    };
+
     // Get all lodgings
     const allLodgings = (quote.lodgings && quote.lodgings.length > 0)
       ? quote.lodgings
@@ -100,9 +115,9 @@ export function usePricingCalculator(quote: Quote): PricingCalculation {
 
     // Calculate main lodging total cost/price
     const mainLodgingCost = mainLodgings.reduce((sum, l) => 
-      sum + ((l.costPerNight || 0) * (l.nights || 0)), 0);
+      sum + calculateLodgingTotals(l).cost, 0);
     const mainLodgingPrice = mainLodgings.reduce((sum, l) => 
-      sum + ((l.pricePerNight || 0) * (l.nights || 0)), 0);
+      sum + calculateLodgingTotals(l).price, 0);
 
     const travelers = quote.trip.travelers || 1;
 
@@ -111,8 +126,7 @@ export function usePricingCalculator(quote: Quote): PricingCalculation {
     
     if (optionLodgings.length > 0) {
       lodgingOptionsPricing = optionLodgings.map((lodging, index) => {
-        const lodgingCost = (lodging.costPerNight || 0) * (lodging.nights || 0);
-        const lodgingPrice = (lodging.pricePerNight || 0) * (lodging.nights || 0);
+        const { cost: lodgingCost, price: lodgingPrice } = calculateLodgingTotals(lodging);
         
         // Total = fixed services + main lodging + this option
         const totalCost = fixedServices.cost + mainLodgingCost + lodgingCost;
