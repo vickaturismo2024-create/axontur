@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras } from '@/types/quote';
+import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras, Pricing } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,6 +38,7 @@ import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { defaultTemplate } from '@/data/demoData';
 import { PNRParserDialog } from '@/components/quotes/PNRParserDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PricingSection } from '@/components/quotes/PricingSection';
 
 interface QuoteWizardProps {
   initialQuote?: Quote;
@@ -1821,61 +1822,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
             {/* Precio */}
             {currentStep === 9 && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Precio total</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={quote.pricing.totalPrice}
-                    onChange={(e) => updateQuote({ pricing: { ...quote.pricing, totalPrice: parseFloat(e.target.value) || 0 } })}
-                  />
-                </div>
-                <div>
-                  <Label>Precio por persona</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={quote.pricing.pricePerPerson}
-                    onChange={(e) => updateQuote({ pricing: { ...quote.pricing, pricePerPerson: parseFloat(e.target.value) || 0 } })}
-                  />
-                </div>
-                <div>
-                  <Label>Impuestos</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={quote.pricing.taxes}
-                    onChange={(e) => updateQuote({ pricing: { ...quote.pricing, taxes: parseFloat(e.target.value) || 0 } })}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Forma de pago</Label>
-                  <Input
-                    value={quote.pricing.paymentMethod}
-                    onChange={(e) => updateQuote({ pricing: { ...quote.pricing, paymentMethod: e.target.value } })}
-                    placeholder="Transferencia bancaria o tarjeta de crédito"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Condiciones</Label>
-                  <Textarea
-                    value={quote.pricing.conditions}
-                    onChange={(e) => updateQuote({ pricing: { ...quote.pricing, conditions: e.target.value } })}
-                    placeholder="Seña del 30% al confirmar..."
-                    rows={2}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Observaciones</Label>
-                  <Textarea
-                    value={quote.pricing.observations}
-                    onChange={(e) => updateQuote({ pricing: { ...quote.pricing, observations: e.target.value } })}
-                    placeholder="Precio sujeto a disponibilidad..."
-                    rows={2}
-                  />
-                </div>
-              </div>
+              <PricingSection
+                quote={quote}
+                onUpdatePricing={(pricingUpdates) => updateQuote({ pricing: { ...quote.pricing, ...pricingUpdates } })}
+              />
             )}
 
             {/* Itinerario */}

@@ -15,6 +15,8 @@ export interface Flight {
   flightNumber: string;
   luggage: string;
   notes: string;
+  cost?: number;
+  price?: number;
 }
 
 export interface Lodging {
@@ -31,7 +33,8 @@ export interface Lodging {
   destination?: string; // Para viajes multi-destino
   isOption?: boolean; // Es una opción alternativa para el pasajero
   optionLabel?: string; // Etiqueta para la opción (ej: "Opción 1", "Opción económica")
-  pricePerNight?: number; // Precio por noche para comparar opciones
+  costPerNight?: number; // Costo real por noche (interno)
+  pricePerNight?: number; // Precio de venta por noche
 }
 
 export interface Transfer {
@@ -40,6 +43,8 @@ export interface Transfer {
   description: string;
   dateTime: string;
   included: boolean;
+  cost?: number;
+  price?: number;
 }
 
 // Nuevos tipos de transporte
@@ -55,6 +60,8 @@ export interface Train {
   class: string;
   seat: string;
   notes: string;
+  cost?: number;
+  price?: number;
 }
 
 export interface Ferry {
@@ -68,6 +75,8 @@ export interface Ferry {
   vessel: string;
   cabinType: string;
   notes: string;
+  cost?: number;
+  price?: number;
 }
 
 export interface RentalCar {
@@ -82,6 +91,8 @@ export interface RentalCar {
   carType: string;
   extras: string; // GPS, silla bebé, etc
   notes: string;
+  cost?: number;
+  price?: number;
 }
 
 // Excursiones/Actividades
@@ -94,6 +105,7 @@ export interface Activity {
   duration: string;
   location: string;
   included: boolean;
+  cost?: number;
   price?: number;
   notes: string;
 }
@@ -115,6 +127,8 @@ export interface Cruise {
   itinerary: CruisePort[];
   extras: CruiseExtras;
   notes: string;
+  cost?: number;
+  price?: number;
 }
 
 export interface CruisePort {
@@ -142,6 +156,33 @@ export interface Insurance {
   plan: string;
   coverage: string;
   notes: string;
+  cost?: number;
+  price?: number;
+}
+
+// Precio calculado por opción de alojamiento
+export interface LodgingOptionPricing {
+  lodgingId: string;
+  lodgingLabel: string;
+  lodgingCost: number;
+  lodgingPrice: number;
+  totalPrice: number;
+  totalCost: number;
+  pricePerPerson: number;
+  margin: number;
+  marginPercentage: number;
+}
+
+// Desglose de precios por categoría
+export interface PricingBreakdown {
+  flights: { cost: number; price: number };
+  transfers: { cost: number; price: number };
+  trains: { cost: number; price: number };
+  ferries: { cost: number; price: number };
+  rentalCars: { cost: number; price: number };
+  activities: { cost: number; price: number };
+  cruise: { cost: number; price: number };
+  insurance: { cost: number; price: number };
 }
 
 export interface Pricing {
@@ -151,6 +192,19 @@ export interface Pricing {
   paymentMethod: string;
   conditions: string;
   observations: string;
+  // Modo de cálculo
+  calculationMode?: 'manual' | 'automatic';
+  // Servicios fijos (sin alojamiento)
+  fixedServicesTotal?: number;
+  fixedServicesCost?: number;
+  // Desglose por categoría
+  breakdown?: PricingBreakdown;
+  // Precios por opción de alojamiento
+  lodgingOptions?: LodgingOptionPricing[];
+  // Margen general (para cuando hay un solo alojamiento)
+  totalCost?: number;
+  margin?: number;
+  marginPercentage?: number;
 }
 
 export interface ItineraryDay {
