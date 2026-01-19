@@ -35,6 +35,9 @@ export interface Lodging {
   optionLabel?: string; // Etiqueta para la opción (ej: "Opción 1", "Opción económica")
   costPerNight?: number; // Costo real por noche (interno)
   pricePerNight?: number; // Precio de venta por noche
+  totalCost?: number; // Costo total de la estadía (si pricingMode = 'total')
+  totalPrice?: number; // Precio total de la estadía (si pricingMode = 'total')
+  pricingMode?: 'perNight' | 'total'; // Modo de ingreso de precios
 }
 
 export interface Transfer {
