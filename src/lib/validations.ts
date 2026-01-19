@@ -33,6 +33,8 @@ export const flightSchema = z.object({
   flightNumber: z.string().default(''),
   luggage: z.string().default(''),
   notes: z.string().default(''),
+  cost: z.number().min(0).optional(),
+  price: z.number().min(0).optional(),
 });
 
 // Lodging validation - no length restrictions
@@ -50,6 +52,7 @@ export const lodgingSchema = z.object({
   destination: z.string().optional(),
   isOption: z.boolean().optional(),
   optionLabel: z.string().optional(),
+  costPerNight: z.number().min(0).optional(),
   pricePerNight: z.number().min(0).optional(),
 }).partial();
 
@@ -60,6 +63,8 @@ export const transferSchema = z.object({
   description: z.string().default(''),
   dateTime: z.string().default(''),
   included: z.boolean().default(false),
+  cost: z.number().min(0).optional(),
+  price: z.number().min(0).optional(),
 });
 
 // Train validation - no length restrictions
@@ -75,6 +80,8 @@ export const trainSchema = z.object({
   class: z.string().default(''),
   seat: z.string().default(''),
   notes: z.string().default(''),
+  cost: z.number().min(0).optional(),
+  price: z.number().min(0).optional(),
 });
 
 // Ferry validation - no length restrictions
@@ -89,6 +96,8 @@ export const ferrySchema = z.object({
   vessel: z.string().default(''),
   cabinType: z.string().default(''),
   notes: z.string().default(''),
+  cost: z.number().min(0).optional(),
+  price: z.number().min(0).optional(),
 });
 
 // Rental Car validation - no length restrictions
@@ -104,6 +113,8 @@ export const rentalCarSchema = z.object({
   carType: z.string().default(''),
   extras: z.string().default(''),
   notes: z.string().default(''),
+  cost: z.number().min(0).optional(),
+  price: z.number().min(0).optional(),
 });
 
 // Activity validation - no length restrictions
@@ -116,6 +127,7 @@ export const activitySchema = z.object({
   duration: z.string().default(''),
   location: z.string().default(''),
   included: z.boolean().default(false),
+  cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
   notes: z.string().default(''),
 });
@@ -159,6 +171,8 @@ export const cruiseSchema = z.object({
   itinerary: z.array(cruisePortSchema).default([]),
   extras: cruiseExtrasSchema.default({}),
   notes: z.string().default(''),
+  cost: z.number().min(0).optional(),
+  price: z.number().min(0).optional(),
 });
 
 // Insurance validation - no length restrictions
@@ -167,7 +181,34 @@ export const insuranceSchema = z.object({
   plan: z.string().default(''),
   coverage: z.string().default(''),
   notes: z.string().default(''),
+  cost: z.number().min(0).optional(),
+  price: z.number().min(0).optional(),
 }).partial();
+
+// Lodging option pricing schema
+const lodgingOptionPricingSchema = z.object({
+  lodgingId: z.string(),
+  lodgingLabel: z.string(),
+  lodgingCost: z.number().min(0).default(0),
+  lodgingPrice: z.number().min(0).default(0),
+  totalPrice: z.number().min(0).default(0),
+  totalCost: z.number().min(0).default(0),
+  pricePerPerson: z.number().min(0).default(0),
+  margin: z.number().default(0),
+  marginPercentage: z.number().default(0),
+});
+
+// Pricing breakdown schema
+const pricingBreakdownSchema = z.object({
+  flights: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
+  transfers: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
+  trains: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
+  ferries: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
+  rentalCars: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
+  activities: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
+  cruise: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
+  insurance: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
+});
 
 // Pricing validation - no length restrictions
 export const pricingSchema = z.object({
@@ -177,6 +218,14 @@ export const pricingSchema = z.object({
   paymentMethod: z.string().default(''),
   conditions: z.string().default(''),
   observations: z.string().default(''),
+  calculationMode: z.enum(['manual', 'automatic']).optional(),
+  fixedServicesTotal: z.number().min(0).optional(),
+  fixedServicesCost: z.number().min(0).optional(),
+  breakdown: pricingBreakdownSchema.optional(),
+  lodgingOptions: z.array(lodgingOptionPricingSchema).optional(),
+  totalCost: z.number().min(0).optional(),
+  margin: z.number().optional(),
+  marginPercentage: z.number().optional(),
 }).partial();
 
 // Itinerary day validation - no length restrictions

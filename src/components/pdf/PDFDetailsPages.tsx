@@ -663,35 +663,74 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     }
 
     // Pricing section (always last)
+    const hasLodgingOptions = quote.pricing?.lodgingOptions && quote.pricing.lodgingOptions.length > 0;
+    
     sections.push({
       id: 'pricing',
-      height: HEIGHTS.PRICING,
+      height: hasLodgingOptions ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) : HEIGHTS.PRICING,
       component: (
         <SectionCard icon={DollarSign} title="Valor del Viaje">
-          <div 
-            className="rounded-lg text-white"
-            style={{ 
-              padding: '12px',
-              background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
-              WebkitPrintColorAdjust: 'exact',
-              printColorAdjust: 'exact'
-            }}
-          >
-            <div className="flex items-end justify-between">
-              <div>
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio total</p>
-                <p className="font-serif font-bold" style={{ fontSize: '22px' }}>
-                  {quote.trip.currency} {(quote.pricing?.totalPrice || 0).toLocaleString()}
-                </p>
-              </div>
-              <div className="text-right">
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Por persona</p>
-                <p className="font-serif" style={{ fontSize: '16px' }}>
-                  {quote.trip.currency} {(quote.pricing?.pricePerPerson || 0).toLocaleString()}
-                </p>
+          {hasLodgingOptions ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {quote.pricing.lodgingOptions!.map((option, idx) => (
+                <div 
+                  key={option.lodgingId}
+                  className="rounded-lg text-white"
+                  style={{ 
+                    padding: '12px',
+                    background: idx === 0 
+                      ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
+                      : `linear-gradient(135deg, ${secondaryColor} 0%, ${accentColor} 100%)`,
+                    WebkitPrintColorAdjust: 'exact',
+                    printColorAdjust: 'exact'
+                  }}
+                >
+                  <p style={{ fontSize: '10px', marginBottom: '6px', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
+                    🏷️ {option.lodgingLabel.toUpperCase()}
+                  </p>
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio total</p>
+                      <p className="font-serif font-bold" style={{ fontSize: '20px' }}>
+                        {quote.trip.currency} {option.totalPrice.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Por persona</p>
+                      <p className="font-serif" style={{ fontSize: '14px' }}>
+                        {quote.trip.currency} {option.pricePerPerson.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div 
+              className="rounded-lg text-white"
+              style={{ 
+                padding: '12px',
+                background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }}
+            >
+              <div className="flex items-end justify-between">
+                <div>
+                  <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio total</p>
+                  <p className="font-serif font-bold" style={{ fontSize: '22px' }}>
+                    {quote.trip.currency} {(quote.pricing?.totalPrice || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Por persona</p>
+                  <p className="font-serif" style={{ fontSize: '16px' }}>
+                    {quote.trip.currency} {(quote.pricing?.pricePerPerson || 0).toLocaleString()}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
           <div style={{ marginTop: '10px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {quote.pricing?.taxes !== undefined && quote.pricing.taxes > 0 && (
               <p><span style={{ color: `${primaryColor}99` }}>Impuestos:</span> {quote.trip.currency} {quote.pricing.taxes.toLocaleString()}</p>

@@ -57,9 +57,16 @@ export function QuoteCard({
               {quote.trip.destination}
             </h3>
           </div>
-          <Badge variant="secondary" className="bg-gold/20 text-gold-dark">
-            {quote.trip.currency} {quote.pricing.totalPrice.toLocaleString()}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="bg-gold/20 text-gold-dark">
+              {quote.trip.currency} {quote.pricing.totalPrice.toLocaleString()}
+            </Badge>
+            {quote.pricing.marginPercentage !== undefined && quote.pricing.marginPercentage > 0 && (
+              <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                📈 {quote.pricing.marginPercentage.toFixed(1)}%
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4">
