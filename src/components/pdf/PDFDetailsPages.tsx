@@ -451,6 +451,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Cruise section
     if ((template.sectionsToggles?.cruise !== false) && quote.cruise?.shipName) {
+      const showCruisePrices = showItemPrices && itemPricesConfig.cruise;
       const cruiseItineraryLength = quote.cruise.itinerary?.length || 0;
       sections.push({
         id: 'cruise',
@@ -475,6 +476,11 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                 {quote.cruise.embarkationDate && <p style={{ fontSize: '10px', color: `${primaryColor}80` }}>{formatDate(quote.cruise.embarkationDate)}</p>}
                 <p style={{ marginTop: '4px' }}><span style={{ color: `${primaryColor}99` }}>Desembarque:</span> {quote.cruise.disembarkationPort}</p>
                 {quote.cruise.disembarkationDate && <p style={{ fontSize: '10px', color: `${primaryColor}80` }}>{formatDate(quote.cruise.disembarkationDate)}</p>}
+                {showCruisePrices && formatCurrency(quote.cruise.price) && (
+                  <p style={{ marginTop: '6px', fontWeight: 600, color: primaryColor }}>
+                    Precio: {formatCurrency(quote.cruise.price)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -559,6 +565,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Transfers section
     if (template.sectionsToggles.transfers && quote.transfers.length > 0) {
+      const showTransferPrices = showItemPrices && itemPricesConfig.transfers;
+      const transfersTotalPrice = quote.transfers.reduce((sum, t) => sum + (t.price || 0), 0);
+      
       sections.push({
         id: 'transfers',
         height: HEIGHTS.SECTION_HEADER + (quote.transfers.length * HEIGHTS.TRANSFER_ROW) + 20,
@@ -567,26 +576,38 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
             <ul style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {quote.transfers.map((transfer) => (
                 <li key={transfer.id} className="flex items-center justify-between" style={{ fontSize: '11px' }}>
-                  <span>
+                  <span style={{ flex: 1 }}>
                     <span className="font-medium">{transfer.type}:</span> {transfer.description}
                     {transfer.dateTime && <span style={{ marginLeft: '6px', color: `${primaryColor}80` }}>({transfer.dateTime})</span>}
                   </span>
-                  <span 
-                    className="rounded"
-                    style={{ 
-                      padding: '2px 6px', 
-                      fontSize: '9px',
-                      backgroundColor: transfer.included ? 'hsl(142 70% 95%)' : `${accentColor}33`,
-                      color: transfer.included ? 'hsl(142 70% 30%)' : primaryColor,
-                      WebkitPrintColorAdjust: 'exact',
-                      printColorAdjust: 'exact'
-                    }}
-                  >
-                    {transfer.included ? 'Incluido' : 'Opcional'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {showTransferPrices && formatCurrency(transfer.price) && (
+                      <span style={{ fontWeight: 500 }}>{formatCurrency(transfer.price)}</span>
+                    )}
+                    <span 
+                      className="rounded"
+                      style={{ 
+                        padding: '2px 6px', 
+                        fontSize: '9px',
+                        backgroundColor: transfer.included ? 'hsl(142 70% 95%)' : `${accentColor}33`,
+                        color: transfer.included ? 'hsl(142 70% 30%)' : primaryColor,
+                        WebkitPrintColorAdjust: 'exact',
+                        printColorAdjust: 'exact'
+                      }}
+                    >
+                      {transfer.included ? 'Incluido' : 'Opcional'}
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>
+            {showTransferPrices && transfersTotalPrice > 0 && (
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${secondaryColor}`, textAlign: 'right' }}>
+                <span style={{ fontWeight: 600, color: primaryColor }}>
+                  Total traslados: {formatCurrency(transfersTotalPrice)}
+                </span>
+              </div>
+            )}
           </SectionCard>
         )
       });
@@ -594,6 +615,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Trains section
     if ((template.sectionsToggles?.trains !== false) && quote.trains && quote.trains.length > 0) {
+      const showTrainPrices = showItemPrices && itemPricesConfig.trains;
+      const trainsTotalPrice = quote.trains.reduce((sum, t) => sum + (t.price || 0), 0);
+      
       sections.push({
         id: 'trains',
         height: HEIGHTS.SECTION_HEADER + (quote.trains.length * HEIGHTS.TRAIN_ROW) + 40,
@@ -607,6 +631,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Fecha</th>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Horario</th>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Tren</th>
+                    {showTrainPrices && (
+                      <th className="text-right font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Precio</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -619,9 +646,26 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                         {train.company} {train.trainNumber}
                         {train.class && <span style={{ marginLeft: '4px', fontSize: '10px', color: `${primaryColor}80` }}>({train.class})</span>}
                       </td>
+                      {showTrainPrices && (
+                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500 }}>
+                          {formatCurrency(train.price) || '-'}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
+                {showTrainPrices && trainsTotalPrice > 0 && (
+                  <tfoot style={{ backgroundColor: cardBgColor, borderTop: `1px solid ${secondaryColor}` }}>
+                    <tr>
+                      <td colSpan={4} style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: primaryColor }}>
+                        Total trenes:
+                      </td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: primaryColor }}>
+                        {formatCurrency(trainsTotalPrice)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </SectionCard>
@@ -631,6 +675,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Ferries section
     if ((template.sectionsToggles?.ferries !== false) && quote.ferries && quote.ferries.length > 0) {
+      const showFerryPrices = showItemPrices && itemPricesConfig.ferries;
+      const ferriesTotalPrice = quote.ferries.reduce((sum, f) => sum + (f.price || 0), 0);
+      
       sections.push({
         id: 'ferries',
         height: HEIGHTS.SECTION_HEADER + (quote.ferries.length * HEIGHTS.FERRY_ROW) + 40,
@@ -644,6 +691,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Fecha</th>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Horario</th>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Compañía</th>
+                    {showFerryPrices && (
+                      <th className="text-right font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Precio</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -656,9 +706,26 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                         {ferry.company}
                         {ferry.vessel && <span style={{ marginLeft: '4px', fontSize: '10px', color: `${primaryColor}80` }}>({ferry.vessel})</span>}
                       </td>
+                      {showFerryPrices && (
+                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500 }}>
+                          {formatCurrency(ferry.price) || '-'}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
+                {showFerryPrices && ferriesTotalPrice > 0 && (
+                  <tfoot style={{ backgroundColor: cardBgColor, borderTop: `1px solid ${secondaryColor}` }}>
+                    <tr>
+                      <td colSpan={4} style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: primaryColor }}>
+                        Total ferrys:
+                      </td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: primaryColor }}>
+                        {formatCurrency(ferriesTotalPrice)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </SectionCard>
@@ -668,6 +735,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Rental Cars section
     if ((template.sectionsToggles?.rentalCars !== false) && quote.rentalCars && quote.rentalCars.length > 0) {
+      const showRentalCarPrices = showItemPrices && itemPricesConfig.rentalCars;
+      const rentalCarsTotalPrice = quote.rentalCars.reduce((sum, c) => sum + (c.price || 0), 0);
+      
       sections.push({
         id: 'rentalCars',
         height: HEIGHTS.SECTION_HEADER + (quote.rentalCars.length * HEIGHTS.RENTAL_CAR),
@@ -692,12 +762,24 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                       <p>{formatDate(car.dropoffDate)} {car.dropoffTime}</p>
                     </div>
                   </div>
-                  {car.extras && (
+                  {car.extras && car.extras.trim() !== '' && (
                     <p style={{ marginTop: '4px', fontSize: '10px', color: `${primaryColor}80` }}>Extras: {car.extras}</p>
+                  )}
+                  {showRentalCarPrices && formatCurrency(car.price) && (
+                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px dashed ${secondaryColor}`, textAlign: 'right' }}>
+                      <span style={{ fontWeight: 600, color: primaryColor }}>{formatCurrency(car.price)}</span>
+                    </div>
                   )}
                 </div>
               ))}
             </div>
+            {showRentalCarPrices && rentalCarsTotalPrice > 0 && (
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${secondaryColor}`, textAlign: 'right' }}>
+                <span style={{ fontWeight: 600, color: primaryColor }}>
+                  Total autos: {formatCurrency(rentalCarsTotalPrice)}
+                </span>
+              </div>
+            )}
           </SectionCard>
         )
       });
@@ -705,6 +787,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Activities section
     if ((template.sectionsToggles?.activities !== false) && quote.activities && quote.activities.length > 0) {
+      const showActivityPrices = showItemPrices && itemPricesConfig.activities;
+      const activitiesTotalPrice = quote.activities.reduce((sum, a) => sum + (a.price || 0), 0);
+      
       sections.push({
         id: 'activities',
         height: HEIGHTS.SECTION_HEADER + (quote.activities.length * HEIGHTS.ACTIVITY),
@@ -756,15 +841,22 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                     >
                       {activity.included ? 'Incluida' : 'Opcional'}
                     </span>
-                    {activity.price !== undefined && activity.price > 0 && (
+                    {showActivityPrices && activity.price !== undefined && activity.price > 0 && (
                       <p style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: primaryColor }}>
-                        {quote.trip.currency} {activity.price.toLocaleString()}
+                        {formatCurrency(activity.price)}
                       </p>
                     )}
                   </div>
                 </div>
               ))}
             </div>
+            {showActivityPrices && activitiesTotalPrice > 0 && (
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${secondaryColor}`, textAlign: 'right' }}>
+                <span style={{ fontWeight: 600, color: primaryColor }}>
+                  Total actividades: {formatCurrency(activitiesTotalPrice)}
+                </span>
+              </div>
+            )}
           </SectionCard>
         )
       });
@@ -772,6 +864,8 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Insurance section - only show if company is defined
     if (template.sectionsToggles.insurance && quote.insurance?.company && quote.insurance.company.trim() !== '') {
+      const showInsurancePrices = showItemPrices && itemPricesConfig.insurance;
+      
       sections.push({
         id: 'insurance',
         height: HEIGHTS.INSURANCE,
@@ -782,6 +876,11 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                 <p><span style={{ color: `${primaryColor}99` }}>Compañía:</span> {quote.insurance.company}</p>
                 {quote.insurance.plan && quote.insurance.plan.trim() !== '' && (
                   <p><span style={{ color: `${primaryColor}99` }}>Plan:</span> {quote.insurance.plan}</p>
+                )}
+                {showInsurancePrices && formatCurrency(quote.insurance.price) && (
+                  <p style={{ marginTop: '4px', fontWeight: 600, color: primaryColor }}>
+                    Precio: {formatCurrency(quote.insurance.price)}
+                  </p>
                 )}
               </div>
               {quote.insurance.coverage && quote.insurance.coverage.trim() !== '' && (
