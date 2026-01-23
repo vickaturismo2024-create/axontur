@@ -38,6 +38,17 @@ export interface Lodging {
   totalCost?: number; // Costo total de la estadía (si pricingMode = 'total')
   totalPrice?: number; // Precio total de la estadía (si pricingMode = 'total')
   pricingMode?: 'perNight' | 'total'; // Modo de ingreso de precios
+  groupId?: string; // ID del grupo de opciones al que pertenece
+}
+
+// Grupo de opciones de alojamiento (para agrupación por destino/fechas)
+export interface LodgingGroup {
+  id: string;
+  destination: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  optionIds: string[];
 }
 
 export interface Transfer {
@@ -188,6 +199,19 @@ export interface PricingBreakdown {
   insurance: { cost: number; price: number };
 }
 
+// Configuración de visibilidad de precios individuales
+export interface ItemPricesConfig {
+  flights: boolean;
+  lodging: boolean;
+  transfers: boolean;
+  trains: boolean;
+  ferries: boolean;
+  rentalCars: boolean;
+  activities: boolean;
+  cruise: boolean;
+  insurance: boolean;
+}
+
 export interface Pricing {
   totalPrice: number;
   pricePerPerson: number;
@@ -208,6 +232,9 @@ export interface Pricing {
   totalCost?: number;
   margin?: number;
   marginPercentage?: number;
+  // Configuración de visibilidad de precios individuales en PDF
+  showItemPrices?: boolean;
+  itemPricesConfig?: ItemPricesConfig;
 }
 
 export interface ItineraryDay {

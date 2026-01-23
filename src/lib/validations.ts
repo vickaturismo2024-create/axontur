@@ -57,7 +57,18 @@ export const lodgingSchema = z.object({
   totalCost: z.number().min(0).optional(),
   totalPrice: z.number().min(0).optional(),
   pricingMode: z.enum(['perNight', 'total']).optional(),
+  groupId: z.string().optional(),
 }).partial();
+
+// Lodging group validation
+export const lodgingGroupSchema = z.object({
+  id: z.string(),
+  destination: z.string().default(''),
+  checkIn: z.string().default(''),
+  checkOut: z.string().default(''),
+  nights: z.number().min(0).default(0),
+  optionIds: z.array(z.string()).default([]),
+});
 
 // Transfer validation - no length restrictions
 export const transferSchema = z.object({
@@ -213,6 +224,19 @@ const pricingBreakdownSchema = z.object({
   insurance: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
 });
 
+// Item prices config validation
+const itemPricesConfigSchema = z.object({
+  flights: z.boolean().default(false),
+  lodging: z.boolean().default(false),
+  transfers: z.boolean().default(false),
+  trains: z.boolean().default(false),
+  ferries: z.boolean().default(false),
+  rentalCars: z.boolean().default(false),
+  activities: z.boolean().default(false),
+  cruise: z.boolean().default(false),
+  insurance: z.boolean().default(false),
+});
+
 // Pricing validation - no length restrictions
 export const pricingSchema = z.object({
   totalPrice: z.number().min(0).default(0),
@@ -229,6 +253,8 @@ export const pricingSchema = z.object({
   totalCost: z.number().min(0).optional(),
   margin: z.number().optional(),
   marginPercentage: z.number().optional(),
+  showItemPrices: z.boolean().optional(),
+  itemPricesConfig: itemPricesConfigSchema.optional(),
 }).partial();
 
 // Itinerary day validation - no length restrictions
