@@ -1,4 +1,4 @@
-import { Quote, Template } from '@/types/quote';
+import { Quote, Template, ItemPricesConfig } from '@/types/quote';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
+import { useLodgingGroups, organizeLodgingsByGroups } from '@/hooks/useLodgingGroups';
 
 // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
 const formatDate = (dateString: string) => {
@@ -43,6 +44,7 @@ const HEIGHTS = {
   SECTION_HEADER: 45,
   FLIGHT_ROW: 32,
   LODGING_CARD: 140,
+  LODGING_GROUP_HEADER: 40,
   CRUISE_BASE: 180,
   CRUISE_ITINERARY_ROW: 28,
   TRANSFER_ROW: 32,
@@ -70,12 +72,36 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
   const bgColor = template.colors.background || '#ffffff';
   const cardBgColor = template.colors.cardBackground || '#f8f9fa';
 
+  // Item prices visibility config
+  const showItemPrices = quote.pricing?.showItemPrices ?? false;
+  const itemPricesConfig: ItemPricesConfig = quote.pricing?.itemPricesConfig ?? {
+    flights: false,
+    lodging: false,
+    transfers: false,
+    trains: false,
+    ferries: false,
+    rentalCars: false,
+    activities: false,
+    cruise: false,
+    insurance: false,
+  };
+
+  // Format currency helper
+  const formatCurrency = (value: number | undefined) => {
+    if (value === undefined || value === 0) return null;
+    return `${quote.trip.currency} ${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
   // Get all lodgings
   const allLodgings = (quote.lodgings && quote.lodgings.length > 0) 
     ? quote.lodgings 
     : (quote.lodging?.name ? [quote.lodging] : []);
   const mainLodgings = allLodgings.filter(l => !l.isOption);
   const optionLodgings = allLodgings.filter(l => l.isOption);
+
+  // Get lodging groups
+  const { groups } = useLodgingGroups(allLodgings);
+  const { grouped: groupedLodgings, ungrouped: ungroupedOptions } = organizeLodgingsByGroups(allLodgings, groups);
 
   // Section card component
   const SectionCard = ({ 
@@ -123,6 +149,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Flights section
     if (template.sectionsToggles.flights && quote.flights.length > 0) {
+      const showFlightPrices = showItemPrices && itemPricesConfig.flights;
+      const flightsTotalPrice = quote.flights.reduce((sum, f) => sum + (f.price || 0), 0);
+      
       sections.push({
         id: 'flights',
         height: HEIGHTS.SECTION_HEADER + (quote.flights.length * HEIGHTS.FLIGHT_ROW) + 40,
@@ -139,6 +168,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Fecha</th>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Horario</th>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Vuelo</th>
+                    {showFlightPrices && (
+                      <th className="text-right font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Precio</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -155,9 +187,26 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                       <td style={{ padding: '6px 8px' }}>{formatDate(flight.date)}</td>
                       <td style={{ padding: '6px 8px' }}>{flight.departureTime} - {flight.arrivalTime}</td>
                       <td style={{ padding: '6px 8px' }}>{flight.airline} {flight.flightNumber}</td>
+                      {showFlightPrices && (
+                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500 }}>
+                          {formatCurrency(flight.price) || '-'}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
+                {showFlightPrices && flightsTotalPrice > 0 && (
+                  <tfoot style={{ backgroundColor: cardBgColor, borderTop: `1px solid ${secondaryColor}` }}>
+                    <tr>
+                      <td colSpan={4} style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: primaryColor }}>
+                        Total vuelos:
+                      </td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: primaryColor }}>
+                        {formatCurrency(flightsTotalPrice)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
             {quote.flights[0]?.luggage && (
@@ -172,6 +221,16 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
     // Main Lodgings section
     if (template.sectionsToggles.lodging && mainLodgings.length > 0) {
+      const showLodgingPrices = showItemPrices && itemPricesConfig.lodging;
+      
+      // Helper to get lodging total price
+      const getLodgingPrice = (lodging: typeof mainLodgings[0]) => {
+        if (lodging.pricingMode === 'total') {
+          return lodging.totalPrice || 0;
+        }
+        return (lodging.pricePerNight || 0) * (lodging.nights || 0);
+      };
+
       sections.push({
         id: 'mainLodgings',
         height: HEIGHTS.SECTION_HEADER + (mainLodgings.length * HEIGHTS.LODGING_CARD),
@@ -207,6 +266,11 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                       {lodging.regime && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
                       {lodging.roomType && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
                       {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
+                      {showLodgingPrices && getLodgingPrice(lodging) > 0 && (
+                        <p style={{ marginTop: '4px', fontWeight: 600, color: primaryColor }}>
+                          Precio: {formatCurrency(getLodgingPrice(lodging))}
+                        </p>
+                      )}
                     </div>
                   </div>
                   {lodging.notes && (
@@ -233,84 +297,152 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
       });
     }
 
-    // Option Lodgings section
+    // Option Lodgings section - now with grouping support
     if (template.sectionsToggles.lodging && optionLodgings.length > 0) {
+      const showLodgingPrices = showItemPrices && itemPricesConfig.lodging;
+      
+      // Helper to get lodging total price
+      const getOptionLodgingPrice = (lodging: typeof optionLodgings[0]) => {
+        if (lodging.pricingMode === 'total') {
+          return lodging.totalPrice || 0;
+        }
+        return (lodging.pricePerNight || 0) * (lodging.nights || 0);
+      };
+
+      // Render a single lodging option card
+      const renderLodgingCard = (lodging: typeof optionLodgings[0], index: number, showDestination: boolean = true) => (
+        <div 
+          key={lodging.id || index}
+          className="rounded border"
+          style={{ 
+            padding: '10px',
+            borderColor: accentColor,
+            borderStyle: 'dashed',
+            backgroundColor: bgColor
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+            <span 
+              className="rounded"
+              style={{ 
+                padding: '2px 8px', 
+                fontSize: '10px', 
+                fontWeight: 600,
+                backgroundColor: `${accentColor}33`,
+                color: primaryColor
+              }}
+            >
+              🏷️ {lodging.optionLabel || `Opción ${index + 1}`}
+            </span>
+            {showLodgingPrices && getOptionLodgingPrice(lodging) > 0 ? (
+              <span style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
+                {formatCurrency(getOptionLodgingPrice(lodging))}
+              </span>
+            ) : lodging.pricePerNight !== undefined && lodging.pricePerNight > 0 ? (
+              <span style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
+                {quote.trip.currency} {lodging.pricePerNight}/noche
+              </span>
+            ) : null}
+          </div>
+          {showDestination && lodging.destination && (
+            <p style={{ fontSize: '10px', marginBottom: '4px', color: `${primaryColor}80` }}>
+              📍 {lodging.destination}
+            </p>
+          )}
+          <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+            <div>
+              <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
+              <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
+              {lodging.address && (
+                <p style={{ marginTop: '4px', fontSize: '11px' }}>{lodging.address}</p>
+              )}
+            </div>
+            <div style={{ fontSize: '11px' }}>
+              {lodging.checkIn && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
+              {lodging.checkOut && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
+              {lodging.regime && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
+              {lodging.roomType && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
+              {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
+            </div>
+          </div>
+          {lodging.notes && (
+            <p 
+              className="rounded"
+              style={{ 
+                marginTop: '6px', 
+                padding: '4px 6px', 
+                fontSize: '10px', 
+                backgroundColor: cardBgColor,
+                color: `${primaryColor}99`
+              }}
+            >
+              {lodging.notes}
+            </p>
+          )}
+        </div>
+      );
+
+      // Calculate height based on groups and ungrouped
+      const groupCount = groupedLodgings.size;
+      const totalCards = optionLodgings.length;
+      const totalHeight = HEIGHTS.SECTION_HEADER + 30 + 
+        (groupCount * HEIGHTS.LODGING_GROUP_HEADER) + 
+        (totalCards * HEIGHTS.LODGING_CARD);
+
       sections.push({
         id: 'optionLodgings',
-        height: HEIGHTS.SECTION_HEADER + 30 + (optionLodgings.length * HEIGHTS.LODGING_CARD),
+        height: totalHeight,
         component: (
           <SectionCard icon={Building2} title="Opciones de Alojamiento">
             <p style={{ fontSize: '10px', marginBottom: '10px', color: `${primaryColor}80`, fontStyle: 'italic' }}>
               A continuación se presentan opciones alternativas para su elección:
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {optionLodgings.map((lodging, index) => (
-                <div 
-                  key={lodging.id || index}
-                  className="rounded border"
-                  style={{ 
-                    padding: '10px',
-                    borderColor: accentColor,
-                    borderStyle: 'dashed',
-                    backgroundColor: bgColor
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <span 
-                      className="rounded"
-                      style={{ 
-                        padding: '2px 8px', 
-                        fontSize: '10px', 
-                        fontWeight: 600,
-                        backgroundColor: `${accentColor}33`,
-                        color: primaryColor
-                      }}
-                    >
-                      🏷️ {lodging.optionLabel || `Opción ${index + 1}`}
-                    </span>
-                    {lodging.pricePerNight !== undefined && lodging.pricePerNight > 0 && (
-                      <span style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
-                        {quote.trip.currency} {lodging.pricePerNight}/noche
-                      </span>
-                    )}
-                  </div>
-                  {lodging.destination && (
-                    <p style={{ fontSize: '10px', marginBottom: '4px', color: `${primaryColor}80` }}>
-                      📍 {lodging.destination}
-                    </p>
-                  )}
-                  <div className="grid grid-cols-2" style={{ gap: '12px' }}>
-                    <div>
-                      <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
-                      <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
-                      {lodging.address && (
-                        <p style={{ marginTop: '4px', fontSize: '11px' }}>{lodging.address}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Render grouped lodgings */}
+              {Array.from(groupedLodgings.entries()).map(([groupId, { group, lodgings: groupLodgings }]) => (
+                <div key={groupId}>
+                  {/* Group header */}
+                  <div 
+                    className="rounded-t"
+                    style={{ 
+                      padding: '8px 12px',
+                      backgroundColor: `${secondaryColor}20`,
+                      borderBottom: `2px solid ${accentColor}`,
+                      marginBottom: '8px'
+                    }}
+                  >
+                    <p style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
+                      📍 {group.destination || 'Sin destino'}
+                      {group.checkIn && group.checkOut && (
+                        <span style={{ marginLeft: '8px', fontWeight: 400, color: `${primaryColor}80` }}>
+                          ({formatDate(group.checkIn)} - {formatDate(group.checkOut)}, {group.nights} noches)
+                        </span>
                       )}
-                    </div>
-                    <div style={{ fontSize: '11px' }}>
-                      {lodging.checkIn && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
-                      {lodging.checkOut && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
-                      {lodging.regime && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
-                      {lodging.roomType && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
-                      {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
-                    </div>
-                  </div>
-                  {lodging.notes && (
-                    <p 
-                      className="rounded"
-                      style={{ 
-                        marginTop: '6px', 
-                        padding: '4px 6px', 
-                        fontSize: '10px', 
-                        backgroundColor: cardBgColor,
-                        color: `${primaryColor}99`
-                      }}
-                    >
-                      {lodging.notes}
                     </p>
-                  )}
+                  </div>
+                  {/* Group lodging cards */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
+                    {groupLodgings.map((lodging, idx) => renderLodgingCard(lodging, idx, false))}
+                  </div>
                 </div>
               ))}
+              
+              {/* Render ungrouped lodgings */}
+              {ungroupedOptions.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {groupedLodgings.size > 0 && (
+                    <p style={{ fontSize: '10px', color: `${primaryColor}60`, marginTop: '8px' }}>
+                      Otras opciones:
+                    </p>
+                  )}
+                  {ungroupedOptions.map((lodging, index) => renderLodgingCard(lodging, index, true))}
+                </div>
+              )}
+              
+              {/* Fallback: if no groups and no ungrouped (shouldn't happen but safe) */}
+              {groupedLodgings.size === 0 && ungroupedOptions.length === 0 && optionLodgings.map((lodging, index) => 
+                renderLodgingCard(lodging, index, true)
+              )}
             </div>
           </SectionCard>
         )
