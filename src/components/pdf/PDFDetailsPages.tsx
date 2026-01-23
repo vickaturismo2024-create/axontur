@@ -261,10 +261,10 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                       )}
                     </div>
                     <div style={{ fontSize: '11px' }}>
-                      {lodging.checkIn && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
-                      {lodging.checkOut && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
-                      {lodging.regime && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
-                      {lodging.roomType && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
+                      {lodging.checkIn && lodging.checkIn.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
+                      {lodging.checkOut && lodging.checkOut.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
+                      {lodging.regime && lodging.regime.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
+                      {lodging.roomType && lodging.roomType.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
                       {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
                       {showLodgingPrices && getLodgingPrice(lodging) > 0 && (
                         <p style={{ marginTop: '4px', fontWeight: 600, color: primaryColor }}>
@@ -358,10 +358,10 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
               )}
             </div>
             <div style={{ fontSize: '11px' }}>
-              {lodging.checkIn && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
-              {lodging.checkOut && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
-              {lodging.regime && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
-              {lodging.roomType && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
+              {lodging.checkIn && lodging.checkIn.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
+              {lodging.checkOut && lodging.checkOut.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
+              {lodging.regime && lodging.regime.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
+              {lodging.roomType && lodging.roomType.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
               {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
             </div>
           </div>
@@ -770,8 +770,8 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
       });
     }
 
-    // Insurance section
-    if (template.sectionsToggles.insurance && quote.insurance?.company) {
+    // Insurance section - only show if company is defined
+    if (template.sectionsToggles.insurance && quote.insurance?.company && quote.insurance.company.trim() !== '') {
       sections.push({
         id: 'insurance',
         height: HEIGHTS.INSURANCE,
@@ -780,13 +780,17 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
             <div className="grid grid-cols-2" style={{ gap: '12px', fontSize: '11px' }}>
               <div>
                 <p><span style={{ color: `${primaryColor}99` }}>Compañía:</span> {quote.insurance.company}</p>
-                <p><span style={{ color: `${primaryColor}99` }}>Plan:</span> {quote.insurance.plan}</p>
+                {quote.insurance.plan && quote.insurance.plan.trim() !== '' && (
+                  <p><span style={{ color: `${primaryColor}99` }}>Plan:</span> {quote.insurance.plan}</p>
+                )}
               </div>
-              <div>
-                <p><span style={{ color: `${primaryColor}99` }}>Cobertura:</span> {quote.insurance.coverage}</p>
-              </div>
+              {quote.insurance.coverage && quote.insurance.coverage.trim() !== '' && (
+                <div>
+                  <p><span style={{ color: `${primaryColor}99` }}>Cobertura:</span> {quote.insurance.coverage}</p>
+                </div>
+              )}
             </div>
-            {quote.insurance.notes && (
+            {quote.insurance.notes && quote.insurance.notes.trim() !== '' && (
               <p style={{ marginTop: '6px', fontSize: '10px', color: `${primaryColor}99` }}>{quote.insurance.notes}</p>
             )}
           </SectionCard>
@@ -794,105 +798,125 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
       });
     }
 
-    // Pricing section (always last)
+    // Pricing section - only show if there's actual pricing data
     const hasLodgingOptions = quote.pricing?.lodgingOptions && quote.pricing.lodgingOptions.length > 0;
+    const hasLodgingOptionsWithPrice = hasLodgingOptions && quote.pricing.lodgingOptions!.some(opt => opt.totalPrice > 0);
+    const hasTotalPrice = (quote.pricing?.totalPrice || 0) > 0;
+    const hasPricePerPerson = (quote.pricing?.pricePerPerson || 0) > 0;
+    const hasTaxes = (quote.pricing?.taxes || 0) > 0;
+    const hasPaymentMethod = quote.pricing?.paymentMethod && quote.pricing.paymentMethod.trim() !== '';
+    const hasConditions = quote.pricing?.conditions && quote.pricing.conditions.trim() !== '';
+    const hasObservations = quote.pricing?.observations && quote.pricing.observations.trim() !== '';
     
-    sections.push({
-      id: 'pricing',
-      height: hasLodgingOptions ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) : HEIGHTS.PRICING,
-      component: (
-        <SectionCard icon={DollarSign} title="Valor del Viaje">
-          {hasLodgingOptions ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {quote.pricing.lodgingOptions!.map((option, idx) => (
-                <div 
-                  key={option.lodgingId}
-                  className="rounded-lg text-white"
-                  style={{ 
-                    padding: '12px',
-                    background: idx === 0 
-                      ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
-                      : `linear-gradient(135deg, ${secondaryColor} 0%, ${accentColor} 100%)`,
-                    WebkitPrintColorAdjust: 'exact',
-                    printColorAdjust: 'exact'
-                  }}
-                >
-                  <p style={{ fontSize: '10px', marginBottom: '6px', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
-                    🏷️ {option.lodgingLabel.toUpperCase()}
-                  </p>
-                  <div className="flex items-end justify-between">
-                    <div>
-                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio total</p>
-                      <p className="font-serif font-bold" style={{ fontSize: '20px' }}>
-                        {quote.trip.currency} {option.totalPrice.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Por persona</p>
-                      <p className="font-serif" style={{ fontSize: '14px' }}>
-                        {quote.trip.currency} {option.pricePerPerson.toLocaleString()}
-                      </p>
+    // Only show pricing section if there's meaningful data
+    const hasPricingData = hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
+    
+    if (hasPricingData) {
+      sections.push({
+        id: 'pricing',
+        height: hasLodgingOptions ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) : HEIGHTS.PRICING,
+        component: (
+          <SectionCard icon={DollarSign} title="Valor del Viaje">
+            {hasLodgingOptionsWithPrice ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {quote.pricing.lodgingOptions!.filter(opt => opt.totalPrice > 0).map((option, idx) => (
+                  <div 
+                    key={option.lodgingId}
+                    className="rounded-lg text-white"
+                    style={{ 
+                      padding: '12px',
+                      background: idx === 0 
+                        ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
+                        : `linear-gradient(135deg, ${secondaryColor} 0%, ${accentColor} 100%)`,
+                      WebkitPrintColorAdjust: 'exact',
+                      printColorAdjust: 'exact'
+                    }}
+                  >
+                    <p style={{ fontSize: '10px', marginBottom: '6px', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
+                      🏷️ {option.lodgingLabel.toUpperCase()}
+                    </p>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio total</p>
+                        <p className="font-serif font-bold" style={{ fontSize: '20px' }}>
+                          {quote.trip.currency} {option.totalPrice.toLocaleString()}
+                        </p>
+                      </div>
+                      {option.pricePerPerson > 0 && (
+                        <div className="text-right">
+                          <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Por persona</p>
+                          <p className="font-serif" style={{ fontSize: '14px' }}>
+                            {quote.trip.currency} {option.pricePerPerson.toLocaleString()}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div 
-              className="rounded-lg text-white"
-              style={{ 
-                padding: '12px',
-                background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              <div className="flex items-end justify-between">
-                <div>
-                  <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio total</p>
-                  <p className="font-serif font-bold" style={{ fontSize: '22px' }}>
-                    {quote.trip.currency} {(quote.pricing?.totalPrice || 0).toLocaleString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Por persona</p>
-                  <p className="font-serif" style={{ fontSize: '16px' }}>
-                    {quote.trip.currency} {(quote.pricing?.pricePerPerson || 0).toLocaleString()}
-                  </p>
-                </div>
+                ))}
               </div>
-            </div>
-          )}
-          <div style={{ marginTop: '10px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {quote.pricing?.taxes !== undefined && quote.pricing.taxes > 0 && (
-              <p><span style={{ color: `${primaryColor}99` }}>Impuestos:</span> {quote.trip.currency} {quote.pricing.taxes.toLocaleString()}</p>
-            )}
-            {quote.pricing?.paymentMethod && (
-              <p><span style={{ color: `${primaryColor}99` }}>Forma de pago:</span> {quote.pricing.paymentMethod}</p>
-            )}
-            {quote.pricing?.conditions && (
-              <p><span style={{ color: `${primaryColor}99` }}>Condiciones:</span> {quote.pricing.conditions}</p>
-            )}
-            {quote.pricing?.observations && (
-              <p 
-                className="rounded"
+            ) : (hasTotalPrice || hasPricePerPerson) ? (
+              <div 
+                className="rounded-lg text-white"
                 style={{ 
-                  marginTop: '6px', 
-                  padding: '6px', 
-                  fontSize: '10px',
-                  backgroundColor: `${accentColor}33`,
-                  color: primaryColor,
+                  padding: '12px',
+                  background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
                   WebkitPrintColorAdjust: 'exact',
                   printColorAdjust: 'exact'
                 }}
               >
-                ⚠️ {quote.pricing.observations}
-              </p>
+                <div className="flex items-end justify-between">
+                  {hasTotalPrice && (
+                    <div>
+                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio total</p>
+                      <p className="font-serif font-bold" style={{ fontSize: '22px' }}>
+                        {quote.trip.currency} {(quote.pricing?.totalPrice || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {hasPricePerPerson && (
+                    <div className="text-right">
+                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Por persona</p>
+                      <p className="font-serif" style={{ fontSize: '16px' }}>
+                        {quote.trip.currency} {(quote.pricing?.pricePerPerson || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+            {(hasTaxes || hasPaymentMethod || hasConditions || hasObservations) && (
+              <div style={{ marginTop: '10px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {hasTaxes && (
+                  <p><span style={{ color: `${primaryColor}99` }}>Impuestos:</span> {quote.trip.currency} {quote.pricing!.taxes!.toLocaleString()}</p>
+                )}
+                {hasPaymentMethod && (
+                  <p><span style={{ color: `${primaryColor}99` }}>Forma de pago:</span> {quote.pricing!.paymentMethod}</p>
+                )}
+                {hasConditions && (
+                  <p><span style={{ color: `${primaryColor}99` }}>Condiciones:</span> {quote.pricing!.conditions}</p>
+                )}
+                {hasObservations && (
+                  <p 
+                    className="rounded"
+                    style={{ 
+                      marginTop: '6px', 
+                      padding: '6px', 
+                      fontSize: '10px',
+                      backgroundColor: `${accentColor}33`,
+                      color: primaryColor,
+                      WebkitPrintColorAdjust: 'exact',
+                      printColorAdjust: 'exact'
+                    }}
+                  >
+                    ⚠️ {quote.pricing!.observations}
+                  </p>
+                )}
+              </div>
             )}
-          </div>
-        </SectionCard>
-      )
-    });
+          </SectionCard>
+        )
+      });
+    }
 
     return sections;
   };
