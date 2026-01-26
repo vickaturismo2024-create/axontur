@@ -1,5 +1,14 @@
 import { useMemo } from 'react';
-import { Quote, Lodging, RoomOccupancy, OccupancyPricing, PricingBreakdown, LodgingOptionOccupancyPricing } from '@/types/quote';
+import { 
+  Quote, 
+  Lodging, 
+  RoomOccupancy, 
+  OccupancyPricing, 
+  PricingBreakdown, 
+  LodgingOptionOccupancyPricing,
+  OccupancyTypeWithOptions,
+  LodgingOptionForOccupancy
+} from '@/types/quote';
 
 export interface OccupancyPricingCalculation {
   // Total de servicios compartidos (vuelos, traslados, etc.)
@@ -12,9 +21,11 @@ export interface OccupancyPricingCalculation {
     cost: number;
     price: number;
   };
-  // Cálculo por tipo de ocupación para alojamientos PRINCIPALES (no opciones)
+  // NUEVO: Precios agrupados por tipo de ocupación con opciones dentro
+  occupancyTypesWithOptions: OccupancyTypeWithOptions[];
+  // Legacy: Cálculo por tipo de ocupación para alojamientos PRINCIPALES (no opciones)
   mainOccupancyPricing: OccupancyPricing[];
-  // Cálculo por tipo de ocupación para cada OPCIÓN de alojamiento (alternativas)
+  // Legacy: Cálculo por tipo de ocupación para cada OPCIÓN de alojamiento (alternativas)
   lodgingOptionsOccupancy: LodgingOptionOccupancyPricing[];
   // Total general del viaje (solo alojamientos principales)
   grandTotal: {
@@ -35,6 +46,7 @@ export interface OccupancyPricingCalculation {
   // Flags
   hasMainOccupancies: boolean;
   hasOptionOccupancies: boolean;
+  hasOccupancyTypesWithOptions: boolean;
 }
 
 // Helper para obtener etiqueta del tipo de ocupación
@@ -51,6 +63,22 @@ export function getOccupancyLabel(occupancy: RoomOccupancy): string {
   };
   
   return labels[occupancy.roomType] || 'Habitación';
+}
+
+// Helper para obtener etiqueta corta del tipo de ocupación
+export function getOccupancyLabelShort(roomType: RoomOccupancy['roomType'], customName?: string): string {
+  if (roomType === 'custom' && customName) {
+    return customName;
+  }
+  
+  const labels: Record<string, string> = {
+    single: 'Single',
+    double: 'Doble',
+    triple: 'Triple',
+    quadruple: 'Cuádruple',
+  };
+  
+  return labels[roomType] || 'Habitación';
 }
 
 // Helper para obtener pasajeros por habitación según tipo
@@ -78,7 +106,7 @@ export function createEmptyOccupancy(roomType: RoomOccupancy['roomType'] = 'doub
   };
 }
 
-// Calcular ocupaciones para un alojamiento específico
+// Calcular ocupaciones para un alojamiento específico (legacy)
 function calculateLodgingOccupancies(
   lodging: Lodging,
   sharedPerPersonPrice: number,
@@ -144,6 +172,222 @@ function calculateLodgingOccupancies(
       marginPercentage,
     });
   }
+
+  return result;
+}
+
+// =====================================================
+// NUEVO: Calcular precios agrupados por tipo de ocupación
+// =====================================================
+interface OccupancyTypeData {
+  roomType: RoomOccupancy['roomType'];
+  customTypeName?: string;
+  guestsPerRoom: number;
+  mainLodgings: { lodging: Lodging; occupancy: RoomOccupancy }[];
+  optionLodgings: { lodging: Lodging; occupancy: RoomOccupancy }[];
+}
+
+function calculateOccupancyTypesWithOptions(
+  allLodgings: Lodging[],
+  sharedPerPersonPrice: number,
+  sharedPerPersonCost: number
+): OccupancyTypeWithOptions[] {
+  // Separar alojamientos principales de opciones
+  const mainLodgings = allLodgings.filter(l => !l.isOption && l.useOccupancies && l.occupancies?.length);
+  const optionLodgings = allLodgings.filter(l => l.isOption && l.useOccupancies && l.occupancies?.length);
+
+  // Mapear tipos de ocupación únicos
+  const occupancyTypesMap = new Map<string, OccupancyTypeData>();
+
+  // Poblar con alojamientos principales
+  for (const lodging of mainLodgings) {
+    for (const occupancy of lodging.occupancies || []) {
+      const key = occupancy.roomType === 'custom' 
+        ? `custom_${occupancy.customTypeName || 'custom'}` 
+        : occupancy.roomType;
+      
+      if (!occupancyTypesMap.has(key)) {
+        occupancyTypesMap.set(key, {
+          roomType: occupancy.roomType,
+          customTypeName: occupancy.customTypeName,
+          guestsPerRoom: occupancy.guestsPerRoom,
+          mainLodgings: [],
+          optionLodgings: [],
+        });
+      }
+      occupancyTypesMap.get(key)!.mainLodgings.push({ lodging, occupancy });
+    }
+  }
+
+  // Poblar con opciones alternativas
+  for (const lodging of optionLodgings) {
+    for (const occupancy of lodging.occupancies || []) {
+      const key = occupancy.roomType === 'custom' 
+        ? `custom_${occupancy.customTypeName || 'custom'}` 
+        : occupancy.roomType;
+      
+      if (!occupancyTypesMap.has(key)) {
+        occupancyTypesMap.set(key, {
+          roomType: occupancy.roomType,
+          customTypeName: occupancy.customTypeName,
+          guestsPerRoom: occupancy.guestsPerRoom,
+          mainLodgings: [],
+          optionLodgings: [],
+        });
+      }
+      occupancyTypesMap.get(key)!.optionLodgings.push({ lodging, occupancy });
+    }
+  }
+
+  // Calcular precios para cada tipo de ocupación
+  const result: OccupancyTypeWithOptions[] = [];
+
+  for (const [key, data] of occupancyTypesMap) {
+    // Sumar alojamientos principales para este tipo
+    let mainLodgingPrice = 0;
+    let mainLodgingCost = 0;
+    let totalRooms = 0;
+    let totalGuests = 0;
+    const mainLodgingDetails: OccupancyTypeWithOptions['mainLodgingDetails'] = [];
+
+    for (const { lodging, occupancy } of data.mainLodgings) {
+      const nights = lodging.nights || 0;
+      const guests = occupancy.roomCount * occupancy.guestsPerRoom;
+      
+      // Solo contar habitaciones/pasajeros del primer alojamiento principal para el total
+      // (asumimos configuración consistente)
+      if (mainLodgingDetails.length === 0) {
+        totalRooms = occupancy.roomCount;
+        totalGuests = guests;
+      }
+
+      // Calcular precio del alojamiento
+      let lodgingTotalPrice = 0;
+      let lodgingTotalCost = 0;
+
+      if (occupancy.pricingMode === 'total') {
+        lodgingTotalPrice = occupancy.totalPrice || 0;
+        lodgingTotalCost = occupancy.totalCost || 0;
+      } else {
+        lodgingTotalPrice = (occupancy.pricePerNight || 0) * nights * occupancy.roomCount;
+        lodgingTotalCost = (occupancy.costPerNight || 0) * nights * occupancy.roomCount;
+      }
+
+      const pricePerPerson = guests > 0 ? lodgingTotalPrice / guests : 0;
+      const costPerPerson = guests > 0 ? lodgingTotalCost / guests : 0;
+
+      mainLodgingPrice += pricePerPerson;
+      mainLodgingCost += costPerPerson;
+
+      mainLodgingDetails.push({
+        lodgingId: lodging.id || crypto.randomUUID(),
+        lodgingName: lodging.name,
+        destination: lodging.destination,
+        pricePerPerson,
+        costPerPerson,
+      });
+    }
+
+    // Base: servicios compartidos + alojamientos principales
+    const basePricePerPerson = sharedPerPersonPrice + mainLodgingPrice;
+    const baseCostPerPerson = sharedPerPersonCost + mainLodgingCost;
+
+    // Calcular cada opción alternativa
+    const lodgingOptions: LodgingOptionForOccupancy[] = [];
+
+    for (const { lodging, occupancy } of data.optionLodgings) {
+      const nights = lodging.nights || 0;
+      const guests = occupancy.roomCount * occupancy.guestsPerRoom;
+
+      // Si no hay alojamientos principales, usar info de la opción
+      if (totalRooms === 0) {
+        totalRooms = occupancy.roomCount;
+        totalGuests = guests;
+      }
+
+      let lodgingTotalPrice = 0;
+      let lodgingTotalCost = 0;
+
+      if (occupancy.pricingMode === 'total') {
+        lodgingTotalPrice = occupancy.totalPrice || 0;
+        lodgingTotalCost = occupancy.totalCost || 0;
+      } else {
+        lodgingTotalPrice = (occupancy.pricePerNight || 0) * nights * occupancy.roomCount;
+        lodgingTotalCost = (occupancy.costPerNight || 0) * nights * occupancy.roomCount;
+      }
+
+      const lodgingPricePerPerson = guests > 0 ? lodgingTotalPrice / guests : 0;
+      const lodgingCostPerPerson = guests > 0 ? lodgingTotalCost / guests : 0;
+
+      const totalPricePerPerson = basePricePerPerson + lodgingPricePerPerson;
+      const totalCostPerPerson = baseCostPerPerson + lodgingCostPerPerson;
+      const marginPerPerson = totalPricePerPerson - totalCostPerPerson;
+      const marginPercentage = totalCostPerPerson > 0 
+        ? (marginPerPerson / totalCostPerPerson) * 100 
+        : 0;
+
+      lodgingOptions.push({
+        lodgingId: lodging.id || crypto.randomUUID(),
+        lodgingName: lodging.name,
+        optionLabel: lodging.optionLabel || 'Opción',
+        destination: lodging.destination,
+        lodgingPricePerPerson,
+        totalPricePerPerson,
+        lodgingCostPerPerson,
+        totalCostPerPerson,
+        marginPerPerson,
+        marginPercentage,
+      });
+    }
+
+    // Calcular precio único si no hay opciones
+    const hasOptions = lodgingOptions.length > 0;
+    let singleTotalPerPerson: number | undefined;
+    let singleTotalCostPerPerson: number | undefined;
+    let marginPerPerson: number | undefined;
+    let marginPercentage: number | undefined;
+
+    if (!hasOptions) {
+      singleTotalPerPerson = basePricePerPerson;
+      singleTotalCostPerPerson = baseCostPerPerson;
+      marginPerPerson = singleTotalPerPerson - singleTotalCostPerPerson;
+      marginPercentage = singleTotalCostPerPerson > 0 
+        ? (marginPerPerson / singleTotalCostPerPerson) * 100 
+        : 0;
+    }
+
+    // Generar etiqueta
+    const occupancyLabel = data.roomType === 'custom' && data.customTypeName
+      ? data.customTypeName
+      : getOccupancyLabelShort(data.roomType);
+
+    result.push({
+      id: crypto.randomUUID(),
+      roomType: data.roomType,
+      customTypeName: data.customTypeName,
+      occupancyLabel,
+      guestsPerRoom: data.guestsPerRoom,
+      totalRooms,
+      totalGuests,
+      sharedServicesPerPerson: sharedPerPersonPrice,
+      sharedServicesCostPerPerson: sharedPerPersonCost,
+      mainLodgingPricePerPerson: mainLodgingPrice,
+      mainLodgingCostPerPerson: mainLodgingCost,
+      basePricePerPerson,
+      baseCostPerPerson,
+      mainLodgingDetails,
+      hasOptions,
+      lodgingOptions,
+      singleTotalPerPerson,
+      singleTotalCostPerPerson,
+      marginPerPerson,
+      marginPercentage,
+    });
+  }
+
+  // Ordenar: single, double, triple, quadruple, custom
+  const order = ['single', 'double', 'triple', 'quadruple', 'custom'];
+  result.sort((a, b) => order.indexOf(a.roomType) - order.indexOf(b.roomType));
 
   return result;
 }
@@ -236,7 +480,16 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     const optionLodgings = allLodgings.filter(l => l.isOption);
 
     // ============================================
-    // CALCULAR OCUPACIONES PARA ALOJAMIENTOS PRINCIPALES
+    // NUEVO: Calcular precios agrupados por tipo de ocupación
+    // ============================================
+    const occupancyTypesWithOptions = calculateOccupancyTypesWithOptions(
+      allLodgings,
+      sharedPerPersonPrice,
+      sharedPerPersonCost
+    );
+
+    // ============================================
+    // LEGACY: Calcular ocupaciones para alojamientos principales
     // ============================================
     const mainOccupancyPricing: OccupancyPricing[] = [];
     let mainGuestsAssigned = 0;
@@ -261,7 +514,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     const grandMarginPercentage = grandTotalCost > 0 ? (grandMargin / grandTotalCost) * 100 : 0;
 
     // ============================================
-    // CALCULAR OCUPACIONES PARA CADA OPCIÓN ALTERNATIVA (independientes)
+    // LEGACY: Calcular ocupaciones para cada opción alternativa
     // ============================================
     const lodgingOptionsOccupancy: LodgingOptionOccupancyPricing[] = [];
 
@@ -273,7 +526,6 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       );
 
       if (lodgingOccupancies.length > 0) {
-        // Calcular totales para esta opción
         const optionTotalPrice = lodgingOccupancies.reduce((sum, o) => sum + o.totalForType, 0);
         const optionTotalCost = lodgingOccupancies.reduce((sum, o) => sum + o.totalCostPerPerson * o.guestCount, 0);
         const optionMargin = optionTotalPrice - optionTotalCost;
@@ -292,16 +544,21 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       }
     }
 
-    // Validación para alojamientos principales
+    // Validación
     const hasMainOccupancies = mainOccupancyPricing.length > 0;
     const hasOptionOccupancies = lodgingOptionsOccupancy.length > 0;
+    const hasOccupancyTypesWithOptions = occupancyTypesWithOptions.length > 0;
     
-    const mainIsValid = !hasMainOccupancies || mainGuestsAssigned === totalTravelers;
-    const mainMessage = !hasMainOccupancies
+    // Calcular pasajeros asignados desde el nuevo sistema
+    const newSystemGuests = occupancyTypesWithOptions.reduce((sum, t) => sum + t.totalGuests, 0);
+    const guestsToValidate = hasOccupancyTypesWithOptions ? newSystemGuests : mainGuestsAssigned;
+    
+    const mainIsValid = !hasOccupancyTypesWithOptions || guestsToValidate === totalTravelers;
+    const mainMessage = !hasOccupancyTypesWithOptions
       ? 'Configura las ocupaciones para los alojamientos'
       : mainIsValid 
-        ? `✅ ${mainGuestsAssigned} pasajeros asignados correctamente`
-        : `⚠️ ${mainGuestsAssigned} pasajeros asignados, pero el total es ${totalTravelers}`;
+        ? `✅ ${guestsToValidate} pasajeros asignados correctamente`
+        : `⚠️ ${guestsToValidate} pasajeros asignados, pero el total es ${totalTravelers}`;
 
     return {
       sharedServices,
@@ -309,6 +566,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
         cost: sharedPerPersonCost,
         price: sharedPerPersonPrice,
       },
+      occupancyTypesWithOptions,
       mainOccupancyPricing,
       lodgingOptionsOccupancy,
       grandTotal: {
@@ -318,7 +576,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
         marginPercentage: grandMarginPercentage,
       },
       mainValidation: {
-        totalGuests: mainGuestsAssigned,
+        totalGuests: guestsToValidate,
         expectedGuests: totalTravelers,
         isValid: mainIsValid,
         message: mainMessage,
@@ -326,6 +584,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       breakdown,
       hasMainOccupancies,
       hasOptionOccupancies,
+      hasOccupancyTypesWithOptions,
     };
   }, [quote]);
 
@@ -336,24 +595,53 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
 export function applyOccupancyPricing(
   calculation: OccupancyPricingCalculation
 ): Partial<import('@/types/quote').Pricing> {
-  // Si no hay ocupaciones principales ni opciones con ocupaciones, no aplicar
-  if (!calculation.hasMainOccupancies && !calculation.hasOptionOccupancies) {
+  // Si no hay ocupaciones, no aplicar
+  if (!calculation.hasOccupancyTypesWithOptions && !calculation.hasMainOccupancies && !calculation.hasOptionOccupancies) {
     return {};
   }
 
+  // Calcular total del viaje (sin opciones alternativas)
+  let totalPrice = 0;
+  let totalCost = 0;
+
+  if (calculation.hasOccupancyTypesWithOptions) {
+    // Usar el nuevo sistema
+    for (const occType of calculation.occupancyTypesWithOptions) {
+      if (!occType.hasOptions && occType.singleTotalPerPerson !== undefined) {
+        // Sin opciones: precio único
+        totalPrice += occType.singleTotalPerPerson * occType.totalGuests;
+        totalCost += (occType.singleTotalCostPerPerson || 0) * occType.totalGuests;
+      } else if (occType.hasOptions) {
+        // Con opciones: usar base (sin opciones alternativas)
+        totalPrice += occType.basePricePerPerson * occType.totalGuests;
+        totalCost += occType.baseCostPerPerson * occType.totalGuests;
+      }
+    }
+  } else {
+    totalPrice = calculation.grandTotal.price;
+    totalCost = calculation.grandTotal.cost;
+  }
+
+  const margin = totalPrice - totalCost;
+  const marginPercentage = totalCost > 0 ? (margin / totalCost) * 100 : 0;
+
   return {
     useOccupancyPricing: true,
+    occupancyTypesWithOptions: calculation.occupancyTypesWithOptions,
     occupancyPricing: calculation.mainOccupancyPricing,
     lodgingOptionsOccupancy: calculation.lodgingOptionsOccupancy,
     calculationMode: 'automatic',
     fixedServicesTotal: calculation.sharedServices.price,
     fixedServicesCost: calculation.sharedServices.cost,
     breakdown: calculation.breakdown,
-    totalPrice: calculation.grandTotal.price,
-    totalCost: calculation.grandTotal.cost,
-    margin: calculation.grandTotal.margin,
-    marginPercentage: calculation.grandTotal.marginPercentage,
+    totalPrice,
+    totalCost,
+    margin,
+    marginPercentage,
     // Precio por persona del primer tipo (para compatibilidad)
-    pricePerPerson: calculation.mainOccupancyPricing[0]?.totalPerPerson || 0,
+    pricePerPerson: calculation.occupancyTypesWithOptions[0]?.singleTotalPerPerson 
+      || calculation.occupancyTypesWithOptions[0]?.basePricePerPerson
+      || calculation.mainOccupancyPricing[0]?.totalPerPerson 
+      || 0,
   };
 }

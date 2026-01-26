@@ -40,7 +40,8 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
   // Check if any lodging has occupancy configuration
   const hasMainOccupancies = occupancyCalculation.hasMainOccupancies;
   const hasOptionOccupancies = occupancyCalculation.hasOptionOccupancies;
-  const hasAnyOccupancies = hasMainOccupancies || hasOptionOccupancies;
+  const hasOccupancyTypesWithOptions = occupancyCalculation.hasOccupancyTypesWithOptions;
+  const hasAnyOccupancies = hasMainOccupancies || hasOptionOccupancies || hasOccupancyTypesWithOptions;
   const useOccupancyPricing = quote.pricing.useOccupancyPricing ?? hasAnyOccupancies;
 
   const handleCalculateAutomatic = () => {
@@ -288,13 +289,13 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
             </CardContent>
           </Card>
 
-          {/* Occupancy-Based Pricing - Main Lodgings */}
-          {hasMainOccupancies && (
+          {/* NEW: Occupancy Types with Options - Main pricing display */}
+          {hasOccupancyTypesWithOptions && (
             <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <BedDouble className="h-4 w-4 text-primary" />
-                  Precio por Tipo de Ocupación (Alojamiento Principal)
+                  Precio por Tipo de Ocupación
                   <Badge variant="outline" className="ml-auto bg-primary/10 text-xs">
                     {occupancyCalculation.mainValidation.message}
                   </Badge>
@@ -311,92 +312,158 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
                   </p>
                 </div>
 
-                {/* Each occupancy type for main lodgings */}
+                {/* Each occupancy type */}
+                {occupancyCalculation.occupancyTypesWithOptions.map((occType) => (
+                  <div 
+                    key={occType.id}
+                    className="rounded-lg border bg-background p-4"
+                  >
+                    {/* Header */}
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant="secondary" 
+                          className={`${
+                            occType.roomType === 'single' 
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                              : occType.roomType === 'double'
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          }`}
+                        >
+                          🛏️ Habitación {occType.occupancyLabel}
+                        </Badge>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Users className="h-3 w-3" />
+                          {occType.totalGuests} pasajero(s) en {occType.totalRooms} hab.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Base breakdown */}
+                    <div className="mb-3 space-y-1 rounded-lg bg-muted/30 p-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Servicios fijos/persona:</span>
+                        <span>{formatCurrency(occType.sharedServicesPerPerson)}</span>
+                      </div>
+                      {occType.mainLodgingDetails.map((detail) => (
+                        <div key={detail.lodgingId} className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            {detail.lodgingName} {detail.destination ? `(${detail.destination})` : ''}:
+                          </span>
+                          <span>{formatCurrency(detail.pricePerPerson)}</span>
+                        </div>
+                      ))}
+                      {occType.mainLodgingDetails.length > 0 && (
+                        <div className="flex justify-between border-t pt-1 font-medium">
+                          <span>Subtotal base:</span>
+                          <span>{formatCurrency(occType.basePricePerPerson)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Options or single price */}
+                    {occType.hasOptions ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-accent">
+                          📋 Opciones de alojamiento (elija una):
+                        </p>
+                        {occType.lodgingOptions.map((option) => (
+                          <div 
+                            key={option.lodgingId}
+                            className="flex items-center justify-between rounded-lg border border-dashed border-accent/50 bg-accent/5 p-3"
+                          >
+                            <div>
+                              <p className="text-sm font-medium">{option.optionLabel}: {option.lodgingName}</p>
+                              {option.destination && (
+                                <p className="text-xs text-muted-foreground">📍 {option.destination}</p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                +{formatCurrency(option.lodgingPricePerPerson)}/persona
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-primary">
+                                {formatCurrency(option.totalPricePerPerson)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">por persona</p>
+                              <p className="flex items-center justify-end gap-1 text-xs text-green-600">
+                                <TrendingUp className="h-3 w-3" />
+                                {option.marginPercentage.toFixed(1)}%
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg bg-primary/10 p-3 text-center">
+                        <p className="text-xs text-muted-foreground">TOTAL POR PERSONA</p>
+                        <p className="text-xl font-bold text-primary">
+                          {formatCurrency(occType.singleTotalPerPerson || 0)}
+                        </p>
+                        {occType.marginPercentage !== undefined && (
+                          <p className="flex items-center justify-center gap-1 text-xs text-green-600">
+                            <TrendingUp className="h-3 w-3" />
+                            Margen: {occType.marginPercentage.toFixed(1)}%
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* LEGACY: Occupancy-Based Pricing - Main Lodgings (only if new system not used) */}
+          {!hasOccupancyTypesWithOptions && hasMainOccupancies && (
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <BedDouble className="h-4 w-4 text-primary" />
+                  Precio por Tipo de Ocupación (Alojamiento Principal)
+                  <Badge variant="outline" className="ml-auto bg-primary/10 text-xs">
+                    {occupancyCalculation.mainValidation.message}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 {occupancyCalculation.mainOccupancyPricing.map((occ) => (
                   <div 
                     key={occ.occupancyId}
                     className="rounded-lg border bg-background p-4"
                   >
                     <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant="secondary" 
-                          className={`${
-                            occ.roomType === 'single' 
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                              : occ.roomType === 'double'
-                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                          }`}
-                        >
-                          🛏️ {occ.occupancyType}
-                        </Badge>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Users className="h-3 w-3" />
-                          {occ.guestCount} pasajero(s)
-                        </span>
-                      </div>
+                      <Badge 
+                        variant="secondary" 
+                        className={`${
+                          occ.roomType === 'single' 
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                            : occ.roomType === 'double'
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}
+                      >
+                        🛏️ {occ.occupancyType}
+                      </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {occ.roomCount} habitación(es)
+                        {occ.guestCount} pax · {occ.roomCount} hab.
                       </span>
                     </div>
-
-                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-lg bg-primary/10 p-3 text-center">
-                        <p className="text-xs text-muted-foreground">POR PERSONA</p>
-                        <p className="text-lg font-bold text-primary">
-                          {formatCurrency(occ.totalPerPerson)}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-muted p-3 text-center">
-                        <p className="text-xs text-muted-foreground">Alojamiento/persona</p>
-                        <p className="font-medium">
-                          {formatCurrency(occ.lodgingPerPerson)}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-muted/50 p-3 text-center">
-                        <p className="text-xs text-muted-foreground">Subtotal tipo</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatCurrency(occ.totalForType)}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-900/20">
-                        <p className="text-xs text-muted-foreground">Margen</p>
-                        <p className="flex items-center justify-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400">
-                          <TrendingUp className="h-3 w-3" />
-                          {occ.marginPercentage.toFixed(1)}%
-                        </p>
-                      </div>
+                    <div className="rounded-lg bg-primary/10 p-3 text-center">
+                      <p className="text-xs text-muted-foreground">POR PERSONA</p>
+                      <p className="text-lg font-bold text-primary">
+                        {formatCurrency(occ.totalPerPerson)}
+                      </p>
                     </div>
                   </div>
                 ))}
-
-                {/* Grand total for main lodgings */}
-                <div className="mt-4 rounded-lg bg-gradient-to-r from-primary to-accent p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-white/70">TOTAL VIAJE (Alojamiento Principal)</p>
-                      <p className="text-2xl font-bold">
-                        {formatCurrency(occupancyCalculation.grandTotal.price)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-white/70">Margen total</p>
-                      <p className="text-lg font-semibold">
-                        {formatCurrency(occupancyCalculation.grandTotal.margin)}
-                        <span className="ml-1 text-sm font-normal">
-                          ({occupancyCalculation.grandTotal.marginPercentage.toFixed(1)}%)
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Occupancy-Based Pricing - Alternative Options (each shown separately) */}
-          {hasOptionOccupancies && (
+          {/* LEGACY: Occupancy-Based Pricing - Alternative Options (only if new system not used) */}
+          {!hasOccupancyTypesWithOptions && hasOptionOccupancies && (
             <Card className="border-accent/30 bg-gradient-to-br from-accent/5 to-secondary/5">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -412,7 +479,7 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
                   Cada opción representa una alternativa independiente. El cliente elegirá UNA de estas opciones.
                 </p>
 
-                {occupancyCalculation.lodgingOptionsOccupancy.map((option, optionIndex) => (
+                {occupancyCalculation.lodgingOptionsOccupancy.map((option) => (
                   <div 
                     key={option.lodgingId}
                     className="rounded-lg border-2 border-dashed border-accent/50 bg-background p-4"
@@ -440,28 +507,21 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
                           className="rounded-lg bg-muted/30 p-3"
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Badge 
-                                variant="secondary" 
-                                className={`text-xs ${
-                                  occ.roomType === 'single' 
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                    : occ.roomType === 'double'
-                                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                }`}
-                              >
-                                🛏️ {occ.occupancyType}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                ({occ.guestCount} pax)
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-primary">
-                                {formatCurrency(occ.totalPerPerson)} <span className="font-normal text-xs text-muted-foreground">/ persona</span>
-                              </p>
-                            </div>
+                            <Badge 
+                              variant="secondary" 
+                              className={`text-xs ${
+                                occ.roomType === 'single' 
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                  : occ.roomType === 'double'
+                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                              }`}
+                            >
+                              🛏️ {occ.occupancyType}
+                            </Badge>
+                            <p className="text-sm font-bold text-primary">
+                              {formatCurrency(occ.totalPerPerson)} <span className="font-normal text-xs text-muted-foreground">/ persona</span>
+                            </p>
                           </div>
                         </div>
                       ))}

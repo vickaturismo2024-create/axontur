@@ -240,6 +240,63 @@ export interface LodgingOptionOccupancyPricing {
   marginPercentage: number;
 }
 
+// =====================================================
+// NUEVO: Sistema de precios agrupados por tipo de ocupación
+// =====================================================
+
+// Opción de alojamiento dentro de un tipo de ocupación
+export interface LodgingOptionForOccupancy {
+  lodgingId: string;
+  lodgingName: string;
+  optionLabel: string;
+  destination?: string;
+  lodgingPricePerPerson: number;
+  totalPricePerPerson: number;
+  // Internos (no se muestran en PDF)
+  lodgingCostPerPerson: number;
+  totalCostPerPerson: number;
+  marginPerPerson: number;
+  marginPercentage: number;
+}
+
+// Tipo de ocupación con todas sus opciones (NUEVA estructura principal)
+export interface OccupancyTypeWithOptions {
+  id: string;
+  roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
+  customTypeName?: string;
+  occupancyLabel: string; // "Habitación Single", "Habitación Doble"
+  guestsPerRoom: number;
+  totalRooms: number; // Total de habitaciones de este tipo
+  totalGuests: number; // Total de pasajeros en este tipo
+  
+  // Base (servicios fijos + alojamientos obligatorios)
+  sharedServicesPerPerson: number;
+  sharedServicesCostPerPerson: number;
+  mainLodgingPricePerPerson: number; // Suma de alojamientos NO opciones
+  mainLodgingCostPerPerson: number;
+  basePricePerPerson: number; // sharedServices + mainLodging
+  baseCostPerPerson: number;
+  
+  // Detalles de alojamientos principales (para mostrar desglose)
+  mainLodgingDetails: {
+    lodgingId: string;
+    lodgingName: string;
+    destination?: string;
+    pricePerPerson: number;
+    costPerPerson: number;
+  }[];
+  
+  // Opciones alternativas (si existen)
+  hasOptions: boolean;
+  lodgingOptions: LodgingOptionForOccupancy[];
+  
+  // Precio único (si no hay opciones alternativas)
+  singleTotalPerPerson?: number;
+  singleTotalCostPerPerson?: number;
+  marginPerPerson?: number;
+  marginPercentage?: number;
+}
+
 // Desglose de precios por categoría
 export interface PricingBreakdown {
   flights: { cost: number; price: number };
@@ -288,11 +345,12 @@ export interface Pricing {
   // Configuración de visibilidad de precios individuales en PDF
   showItemPrices?: boolean;
   itemPricesConfig?: ItemPricesConfig;
-  // Nuevo: precios diferenciados por tipo de ocupación
+  // Sistema de precios diferenciados por tipo de ocupación
   useOccupancyPricing?: boolean;
-  occupancyPricing?: OccupancyPricing[]; // Ocupaciones de alojamientos principales
-  // Opciones alternativas con sus ocupaciones (mutuamente excluyentes)
-  lodgingOptionsOccupancy?: LodgingOptionOccupancyPricing[];
+  occupancyPricing?: OccupancyPricing[]; // Legacy: ocupaciones de alojamientos principales
+  lodgingOptionsOccupancy?: LodgingOptionOccupancyPricing[]; // Legacy: opciones alternativas
+  // NUEVO: Precios agrupados por tipo de ocupación con opciones dentro
+  occupancyTypesWithOptions?: OccupancyTypeWithOptions[];
 }
 
 export interface ItineraryDay {
