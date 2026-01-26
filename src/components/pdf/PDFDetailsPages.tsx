@@ -899,7 +899,8 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     }
 
     // Pricing section - only show if there's actual pricing data
-    const hasOccupancyPricing = quote.pricing?.useOccupancyPricing && quote.pricing?.occupancyPricing && quote.pricing.occupancyPricing.length > 0;
+    const hasMainOccupancyPricing = quote.pricing?.useOccupancyPricing && quote.pricing?.occupancyPricing && quote.pricing.occupancyPricing.length > 0;
+    const hasOptionOccupancyPricing = quote.pricing?.lodgingOptionsOccupancy && quote.pricing.lodgingOptionsOccupancy.length > 0;
     const hasLodgingOptions = quote.pricing?.lodgingOptions && quote.pricing.lodgingOptions.length > 0;
     const hasLodgingOptionsWithPrice = hasLodgingOptions && quote.pricing.lodgingOptions!.some(opt => opt.totalPrice > 0);
     const hasTotalPrice = (quote.pricing?.totalPrice || 0) > 0;
@@ -910,11 +911,13 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     const hasObservations = quote.pricing?.observations && quote.pricing.observations.trim() !== '';
     
     // Only show pricing section if there's meaningful data
-    const hasPricingData = hasOccupancyPricing || hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
+    const hasPricingData = hasMainOccupancyPricing || hasOptionOccupancyPricing || hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
     
     if (hasPricingData) {
-      const pricingHeight = hasOccupancyPricing 
-        ? HEIGHTS.PRICING + (quote.pricing.occupancyPricing!.length * 100)
+      const mainOccCount = quote.pricing?.occupancyPricing?.length || 0;
+      const optionOccCount = quote.pricing?.lodgingOptionsOccupancy?.reduce((sum, opt) => sum + opt.occupancyPricing.length, 0) || 0;
+      const pricingHeight = hasMainOccupancyPricing || hasOptionOccupancyPricing
+        ? HEIGHTS.PRICING + (mainOccCount * 100) + (optionOccCount * 80) + ((quote.pricing?.lodgingOptionsOccupancy?.length || 0) * 60)
         : hasLodgingOptions 
           ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) 
           : HEIGHTS.PRICING;
@@ -924,9 +927,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
         height: pricingHeight,
         component: (
           <SectionCard icon={DollarSign} title="Valor del Viaje">
-            {/* Occupancy-based pricing (new system) */}
-            {hasOccupancyPricing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Main Occupancy-based pricing (new system) */}
+            {hasMainOccupancyPricing && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: hasOptionOccupancyPricing ? '16px' : '0' }}>
                 <p style={{ fontSize: '10px', color: `${primaryColor}80`, marginBottom: '4px' }}>
                   Precio por persona según tipo de habitación:
                 </p>
@@ -980,8 +983,8 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                     </div>
                   </div>
                 ))}
-                {/* Total general */}
-                {(quote.pricing.totalPrice || 0) > 0 && (
+                {/* Total general for main lodging */}
+                {(quote.pricing.totalPrice || 0) > 0 && !hasOptionOccupancyPricing && (
                   <div 
                     className="rounded"
                     style={{ 
@@ -998,7 +1001,87 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                   </div>
                 )}
               </div>
-            ) : hasLodgingOptionsWithPrice ? (
+            )}
+
+            {/* Alternative Lodging Options with occupancy pricing */}
+            {hasOptionOccupancyPricing && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <p style={{ fontSize: '10px', color: `${accentColor}`, fontWeight: 600, fontStyle: 'italic' }}>
+                  📋 Opciones alternativas de alojamiento (elija una):
+                </p>
+                {quote.pricing.lodgingOptionsOccupancy!.map((option, optIdx) => (
+                  <div 
+                    key={option.lodgingId}
+                    className="rounded-lg"
+                    style={{ 
+                      padding: '12px',
+                      border: `2px dashed ${accentColor}`,
+                      backgroundColor: `${accentColor}10`,
+                      WebkitPrintColorAdjust: 'exact',
+                      printColorAdjust: 'exact'
+                    }}
+                  >
+                    <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span 
+                          className="rounded"
+                          style={{ 
+                            padding: '3px 10px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            backgroundColor: accentColor,
+                            color: 'white'
+                          }}
+                        >
+                          🏷️ {option.lodgingLabel.toUpperCase()}
+                        </span>
+                        <p style={{ fontSize: '11px', fontWeight: 500, marginTop: '4px', color: primaryColor }}>
+                          {option.lodgingName}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Occupancy types for this option */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {option.occupancyPricing.map((occ, occIdx) => (
+                        <div 
+                          key={occ.occupancyId}
+                          className="rounded text-white"
+                          style={{ 
+                            padding: '10px',
+                            background: occIdx === 0 
+                              ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
+                              : `linear-gradient(135deg, ${secondaryColor} 0%, ${accentColor} 100%)`,
+                            WebkitPrintColorAdjust: 'exact',
+                            printColorAdjust: 'exact'
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center" style={{ gap: '6px' }}>
+                              <span style={{ fontSize: '9px', fontWeight: 600, backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
+                                🛏️ {occ.occupancyType.toUpperCase()}
+                              </span>
+                              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.8)' }}>
+                                ({occ.guestCount} pax)
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-serif font-bold" style={{ fontSize: '16px' }}>
+                                {quote.trip.currency} {occ.totalPerPerson.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                <span style={{ fontSize: '9px', fontWeight: 400, marginLeft: '4px' }}>/ persona</span>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Legacy: Lodging Options without occupancy (fallback) */}
+            {!hasMainOccupancyPricing && !hasOptionOccupancyPricing && hasLodgingOptionsWithPrice ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {quote.pricing.lodgingOptions!.filter(opt => opt.totalPrice > 0).map((option, idx) => (
                   <div 
