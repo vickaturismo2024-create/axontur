@@ -1071,15 +1071,13 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             )}
                           </div>
 
-                          {/* Occupancy Configuration */}
-                          {!lodging.isOption && (
-                            <OccupancyConfig
-                              lodging={lodging}
-                              totalTravelers={quote.trip.travelers}
-                              currency={quote.trip.currency}
-                              onUpdate={(updates) => updateLodging(lodging.id!, updates)}
-                            />
-                          )}
+                          {/* Occupancy Configuration - available for all lodgings including options */}
+                          <OccupancyConfig
+                            lodging={lodging}
+                            totalTravelers={quote.trip.travelers}
+                            currency={quote.trip.currency}
+                            onUpdate={(updates) => updateLodging(lodging.id!, updates)}
+                          />
                         </div>
                       </CardContent>
                     </Card>
