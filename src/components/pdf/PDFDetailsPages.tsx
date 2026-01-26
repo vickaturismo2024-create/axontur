@@ -968,41 +968,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                       </span>
                     </div>
 
-                    {/* Base breakdown */}
-                    <div 
-                      className="rounded"
-                      style={{ 
-                        padding: '8px', 
-                        marginBottom: '10px',
-                        backgroundColor: cardBgColor,
-                        fontSize: '10px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: `${primaryColor}99` }}>Servicios fijos por persona:</span>
-                        <span style={{ fontWeight: 500 }}>
-                          {quote.trip.currency} {occType.sharedServicesPerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </span>
-                      </div>
-                      {occType.mainLodgingDetails.map((detail) => (
-                        <div key={detail.lodgingId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span style={{ color: `${primaryColor}99` }}>
-                            {detail.lodgingName} {detail.destination ? `(${detail.destination})` : ''}:
-                          </span>
-                          <span style={{ fontWeight: 500 }}>
-                            {quote.trip.currency} {detail.pricePerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                      ))}
-                      {occType.mainLodgingDetails.length > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${secondaryColor}`, paddingTop: '4px', marginTop: '4px' }}>
-                          <span style={{ fontWeight: 600, color: primaryColor }}>Subtotal base:</span>
-                          <span style={{ fontWeight: 600, color: primaryColor }}>
-                            {quote.trip.currency} {occType.basePricePerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    {/* Base breakdown - hidden for cleaner client view */}
 
                     {/* Options or single price */}
                     {occType.hasOptions ? (
@@ -1036,9 +1002,6 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                                     📍 {option.destination}
                                   </p>
                                 )}
-                                <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)' }}>
-                                  +{quote.trip.currency} {option.lodgingPricePerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}/persona
-                                </p>
                               </div>
                               <div style={{ textAlign: 'right' }}>
                                 <p className="font-serif font-bold" style={{ fontSize: '16px' }}>
@@ -1248,7 +1211,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                   </div>
                 ))}
               </div>
-            ) : (hasTotalPrice || hasPricePerPerson) ? (
+            ) : (!hasOccupancyTypesWithOptions && (hasTotalPrice || hasPricePerPerson)) ? (
               <div 
                 className="rounded-lg text-white"
                 style={{ 
