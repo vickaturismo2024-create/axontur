@@ -1075,21 +1075,14 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                         ({occ.guestCount} pasajero{occ.guestCount !== 1 ? 's' : ''})
                       </span>
                     </div>
-                    <div className="flex items-end justify-between">
+                    <div className="flex items-center justify-between">
                       <div>
                         <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio por persona</p>
                         <p className="font-serif font-bold" style={{ fontSize: '20px' }}>
                           {quote.trip.currency} {occ.totalPerPerson.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>
-                          Servicios: {quote.trip.currency} {occ.sharedServicesPerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </p>
-                        <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>
-                          Alojamiento: {quote.trip.currency} {occ.lodgingPerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </p>
-                      </div>
+                      {/* Internal breakdown hidden for cleaner client view */}
                     </div>
                   </div>
                 ))}
@@ -1211,7 +1204,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                   </div>
                 ))}
               </div>
-            ) : (!hasOccupancyTypesWithOptions && (hasTotalPrice || hasPricePerPerson)) ? (
+            ) : (!hasOccupancyTypesWithOptions && !hasMainOccupancyPricing && (hasTotalPrice || hasPricePerPerson)) ? (
               <div 
                 className="rounded-lg text-white"
                 style={{ 
