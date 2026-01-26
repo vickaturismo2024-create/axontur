@@ -19,6 +19,20 @@ export interface Flight {
   price?: number;
 }
 
+// Tipo de ocupación/habitación dentro de un alojamiento
+export interface RoomOccupancy {
+  id: string;
+  roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
+  customTypeName?: string; // Para tipos personalizados
+  roomCount: number; // Cantidad de habitaciones de este tipo
+  guestsPerRoom: number; // Pasajeros por habitación (1 para single, 2 para doble, etc.)
+  costPerNight?: number; // Costo neto por noche por habitación
+  pricePerNight?: number; // Precio de venta por noche por habitación
+  totalCost?: number; // Para modo pricing = 'total'
+  totalPrice?: number; // Para modo pricing = 'total'
+  pricingMode?: 'perNight' | 'total';
+}
+
 export interface Lodging {
   id?: string;
   name: string;
@@ -33,12 +47,16 @@ export interface Lodging {
   destination?: string; // Para viajes multi-destino
   isOption?: boolean; // Es una opción alternativa para el pasajero
   optionLabel?: string; // Etiqueta para la opción (ej: "Opción 1", "Opción económica")
-  costPerNight?: number; // Costo real por noche (interno)
-  pricePerNight?: number; // Precio de venta por noche
+  costPerNight?: number; // Costo real por noche (interno) - legacy, usar occupancies
+  pricePerNight?: number; // Precio de venta por noche - legacy, usar occupancies
   totalCost?: number; // Costo total de la estadía (si pricingMode = 'total')
   totalPrice?: number; // Precio total de la estadía (si pricingMode = 'total')
-  pricingMode?: 'perNight' | 'total'; // Modo de ingreso de precios
+  pricingMode?: 'perNight' | 'total'; // Modo de ingreso de precios - legacy
   groupId?: string; // ID del grupo de opciones al que pertenece
+  // Nuevo: configuración de ocupaciones múltiples
+  occupancies?: RoomOccupancy[];
+  // Flag para usar sistema de ocupaciones (si false, usa sistema legacy)
+  useOccupancies?: boolean;
 }
 
 // Grupo de opciones de alojamiento (para agrupación por destino/fechas)
@@ -187,6 +205,27 @@ export interface LodgingOptionPricing {
   marginPercentage: number;
 }
 
+// Precio calculado por tipo de ocupación (single, double, etc.)
+export interface OccupancyPricing {
+  occupancyId: string;
+  occupancyType: string; // "Habitación Doble", "Habitación Single"
+  roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
+  guestCount: number; // Cantidad de pasajeros en este tipo
+  roomCount: number; // Cantidad de habitaciones
+  sharedServicesPerPerson: number; // Porción de servicios fijos por persona
+  lodgingTotalPrice: number; // Precio total del alojamiento para este tipo
+  lodgingPerPerson: number; // Costo de alojamiento por persona
+  totalPerPerson: number; // Total por persona para este tipo
+  totalForType: number; // Total para todas las personas de este tipo
+  // Costos internos
+  sharedServicesCostPerPerson: number;
+  lodgingTotalCost: number;
+  lodgingCostPerPerson: number;
+  totalCostPerPerson: number;
+  marginPerPerson: number;
+  marginPercentage: number;
+}
+
 // Desglose de precios por categoría
 export interface PricingBreakdown {
   flights: { cost: number; price: number };
@@ -226,7 +265,7 @@ export interface Pricing {
   fixedServicesCost?: number;
   // Desglose por categoría
   breakdown?: PricingBreakdown;
-  // Precios por opción de alojamiento
+  // Precios por opción de alojamiento (sistema legacy)
   lodgingOptions?: LodgingOptionPricing[];
   // Margen general (para cuando hay un solo alojamiento)
   totalCost?: number;
@@ -235,6 +274,9 @@ export interface Pricing {
   // Configuración de visibilidad de precios individuales en PDF
   showItemPrices?: boolean;
   itemPricesConfig?: ItemPricesConfig;
+  // Nuevo: precios diferenciados por tipo de ocupación
+  useOccupancyPricing?: boolean;
+  occupancyPricing?: OccupancyPricing[];
 }
 
 export interface ItineraryDay {

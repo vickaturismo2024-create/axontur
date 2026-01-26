@@ -1,4 +1,4 @@
-import { Quote, Template, ItemPricesConfig } from '@/types/quote';
+import { Quote, Template, ItemPricesConfig, OccupancyPricing } from '@/types/quote';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -13,7 +13,8 @@ import {
   Compass,
   MapPin,
   Clock,
-  Calendar
+  Calendar,
+  Users
 } from 'lucide-react';
 import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
@@ -898,6 +899,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     }
 
     // Pricing section - only show if there's actual pricing data
+    const hasOccupancyPricing = quote.pricing?.useOccupancyPricing && quote.pricing?.occupancyPricing && quote.pricing.occupancyPricing.length > 0;
     const hasLodgingOptions = quote.pricing?.lodgingOptions && quote.pricing.lodgingOptions.length > 0;
     const hasLodgingOptionsWithPrice = hasLodgingOptions && quote.pricing.lodgingOptions!.some(opt => opt.totalPrice > 0);
     const hasTotalPrice = (quote.pricing?.totalPrice || 0) > 0;
@@ -908,15 +910,95 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     const hasObservations = quote.pricing?.observations && quote.pricing.observations.trim() !== '';
     
     // Only show pricing section if there's meaningful data
-    const hasPricingData = hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
+    const hasPricingData = hasOccupancyPricing || hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
     
     if (hasPricingData) {
+      const pricingHeight = hasOccupancyPricing 
+        ? HEIGHTS.PRICING + (quote.pricing.occupancyPricing!.length * 100)
+        : hasLodgingOptions 
+          ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) 
+          : HEIGHTS.PRICING;
+
       sections.push({
         id: 'pricing',
-        height: hasLodgingOptions ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) : HEIGHTS.PRICING,
+        height: pricingHeight,
         component: (
           <SectionCard icon={DollarSign} title="Valor del Viaje">
-            {hasLodgingOptionsWithPrice ? (
+            {/* Occupancy-based pricing (new system) */}
+            {hasOccupancyPricing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <p style={{ fontSize: '10px', color: `${primaryColor}80`, marginBottom: '4px' }}>
+                  Precio por persona según tipo de habitación:
+                </p>
+                {quote.pricing.occupancyPricing!.map((occ, idx) => (
+                  <div 
+                    key={occ.occupancyId}
+                    className="rounded-lg text-white"
+                    style={{ 
+                      padding: '12px',
+                      background: idx === 0 
+                        ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
+                        : idx === 1
+                          ? `linear-gradient(135deg, ${secondaryColor} 0%, ${accentColor} 100%)`
+                          : `linear-gradient(135deg, ${accentColor} 0%, ${primaryColor} 100%)`,
+                      WebkitPrintColorAdjust: 'exact',
+                      printColorAdjust: 'exact'
+                    }}
+                  >
+                    <div className="flex items-center" style={{ gap: '8px', marginBottom: '8px' }}>
+                      <span 
+                        className="rounded"
+                        style={{ 
+                          padding: '2px 8px',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          backgroundColor: 'rgba(255,255,255,0.2)',
+                          color: 'white'
+                        }}
+                      >
+                        🛏️ {occ.occupancyType.toUpperCase()}
+                      </span>
+                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)' }}>
+                        ({occ.guestCount} pasajero{occ.guestCount !== 1 ? 's' : ''})
+                      </span>
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Precio por persona</p>
+                        <p className="font-serif font-bold" style={{ fontSize: '20px' }}>
+                          {quote.trip.currency} {occ.totalPerPerson.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>
+                          Servicios: {quote.trip.currency} {occ.sharedServicesPerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </p>
+                        <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>
+                          Alojamiento: {quote.trip.currency} {occ.lodgingPerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {/* Total general */}
+                {(quote.pricing.totalPrice || 0) > 0 && (
+                  <div 
+                    className="rounded"
+                    style={{ 
+                      marginTop: '6px', 
+                      padding: '8px', 
+                      backgroundColor: `${secondaryColor}30`,
+                      textAlign: 'center'
+                    }}
+                  >
+                    <p style={{ fontSize: '10px', color: `${primaryColor}80` }}>Total del viaje para todo el grupo:</p>
+                    <p className="font-serif font-bold" style={{ fontSize: '16px', color: primaryColor }}>
+                      {quote.trip.currency} {quote.pricing.totalPrice!.toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : hasLodgingOptionsWithPrice ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {quote.pricing.lodgingOptions!.filter(opt => opt.totalPrice > 0).map((option, idx) => (
                   <div 

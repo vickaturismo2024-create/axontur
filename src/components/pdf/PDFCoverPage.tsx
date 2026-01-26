@@ -1,4 +1,4 @@
-import { Quote, Template } from '@/types/quote';
+import { Quote, Template, OccupancyPricing } from '@/types/quote';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plane } from 'lucide-react';
@@ -192,6 +192,19 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
               <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: '14px' }}>
                 {quote.trip.travelers}
               </p>
+              {/* Show group composition if using occupancy pricing */}
+              {quote.pricing?.useOccupancyPricing && quote.pricing?.occupancyPricing && quote.pricing.occupancyPricing.length > 0 && (
+                <p style={{ marginTop: '2px', fontSize: '9px', color: 'rgba(255,255,255,0.7)' }}>
+                  {quote.pricing.occupancyPricing.map((occ: OccupancyPricing) => {
+                    const label = occ.roomType === 'single' ? 'SGL' 
+                      : occ.roomType === 'double' ? 'DBL' 
+                      : occ.roomType === 'triple' ? 'TPL'
+                      : occ.roomType === 'quadruple' ? 'QUAD'
+                      : 'HAB';
+                    return `${occ.roomCount} ${label}`;
+                  }).join(' + ')}
+                </p>
+              )}
             </div>
           </div>
         </div>

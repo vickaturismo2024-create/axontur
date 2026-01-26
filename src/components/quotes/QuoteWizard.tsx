@@ -40,6 +40,7 @@ import { defaultTemplate } from '@/data/demoData';
 import { PNRParserDialog } from '@/components/quotes/PNRParserDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PricingSection } from '@/components/quotes/PricingSection';
+import { OccupancyConfig } from '@/components/quotes/OccupancyConfig';
 
 interface QuoteWizardProps {
   initialQuote?: Quote;
@@ -1069,6 +1070,16 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                               </div>
                             )}
                           </div>
+
+                          {/* Occupancy Configuration */}
+                          {!lodging.isOption && (
+                            <OccupancyConfig
+                              lodging={lodging}
+                              totalTravelers={quote.trip.travelers}
+                              currency={quote.trip.currency}
+                              onUpdate={(updates) => updateLodging(lodging.id!, updates)}
+                            />
+                          )}
                         </div>
                       </CardContent>
                     </Card>
