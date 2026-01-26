@@ -1,4 +1,4 @@
-import { Quote, Template, ItemPricesConfig, OccupancyPricing } from '@/types/quote';
+import { Quote, Template, ItemPricesConfig, OccupancyPricing, OccupancyTypeWithOptions } from '@/types/quote';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -899,6 +899,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     }
 
     // Pricing section - only show if there's actual pricing data
+    const hasOccupancyTypesWithOptions = quote.pricing?.occupancyTypesWithOptions && quote.pricing.occupancyTypesWithOptions.length > 0;
     const hasMainOccupancyPricing = quote.pricing?.useOccupancyPricing && quote.pricing?.occupancyPricing && quote.pricing.occupancyPricing.length > 0;
     const hasOptionOccupancyPricing = quote.pricing?.lodgingOptionsOccupancy && quote.pricing.lodgingOptionsOccupancy.length > 0;
     const hasLodgingOptions = quote.pricing?.lodgingOptions && quote.pricing.lodgingOptions.length > 0;
@@ -911,24 +912,170 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     const hasObservations = quote.pricing?.observations && quote.pricing.observations.trim() !== '';
     
     // Only show pricing section if there's meaningful data
-    const hasPricingData = hasMainOccupancyPricing || hasOptionOccupancyPricing || hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
+    const hasPricingData = hasOccupancyTypesWithOptions || hasMainOccupancyPricing || hasOptionOccupancyPricing || hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
     
     if (hasPricingData) {
+      const occTypesCount = quote.pricing?.occupancyTypesWithOptions?.length || 0;
       const mainOccCount = quote.pricing?.occupancyPricing?.length || 0;
       const optionOccCount = quote.pricing?.lodgingOptionsOccupancy?.reduce((sum, opt) => sum + opt.occupancyPricing.length, 0) || 0;
-      const pricingHeight = hasMainOccupancyPricing || hasOptionOccupancyPricing
-        ? HEIGHTS.PRICING + (mainOccCount * 100) + (optionOccCount * 80) + ((quote.pricing?.lodgingOptionsOccupancy?.length || 0) * 60)
-        : hasLodgingOptions 
-          ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) 
-          : HEIGHTS.PRICING;
+      const pricingHeight = hasOccupancyTypesWithOptions
+        ? HEIGHTS.PRICING + (occTypesCount * 200)
+        : hasMainOccupancyPricing || hasOptionOccupancyPricing
+          ? HEIGHTS.PRICING + (mainOccCount * 100) + (optionOccCount * 80) + ((quote.pricing?.lodgingOptionsOccupancy?.length || 0) * 60)
+          : hasLodgingOptions 
+            ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) 
+            : HEIGHTS.PRICING;
 
       sections.push({
         id: 'pricing',
         height: pricingHeight,
         component: (
           <SectionCard icon={DollarSign} title="Valor del Viaje">
-            {/* Main Occupancy-based pricing (new system) */}
-            {hasMainOccupancyPricing && (
+            {/* NEW: Occupancy Types with Options - Main display */}
+            {hasOccupancyTypesWithOptions && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <p style={{ fontSize: '10px', color: `${primaryColor}80`, marginBottom: '4px' }}>
+                  Precio por persona según tipo de habitación:
+                </p>
+                {quote.pricing.occupancyTypesWithOptions!.map((occType, idx) => (
+                  <div 
+                    key={occType.id}
+                    className="rounded-lg"
+                    style={{ 
+                      padding: '12px',
+                      border: `1px solid ${secondaryColor}`,
+                      backgroundColor: bgColor,
+                      WebkitPrintColorAdjust: 'exact',
+                      printColorAdjust: 'exact'
+                    }}
+                  >
+                    {/* Occupancy type header */}
+                    <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span 
+                        className="rounded"
+                        style={{ 
+                          padding: '3px 10px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          backgroundColor: idx === 0 ? primaryColor : idx === 1 ? secondaryColor : accentColor,
+                          color: 'white'
+                        }}
+                      >
+                        🛏️ HABITACIÓN {occType.occupancyLabel.toUpperCase()}
+                      </span>
+                      <span style={{ fontSize: '10px', color: `${primaryColor}80` }}>
+                        ({occType.guestsPerRoom} pasajero{occType.guestsPerRoom !== 1 ? 's' : ''} por habitación)
+                      </span>
+                    </div>
+
+                    {/* Base breakdown */}
+                    <div 
+                      className="rounded"
+                      style={{ 
+                        padding: '8px', 
+                        marginBottom: '10px',
+                        backgroundColor: cardBgColor,
+                        fontSize: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ color: `${primaryColor}99` }}>Servicios fijos por persona:</span>
+                        <span style={{ fontWeight: 500 }}>
+                          {quote.trip.currency} {occType.sharedServicesPerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                      {occType.mainLodgingDetails.map((detail) => (
+                        <div key={detail.lodgingId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ color: `${primaryColor}99` }}>
+                            {detail.lodgingName} {detail.destination ? `(${detail.destination})` : ''}:
+                          </span>
+                          <span style={{ fontWeight: 500 }}>
+                            {quote.trip.currency} {detail.pricePerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      ))}
+                      {occType.mainLodgingDetails.length > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${secondaryColor}`, paddingTop: '4px', marginTop: '4px' }}>
+                          <span style={{ fontWeight: 600, color: primaryColor }}>Subtotal base:</span>
+                          <span style={{ fontWeight: 600, color: primaryColor }}>
+                            {quote.trip.currency} {occType.basePricePerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Options or single price */}
+                    {occType.hasOptions ? (
+                      <div>
+                        <p style={{ fontSize: '10px', fontWeight: 600, color: accentColor, marginBottom: '8px' }}>
+                          📋 Opciones de alojamiento (elija una):
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {occType.lodgingOptions.map((option, optIdx) => (
+                            <div 
+                              key={option.lodgingId}
+                              className="rounded text-white"
+                              style={{ 
+                                padding: '10px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                background: optIdx === 0 
+                                  ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
+                                  : `linear-gradient(135deg, ${secondaryColor} 0%, ${accentColor} 100%)`,
+                                WebkitPrintColorAdjust: 'exact',
+                                printColorAdjust: 'exact'
+                              }}
+                            >
+                              <div>
+                                <p style={{ fontSize: '11px', fontWeight: 600 }}>
+                                  {option.optionLabel}: {option.lodgingName}
+                                </p>
+                                {option.destination && (
+                                  <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)' }}>
+                                    📍 {option.destination}
+                                  </p>
+                                )}
+                                <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)' }}>
+                                  +{quote.trip.currency} {option.lodgingPricePerPerson.toLocaleString(undefined, { maximumFractionDigits: 0 })}/persona
+                                </p>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <p className="font-serif font-bold" style={{ fontSize: '16px' }}>
+                                  {quote.trip.currency} {option.totalPricePerPerson.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                </p>
+                                <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)' }}>
+                                  por persona
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div 
+                        className="rounded text-white"
+                        style={{ 
+                          padding: '12px',
+                          textAlign: 'center',
+                          background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+                          WebkitPrintColorAdjust: 'exact',
+                          printColorAdjust: 'exact'
+                        }}
+                      >
+                        <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>TOTAL POR PERSONA</p>
+                        <p className="font-serif font-bold" style={{ fontSize: '20px' }}>
+                          {quote.trip.currency} {(occType.singleTotalPerPerson || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* LEGACY: Main Occupancy-based pricing (old system) */}
+            {!hasOccupancyTypesWithOptions && hasMainOccupancyPricing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: hasOptionOccupancyPricing ? '16px' : '0' }}>
                 <p style={{ fontSize: '10px', color: `${primaryColor}80`, marginBottom: '4px' }}>
                   Precio por persona según tipo de habitación:
@@ -983,28 +1130,11 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                     </div>
                   </div>
                 ))}
-                {/* Total general for main lodging */}
-                {(quote.pricing.totalPrice || 0) > 0 && !hasOptionOccupancyPricing && (
-                  <div 
-                    className="rounded"
-                    style={{ 
-                      marginTop: '6px', 
-                      padding: '8px', 
-                      backgroundColor: `${secondaryColor}30`,
-                      textAlign: 'center'
-                    }}
-                  >
-                    <p style={{ fontSize: '10px', color: `${primaryColor}80` }}>Total del viaje para todo el grupo:</p>
-                    <p className="font-serif font-bold" style={{ fontSize: '16px', color: primaryColor }}>
-                      {quote.trip.currency} {quote.pricing.totalPrice!.toLocaleString()}
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
-            {/* Alternative Lodging Options with occupancy pricing */}
-            {hasOptionOccupancyPricing && (
+            {/* LEGACY: Alternative Lodging Options with occupancy pricing */}
+            {!hasOccupancyTypesWithOptions && hasOptionOccupancyPricing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <p style={{ fontSize: '10px', color: `${accentColor}`, fontWeight: 600, fontStyle: 'italic' }}>
                   📋 Opciones alternativas de alojamiento (elija una):
