@@ -226,6 +226,20 @@ export interface OccupancyPricing {
   marginPercentage: number;
 }
 
+// Precios de ocupación para una opción de alojamiento alternativa
+export interface LodgingOptionOccupancyPricing {
+  lodgingId: string;
+  lodgingLabel: string; // "Opción 1", "Hotel económico", etc.
+  lodgingName: string;
+  // Precios por tipo de ocupación dentro de esta opción
+  occupancyPricing: OccupancyPricing[];
+  // Totales para esta opción
+  totalPrice: number;
+  totalCost: number;
+  margin: number;
+  marginPercentage: number;
+}
+
 // Desglose de precios por categoría
 export interface PricingBreakdown {
   flights: { cost: number; price: number };
@@ -276,7 +290,9 @@ export interface Pricing {
   itemPricesConfig?: ItemPricesConfig;
   // Nuevo: precios diferenciados por tipo de ocupación
   useOccupancyPricing?: boolean;
-  occupancyPricing?: OccupancyPricing[];
+  occupancyPricing?: OccupancyPricing[]; // Ocupaciones de alojamientos principales
+  // Opciones alternativas con sus ocupaciones (mutuamente excluyentes)
+  lodgingOptionsOccupancy?: LodgingOptionOccupancyPricing[];
 }
 
 export interface ItineraryDay {

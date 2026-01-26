@@ -38,12 +38,14 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
   const hasLodgingOptions = calculation.lodgingOptionsPricing.length > 0;
   
   // Check if any lodging has occupancy configuration
-  const hasOccupancies = occupancyCalculation.occupancyPricing.length > 0;
-  const useOccupancyPricing = quote.pricing.useOccupancyPricing ?? hasOccupancies;
+  const hasMainOccupancies = occupancyCalculation.hasMainOccupancies;
+  const hasOptionOccupancies = occupancyCalculation.hasOptionOccupancies;
+  const hasAnyOccupancies = hasMainOccupancies || hasOptionOccupancies;
+  const useOccupancyPricing = quote.pricing.useOccupancyPricing ?? hasAnyOccupancies;
 
   const handleCalculateAutomatic = () => {
     // If we have occupancy configurations, use that system
-    if (hasOccupancies) {
+    if (hasAnyOccupancies) {
       const occupancyPricingUpdates = applyOccupancyPricing(occupancyCalculation);
       onUpdatePricing(occupancyPricingUpdates);
     } else {
@@ -286,15 +288,15 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
             </CardContent>
           </Card>
 
-          {/* Occupancy-Based Pricing (new system) */}
-          {hasOccupancies && (
+          {/* Occupancy-Based Pricing - Main Lodgings */}
+          {hasMainOccupancies && (
             <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <BedDouble className="h-4 w-4 text-primary" />
-                  Precio por Tipo de Ocupación
+                  Precio por Tipo de Ocupación (Alojamiento Principal)
                   <Badge variant="outline" className="ml-auto bg-primary/10 text-xs">
-                    {occupancyCalculation.validation.message}
+                    {occupancyCalculation.mainValidation.message}
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -305,12 +307,12 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
                     Servicios compartidos por persona ({quote.trip.travelers} pasajeros):
                   </p>
                   <p className="text-sm font-medium">
-                    {formatCurrency(occupancyCalculation.sharedServices.price / quote.trip.travelers)}
+                    {formatCurrency(occupancyCalculation.sharedPerPerson.price)}
                   </p>
                 </div>
 
-                {/* Each occupancy type */}
-                {occupancyCalculation.occupancyPricing.map((occ) => (
+                {/* Each occupancy type for main lodgings */}
+                {occupancyCalculation.mainOccupancyPricing.map((occ) => (
                   <div 
                     key={occ.occupancyId}
                     className="rounded-lg border bg-background p-4"
@@ -369,11 +371,11 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
                   </div>
                 ))}
 
-                {/* Grand total */}
+                {/* Grand total for main lodgings */}
                 <div className="mt-4 rounded-lg bg-gradient-to-r from-primary to-accent p-4 text-white">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-white/70">TOTAL VIAJE</p>
+                      <p className="text-xs text-white/70">TOTAL VIAJE (Alojamiento Principal)</p>
                       <p className="text-2xl font-bold">
                         {formatCurrency(occupancyCalculation.grandTotal.price)}
                       </p>
@@ -393,8 +395,91 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
             </Card>
           )}
 
-          {/* Lodging Options Pricing (legacy system) */}
-          {!hasOccupancies && hasLodgingOptions && (
+          {/* Occupancy-Based Pricing - Alternative Options (each shown separately) */}
+          {hasOptionOccupancies && (
+            <Card className="border-accent/30 bg-gradient-to-br from-accent/5 to-secondary/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Building2 className="h-4 w-4 text-accent" />
+                  Opciones Alternativas de Alojamiento
+                  <Badge variant="outline" className="ml-auto bg-accent/10 text-xs">
+                    {occupancyCalculation.lodgingOptionsOccupancy.length} opción(es)
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <p className="text-xs text-muted-foreground italic">
+                  Cada opción representa una alternativa independiente. El cliente elegirá UNA de estas opciones.
+                </p>
+
+                {occupancyCalculation.lodgingOptionsOccupancy.map((option, optionIndex) => (
+                  <div 
+                    key={option.lodgingId}
+                    className="rounded-lg border-2 border-dashed border-accent/50 bg-background p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <Badge className="bg-accent text-accent-foreground">
+                          🏷️ {option.lodgingLabel}
+                        </Badge>
+                        <p className="mt-1 text-sm font-medium">{option.lodgingName}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Total opción</p>
+                        <p className="text-lg font-bold text-accent">
+                          {formatCurrency(option.totalPrice)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Occupancy types for this option */}
+                    <div className="space-y-3">
+                      {option.occupancyPricing.map((occ) => (
+                        <div 
+                          key={occ.occupancyId}
+                          className="rounded-lg bg-muted/30 p-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-xs ${
+                                  occ.roomType === 'single' 
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    : occ.roomType === 'double'
+                                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                }`}
+                              >
+                                🛏️ {occ.occupancyType}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                ({occ.guestCount} pax)
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-primary">
+                                {formatCurrency(occ.totalPerPerson)} <span className="font-normal text-xs text-muted-foreground">/ persona</span>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Option margin */}
+                    <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                      <TrendingUp className="h-3 w-3 text-green-600" />
+                      Margen: {formatCurrency(option.margin)} ({option.marginPercentage.toFixed(1)}%)
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Lodging Options Pricing (legacy system - when NO occupancy configs exist) */}
+          {!hasAnyOccupancies && hasLodgingOptions && (
             <Card className="border-gold/30">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -454,7 +539,7 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
           )}
           
           {/* Single lodging summary (legacy) */}
-          {!hasOccupancies && !hasLodgingOptions && calculation.singleLodgingPricing && (
+          {!hasAnyOccupancies && !hasLodgingOptions && calculation.singleLodgingPricing && (
             <Card className="border-green-200 dark:border-green-800">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
