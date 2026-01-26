@@ -1,336 +1,432 @@
 
-# Plan: Sistema de Ocupación Diferenciada para Grupos
 
-## Problema a Resolver
+# Plan: Reestructurar Precios por Tipo de Ocupación con Opciones de Alojamiento
 
-Actualmente, el sistema asume que todos los pasajeros pagan lo mismo. Sin embargo, en viajes grupales (ej: 5 amigos: 2 parejas + 1 soltero), los costos de alojamiento varían según el tipo de habitación:
-- **Parejas** en habitación doble: dividen el costo entre 2
-- **Solteros** en habitación single: pagan el costo completo
+## Problema Actual
 
-Los servicios compartidos (vuelos, traslados, excursiones, seguro) sí se dividen igualmente entre todos.
+El sistema muestra los precios separados por alojamiento, creando múltiples cuadros confusos. Cuando hay opciones alternativas de alojamiento, cada opción se muestra como un bloque separado con sus propios tipos de ocupación.
 
----
+**Ejemplo actual (confuso):**
+```
+┌── Alojamiento Principal ──┐
+│ Single: USD 2,460         │
+│ Doble: USD 1,680          │
+└───────────────────────────┘
+
+┌── Opción 1: Hotel A ──────┐
+│ Single: USD 2,500         │
+│ Doble: USD 1,700          │
+└───────────────────────────┘
+
+┌── Opción 2: Hotel B ──────┐
+│ Single: USD 2,300         │
+│ Doble: USD 1,600          │
+└───────────────────────────┘
+```
 
 ## Solución Propuesta
 
-### Concepto: "Configuración de Ocupación"
+Reorganizar para mostrar **un cuadro por tipo de ocupación**, con todas las opciones de alojamiento dentro del mismo cuadro.
 
-Se agregará un sistema que permite definir diferentes **tipos de ocupación** dentro del mismo presupuesto:
-
+**Ejemplo deseado (claro):**
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│ 🛏️ CONFIGURACIÓN DE OCUPACIÓN                                 │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│ Total pasajeros: 5                                             │
-│                                                                │
-│ ┌─────────────────────────────────────────────────────────┐    │
-│ │ HABITACIÓN DOBLE                                        │    │
-│ │ Cantidad de habitaciones: [2]                           │    │
-│ │ Pasajeros que ocupan: 4 (2 por hab.)                    │    │
-│ │ Costo/noche: USD [150] → Precio/noche: USD [200]        │    │
-│ └─────────────────────────────────────────────────────────┘    │
-│                                                                │
-│ ┌─────────────────────────────────────────────────────────┐    │
-│ │ HABITACIÓN SINGLE                                       │    │
-│ │ Cantidad de habitaciones: [1]                           │    │
-│ │ Pasajeros que ocupan: 1                                 │    │
-│ │ Costo/noche: USD [120] → Precio/noche: USD [160]        │    │
-│ └─────────────────────────────────────────────────────────┘    │
-│                                                                │
-│ [+ Agregar tipo de habitación]                                 │
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 🛏️ HABITACIÓN SINGLE (1 pasajero por habitación)              │
+├─────────────────────────────────────────────────────────────────┤
+│ Servicios fijos por persona:              USD 380              │
+│ Alojamientos únicos (destino A):          USD 500              │
+├─────────────────────────────────────────────────────────────────┤
+│ Opciones de alojamiento (elija una):                           │
+│                                                                 │
+│   • Opción 1 - Hotel Premium:             USD 2,080            │
+│     TOTAL POR PERSONA:                    USD 2,960            │
+│                                                                 │
+│   • Opción 2 - Hotel Económico:           USD 1,500            │
+│     TOTAL POR PERSONA:                    USD 2,380            │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 🛏️ HABITACIÓN DOBLE (2 pasajeros por habitación)              │
+├─────────────────────────────────────────────────────────────────┤
+│ Servicios fijos por persona:              USD 380              │
+│ Alojamientos únicos (destino A):          USD 250              │
+├─────────────────────────────────────────────────────────────────┤
+│ Opciones de alojamiento (elija una):                           │
+│                                                                 │
+│   • Opción 1 - Hotel Premium:             USD 1,300            │
+│     TOTAL POR PERSONA:                    USD 1,930            │
+│                                                                 │
+│   • Opción 2 - Hotel Económico:           USD 950              │
+│     TOTAL POR PERSONA:                    USD 1,580            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Lógica de Cálculo Propuesta
+
+### Componentes del precio por persona:
+
+1. **Servicios fijos** (igual para todos): 
+   - Vuelos + Transfers + Trenes + Ferries + Autos + Actividades + Crucero + Seguro
+   - Dividido entre total de pasajeros
+
+2. **Alojamientos únicos** (sin opciones alternativas):
+   - Hoteles que NO son opciones (`isOption = false`)
+   - Se suman al precio base de cada tipo de ocupación
+
+3. **Opciones alternativas** (mutuamente excluyentes):
+   - Hoteles marcados como opciones (`isOption = true`)
+   - Se muestran dentro del cuadro de cada tipo de ocupación
+   - El cliente elige UNA opción
+
+### Fórmula:
+
+```
+Para cada TIPO DE OCUPACIÓN (single, doble, etc.):
+
+  precio_base = servicios_fijos_por_persona + alojamientos_unicos_por_persona
+
+  Para cada OPCIÓN de alojamiento:
+    precio_opcion = precio_de_esta_opcion_por_persona
+    TOTAL_POR_PERSONA = precio_base + precio_opcion
 ```
 
 ---
 
 ## Cambios Técnicos
 
-### 1. Nuevas Interfaces en `src/types/quote.ts`
+### 1. Nueva estructura de datos
 
 ```typescript
-// Tipo de ocupación/habitación dentro de un alojamiento
-export interface RoomOccupancy {
-  id: string;
+// Nuevo tipo para representar precio por ocupación con opciones
+interface OccupancyTypeWithOptions {
   roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
-  customTypeName?: string; // Para tipos personalizados
-  roomCount: number; // Cantidad de habitaciones de este tipo
-  guestsPerRoom: number; // Pasajeros por habitación (1 para single, 2 para doble, etc.)
-  costPerNight?: number; // Costo neto por noche por habitación
-  pricePerNight?: number; // Precio de venta por noche por habitación
-  totalCost?: number; // Para modo pricing = 'total'
-  totalPrice?: number; // Para modo pricing = 'total'
-}
-
-// Actualizar Lodging para soportar múltiples ocupaciones
-export interface Lodging {
-  // ... campos existentes ...
+  occupancyLabel: string; // "Habitación Single", "Habitación Doble"
+  guestsPerRoom: number;
+  totalRooms: number; // Total de habitaciones de este tipo
+  totalGuests: number; // Total de pasajeros en este tipo
   
-  // Nuevo: lista de tipos de ocupación
-  occupancies?: RoomOccupancy[];
-  // Si está vacío, se usa el sistema legacy (roomType + pricePerNight)
-}
-
-// Precio calculado por tipo de ocupación
-export interface OccupancyPricing {
-  occupancyType: string; // "Habitación Doble", "Habitación Single"
-  guestCount: number; // Cantidad de pasajeros en este tipo
-  sharedServicesPerPerson: number; // Porción de servicios fijos
-  lodgingPerPerson: number; // Costo de alojamiento por persona
-  totalPerPerson: number; // Total por persona para este tipo
-  totalForType: number; // Total para todas las personas de este tipo
+  // Base fija (servicios + alojamientos únicos)
+  sharedServicesPerPerson: number;
+  mainLodgingPerPerson: number; // Alojamientos sin opciones
+  basePerPerson: number; // sharedServices + mainLodging
+  
+  // Opciones alternativas de alojamiento
+  lodgingOptions: {
+    lodgingId: string;
+    lodgingName: string;
+    optionLabel: string;
+    lodgingPerPerson: number;
+    totalPerPerson: number; // base + lodgingPerPerson
+    // Internos (no se muestran en PDF)
+    lodgingCostPerPerson: number;
+    totalCostPerPerson: number;
+    marginPerPerson: number;
+    marginPercentage: number;
+  }[];
+  
+  // Si no hay opciones, precio único
+  singlePrice?: {
+    totalPerPerson: number;
+    totalCostPerPerson: number;
+    marginPerPerson: number;
+    marginPercentage: number;
+  };
 }
 ```
 
-### 2. Actualizar la Interfaz `Pricing`
+### 2. Archivos a modificar
+
+| Archivo | Cambios |
+|---------|---------|
+| `src/types/quote.ts` | Agregar `OccupancyTypeWithOptions` y actualizar `Pricing` |
+| `src/hooks/useOccupancyPricingCalculator.ts` | Reescribir para agrupar por tipo de ocupación |
+| `src/components/quotes/PricingSection.tsx` | Mostrar nueva estructura agrupada |
+| `src/components/pdf/PDFDetailsPages.tsx` | Renderizar cuadros por tipo de ocupación |
+
+### 3. Nuevo algoritmo de cálculo
 
 ```typescript
-export interface Pricing {
-  // ... campos existentes ...
-  
-  // Nuevo: desglose por tipo de ocupación
-  occupancyPricing?: OccupancyPricing[];
-  
-  // Flag para activar cálculo por ocupación
-  useOccupancyPricing?: boolean;
-}
-```
-
-### 3. Crear Hook `useOccupancyPricingCalculator.ts`
-
-Lógica de cálculo:
-
-```typescript
-function calculateOccupancyPricing(quote: Quote): OccupancyPricing[] {
+function calculateOccupancyWithOptions(quote: Quote) {
   const totalTravelers = quote.trip.travelers;
-  const sharedServicesTotal = calculateSharedServices(quote); // vuelos, traslados, etc.
-  const sharedPerPerson = sharedServicesTotal / totalTravelers;
   
-  const results: OccupancyPricing[] = [];
+  // 1. Calcular servicios fijos por persona
+  const sharedServices = calculateSharedServices(quote);
+  const sharedPerPerson = sharedServices / totalTravelers;
   
-  // Para cada alojamiento con ocupaciones definidas
-  for (const lodging of allLodgings) {
-    for (const occupancy of lodging.occupancies || []) {
-      const guestCount = occupancy.roomCount * occupancy.guestsPerRoom;
-      const lodgingTotal = occupancy.pricePerNight * lodging.nights * occupancy.roomCount;
-      const lodgingPerPerson = lodgingTotal / guestCount;
-      
-      results.push({
-        occupancyType: getOccupancyLabel(occupancy),
-        guestCount,
-        sharedServicesPerPerson: sharedPerPerson,
-        lodgingPerPerson,
-        totalPerPerson: sharedPerPerson + lodgingPerPerson,
-        totalForType: (sharedPerPerson + lodgingPerPerson) * guestCount,
-      });
+  // 2. Separar alojamientos
+  const allLodgings = quote.lodgings || [];
+  const mainLodgings = allLodgings.filter(l => !l.isOption);
+  const optionLodgings = allLodgings.filter(l => l.isOption);
+  
+  // 3. Identificar todos los tipos de ocupación usados
+  const occupancyTypes = new Map<string, OccupancyTypeWithOptions>();
+  
+  // Agregar tipos de alojamientos principales
+  for (const lodging of mainLodgings) {
+    if (!lodging.useOccupancies || !lodging.occupancies) continue;
+    for (const occ of lodging.occupancies) {
+      // Agregar o actualizar tipo
+      addToOccupancyType(occupancyTypes, occ, lodging, 'main');
     }
   }
   
-  return results;
+  // Agregar tipos de opciones alternativas
+  for (const lodging of optionLodgings) {
+    if (!lodging.useOccupancies || !lodging.occupancies) continue;
+    for (const occ of lodging.occupancies) {
+      addToOccupancyType(occupancyTypes, occ, lodging, 'option');
+    }
+  }
+  
+  // 4. Calcular precios finales para cada tipo
+  return Array.from(occupancyTypes.values());
 }
 ```
 
-**Ejemplo de cálculo:**
+---
 
-| Concepto | Hab. Doble (4 pax) | Hab. Single (1 pax) |
-|----------|-------------------|---------------------|
-| Vuelos (USD 1000 ÷ 5) | USD 200/persona | USD 200/persona |
-| Traslados (USD 250 ÷ 5) | USD 50/persona | USD 50/persona |
-| Excursiones (USD 500 ÷ 5) | USD 100/persona | USD 100/persona |
-| Seguro (USD 150 ÷ 5) | USD 30/persona | USD 30/persona |
-| **Subtotal compartido** | **USD 380/persona** | **USD 380/persona** |
-| Alojamiento (13 noches) | USD 200/n × 13 ÷ 2 = USD 1300/persona | USD 160/n × 13 = USD 2080/persona |
-| **TOTAL POR PERSONA** | **USD 1680** | **USD 2460** |
+## Validaciones Necesarias
+
+1. **Consistencia de tipos de ocupación**: Si tengo opciones alternativas, todas deben tener los mismos tipos de ocupación (si Hotel A tiene single y doble, Hotel B también debe tenerlos)
+
+2. **Cantidad de pasajeros**: La suma de pasajeros en todos los tipos debe igualar el total de viajeros
+
+3. **Advertencias**: Si una opción no tiene un tipo de ocupación que otra sí tiene, mostrar advertencia
 
 ---
 
-### 4. Actualizar `QuoteWizard.tsx` - Sección Alojamiento
+## Flujo de Usuario Actualizado
 
-Agregar UI para configurar ocupaciones:
+1. **Agregar alojamiento principal** (ej: Hotel en Bogotá)
+   - Configurar ocupaciones: 2 dobles + 1 single = 5 pasajeros
+   
+2. **Agregar opciones alternativas** (ej: para Cartagena)
+   - Opción 1: Hotel Marriott - configurar mismas ocupaciones
+   - Opción 2: Hotel Hilton - configurar mismas ocupaciones
+
+3. **Sección Precios**: Ver desglose automático agrupado por tipo de ocupación
+
+4. **PDF Final**: El cliente ve claramente:
+   - "Si viajas en habitación SINGLE, pagarás $X con Hotel Marriott o $Y con Hotel Hilton"
+   - "Si viajas en habitación DOBLE, pagarás $A con Hotel Marriott o $B con Hotel Hilton"
+
+---
+
+## Ejemplo Visual del PDF
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│ 🏨 Hotel Marriott Cartagena *****                              │
-│ Check-in: 15 Feb | Check-out: 28 Feb | 13 noches               │
-├────────────────────────────────────────────────────────────────┤
-│ 🛏️ Tipos de Habitación                                        │
-│                                                                │
-│ ┌────────────────────────────────────────────────────────────┐ │
-│ │ Tipo: [Doble ▾]  Cantidad: [2]  Pasajeros/hab: [2]         │ │
-│ │ Costo/noche: [$ 150]  Precio/noche: [$ 200]                │ │
-│ │ → 4 pasajeros | 13 noches | Total: USD 5,200               │ │
-│ │                                              [🗑️ Eliminar] │ │
-│ └────────────────────────────────────────────────────────────┘ │
-│                                                                │
-│ ┌────────────────────────────────────────────────────────────┐ │
-│ │ Tipo: [Single ▾]  Cantidad: [1]  Pasajeros/hab: [1]        │ │
-│ │ Costo/noche: [$ 120]  Precio/noche: [$ 160]                │ │
-│ │ → 1 pasajero | 13 noches | Total: USD 2,080                │ │
-│ │                                              [🗑️ Eliminar] │ │
-│ └────────────────────────────────────────────────────────────┘ │
-│                                                                │
-│ [+ Agregar tipo de habitación]                                 │
-│                                                                │
-│ Validación: ✅ 5 pasajeros asignados (total: 5)               │
-└────────────────────────────────────────────────────────────────┘
+╔═════════════════════════════════════════════════════════════════╗
+║                    💰 VALOR DEL VIAJE                           ║
+╠═════════════════════════════════════════════════════════════════╣
+║                                                                 ║
+║  Servicios incluidos: Vuelos, traslados, excursiones,          ║
+║  asistencia al viajero                                          ║
+║                                                                 ║
+║ ┌─────────────────────────────────────────────────────────────┐ ║
+║ │ 🛏️ PRECIO POR PERSONA EN HABITACIÓN SINGLE                 │ ║
+║ │                                                             │ ║
+║ │ Servicios fijos:                        USD 380             │ ║
+║ │ Hotel Bogotá (incluido):                USD 520             │ ║
+║ │ ────────────────────────────────────────────────            │ ║
+║ │ Subtotal base:                          USD 900             │ ║
+║ │                                                             │ ║
+║ │ 📋 Opciones para Cartagena:                                 │ ║
+║ │                                                             │ ║
+║ │   • Hotel Marriott          USD 2,080                       │ ║
+║ │     TOTAL:                  USD 2,980 por persona           │ ║
+║ │                                                             │ ║
+║ │   • Hotel Hilton            USD 1,800                       │ ║
+║ │     TOTAL:                  USD 2,700 por persona           │ ║
+║ └─────────────────────────────────────────────────────────────┘ ║
+║                                                                 ║
+║ ┌─────────────────────────────────────────────────────────────┐ ║
+║ │ 🛏️ PRECIO POR PERSONA EN HABITACIÓN DOBLE                  │ ║
+║ │                                                             │ ║
+║ │ Servicios fijos:                        USD 380             │ ║
+║ │ Hotel Bogotá (incluido):                USD 260             │ ║
+║ │ ────────────────────────────────────────────────            │ ║
+║ │ Subtotal base:                          USD 640             │ ║
+║ │                                                             │ ║
+║ │ 📋 Opciones para Cartagena:                                 │ ║
+║ │                                                             │ ║
+║ │   • Hotel Marriott          USD 1,300                       │ ║
+║ │     TOTAL:                  USD 1,940 por persona           │ ║
+║ │                                                             │ ║
+║ │   • Hotel Hilton            USD 1,100                       │ ║
+║ │     TOTAL:                  USD 1,740 por persona           │ ║
+║ └─────────────────────────────────────────────────────────────┘ ║
+║                                                                 ║
+║  Forma de pago: Transferencia, efectivo o tarjeta              ║
+╚═════════════════════════════════════════════════════════════════╝
 ```
-
----
-
-### 5. Actualizar `PricingSection.tsx`
-
-Mostrar desglose por tipo de ocupación:
-
-```text
-┌────────────────────────────────────────────────────────────────┐
-│ 💰 PRECIO POR TIPO DE PASAJERO                                 │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│ ┌──────────────────────────────────────────────────────────┐   │
-│ │ 🛏️ HABITACIÓN DOBLE (4 pasajeros)                        │   │
-│ │                                                          │   │
-│ │ Servicios compartidos:          USD 380 × 4 = USD 1,520  │   │
-│ │ Alojamiento (USD 200/n × 13 ÷ 2): USD 1,300 × 4 = USD 5,200│   │
-│ │ ─────────────────────────────────────────────────────────│   │
-│ │ PRECIO POR PERSONA:                         USD 1,680    │   │
-│ │ SUBTOTAL GRUPO (4 pax):                     USD 6,720    │   │
-│ └──────────────────────────────────────────────────────────┘   │
-│                                                                │
-│ ┌──────────────────────────────────────────────────────────┐   │
-│ │ 🛏️ HABITACIÓN SINGLE (1 pasajero)                        │   │
-│ │                                                          │   │
-│ │ Servicios compartidos:                      USD 380      │   │
-│ │ Alojamiento (USD 160/n × 13):               USD 2,080    │   │
-│ │ ─────────────────────────────────────────────────────────│   │
-│ │ PRECIO POR PERSONA:                         USD 2,460    │   │
-│ │ SUBTOTAL GRUPO (1 pax):                     USD 2,460    │   │
-│ └──────────────────────────────────────────────────────────┘   │
-│                                                                │
-│ ═══════════════════════════════════════════════════════════    │
-│ TOTAL VIAJE:                                  USD 9,180        │
-│ Margen: USD 1,200 (15%)                                        │
-└────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### 6. Actualizar `PDFDetailsPages.tsx`
-
-Mostrar precios diferenciados en el PDF:
-
-```text
-┌────────────────────────────────────────────────────────────────┐
-│ 💰 VALOR DEL VIAJE                                             │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│ Servicios incluidos para todos los pasajeros:                  │
-│ • Vuelos, traslados, excursiones, asistencia                   │
-│                                                                │
-│ ┌──────────────────────────────────────────────────────────┐   │
-│ │ Precio por persona en HABITACIÓN DOBLE                   │   │
-│ │ (compartiendo con otro pasajero)                         │   │
-│ │                                                          │   │
-│ │                              USD 1,680 por persona       │   │
-│ └──────────────────────────────────────────────────────────┘   │
-│                                                                │
-│ ┌──────────────────────────────────────────────────────────┐   │
-│ │ Precio por persona en HABITACIÓN SINGLE                  │   │
-│ │ (uso individual)                                         │   │
-│ │                                                          │   │
-│ │                              USD 2,460 por persona       │   │
-│ └──────────────────────────────────────────────────────────┘   │
-│                                                                │
-│ Formas de pago: Transferencia, efectivo                        │
-└────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Archivos a Modificar/Crear
-
-| Archivo | Acción | Descripción |
-|---------|--------|-------------|
-| `src/types/quote.ts` | Modificar | Agregar `RoomOccupancy`, `OccupancyPricing`, actualizar `Lodging` y `Pricing` |
-| `src/lib/validations.ts` | Modificar | Agregar schemas para nuevas estructuras |
-| `src/hooks/useOccupancyPricingCalculator.ts` | Crear | Hook para calcular precios por tipo de ocupación |
-| `src/hooks/usePricingCalculator.ts` | Modificar | Integrar cálculo de ocupaciones |
-| `src/components/quotes/QuoteWizard.tsx` | Modificar | UI para configurar ocupaciones en sección alojamiento |
-| `src/components/quotes/PricingSection.tsx` | Modificar | Mostrar desglose por ocupación |
-| `src/components/pdf/PDFDetailsPages.tsx` | Modificar | Renderizar precios diferenciados |
-| `src/components/pdf/PDFCoverPage.tsx` | Modificar | Mostrar composición del grupo (ej: "2 dobles + 1 single") |
-
----
-
-## Flujo de Usuario
-
-1. **Datos Generales**: Usuario ingresa 5 pasajeros
-2. **Alojamiento**: Al agregar un hotel, ve sección "Tipos de Habitación"
-3. **Configurar ocupaciones**: Agrega "2 habitaciones dobles" y "1 single"
-4. **Validación automática**: Sistema verifica que la suma = 5 pasajeros
-5. **Precio**: En sección Precio, ve desglose automático por tipo
-6. **PDF**: Cliente ve claramente cuánto paga según su tipo de habitación
-
----
-
-## Retrocompatibilidad
-
-- Si `occupancies` está vacío o undefined, el sistema usa el comportamiento actual (`roomType` + `pricePerNight` dividido entre todos los pasajeros)
-- Presupuestos existentes seguirán funcionando sin cambios
-- El nuevo sistema es opcional y se activa al agregar ocupaciones
 
 ---
 
 ## Sección Técnica
 
-### Estructura de datos en Supabase
+### Nueva interfaz en types/quote.ts
 
-Los nuevos campos se almacenarán dentro del campo `lodgings` (jsonb), que ya existe:
+```typescript
+// Opción de alojamiento dentro de un tipo de ocupación
+export interface LodgingOptionForOccupancy {
+  lodgingId: string;
+  lodgingName: string;
+  optionLabel: string;
+  destination?: string;
+  lodgingPricePerPerson: number;
+  totalPricePerPerson: number;
+  // Internos
+  lodgingCostPerPerson: number;
+  totalCostPerPerson: number;
+  marginPerPerson: number;
+  marginPercentage: number;
+}
 
-```json
-{
-  "lodgings": [
-    {
-      "id": "...",
-      "name": "Hotel Marriott Cartagena",
-      "nights": 13,
-      "occupancies": [
-        {
-          "id": "occ-1",
-          "roomType": "double",
-          "roomCount": 2,
-          "guestsPerRoom": 2,
-          "costPerNight": 150,
-          "pricePerNight": 200
-        },
-        {
-          "id": "occ-2",
-          "roomType": "single",
-          "roomCount": 1,
-          "guestsPerRoom": 1,
-          "costPerNight": 120,
-          "pricePerNight": 160
-        }
-      ]
-    }
-  ]
+// Tipo de ocupación con todas sus opciones
+export interface OccupancyTypeWithOptions {
+  id: string;
+  roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
+  occupancyLabel: string;
+  guestsPerRoom: number;
+  totalRooms: number;
+  totalGuests: number;
+  
+  // Base (servicios fijos + alojamientos obligatorios)
+  sharedServicesPerPerson: number;
+  sharedServicesCostPerPerson: number;
+  mainLodgingPricePerPerson: number;
+  mainLodgingCostPerPerson: number;
+  basePricePerPerson: number;
+  baseCostPerPerson: number;
+  
+  // Opciones alternativas (si existen)
+  hasOptions: boolean;
+  lodgingOptions: LodgingOptionForOccupancy[];
+  
+  // Precio único (si no hay opciones)
+  singleTotalPerPerson?: number;
+  singleTotalCostPerPerson?: number;
+  marginPerPerson?: number;
+  marginPercentage?: number;
 }
 ```
 
-### Fórmula de cálculo
+### Actualización del Pricing interface
 
 ```typescript
-// Servicios compartidos (por persona)
-const sharedPerPerson = (flights + transfers + activities + insurance + otherShared) / totalTravelers;
-
-// Alojamiento por persona según ocupación
-const lodgingPerPerson = (pricePerNight * nights * roomCount) / (roomCount * guestsPerRoom);
-
-// Total por persona
-const totalPerPerson = sharedPerPerson + lodgingPerPerson;
+export interface Pricing {
+  // ... campos existentes ...
+  
+  // Nuevo: precios agrupados por tipo de ocupación
+  occupancyTypesWithOptions?: OccupancyTypeWithOptions[];
+}
 ```
 
-### Validaciones
+### Algoritmo principal
 
-1. La suma de pasajeros en todas las ocupaciones debe igualar `trip.travelers`
-2. Si hay discrepancia, mostrar advertencia visual
-3. Permitir configuración parcial (algunos pasajeros sin asignar) con advertencia
+```typescript
+// En useOccupancyPricingCalculator.ts
+
+// 1. Mapear tipos de ocupación únicos (single, double, etc.)
+const occupancyTypesMap = new Map<string, {
+  roomType: RoomType;
+  mainLodgings: { lodging: Lodging; occupancy: RoomOccupancy }[];
+  optionLodgings: { lodging: Lodging; occupancy: RoomOccupancy }[];
+}>();
+
+// 2. Poblar con alojamientos principales
+for (const lodging of mainLodgings) {
+  for (const occupancy of lodging.occupancies || []) {
+    const key = occupancy.roomType;
+    if (!occupancyTypesMap.has(key)) {
+      occupancyTypesMap.set(key, { roomType: key, mainLodgings: [], optionLodgings: [] });
+    }
+    occupancyTypesMap.get(key)!.mainLodgings.push({ lodging, occupancy });
+  }
+}
+
+// 3. Poblar con opciones alternativas
+for (const lodging of optionLodgings) {
+  for (const occupancy of lodging.occupancies || []) {
+    const key = occupancy.roomType;
+    if (!occupancyTypesMap.has(key)) {
+      occupancyTypesMap.set(key, { roomType: key, mainLodgings: [], optionLodgings: [] });
+    }
+    occupancyTypesMap.get(key)!.optionLodgings.push({ lodging, occupancy });
+  }
+}
+
+// 4. Calcular precios para cada tipo
+const result: OccupancyTypeWithOptions[] = [];
+for (const [roomType, data] of occupancyTypesMap) {
+  // Sumar alojamientos principales
+  let mainLodgingPrice = 0;
+  let mainLodgingCost = 0;
+  let totalGuests = 0;
+  let totalRooms = 0;
+  
+  for (const { lodging, occupancy } of data.mainLodgings) {
+    const nights = lodging.nights || 0;
+    const guests = occupancy.roomCount * occupancy.guestsPerRoom;
+    totalGuests += guests;
+    totalRooms += occupancy.roomCount;
+    
+    // Calcular precio por persona para este alojamiento
+    const lodgingTotal = (occupancy.pricePerNight || 0) * nights * occupancy.roomCount;
+    mainLodgingPrice += lodgingTotal / guests;
+    
+    const lodgingCost = (occupancy.costPerNight || 0) * nights * occupancy.roomCount;
+    mainLodgingCost += lodgingCost / guests;
+  }
+  
+  // Calcular cada opción alternativa
+  const options: LodgingOptionForOccupancy[] = [];
+  for (const { lodging, occupancy } of data.optionLodgings) {
+    const nights = lodging.nights || 0;
+    const guests = occupancy.roomCount * occupancy.guestsPerRoom;
+    
+    const optLodgingTotal = (occupancy.pricePerNight || 0) * nights * occupancy.roomCount;
+    const optLodgingPerPerson = optLodgingTotal / guests;
+    
+    const totalPerPerson = sharedPerPerson + mainLodgingPrice + optLodgingPerPerson;
+    
+    options.push({
+      lodgingId: lodging.id!,
+      lodgingName: lodging.name,
+      optionLabel: lodging.optionLabel || 'Opción',
+      lodgingPricePerPerson: optLodgingPerPerson,
+      totalPricePerPerson: totalPerPerson,
+      // ... costos y márgenes
+    });
+  }
+  
+  result.push({
+    id: crypto.randomUUID(),
+    roomType,
+    occupancyLabel: getOccupancyLabel({ roomType }),
+    guestsPerRoom: getGuestsPerRoomType(roomType),
+    totalRooms,
+    totalGuests,
+    sharedServicesPerPerson: sharedPerPerson,
+    mainLodgingPricePerPerson: mainLodgingPrice,
+    basePricePerPerson: sharedPerPerson + mainLodgingPrice,
+    hasOptions: options.length > 0,
+    lodgingOptions: options,
+    // Si no hay opciones, precio único
+    singleTotalPerPerson: options.length === 0 
+      ? sharedPerPerson + mainLodgingPrice 
+      : undefined,
+    // ...
+  });
+}
+```
+
+### Orden de ejecución
+
+1. Actualizar `src/types/quote.ts` con nuevas interfaces
+2. Reescribir `src/hooks/useOccupancyPricingCalculator.ts` con nuevo algoritmo
+3. Actualizar `src/components/quotes/PricingSection.tsx` para mostrar nueva estructura
+4. Actualizar `src/components/pdf/PDFDetailsPages.tsx` para renderizar cuadros por tipo de ocupación
+
