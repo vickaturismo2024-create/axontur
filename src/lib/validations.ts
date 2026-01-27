@@ -248,6 +248,53 @@ const occupancyPricingSchema = z.object({
   marginPercentage: z.number().default(0),
 });
 
+// Lodging option within an occupancy type
+const lodgingOptionForOccupancySchema = z.object({
+  lodgingId: z.string(),
+  lodgingName: z.string(),
+  optionLabel: z.string(),
+  destination: z.string().optional(),
+  lodgingPricePerPerson: z.number().min(0).default(0),
+  totalPricePerPerson: z.number().min(0).default(0),
+  lodgingCostPerPerson: z.number().min(0).default(0),
+  totalCostPerPerson: z.number().min(0).default(0),
+  marginPerPerson: z.number().default(0),
+  marginPercentage: z.number().default(0),
+});
+
+// Main lodging detail schema
+const mainLodgingDetailSchema = z.object({
+  lodgingId: z.string(),
+  lodgingName: z.string(),
+  destination: z.string().optional(),
+  pricePerPerson: z.number().min(0).default(0),
+  costPerPerson: z.number().min(0).default(0),
+});
+
+// NEW: Occupancy type with options schema (grouped pricing system)
+const occupancyTypeWithOptionsSchema = z.object({
+  id: z.string(),
+  roomType: z.enum(['single', 'double', 'triple', 'quadruple', 'custom']),
+  customTypeName: z.string().optional(),
+  occupancyLabel: z.string(),
+  guestsPerRoom: z.number().min(0).default(0),
+  totalRooms: z.number().min(0).default(0),
+  totalGuests: z.number().min(0).default(0),
+  sharedServicesPerPerson: z.number().min(0).default(0),
+  sharedServicesCostPerPerson: z.number().min(0).default(0),
+  mainLodgingPricePerPerson: z.number().min(0).default(0),
+  mainLodgingCostPerPerson: z.number().min(0).default(0),
+  basePricePerPerson: z.number().min(0).default(0),
+  baseCostPerPerson: z.number().min(0).default(0),
+  mainLodgingDetails: z.array(mainLodgingDetailSchema).default([]),
+  hasOptions: z.boolean().default(false),
+  lodgingOptions: z.array(lodgingOptionForOccupancySchema).default([]),
+  singleTotalPerPerson: z.number().min(0).optional(),
+  singleTotalCostPerPerson: z.number().min(0).optional(),
+  marginPerPerson: z.number().optional(),
+  marginPercentage: z.number().optional(),
+});
+
 // Pricing breakdown schema
 const pricingBreakdownSchema = z.object({
   flights: z.object({ cost: z.number().default(0), price: z.number().default(0) }),
@@ -293,6 +340,8 @@ export const pricingSchema = z.object({
   itemPricesConfig: itemPricesConfigSchema.optional(),
   useOccupancyPricing: z.boolean().optional(),
   occupancyPricing: z.array(occupancyPricingSchema).optional(),
+  // NEW: Grouped pricing by occupancy type with options
+  occupancyTypesWithOptions: z.array(occupancyTypeWithOptionsSchema).optional(),
 }).partial();
 
 // Itinerary day validation - no length restrictions
