@@ -337,6 +337,17 @@ const itemPricesConfigSchema = z.object({
   insurance: z.boolean().default(false),
 });
 
+// Flight segment schema (for connection groups)
+const flightSegmentSchema = z.object({
+  origin: z.string(),
+  destination: z.string(),
+  date: z.string(),
+  departureTime: z.string(),
+  arrivalTime: z.string(),
+  airline: z.string(),
+  flightNumber: z.string(),
+});
+
 // Flight option pricing schema
 const flightOptionPricingSchema = z.object({
   flightId: z.string(),
@@ -354,6 +365,11 @@ const flightOptionPricingSchema = z.object({
   costPerPerson: z.number().min(0).default(0),
   marginPerPerson: z.number().default(0),
   marginPercentage: z.number().default(0),
+  // NEW: For connection groups (multiple segments)
+  flightIds: z.array(z.string()).optional(),
+  isConnectionGroup: z.boolean().optional(),
+  connectionLabel: z.string().optional(),
+  segments: z.array(flightSegmentSchema).optional(),
 });
 
 // Pricing validation - no length restrictions
