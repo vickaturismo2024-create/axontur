@@ -1,5 +1,44 @@
 
-# Plan: Corrección del Sistema de Opciones de Vuelo
+# Plan: Sistema de Opciones de Vuelo - IMPLEMENTADO
+
+## Estado: ✅ COMPLETADO
+
+## Cambios Realizados
+
+### 1. `src/hooks/useFlightGroups.ts` - Agrupación de Tramos Conectados
+- Nuevo tipo `FlightOptionDisplay` que puede contener múltiples vuelos (tramos de escala)
+- El hook ahora agrupa vuelos con el mismo `connectionGroupId` como UNA opción
+- Vuelos individuales sin conexión se muestran como opciones separadas
+- Retorna `flightOptions: FlightOptionDisplay[]` para uso en el PDF
+
+### 2. `src/components/pdf/PDFDetailsPages.tsx` - Renderizado Unificado
+- La sección "Opciones de Vuelo" ahora usa `flightOptions` en lugar de vuelos individuales
+- Conexiones muestran todos los tramos en un solo cuadro:
+  - Label de conexión: "EZE → MIA → CUN"
+  - Cada tramo con sus detalles (fecha, horario, aerolínea)
+  - Badge "CON ESCALA" automático
+- Los cuadros de "Valor del Viaje" se muestran correctamente para cada opción
+
+### 3. `src/components/quotes/QuoteWizard.tsx` - Auto-persistencia de Precios
+- Usa `useOccupancyPricingCalculator` para calcular precios automáticamente
+- Al guardar, si hay vuelos opcionales u ocupaciones, aplica los cálculos
+- `flightOptionsPricing` se persiste automáticamente en la BD
+
+### 4. `src/hooks/useOccupancyPricingCalculator.ts` - Ya Estaba Implementado
+- Agrupa vuelos por `connectionGroupId`
+- Suma precios de todos los tramos de una conexión
+- Genera `FlightOptionPricing` con:
+  - `connectionLabel`: Ruta completa
+  - `segments`: Detalles de cada tramo
+  - `pricePerPerson`: Total base + vuelo
+
+## Flujo Final
+
+```
+1. Usuario carga PNR con escala (2 tramos) → Se crean con mismo connectionGroupId
+2. En sección "Opciones de Vuelo": 1 cuadro con todos los tramos
+3. Al guardar: flightOptionsPricing se calcula y persiste automáticamente
+4. En sección "Valor del Viaje": Cuadros separados para cada opción con precio total
 
 ## Problemas Identificados
 

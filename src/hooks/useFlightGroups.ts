@@ -16,12 +16,27 @@ function areSameDate(f1: Flight, f2: Flight): boolean {
   return f1.date === f2.date;
 }
 
+// Representa una opción de vuelo que puede contener múltiples tramos (conexiones)
+export interface FlightOptionDisplay {
+  id: string;
+  flights: Flight[]; // Todos los tramos (1 para vuelo directo, 2+ para conexiones)
+  isConnectionGroup: boolean;
+  connectionLabel?: string; // "EZE → MIA → CUN"
+  optionLabel: string;
+  flightType: 'direct' | 'stopover' | 'charter';
+  luggage?: string;
+  totalPrice: number;
+  totalCost: number;
+}
+
 export interface FlightGroupResult {
   groups: FlightGroup[];
   groupedFlights: Map<string, Flight[]>;
   ungroupedFlights: Flight[];
   mainFlights: Flight[];
   optionFlights: Flight[];
+  // NUEVO: Opciones de vuelo procesadas (agrupa conexiones como una sola opción)
+  flightOptions: FlightOptionDisplay[];
   suggestGroups: (flights: Flight[]) => FlightGroup[];
 }
 
@@ -59,6 +74,69 @@ export function useFlightGroups(flights: Flight[]): FlightGroupResult {
         });
       }
     });
+
+    // =====================================================
+    // NUEVO: Construir flightOptions agrupando por connectionGroupId
+    // =====================================================
+    const flightOptions: FlightOptionDisplay[] = [];
+    const connectionGroups = new Map<string, Flight[]>();
+    const standaloneOptions: Flight[] = [];
+
+    // Separar vuelos opcionales por connectionGroupId
+    for (const flight of optionFlights) {
+      if (flight.connectionGroupId) {
+        const group = connectionGroups.get(flight.connectionGroupId) || [];
+        group.push(flight);
+        connectionGroups.set(flight.connectionGroupId, group);
+      } else {
+        standaloneOptions.push(flight);
+      }
+    }
+
+    // Procesar grupos de conexión (escalas)
+    for (const [groupId, groupFlights] of connectionGroups) {
+      // Ordenar por fecha y hora
+      groupFlights.sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.departureTime.localeCompare(b.departureTime);
+      });
+
+      // Construir label de conexión: "EZE → MIA → CUN"
+      const origins = groupFlights.map(f => f.origin);
+      const lastDest = groupFlights[groupFlights.length - 1].destination;
+      const connectionLabel = [...origins, lastDest].join(' → ');
+
+      const firstFlight = groupFlights[0];
+      const totalPrice = groupFlights.reduce((sum, f) => sum + (f.price || 0), 0);
+      const totalCost = groupFlights.reduce((sum, f) => sum + (f.cost || 0), 0);
+
+      flightOptions.push({
+        id: groupId,
+        flights: groupFlights,
+        isConnectionGroup: true,
+        connectionLabel,
+        optionLabel: firstFlight.optionLabel || 'Opción con escala',
+        flightType: 'stopover',
+        luggage: firstFlight.luggage || groupFlights.find(f => f.luggage)?.luggage,
+        totalPrice,
+        totalCost,
+      });
+    }
+
+    // Procesar vuelos individuales (sin conexión)
+    for (const flight of standaloneOptions) {
+      flightOptions.push({
+        id: flight.id,
+        flights: [flight],
+        isConnectionGroup: false,
+        optionLabel: flight.optionLabel || 'Opción de vuelo',
+        flightType: flight.flightType || 'direct',
+        luggage: flight.luggage,
+        totalPrice: flight.price || 0,
+        totalCost: flight.cost || 0,
+      });
+    }
     
     // Function to suggest groups based on similarity
     const suggestGroups = (flightsToGroup: Flight[]): FlightGroup[] => {
@@ -110,6 +188,7 @@ export function useFlightGroups(flights: Flight[]): FlightGroupResult {
       ungroupedFlights: ungrouped,
       mainFlights,
       optionFlights,
+      flightOptions,
       suggestGroups,
     };
   }, [flights]);

@@ -19,7 +19,7 @@ import {
 import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
 import { useLodgingGroups, organizeLodgingsByGroups } from '@/hooks/useLodgingGroups';
-import { useFlightGroups, organizeFlightsByGroups } from '@/hooks/useFlightGroups';
+import { useFlightGroups, organizeFlightsByGroups, FlightOptionDisplay } from '@/hooks/useFlightGroups';
 
 // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
 const formatDate = (dateString: string) => {
@@ -109,8 +109,8 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
   const mainFlights = quote.flights.filter(f => !f.isOption);
   const optionFlights = quote.flights.filter(f => f.isOption);
 
-  // Get flight groups
-  const { groups: flightGroups } = useFlightGroups(quote.flights);
+  // Get flight groups - flightOptions ya tiene conexiones agrupadas
+  const { groups: flightGroups, flightOptions } = useFlightGroups(quote.flights);
   const { grouped: groupedFlights, ungrouped: ungroupedFlightOptions } = organizeFlightsByGroups(quote.flights, flightGroups);
 
   // Section card component
@@ -229,19 +229,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
       });
     }
 
-    // Flight Options section
-    if (template.sectionsToggles.flights && optionFlights.length > 0) {
+    // Flight Options section - AHORA USA flightOptions que agrupa conexiones
+    if (template.sectionsToggles.flights && flightOptions.length > 0) {
       const showFlightPrices = showItemPrices && itemPricesConfig.flights;
-      
-      // Helper to get flight type label
-      const getFlightTypeLabel = (flightType?: string) => {
-        switch (flightType) {
-          case 'direct': return 'Directo';
-          case 'stopover': return 'Con escala';
-          case 'charter': return 'Charter';
-          default: return '';
-        }
-      };
 
       // Helper to get flight type badge styling
       const getFlightTypeBadge = (flightType?: string) => {
@@ -260,14 +250,14 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
       // Calculate travelers for per-person pricing
       const travelers = quote.trip.travelers || 1;
 
-      // Render a single flight option card with improved visual design
-      const renderFlightOptionCard = (flight: Flight, index: number) => {
-        const typeBadge = getFlightTypeBadge(flight.flightType);
-        const pricePerPerson = flight.price ? flight.price / travelers : 0;
+      // Renderiza una opción de vuelo (puede tener múltiples tramos si es conexión)
+      const renderFlightOptionCard = (option: FlightOptionDisplay, index: number) => {
+        const typeBadge = getFlightTypeBadge(option.flightType);
+        const pricePerPerson = option.totalPrice ? option.totalPrice / travelers : 0;
 
         return (
           <div 
-            key={flight.id}
+            key={option.id}
             className="rounded-lg border-2"
             style={{ 
               padding: '12px',
@@ -289,9 +279,9 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', fontWeight: 700, color: primaryColor }}>
-                  🏷️ {flight.optionLabel || `Opción ${index + 1}`}
+                  🏷️ {option.optionLabel || `Opción ${index + 1}`}
                 </span>
-                {flight.price && flight.price > 0 && (
+                {option.totalPrice > 0 && showFlightPrices && (
                   <span 
                     className="rounded"
                     style={{ 
@@ -328,7 +318,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
             )}
 
             {/* Luggage Badge */}
-            {flight.luggage && (
+            {option.luggage && (
               <div 
                 className="rounded"
                 style={{ 
@@ -342,28 +332,69 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                   marginLeft: typeBadge ? '6px' : '0'
                 }}
               >
-                🧳 {flight.luggage}
+                🧳 {option.luggage}
               </div>
             )}
 
-            {/* Flight Details */}
+            {/* Flight Details - Renderiza todos los tramos */}
             <div style={{ fontSize: '11px', marginTop: '8px' }}>
-              <p style={{ marginBottom: '4px' }}>
-                <span style={{ fontWeight: 600, color: primaryColor, fontSize: '12px' }}>
-                  {flight.origin} → {flight.destination}
-                </span>
-              </p>
-              <p style={{ color: `${primaryColor}99`, marginBottom: '2px' }}>
-                📅 {formatDate(flight.date)} · ⏰ {flight.departureTime} - {flight.arrivalTime}
-              </p>
-              {flight.airline && (
-                <p style={{ color: `${primaryColor}99` }}>
-                  {flight.airline} {flight.flightNumber}
-                </p>
+              {option.isConnectionGroup && option.connectionLabel ? (
+                // Vuelo con conexión: mostrar label de ruta completa y cada tramo
+                <>
+                  <p style={{ marginBottom: '8px' }}>
+                    <span style={{ fontWeight: 600, color: primaryColor, fontSize: '13px' }}>
+                      {option.connectionLabel}
+                    </span>
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {option.flights.map((flight, segIdx) => (
+                      <div 
+                        key={flight.id}
+                        style={{ 
+                          padding: '8px',
+                          backgroundColor: `${secondaryColor}10`,
+                          borderRadius: '6px',
+                          borderLeft: `3px solid ${accentColor}`
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 600, color: primaryColor }}>
+                            Tramo {segIdx + 1}: {flight.origin} → {flight.destination}
+                          </span>
+                          <span style={{ color: `${primaryColor}80`, fontSize: '10px' }}>
+                            {flight.airline} {flight.flightNumber}
+                          </span>
+                        </div>
+                        <p style={{ color: `${primaryColor}99`, fontSize: '10px' }}>
+                          📅 {formatDate(flight.date)} · ⏰ {flight.departureTime} - {flight.arrivalTime}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                // Vuelo directo: mostrar un solo tramo
+                <>
+                  <p style={{ marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 600, color: primaryColor, fontSize: '12px' }}>
+                      {option.flights[0]?.origin} → {option.flights[0]?.destination}
+                    </span>
+                  </p>
+                  <p style={{ color: `${primaryColor}99`, marginBottom: '2px' }}>
+                    📅 {formatDate(option.flights[0]?.date || '')} · ⏰ {option.flights[0]?.departureTime} - {option.flights[0]?.arrivalTime}
+                  </p>
+                  {option.flights[0]?.airline && (
+                    <p style={{ color: `${primaryColor}99` }}>
+                      {option.flights[0].airline} {option.flights[0].flightNumber}
+                    </p>
+                  )}
+                </>
               )}
-              {flight.notes && (
+
+              {/* Notes del primer vuelo */}
+              {option.flights[0]?.notes && (
                 <p style={{ marginTop: '6px', color: `${primaryColor}80`, fontSize: '10px', fontStyle: 'italic', paddingTop: '6px', borderTop: `1px dashed ${secondaryColor}` }}>
-                  {flight.notes}
+                  {option.flights[0].notes}
                 </p>
               )}
             </div>
@@ -371,12 +402,8 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
         );
       };
 
-      // Calculate height based on groups and ungrouped
-      const groupCount = groupedFlights.size;
-      const totalCards = optionFlights.length;
-      const totalHeight = HEIGHTS.SECTION_HEADER + 30 + 
-        (groupCount * HEIGHTS.LODGING_GROUP_HEADER) + 
-        (totalCards * HEIGHTS.FLIGHT_ROW * 3);
+      // Calculate height based on flight options
+      const totalHeight = HEIGHTS.SECTION_HEADER + 30 + (flightOptions.length * HEIGHTS.FLIGHT_ROW * 4);
 
       sections.push({
         id: 'optionFlights',
@@ -387,39 +414,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
               A continuación se presentan opciones alternativas de vuelo para su elección:
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Render grouped flights */}
-              {Array.from(groupedFlights.entries()).map(([groupId, { group, flights: groupFlightsList }]) => (
-                <div key={groupId}>
-                  {/* Group header */}
-                  <div 
-                    className="rounded-t"
-                    style={{ 
-                      padding: '8px 12px',
-                      backgroundColor: `${secondaryColor}20`,
-                      borderBottom: `2px solid ${accentColor}`,
-                      marginBottom: '8px'
-                    }}
-                  >
-                    <p style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
-                      ✈️ {group.origin} → {group.destination}
-                      {group.date && (
-                        <span style={{ marginLeft: '8px', fontWeight: 400, color: `${primaryColor}80` }}>
-                          ({formatDate(group.date)})
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  {/* Flights in this group */}
-                  {groupFlightsList.map((flight, idx) => renderFlightOptionCard(flight, idx))}
-                </div>
-              ))}
-              
-              {/* Render ungrouped flight options */}
-              {ungroupedFlightOptions.length > 0 && (
-                <div>
-                  {ungroupedFlightOptions.map((flight, idx) => renderFlightOptionCard(flight, idx))}
-                </div>
-              )}
+              {flightOptions.map((option, idx) => renderFlightOptionCard(option, idx))}
             </div>
           </SectionCard>
         )

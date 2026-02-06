@@ -41,6 +41,7 @@ import { PNRParserDialog } from '@/components/quotes/PNRParserDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PricingSection } from '@/components/quotes/PricingSection';
 import { OccupancyConfig } from '@/components/quotes/OccupancyConfig';
+import { useOccupancyPricingCalculator, applyOccupancyPricing } from '@/hooks/useOccupancyPricingCalculator';
 
 interface QuoteWizardProps {
   initialQuote?: Quote;
@@ -210,6 +211,9 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   });
   const [showPreviewPanel, setShowPreviewPanel] = useState(false);
   const [transportTab, setTransportTab] = useState('transfers');
+  
+  // Hook para calcular precios automáticamente (debe estar aquí con los otros hooks)
+  const occupancyCalculation = useOccupancyPricingCalculator(quote);
 
   const currentTemplate = templates.find(t => t.id === quote.templateId) || defaultTemplate || (templates[0] ?? null);
 
@@ -443,8 +447,29 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     updateQuote({ itineraryDays: updatedDays });
   };
 
+
   const handleSave = () => {
-    onSave(quote);
+    // Auto-calcular precios si hay vuelos opcionales o ocupaciones configuradas
+    const hasFlightOptions = quote.flights.some(f => f.isOption);
+    const allLodgings = (quote.lodgings && quote.lodgings.length > 0)
+      ? quote.lodgings
+      : (quote.lodging?.name ? [quote.lodging] : []);
+    const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
+    
+    if (hasFlightOptions || hasOccupancies) {
+      // Aplicar cálculos automáticos antes de guardar
+      const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
+      const updatedQuote: Quote = {
+        ...quote,
+        pricing: {
+          ...quote.pricing,
+          ...pricingUpdates,
+        },
+      };
+      onSave(updatedQuote);
+    } else {
+      onSave(quote);
+    }
   };
 
   const goNext = () => {
