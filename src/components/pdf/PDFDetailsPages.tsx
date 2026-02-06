@@ -1558,7 +1558,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                   </div>
                 ))}
               </div>
-            ) : (!hasOccupancyTypesWithOptions && !hasMainOccupancyPricing && (hasTotalPrice || hasPricePerPerson)) ? (
+            ) : (!hasFlightOptionsPricing && !hasOccupancyTypesWithOptions && !hasMainOccupancyPricing && (hasTotalPrice || hasPricePerPerson)) ? (
               <div 
                 className="rounded-lg text-white"
                 style={{ 
