@@ -8,7 +8,8 @@ import {
   LodgingOptionOccupancyPricing,
   OccupancyTypeWithOptions,
   LodgingOptionForOccupancy,
-  FlightOptionPricing
+  FlightOptionPricing,
+  FlightSegment
 } from '@/types/quote';
 
 export interface OccupancyPricingCalculation {
@@ -562,11 +563,12 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     // ============================================
     // NUEVO: Calcular precios por opción de vuelo
     // Agrupa tramos conectados (escalas) como una sola opción
+    // DETECCIÓN AUTOMÁTICA: Si hay múltiples "unidades de vuelo", 
+    // todas se tratan como opciones aunque no estén marcadas con isOption
     // ============================================
-    const optionFlights = quote.flights.filter(f => f.isOption);
     const flightOptionsPricing: FlightOptionPricing[] = [];
     
-    // Base sin vuelos opcionales para calcular totales
+    // Base sin vuelos para calcular totales
     const basePerPersonWithoutFlights = totalTravelers > 0 ? baseWithoutFlights.price / totalTravelers : 0;
     const baseCostPerPersonWithoutFlights = totalTravelers > 0 ? baseWithoutFlights.cost / totalTravelers : 0;
 
@@ -617,12 +619,15 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     const fullBaseCostPerPerson = baseCostPerPersonWithoutFlights + lodgingCostPerPerson;
 
     // ============================================
-    // Agrupar vuelos opcionales por connectionGroupId
+    // PASO 1: Agrupar TODOS los vuelos por connectionGroupId
+    // para identificar "unidades de vuelo" (un vuelo directo = 1 unidad, 
+    // una conexión de 2+ tramos = 1 unidad)
     // ============================================
-    const connectionGroups = new Map<string, typeof optionFlights>();
-    const standaloneFlights: typeof optionFlights = [];
+    const allFlights = quote.flights;
+    const connectionGroups = new Map<string, typeof allFlights>();
+    const standaloneFlights: typeof allFlights = [];
 
-    for (const flight of optionFlights) {
+    for (const flight of allFlights) {
       if (flight.connectionGroupId) {
         const group = connectionGroups.get(flight.connectionGroupId) || [];
         group.push(flight);
@@ -632,7 +637,20 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       }
     }
 
-    // Procesar grupos de conexión (escalas) - cada grupo = 1 opción
+    // Construir array de "unidades de vuelo"
+    // Cada grupo de conexión = 1 unidad, cada vuelo standalone = 1 unidad
+    interface FlightUnit {
+      id: string;
+      flights: typeof allFlights;
+      isConnection: boolean;
+      optionLabel: string;
+      flightType: 'direct' | 'stopover' | 'charter';
+    }
+
+    const flightUnits: FlightUnit[] = [];
+    let optionCounter = 1;
+
+    // Agregar grupos de conexión
     for (const [groupId, groupFlights] of connectionGroups) {
       // Ordenar por fecha y hora de salida
       groupFlights.sort((a, b) => {
@@ -641,93 +659,95 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
         return a.departureTime.localeCompare(b.departureTime);
       });
 
-      // Sumar precios de todos los tramos
-      const groupFlightPrice = groupFlights.reduce((sum, f) => sum + (f.price || 0), 0);
-      const groupFlightCost = groupFlights.reduce((sum, f) => sum + (f.cost || 0), 0);
-      const flightPricePerPerson = totalTravelers > 0 ? groupFlightPrice / totalTravelers : 0;
-      const flightCostPerPerson = totalTravelers > 0 ? groupFlightCost / totalTravelers : 0;
-
-      const totalPricePerPerson = fullBasePerPerson + flightPricePerPerson;
-      const totalCostPerPerson = fullBaseCostPerPerson + flightCostPerPerson;
-      const marginPerPerson = totalPricePerPerson - totalCostPerPerson;
-      const marginPercentage = totalCostPerPerson > 0 ? (marginPerPerson / totalCostPerPerson) * 100 : 0;
-
-      // Construir etiqueta de conexión: "EZE → MIA → CUN"
-      const origins = groupFlights.map(f => f.origin);
-      const lastDest = groupFlights[groupFlights.length - 1].destination;
-      const connectionLabel = [...origins, lastDest].join(' → ');
-
-      // Construir array de segmentos
-      const segments = groupFlights.map(f => ({
-        origin: f.origin,
-        destination: f.destination,
-        date: f.date,
-        departureTime: f.departureTime,
-        arrivalTime: f.arrivalTime,
-        airline: f.airline,
-        flightNumber: f.flightNumber,
-      }));
-
-      // Usar datos del primer vuelo para label y equipaje
       const firstFlight = groupFlights[0];
-      const luggageLabel = firstFlight.luggageType 
-        ? firstFlight.luggage 
-        : groupFlights.find(f => f.luggage)?.luggage || '';
-
-      flightOptionsPricing.push({
-        flightId: firstFlight.id, // ID del primer tramo
-        optionLabel: firstFlight.optionLabel || 'Opción con escala',
-        flightType: 'stopover', // Siempre es con escala si hay grupo
-        luggage: luggageLabel,
-        luggageType: firstFlight.luggageType,
-        flightPrice: groupFlightPrice,
-        flightCost: groupFlightCost,
-        basePriceWithoutFlights: fullBasePerPerson * totalTravelers,
-        baseCostWithoutFlights: fullBaseCostPerPerson * totalTravelers,
-        totalPrice: totalPricePerPerson * totalTravelers,
-        totalCost: totalCostPerPerson * totalTravelers,
-        pricePerPerson: totalPricePerPerson,
-        costPerPerson: totalCostPerPerson,
-        marginPerPerson,
-        marginPercentage,
-        // Nuevos campos para conexiones
-        flightIds: groupFlights.map(f => f.id),
-        isConnectionGroup: true,
-        connectionLabel,
-        segments,
+      flightUnits.push({
+        id: groupId,
+        flights: groupFlights,
+        isConnection: true,
+        optionLabel: firstFlight.optionLabel || `Opción ${optionCounter}`,
+        flightType: 'stopover',
       });
+      optionCounter++;
     }
 
-    // Procesar vuelos individuales (sin conexión)
+    // Agregar vuelos standalone
     for (const flight of standaloneFlights) {
-      const flightPrice = flight.price || 0;
-      const flightCost = flight.cost || 0;
-      const flightPricePerPerson = totalTravelers > 0 ? flightPrice / totalTravelers : 0;
-      const flightCostPerPerson = totalTravelers > 0 ? flightCost / totalTravelers : 0;
-
-      const totalPricePerPerson = fullBasePerPerson + flightPricePerPerson;
-      const totalCostPerPerson = fullBaseCostPerPerson + flightCostPerPerson;
-      const marginPerPerson = totalPricePerPerson - totalCostPerPerson;
-      const marginPercentage = totalCostPerPerson > 0 ? (marginPerPerson / totalCostPerPerson) * 100 : 0;
-
-      flightOptionsPricing.push({
-        flightId: flight.id,
-        optionLabel: flight.optionLabel || 'Opción de vuelo',
+      flightUnits.push({
+        id: flight.id,
+        flights: [flight],
+        isConnection: false,
+        optionLabel: flight.optionLabel || `Opción ${optionCounter}`,
         flightType: flight.flightType || 'direct',
-        luggage: flight.luggage,
-        luggageType: flight.luggageType,
-        flightPrice,
-        flightCost,
-        basePriceWithoutFlights: fullBasePerPerson * totalTravelers,
-        baseCostWithoutFlights: fullBaseCostPerPerson * totalTravelers,
-        totalPrice: totalPricePerPerson * totalTravelers,
-        totalCost: totalCostPerPerson * totalTravelers,
-        pricePerPerson: totalPricePerPerson,
-        costPerPerson: totalCostPerPerson,
-        marginPerPerson,
-        marginPercentage,
-        isConnectionGroup: false,
       });
+      optionCounter++;
+    }
+
+    // ============================================
+    // PASO 2: Si hay más de 1 unidad de vuelo, calcular precios 
+    // para CADA unidad (detección automática de opciones)
+    // ============================================
+    const hasMultipleFlightOptions = flightUnits.length > 1;
+
+    if (hasMultipleFlightOptions) {
+      for (const unit of flightUnits) {
+        // Sumar precios de todos los tramos de esta unidad
+        const unitFlightPrice = unit.flights.reduce((sum, f) => sum + (f.price || 0), 0);
+        const unitFlightCost = unit.flights.reduce((sum, f) => sum + (f.cost || 0), 0);
+        const flightPricePerPerson = totalTravelers > 0 ? unitFlightPrice / totalTravelers : 0;
+        const flightCostPerPerson = totalTravelers > 0 ? unitFlightCost / totalTravelers : 0;
+
+        const totalPricePerPerson = fullBasePerPerson + flightPricePerPerson;
+        const totalCostPerPerson = fullBaseCostPerPerson + flightCostPerPerson;
+        const marginPerPerson = totalPricePerPerson - totalCostPerPerson;
+        const marginPercentage = totalCostPerPerson > 0 ? (marginPerPerson / totalCostPerPerson) * 100 : 0;
+
+        // Construir etiqueta de conexión si aplica
+        let connectionLabel: string | undefined;
+        let segments: FlightSegment[] | undefined;
+
+        if (unit.isConnection) {
+          const origins = unit.flights.map(f => f.origin);
+          const lastDest = unit.flights[unit.flights.length - 1].destination;
+          connectionLabel = [...origins, lastDest].join(' → ');
+          
+          segments = unit.flights.map(f => ({
+            origin: f.origin,
+            destination: f.destination,
+            date: f.date,
+            departureTime: f.departureTime,
+            arrivalTime: f.arrivalTime,
+            airline: f.airline,
+            flightNumber: f.flightNumber,
+          }));
+        }
+
+        const firstFlight = unit.flights[0];
+        const luggageLabel = firstFlight.luggageType 
+          ? firstFlight.luggage 
+          : unit.flights.find(f => f.luggage)?.luggage || '';
+
+        flightOptionsPricing.push({
+          flightId: firstFlight.id,
+          optionLabel: unit.optionLabel,
+          flightType: unit.flightType,
+          luggage: luggageLabel,
+          luggageType: firstFlight.luggageType,
+          flightPrice: unitFlightPrice,
+          flightCost: unitFlightCost,
+          basePriceWithoutFlights: fullBasePerPerson * totalTravelers,
+          baseCostWithoutFlights: fullBaseCostPerPerson * totalTravelers,
+          totalPrice: totalPricePerPerson * totalTravelers,
+          totalCost: totalCostPerPerson * totalTravelers,
+          pricePerPerson: totalPricePerPerson,
+          costPerPerson: totalCostPerPerson,
+          marginPerPerson,
+          marginPercentage,
+          flightIds: unit.flights.map(f => f.id),
+          isConnectionGroup: unit.isConnection,
+          connectionLabel,
+          segments,
+        });
+      }
     }
 
     const hasFlightOptions = flightOptionsPricing.length > 0;
