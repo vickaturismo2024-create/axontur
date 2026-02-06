@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras, Pricing } from '@/types/quote';
+import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras, Pricing, LuggageType, LUGGAGE_LABELS } from '@/types/quote';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -864,13 +864,103 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             placeholder="AM456"
                           />
                         </div>
+                        {/* Equipaje con opciones predefinidas */}
                         <div className="md:col-span-2">
                           <Label>Equipaje</Label>
-                          <Input
-                            value={flight.luggage}
-                            onChange={(e) => updateFlight(flight.id, { luggage: e.target.value })}
-                            placeholder="2 valijas de 23kg + carry-on"
-                          />
+                          <div className="flex gap-2">
+                            <Select
+                              value={flight.luggageType || 'custom'}
+                              onValueChange={(value: LuggageType) => {
+                                if (value === 'custom') {
+                                  updateFlight(flight.id, { luggageType: 'custom' });
+                                } else {
+                                  updateFlight(flight.id, { 
+                                    luggageType: value,
+                                    luggage: LUGGAGE_LABELS[value]
+                                  });
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="w-1/2">
+                                <SelectValue placeholder="Selecciona tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="personal">🎒 Artículo Personal</SelectItem>
+                                <SelectItem value="personal_carryon">🎒 + 🧳 Art. Personal + Carry On</SelectItem>
+                                <SelectItem value="personal_carryon_checked">🎒 + 🧳 + 🛄 Art. Personal + Carry On + Bodega</SelectItem>
+                                <SelectItem value="custom">✏️ Personalizado...</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {(flight.luggageType === 'custom' || !flight.luggageType) && (
+                              <Input
+                                className="flex-1"
+                                value={flight.luggage}
+                                onChange={(e) => updateFlight(flight.id, { luggage: e.target.value })}
+                                placeholder="Ej: 2 valijas de 23kg + carry-on"
+                              />
+                            )}
+                          </div>
+                          {flight.luggageType && flight.luggageType !== 'custom' && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {LUGGAGE_LABELS[flight.luggageType]}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Vincular con otro tramo (escala) */}
+                        <div className="md:col-span-2">
+                          <Label>Vincular tramo (escala)</Label>
+                          <Select
+                            value={flight.connectionGroupId || 'none'}
+                            onValueChange={(value) => {
+                              if (value === 'none') {
+                                updateFlight(flight.id, { connectionGroupId: undefined });
+                              } else if (value === 'new') {
+                                // Crear nuevo grupo de conexión
+                                const newGroupId = crypto.randomUUID();
+                                updateFlight(flight.id, { 
+                                  connectionGroupId: newGroupId,
+                                  flightType: 'stopover' 
+                                });
+                              } else {
+                                updateFlight(flight.id, { 
+                                  connectionGroupId: value,
+                                  flightType: 'stopover'
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sin vincular (vuelo independiente)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">🚀 Sin vincular (vuelo independiente)</SelectItem>
+                              <SelectItem value="new">➕ Crear nueva conexión</SelectItem>
+                              {/* Mostrar vuelos existentes que podrían ser conexiones */}
+                              {quote.flights
+                                .filter(f => f.id !== flight.id && f.connectionGroupId)
+                                .reduce((groups, f) => {
+                                  if (f.connectionGroupId && !groups.includes(f.connectionGroupId)) {
+                                    groups.push(f.connectionGroupId);
+                                  }
+                                  return groups;
+                                }, [] as string[])
+                                .map((groupId, gIdx) => {
+                                  const groupFlights = quote.flights.filter(f => f.connectionGroupId === groupId);
+                                  const label = groupFlights.map(f => `${f.origin}→${f.destination}`).join(' + ');
+                                  return (
+                                    <SelectItem key={groupId} value={groupId}>
+                                      🔗 Grupo {gIdx + 1}: {label}
+                                    </SelectItem>
+                                  );
+                                })}
+                            </SelectContent>
+                          </Select>
+                          {flight.connectionGroupId && (
+                            <p className="text-xs text-amber-600 mt-1">
+                              ✈️ Este vuelo es parte de una conexión (escala)
+                            </p>
+                          )}
                         </div>
                         <div className="md:col-span-2">
                           <Label>Notas</Label>

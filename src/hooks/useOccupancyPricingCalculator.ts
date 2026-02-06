@@ -7,7 +7,8 @@ import {
   PricingBreakdown, 
   LodgingOptionOccupancyPricing,
   OccupancyTypeWithOptions,
-  LodgingOptionForOccupancy
+  LodgingOptionForOccupancy,
+  FlightOptionPricing
 } from '@/types/quote';
 
 export interface OccupancyPricingCalculation {
@@ -43,6 +44,9 @@ export interface OccupancyPricingCalculation {
   };
   // Desglose por categoría (para compatibilidad)
   breakdown: PricingBreakdown;
+  // NUEVO: Precios por opción de vuelo
+  flightOptionsPricing: FlightOptionPricing[];
+  hasFlightOptions: boolean;
   // Flags
   hasMainOccupancies: boolean;
   hasOptionOccupancies: boolean;
@@ -457,12 +461,22 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       breakdown.insurance.price = quote.insurance.price || 0;
     }
 
-    // Total servicios compartidos
+    // Total servicios compartidos (SIN vuelos opcionales, ya que cada opción tendrá su propio precio)
     const sharedServices = {
       cost: breakdown.flights.cost + breakdown.transfers.cost + breakdown.trains.cost + 
             breakdown.ferries.cost + breakdown.rentalCars.cost + breakdown.activities.cost +
             breakdown.cruise.cost + breakdown.insurance.cost,
       price: breakdown.flights.price + breakdown.transfers.price + breakdown.trains.price + 
+             breakdown.ferries.price + breakdown.rentalCars.price + breakdown.activities.price +
+             breakdown.cruise.price + breakdown.insurance.price,
+    };
+
+    // Base sin vuelos (para calcular opciones de vuelo)
+    const baseWithoutFlights = {
+      cost: breakdown.transfers.cost + breakdown.trains.cost + 
+            breakdown.ferries.cost + breakdown.rentalCars.cost + breakdown.activities.cost +
+            breakdown.cruise.cost + breakdown.insurance.cost,
+      price: breakdown.transfers.price + breakdown.trains.price + 
              breakdown.ferries.price + breakdown.rentalCars.price + breakdown.activities.price +
              breakdown.cruise.price + breakdown.insurance.price,
     };
@@ -545,6 +559,94 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       }
     }
 
+    // ============================================
+    // NUEVO: Calcular precios por opción de vuelo
+    // ============================================
+    const optionFlights = quote.flights.filter(f => f.isOption);
+    const flightOptionsPricing: FlightOptionPricing[] = [];
+    
+    // Base sin vuelos opcionales para calcular totales
+    const basePerPersonWithoutFlights = totalTravelers > 0 ? baseWithoutFlights.price / totalTravelers : 0;
+    const baseCostPerPersonWithoutFlights = totalTravelers > 0 ? baseWithoutFlights.cost / totalTravelers : 0;
+
+    // Agregar alojamientos principales a la base
+    let lodgingPricePerPerson = 0;
+    let lodgingCostPerPerson = 0;
+    
+    for (const lodging of mainLodgings) {
+      if (lodging.useOccupancies && lodging.occupancies?.length) {
+        // Usar promedio de ocupaciones
+        const avgPrice = lodging.occupancies.reduce((sum, occ) => {
+          const nights = lodging.nights || 0;
+          const guests = occ.roomCount * occ.guestsPerRoom;
+          if (occ.pricingMode === 'total') {
+            return sum + ((occ.totalPrice || 0) / (guests || 1));
+          }
+          return sum + (((occ.pricePerNight || 0) * nights * occ.roomCount) / (guests || 1));
+        }, 0) / (lodging.occupancies.length || 1);
+        
+        const avgCost = lodging.occupancies.reduce((sum, occ) => {
+          const nights = lodging.nights || 0;
+          const guests = occ.roomCount * occ.guestsPerRoom;
+          if (occ.pricingMode === 'total') {
+            return sum + ((occ.totalCost || 0) / (guests || 1));
+          }
+          return sum + (((occ.costPerNight || 0) * nights * occ.roomCount) / (guests || 1));
+        }, 0) / (lodging.occupancies.length || 1);
+        
+        lodgingPricePerPerson += avgPrice;
+        lodgingCostPerPerson += avgCost;
+      } else {
+        // Sistema legacy
+        let totalPrice = 0;
+        let totalCost = 0;
+        if (lodging.pricingMode === 'total') {
+          totalPrice = lodging.totalPrice || 0;
+          totalCost = lodging.totalCost || 0;
+        } else {
+          totalPrice = (lodging.pricePerNight || 0) * (lodging.nights || 0);
+          totalCost = (lodging.costPerNight || 0) * (lodging.nights || 0);
+        }
+        lodgingPricePerPerson += totalTravelers > 0 ? totalPrice / totalTravelers : 0;
+        lodgingCostPerPerson += totalTravelers > 0 ? totalCost / totalTravelers : 0;
+      }
+    }
+
+    const fullBasePerPerson = basePerPersonWithoutFlights + lodgingPricePerPerson;
+    const fullBaseCostPerPerson = baseCostPerPersonWithoutFlights + lodgingCostPerPerson;
+
+    for (const flight of optionFlights) {
+      const flightPrice = flight.price || 0;
+      const flightCost = flight.cost || 0;
+      const flightPricePerPerson = totalTravelers > 0 ? flightPrice / totalTravelers : 0;
+      const flightCostPerPerson = totalTravelers > 0 ? flightCost / totalTravelers : 0;
+
+      const totalPricePerPerson = fullBasePerPerson + flightPricePerPerson;
+      const totalCostPerPerson = fullBaseCostPerPerson + flightCostPerPerson;
+      const marginPerPerson = totalPricePerPerson - totalCostPerPerson;
+      const marginPercentage = totalCostPerPerson > 0 ? (marginPerPerson / totalCostPerPerson) * 100 : 0;
+
+      flightOptionsPricing.push({
+        flightId: flight.id,
+        optionLabel: flight.optionLabel || 'Opción de vuelo',
+        flightType: flight.flightType || 'direct',
+        luggage: flight.luggage,
+        luggageType: flight.luggageType,
+        flightPrice,
+        flightCost,
+        basePriceWithoutFlights: fullBasePerPerson * totalTravelers,
+        baseCostWithoutFlights: fullBaseCostPerPerson * totalTravelers,
+        totalPrice: totalPricePerPerson * totalTravelers,
+        totalCost: totalCostPerPerson * totalTravelers,
+        pricePerPerson: totalPricePerPerson,
+        costPerPerson: totalCostPerPerson,
+        marginPerPerson,
+        marginPercentage,
+      });
+    }
+
+    const hasFlightOptions = flightOptionsPricing.length > 0;
+
     // Validación
     const hasMainOccupancies = mainOccupancyPricing.length > 0;
     const hasOptionOccupancies = lodgingOptionsOccupancy.length > 0;
@@ -583,6 +685,8 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
         message: mainMessage,
       },
       breakdown,
+      flightOptionsPricing,
+      hasFlightOptions,
       hasMainOccupancies,
       hasOptionOccupancies,
       hasOccupancyTypesWithOptions,
@@ -631,6 +735,7 @@ export function applyOccupancyPricing(
     occupancyTypesWithOptions: calculation.occupancyTypesWithOptions,
     occupancyPricing: calculation.mainOccupancyPricing,
     lodgingOptionsOccupancy: calculation.lodgingOptionsOccupancy,
+    flightOptionsPricing: calculation.flightOptionsPricing,
     calculationMode: 'automatic',
     fixedServicesTotal: calculation.sharedServices.price,
     fixedServicesCost: calculation.sharedServices.cost,

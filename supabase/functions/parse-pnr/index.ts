@@ -72,6 +72,12 @@ Extract flight information from the PNR text provided and return structured JSON
 
 IMPORTANT: You must use the extract_flights function to return the data. Return ALL flight segments found in the PNR.
 
+CRITICAL: Detect connecting flights (stopovers/escalas). When flights are part of the same connection:
+- They occur on the same day or consecutive days
+- The destination of one flight matches the origin of the next
+- Mark them with the same connectionGroupId (generate a unique ID like "conn_1", "conn_2")
+- Set flightType to "stopover" for connecting flights
+
 For each flight segment, extract:
 - origin: Origin airport code and city (e.g., "Buenos Aires (EZE)")
 - destination: Destination airport code and city (e.g., "Cancún (CUN)")
@@ -81,7 +87,10 @@ For each flight segment, extract:
 - airline: Full airline name
 - flightNumber: Flight number with airline code (e.g., "AM456")
 - luggage: Luggage allowance if mentioned, otherwise empty
+- luggageType: One of "personal", "personal_carryon", "personal_carryon_checked", or "custom" based on luggage info
 - notes: Any additional notes like cabin class, stops, connection info
+- flightType: "direct" for direct flights, "stopover" for connecting flights, "charter" for charter flights
+- connectionGroupId: Same ID for flights that are part of the same connection/itinerary, empty for standalone flights
 
 Common GDS formats:
 - Amadeus: "1 AR1234 Y 15MAR EZEEZE HK1 1430 2200"
@@ -125,7 +134,10 @@ Convert city codes to readable names when possible (EZE = Buenos Aires, CUN = Ca
                         airline: { type: "string", description: "Full airline name" },
                         flightNumber: { type: "string", description: "Flight number with airline code" },
                         luggage: { type: "string", description: "Luggage allowance if mentioned" },
-                        notes: { type: "string", description: "Additional notes like cabin class, stops" }
+                        luggageType: { type: "string", enum: ["personal", "personal_carryon", "personal_carryon_checked", "custom"], description: "Type of luggage" },
+                        notes: { type: "string", description: "Additional notes like cabin class, stops" },
+                        flightType: { type: "string", enum: ["direct", "stopover", "charter"], description: "Type of flight" },
+                        connectionGroupId: { type: "string", description: "ID to group connected flights (same for all legs of a connection)" }
                       },
                       required: ["origin", "destination", "date", "departureTime", "arrivalTime", "airline", "flightNumber"]
                     }

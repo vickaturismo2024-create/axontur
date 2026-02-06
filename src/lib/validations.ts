@@ -32,6 +32,7 @@ export const flightSchema = z.object({
   airline: z.string().default(''),
   flightNumber: z.string().default(''),
   luggage: z.string().default(''),
+  luggageType: z.enum(['personal', 'personal_carryon', 'personal_carryon_checked', 'custom']).optional(),
   notes: z.string().default(''),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
@@ -40,6 +41,8 @@ export const flightSchema = z.object({
   optionLabel: z.string().optional(),
   groupId: z.string().optional(),
   flightType: z.enum(['direct', 'stopover', 'charter']).optional(),
+  // Vinculación de tramos (escalas)
+  connectionGroupId: z.string().optional(),
 });
 
 // Flight group validation
@@ -334,6 +337,25 @@ const itemPricesConfigSchema = z.object({
   insurance: z.boolean().default(false),
 });
 
+// Flight option pricing schema
+const flightOptionPricingSchema = z.object({
+  flightId: z.string(),
+  optionLabel: z.string(),
+  flightType: z.enum(['direct', 'stopover', 'charter']),
+  luggage: z.string(),
+  luggageType: z.enum(['personal', 'personal_carryon', 'personal_carryon_checked', 'custom']).optional(),
+  flightPrice: z.number().min(0).default(0),
+  flightCost: z.number().min(0).default(0),
+  basePriceWithoutFlights: z.number().min(0).default(0),
+  baseCostWithoutFlights: z.number().min(0).default(0),
+  totalPrice: z.number().min(0).default(0),
+  totalCost: z.number().min(0).default(0),
+  pricePerPerson: z.number().min(0).default(0),
+  costPerPerson: z.number().min(0).default(0),
+  marginPerPerson: z.number().default(0),
+  marginPercentage: z.number().default(0),
+});
+
 // Pricing validation - no length restrictions
 export const pricingSchema = z.object({
   totalPrice: z.number().min(0).default(0),
@@ -356,6 +378,8 @@ export const pricingSchema = z.object({
   occupancyPricing: z.array(occupancyPricingSchema).optional(),
   // NEW: Grouped pricing by occupancy type with options
   occupancyTypesWithOptions: z.array(occupancyTypeWithOptionsSchema).optional(),
+  // Flight options pricing
+  flightOptionsPricing: z.array(flightOptionPricingSchema).optional(),
 }).partial();
 
 // Itinerary day validation - no length restrictions

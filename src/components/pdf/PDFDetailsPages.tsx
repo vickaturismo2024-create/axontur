@@ -1,4 +1,4 @@
-import { Quote, Template, ItemPricesConfig, OccupancyPricing, OccupancyTypeWithOptions, Flight } from '@/types/quote';
+import { Quote, Template, ItemPricesConfig, OccupancyPricing, OccupancyTypeWithOptions, Flight, FlightOptionPricing, LUGGAGE_LABELS, LuggageType } from '@/types/quote';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -1108,6 +1108,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     const hasOccupancyTypesWithOptions = quote.pricing?.occupancyTypesWithOptions && quote.pricing.occupancyTypesWithOptions.length > 0;
     const hasMainOccupancyPricing = quote.pricing?.useOccupancyPricing && quote.pricing?.occupancyPricing && quote.pricing.occupancyPricing.length > 0;
     const hasOptionOccupancyPricing = quote.pricing?.lodgingOptionsOccupancy && quote.pricing.lodgingOptionsOccupancy.length > 0;
+    const hasFlightOptionsPricing = quote.pricing?.flightOptionsPricing && quote.pricing.flightOptionsPricing.length > 0;
     const hasLodgingOptions = quote.pricing?.lodgingOptions && quote.pricing.lodgingOptions.length > 0;
     const hasLodgingOptionsWithPrice = hasLodgingOptions && quote.pricing.lodgingOptions!.some(opt => opt.totalPrice > 0);
     const hasTotalPrice = (quote.pricing?.totalPrice || 0) > 0;
@@ -1118,25 +1119,140 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     const hasObservations = quote.pricing?.observations && quote.pricing.observations.trim() !== '';
     
     // Only show pricing section if there's meaningful data
-    const hasPricingData = hasOccupancyTypesWithOptions || hasMainOccupancyPricing || hasOptionOccupancyPricing || hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
+    const hasPricingData = hasOccupancyTypesWithOptions || hasMainOccupancyPricing || hasOptionOccupancyPricing || hasFlightOptionsPricing || hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
     
+    // Helper to render flight option price card
+    const renderFlightOptionPriceCard = (option: FlightOptionPricing, idx: number) => {
+      const getFlightTypeBadge = (flightType: string) => {
+        switch (flightType) {
+          case 'direct': 
+            return { label: '✈️ VUELO DIRECTO', bg: '#22c55e20', color: '#166534' };
+          case 'stopover': 
+            return { label: '✈️ CON ESCALA', bg: '#f59e0b20', color: '#92400e' };
+          case 'charter': 
+            return { label: '✈️ CHARTER', bg: '#8b5cf620', color: '#5b21b6' };
+          default: 
+            return { label: '✈️ VUELO', bg: `${primaryColor}20`, color: primaryColor };
+        }
+      };
+
+      const typeBadge = getFlightTypeBadge(option.flightType);
+      const luggageLabel = option.luggageType && option.luggageType !== 'custom' 
+        ? LUGGAGE_LABELS[option.luggageType as LuggageType]
+        : option.luggage;
+
+      return (
+        <div 
+          key={option.flightId}
+          className="rounded-lg text-white"
+          style={{ 
+            padding: '12px',
+            background: idx === 0 
+              ? `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
+              : idx === 1
+                ? `linear-gradient(135deg, ${secondaryColor} 0%, ${accentColor} 100%)`
+                : `linear-gradient(135deg, ${accentColor} 0%, ${primaryColor} 100%)`,
+            WebkitPrintColorAdjust: 'exact',
+            printColorAdjust: 'exact'
+          }}
+        >
+          {/* Option header */}
+          <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
+            <span 
+              className="rounded"
+              style={{ 
+                padding: '3px 10px',
+                fontSize: '10px',
+                fontWeight: 700,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                color: 'white'
+              }}
+            >
+              🏷️ {option.optionLabel.toUpperCase()}
+            </span>
+          </div>
+
+          {/* Flight type and luggage badges */}
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+            <span 
+              className="rounded"
+              style={{ 
+                padding: '2px 8px',
+                fontSize: '9px',
+                fontWeight: 600,
+                backgroundColor: typeBadge.bg,
+                color: typeBadge.color
+              }}
+            >
+              {typeBadge.label}
+            </span>
+            {luggageLabel && (
+              <span 
+                className="rounded"
+                style={{ 
+                  padding: '2px 8px',
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  color: 'white'
+                }}
+              >
+                🧳 {luggageLabel}
+              </span>
+            )}
+          </div>
+
+          {/* Total price */}
+          <div className="flex items-end justify-between">
+            <div>
+              <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>TOTAL POR PERSONA</p>
+              <p className="font-serif font-bold" style={{ fontSize: '22px' }}>
+                {quote.trip.currency} {option.pricePerPerson.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="text-right">
+              <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)' }}>
+                Total viaje
+              </p>
+              <p style={{ fontSize: '12px', fontWeight: 500 }}>
+                {quote.trip.currency} {option.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     if (hasPricingData) {
       const occTypesCount = quote.pricing?.occupancyTypesWithOptions?.length || 0;
       const mainOccCount = quote.pricing?.occupancyPricing?.length || 0;
       const optionOccCount = quote.pricing?.lodgingOptionsOccupancy?.reduce((sum, opt) => sum + opt.occupancyPricing.length, 0) || 0;
-      const pricingHeight = hasOccupancyTypesWithOptions
-        ? HEIGHTS.PRICING + (occTypesCount * 200)
-        : hasMainOccupancyPricing || hasOptionOccupancyPricing
-          ? HEIGHTS.PRICING + (mainOccCount * 100) + (optionOccCount * 80) + ((quote.pricing?.lodgingOptionsOccupancy?.length || 0) * 60)
-          : hasLodgingOptions 
-            ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) 
-            : HEIGHTS.PRICING;
+      const flightOptionsCount = quote.pricing?.flightOptionsPricing?.length || 0;
+      const pricingHeight = hasFlightOptionsPricing
+        ? HEIGHTS.PRICING + (flightOptionsCount * 150)
+        : hasOccupancyTypesWithOptions
+          ? HEIGHTS.PRICING + (occTypesCount * 200)
+          : hasMainOccupancyPricing || hasOptionOccupancyPricing
+            ? HEIGHTS.PRICING + (mainOccCount * 100) + (optionOccCount * 80) + ((quote.pricing?.lodgingOptionsOccupancy?.length || 0) * 60)
+            : hasLodgingOptions 
+              ? HEIGHTS.PRICING + (quote.pricing.lodgingOptions!.length * 80) 
+              : HEIGHTS.PRICING;
 
       sections.push({
         id: 'pricing',
         height: pricingHeight,
         component: (
           <SectionCard icon={DollarSign} title="Valor del Viaje">
+            {/* NEW: Flight Options Pricing - Show combined prices */}
+            {hasFlightOptionsPricing && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: hasOccupancyTypesWithOptions ? '16px' : '0' }}>
+                <p style={{ fontSize: '10px', color: `${primaryColor}80`, fontStyle: 'italic', marginBottom: '4px' }}>
+                  Elija una de las siguientes opciones de vuelo (precio incluye todos los servicios):
+                </p>
+                {quote.pricing.flightOptionsPricing!.map((option, idx) => renderFlightOptionPriceCard(option, idx))}
+              </div>
+            )}
+
             {/* NEW: Occupancy Types with Options - Main display */}
             {hasOccupancyTypesWithOptions && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
