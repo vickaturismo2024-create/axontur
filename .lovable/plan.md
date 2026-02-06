@@ -1,6 +1,36 @@
 
 # Plan: Sistema de Opciones de Vuelos (Similar a Alojamientos)
 
+## ✅ IMPLEMENTACIÓN COMPLETADA
+
+### Lo que se implementó:
+
+1. **Tipos actualizados** (`src/types/quote.ts`)
+   - Nuevos campos en `Flight`: `isOption`, `optionLabel`, `groupId`, `flightType`
+   - Nueva interfaz `FlightGroup` para agrupación
+
+2. **Validaciones actualizadas** (`src/lib/validations.ts`)
+   - Campos de opciones de vuelo añadidos al `flightSchema`
+   - Nuevo `flightGroupSchema`
+
+3. **Hook de grupos de vuelos** (`src/hooks/useFlightGroups.ts`)
+   - Agrupa vuelos por ruta y fecha
+   - Separa vuelos principales de opciones
+   - Funciones para aplicar y organizar grupos
+
+4. **Wizard de vuelos actualizado** (`src/components/quotes/QuoteWizard.tsx`)
+   - Checkbox "Es una opción alternativa"
+   - Campo "Etiqueta de la opción"
+   - Selector de tipo de vuelo (Directo/Con escala/Charter)
+   - Botón "Agregar opción de vuelo"
+
+5. **PDF actualizado** (`src/components/pdf/PDFDetailsPages.tsx`)
+   - Sección de vuelos principales separada de opciones
+   - Nueva sección "Opciones de Vuelo" con diseño similar a alojamientos
+   - Agrupación visual por ruta/fecha
+
+---
+
 ## Objetivo
 
 Implementar un sistema de opciones para vuelos similar al de alojamientos, permitiendo:

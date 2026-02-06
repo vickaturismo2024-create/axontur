@@ -17,6 +17,20 @@ export interface Flight {
   notes: string;
   cost?: number;
   price?: number;
+  // Sistema de opciones de vuelo
+  isOption?: boolean;
+  optionLabel?: string;
+  groupId?: string;
+  flightType?: 'direct' | 'stopover' | 'charter';
+}
+
+// Grupo de opciones de vuelo (para agrupación por ruta/fecha)
+export interface FlightGroup {
+  id: string;
+  origin: string;
+  destination: string;
+  date: string;
+  optionIds: string[];
 }
 
 // Tipo de ocupación/habitación dentro de un alojamiento

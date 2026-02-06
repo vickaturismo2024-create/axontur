@@ -35,6 +35,20 @@ export const flightSchema = z.object({
   notes: z.string().default(''),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
+  // Sistema de opciones de vuelo
+  isOption: z.boolean().optional(),
+  optionLabel: z.string().optional(),
+  groupId: z.string().optional(),
+  flightType: z.enum(['direct', 'stopover', 'charter']).optional(),
+});
+
+// Flight group validation
+export const flightGroupSchema = z.object({
+  id: z.string(),
+  origin: z.string().default(''),
+  destination: z.string().default(''),
+  date: z.string().default(''),
+  optionIds: z.array(z.string()).default([]),
 });
 
 // Room Occupancy validation
