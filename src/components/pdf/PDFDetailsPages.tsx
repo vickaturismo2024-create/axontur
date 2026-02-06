@@ -243,72 +243,133 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
         }
       };
 
-      // Render a single flight option card
-      const renderFlightOptionCard = (flight: Flight, index: number) => (
-        <div 
-          key={flight.id}
-          className="rounded border"
-          style={{ 
-            padding: '10px',
-            borderColor: accentColor,
-            borderStyle: 'dashed',
-            backgroundColor: bgColor,
-            marginBottom: '8px'
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span 
+      // Helper to get flight type badge styling
+      const getFlightTypeBadge = (flightType?: string) => {
+        switch (flightType) {
+          case 'direct': 
+            return { label: '✈️ VUELO DIRECTO', bg: '#22c55e20', color: '#166534' };
+          case 'stopover': 
+            return { label: '✈️ CON ESCALA', bg: '#f59e0b20', color: '#92400e' };
+          case 'charter': 
+            return { label: '✈️ CHARTER', bg: '#8b5cf620', color: '#5b21b6' };
+          default: 
+            return null;
+        }
+      };
+
+      // Calculate travelers for per-person pricing
+      const travelers = quote.trip.travelers || 1;
+
+      // Render a single flight option card with improved visual design
+      const renderFlightOptionCard = (flight: Flight, index: number) => {
+        const typeBadge = getFlightTypeBadge(flight.flightType);
+        const pricePerPerson = flight.price ? flight.price / travelers : 0;
+
+        return (
+          <div 
+            key={flight.id}
+            className="rounded-lg border-2"
+            style={{ 
+              padding: '12px',
+              borderColor: accentColor,
+              backgroundColor: bgColor,
+              marginBottom: '10px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+            }}
+          >
+            {/* Option Label Header */}
+            <div 
+              className="rounded-t"
+              style={{ 
+                margin: '-12px -12px 10px -12px',
+                padding: '8px 12px',
+                backgroundColor: `${accentColor}20`,
+                borderBottom: `2px solid ${accentColor}`
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: primaryColor }}>
+                  🏷️ {flight.optionLabel || `Opción ${index + 1}`}
+                </span>
+                {flight.price && flight.price > 0 && (
+                  <span 
+                    className="rounded"
+                    style={{ 
+                      padding: '4px 10px',
+                      fontSize: '13px', 
+                      fontWeight: 700, 
+                      color: '#ffffff',
+                      backgroundColor: primaryColor
+                    }}
+                  >
+                    {formatCurrency(pricePerPerson)}/persona
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Flight Type Badge */}
+            {typeBadge && (
+              <div 
                 className="rounded"
                 style={{ 
-                  padding: '2px 8px', 
+                  display: 'inline-block',
+                  padding: '3px 10px', 
                   fontSize: '10px', 
-                  fontWeight: 600,
-                  backgroundColor: `${accentColor}33`,
-                  color: primaryColor
+                  fontWeight: 700,
+                  backgroundColor: typeBadge.bg,
+                  color: typeBadge.color,
+                  marginBottom: '8px',
+                  letterSpacing: '0.5px'
                 }}
               >
-                🏷️ {flight.optionLabel || `Opción ${index + 1}`}
-              </span>
-              {flight.flightType && (
-                <span style={{ fontSize: '9px', color: `${primaryColor}80` }}>
-                  {getFlightTypeLabel(flight.flightType)}
+                {typeBadge.label}
+              </div>
+            )}
+
+            {/* Luggage Badge */}
+            {flight.luggage && (
+              <div 
+                className="rounded"
+                style={{ 
+                  display: 'inline-block',
+                  padding: '3px 10px', 
+                  fontSize: '10px', 
+                  fontWeight: 600,
+                  backgroundColor: `${secondaryColor}30`,
+                  color: primaryColor,
+                  marginBottom: '8px',
+                  marginLeft: typeBadge ? '6px' : '0'
+                }}
+              >
+                🧳 {flight.luggage}
+              </div>
+            )}
+
+            {/* Flight Details */}
+            <div style={{ fontSize: '11px', marginTop: '8px' }}>
+              <p style={{ marginBottom: '4px' }}>
+                <span style={{ fontWeight: 600, color: primaryColor, fontSize: '12px' }}>
+                  {flight.origin} → {flight.destination}
                 </span>
+              </p>
+              <p style={{ color: `${primaryColor}99`, marginBottom: '2px' }}>
+                📅 {formatDate(flight.date)} · ⏰ {flight.departureTime} - {flight.arrivalTime}
+              </p>
+              {flight.airline && (
+                <p style={{ color: `${primaryColor}99` }}>
+                  {flight.airline} {flight.flightNumber}
+                </p>
+              )}
+              {flight.notes && (
+                <p style={{ marginTop: '6px', color: `${primaryColor}80`, fontSize: '10px', fontStyle: 'italic', paddingTop: '6px', borderTop: `1px dashed ${secondaryColor}` }}>
+                  {flight.notes}
+                </p>
               )}
             </div>
-            {showFlightPrices && flight.price && flight.price > 0 && (
-              <span style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
-                {formatCurrency(flight.price)}
-              </span>
-            )}
           </div>
-          <div style={{ fontSize: '11px' }}>
-            <p style={{ marginBottom: '4px' }}>
-              <span style={{ fontWeight: 600, color: primaryColor }}>
-                {flight.origin} → {flight.destination}
-              </span>
-            </p>
-            <p style={{ color: `${primaryColor}99` }}>
-              {formatDate(flight.date)} · {flight.departureTime} - {flight.arrivalTime}
-            </p>
-            {flight.airline && (
-              <p style={{ color: `${primaryColor}99` }}>
-                {flight.airline} {flight.flightNumber}
-              </p>
-            )}
-            {flight.luggage && (
-              <p style={{ marginTop: '4px', color: `${primaryColor}80`, fontSize: '10px' }}>
-                Equipaje: {flight.luggage}
-              </p>
-            )}
-            {flight.notes && (
-              <p style={{ marginTop: '4px', color: `${primaryColor}80`, fontSize: '10px', fontStyle: 'italic' }}>
-                {flight.notes}
-              </p>
-            )}
-          </div>
-        </div>
-      );
+        );
+      };
 
       // Calculate height based on groups and ungrouped
       const groupCount = groupedFlights.size;

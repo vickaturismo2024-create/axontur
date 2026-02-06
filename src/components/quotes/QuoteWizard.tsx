@@ -766,33 +766,44 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                       </div>
 
                       {flight.isOption && (
-                        <div className="mb-4 grid gap-4 md:grid-cols-2">
-                          <div>
-                            <Label>Etiqueta de la opción</Label>
-                            <Input
-                              value={flight.optionLabel || ''}
-                              onChange={(e) => updateFlight(flight.id, { optionLabel: e.target.value })}
-                              placeholder="Vuelo directo con equipaje"
-                            />
-                          </div>
-                          <div>
-                            <Label>Tipo de vuelo</Label>
-                            <Select
-                              value={flight.flightType || 'direct'}
-                              onValueChange={(value: 'direct' | 'stopover' | 'charter') => updateFlight(flight.id, { flightType: value })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona tipo" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="direct">Vuelo directo</SelectItem>
-                                <SelectItem value="stopover">Con escala</SelectItem>
-                                <SelectItem value="charter">Charter</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <div className="mb-4">
+                          <Label>Etiqueta de la opción</Label>
+                          <Input
+                            value={flight.optionLabel || ''}
+                            onChange={(e) => updateFlight(flight.id, { optionLabel: e.target.value })}
+                            placeholder="Vuelo directo con equipaje completo"
+                          />
                         </div>
                       )}
+
+                      {/* Tipo de vuelo - siempre visible */}
+                      <div className="mb-4">
+                        <Label className="mb-2 block">Tipo de vuelo</Label>
+                        <RadioGroup 
+                          value={flight.flightType || 'direct'} 
+                          onValueChange={(value: 'direct' | 'stopover' | 'charter') => updateFlight(flight.id, { flightType: value })}
+                          className="flex gap-4"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="direct" id={`flight-type-direct-${flight.id}`} />
+                            <Label htmlFor={`flight-type-direct-${flight.id}`} className="cursor-pointer font-normal">
+                              ✈️ Directo
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="stopover" id={`flight-type-stopover-${flight.id}`} />
+                            <Label htmlFor={`flight-type-stopover-${flight.id}`} className="cursor-pointer font-normal">
+                              ✈️ Con escala
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="charter" id={`flight-type-charter-${flight.id}`} />
+                            <Label htmlFor={`flight-type-charter-${flight.id}`} className="cursor-pointer font-normal">
+                              ✈️ Charter
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
