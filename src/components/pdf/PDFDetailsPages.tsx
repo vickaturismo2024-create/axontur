@@ -1,4 +1,4 @@
-import { Quote, Template, ItemPricesConfig, OccupancyPricing, OccupancyTypeWithOptions } from '@/types/quote';
+import { Quote, Template, ItemPricesConfig, OccupancyPricing, OccupancyTypeWithOptions, Flight } from '@/types/quote';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -19,6 +19,7 @@ import {
 import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
 import { useLodgingGroups, organizeLodgingsByGroups } from '@/hooks/useLodgingGroups';
+import { useFlightGroups, organizeFlightsByGroups } from '@/hooks/useFlightGroups';
 
 // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
 const formatDate = (dateString: string) => {
@@ -104,6 +105,14 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
   const { groups } = useLodgingGroups(allLodgings);
   const { grouped: groupedLodgings, ungrouped: ungroupedOptions } = organizeLodgingsByGroups(allLodgings, groups);
 
+  // Get all flights - separate main flights from option flights
+  const mainFlights = quote.flights.filter(f => !f.isOption);
+  const optionFlights = quote.flights.filter(f => f.isOption);
+
+  // Get flight groups
+  const { groups: flightGroups } = useFlightGroups(quote.flights);
+  const { grouped: groupedFlights, ungrouped: ungroupedFlightOptions } = organizeFlightsByGroups(quote.flights, flightGroups);
+
   // Section card component
   const SectionCard = ({ 
     icon: Icon, 
@@ -148,14 +157,14 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
   const buildSections = (): Section[] => {
     const sections: Section[] = [];
 
-    // Flights section
-    if (template.sectionsToggles.flights && quote.flights.length > 0) {
+    // Main Flights section (non-option flights only)
+    if (template.sectionsToggles.flights && mainFlights.length > 0) {
       const showFlightPrices = showItemPrices && itemPricesConfig.flights;
-      const flightsTotalPrice = quote.flights.reduce((sum, f) => sum + (f.price || 0), 0);
+      const flightsTotalPrice = mainFlights.reduce((sum, f) => sum + (f.price || 0), 0);
       
       sections.push({
         id: 'flights',
-        height: HEIGHTS.SECTION_HEADER + (quote.flights.length * HEIGHTS.FLIGHT_ROW) + 40,
+        height: HEIGHTS.SECTION_HEADER + (mainFlights.length * HEIGHTS.FLIGHT_ROW) + 40,
         component: (
           <SectionCard icon={Plane} title="Vuelos">
             <div 
@@ -175,7 +184,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {quote.flights.map((flight, idx) => (
+                  {mainFlights.map((flight, idx) => (
                     <tr 
                       key={flight.id} 
                       style={{ 
@@ -210,11 +219,147 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
                 )}
               </table>
             </div>
-            {quote.flights[0]?.luggage && (
+            {mainFlights[0]?.luggage && (
               <p style={{ marginTop: '6px', fontSize: '10px', color: `${primaryColor}99` }}>
-                Equipaje: {quote.flights[0].luggage}
+                Equipaje: {mainFlights[0].luggage}
               </p>
             )}
+          </SectionCard>
+        )
+      });
+    }
+
+    // Flight Options section
+    if (template.sectionsToggles.flights && optionFlights.length > 0) {
+      const showFlightPrices = showItemPrices && itemPricesConfig.flights;
+      
+      // Helper to get flight type label
+      const getFlightTypeLabel = (flightType?: string) => {
+        switch (flightType) {
+          case 'direct': return 'Directo';
+          case 'stopover': return 'Con escala';
+          case 'charter': return 'Charter';
+          default: return '';
+        }
+      };
+
+      // Render a single flight option card
+      const renderFlightOptionCard = (flight: Flight, index: number) => (
+        <div 
+          key={flight.id}
+          className="rounded border"
+          style={{ 
+            padding: '10px',
+            borderColor: accentColor,
+            borderStyle: 'dashed',
+            backgroundColor: bgColor,
+            marginBottom: '8px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span 
+                className="rounded"
+                style={{ 
+                  padding: '2px 8px', 
+                  fontSize: '10px', 
+                  fontWeight: 600,
+                  backgroundColor: `${accentColor}33`,
+                  color: primaryColor
+                }}
+              >
+                🏷️ {flight.optionLabel || `Opción ${index + 1}`}
+              </span>
+              {flight.flightType && (
+                <span style={{ fontSize: '9px', color: `${primaryColor}80` }}>
+                  {getFlightTypeLabel(flight.flightType)}
+                </span>
+              )}
+            </div>
+            {showFlightPrices && flight.price && flight.price > 0 && (
+              <span style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
+                {formatCurrency(flight.price)}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '11px' }}>
+            <p style={{ marginBottom: '4px' }}>
+              <span style={{ fontWeight: 600, color: primaryColor }}>
+                {flight.origin} → {flight.destination}
+              </span>
+            </p>
+            <p style={{ color: `${primaryColor}99` }}>
+              {formatDate(flight.date)} · {flight.departureTime} - {flight.arrivalTime}
+            </p>
+            {flight.airline && (
+              <p style={{ color: `${primaryColor}99` }}>
+                {flight.airline} {flight.flightNumber}
+              </p>
+            )}
+            {flight.luggage && (
+              <p style={{ marginTop: '4px', color: `${primaryColor}80`, fontSize: '10px' }}>
+                Equipaje: {flight.luggage}
+              </p>
+            )}
+            {flight.notes && (
+              <p style={{ marginTop: '4px', color: `${primaryColor}80`, fontSize: '10px', fontStyle: 'italic' }}>
+                {flight.notes}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+
+      // Calculate height based on groups and ungrouped
+      const groupCount = groupedFlights.size;
+      const totalCards = optionFlights.length;
+      const totalHeight = HEIGHTS.SECTION_HEADER + 30 + 
+        (groupCount * HEIGHTS.LODGING_GROUP_HEADER) + 
+        (totalCards * HEIGHTS.FLIGHT_ROW * 3);
+
+      sections.push({
+        id: 'optionFlights',
+        height: totalHeight,
+        component: (
+          <SectionCard icon={Plane} title="Opciones de Vuelo">
+            <p style={{ fontSize: '10px', marginBottom: '10px', color: `${primaryColor}80`, fontStyle: 'italic' }}>
+              A continuación se presentan opciones alternativas de vuelo para su elección:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Render grouped flights */}
+              {Array.from(groupedFlights.entries()).map(([groupId, { group, flights: groupFlightsList }]) => (
+                <div key={groupId}>
+                  {/* Group header */}
+                  <div 
+                    className="rounded-t"
+                    style={{ 
+                      padding: '8px 12px',
+                      backgroundColor: `${secondaryColor}20`,
+                      borderBottom: `2px solid ${accentColor}`,
+                      marginBottom: '8px'
+                    }}
+                  >
+                    <p style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
+                      ✈️ {group.origin} → {group.destination}
+                      {group.date && (
+                        <span style={{ marginLeft: '8px', fontWeight: 400, color: `${primaryColor}80` }}>
+                          ({formatDate(group.date)})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {/* Flights in this group */}
+                  {groupFlightsList.map((flight, idx) => renderFlightOptionCard(flight, idx))}
+                </div>
+              ))}
+              
+              {/* Render ungrouped flight options */}
+              {ungroupedFlightOptions.length > 0 && (
+                <div>
+                  {ungroupedFlightOptions.map((flight, idx) => renderFlightOptionCard(flight, idx))}
+                </div>
+              )}
+            </div>
           </SectionCard>
         )
       });

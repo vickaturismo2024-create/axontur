@@ -218,7 +218,9 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   };
 
   // Flights
-  const addFlight = () => {
+  const addFlight = (isOption: boolean = false) => {
+    const optionCount = quote.flights.filter(f => f.isOption).length;
+    const label = isOption ? `Opción ${optionCount + 1}` : '';
     const newFlight: Flight = {
       id: crypto.randomUUID(),
       origin: '',
@@ -230,6 +232,9 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
       flightNumber: '',
       luggage: '',
       notes: '',
+      isOption,
+      optionLabel: label,
+      flightType: 'direct',
     };
     updateQuote({ flights: [...quote.flights, newFlight] });
   };
@@ -724,8 +729,15 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             {/* Vuelos */}
             {currentStep === 3 && (
               <div className="space-y-4">
+                {/* Instrucciones */}
+                <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Consejo:</strong> Puedes agregar múltiples opciones de vuelo (directo, con escala, distintos equipajes) para que el pasajero elija.
+                  </p>
+                </div>
+
                 {quote.flights.map((flight, idx) => (
-                  <Card key={flight.id} className="relative">
+                  <Card key={flight.id} className={`relative ${flight.isOption ? 'border-dashed border-accent' : ''}`}>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -735,7 +747,53 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                       <Trash2 className="h-4 w-4" />
                     </Button>
                     <CardContent className="pt-6">
-                      <p className="mb-4 font-medium text-muted-foreground">Tramo {idx + 1}</p>
+                      <div className="mb-4 flex items-center gap-4">
+                        <p className="font-medium text-gold">
+                          {flight.isOption ? `🏷️ ${flight.optionLabel || `Opción ${idx + 1}`}` : `Tramo ${idx + 1}`}
+                        </p>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={flight.isOption || false}
+                            onChange={(e) => updateFlight(flight.id, { 
+                              isOption: e.target.checked,
+                              optionLabel: e.target.checked ? `Opción ${idx + 1}` : ''
+                            })}
+                            className="rounded border-gray-300"
+                          />
+                          Es una opción alternativa
+                        </label>
+                      </div>
+
+                      {flight.isOption && (
+                        <div className="mb-4 grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label>Etiqueta de la opción</Label>
+                            <Input
+                              value={flight.optionLabel || ''}
+                              onChange={(e) => updateFlight(flight.id, { optionLabel: e.target.value })}
+                              placeholder="Vuelo directo con equipaje"
+                            />
+                          </div>
+                          <div>
+                            <Label>Tipo de vuelo</Label>
+                            <Select
+                              value={flight.flightType || 'direct'}
+                              onValueChange={(value: 'direct' | 'stopover' | 'charter') => updateFlight(flight.id, { flightType: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="direct">Vuelo directo</SelectItem>
+                                <SelectItem value="stopover">Con escala</SelectItem>
+                                <SelectItem value="charter">Charter</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
                           <Label>Origen</Label>
@@ -841,9 +899,13 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                   </Card>
                 ))}
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={addFlight} className="flex-1">
+                  <Button variant="outline" onClick={() => addFlight(false)} className="flex-1">
                     <Plus className="mr-2 h-4 w-4" />
                     Agregar vuelo
+                  </Button>
+                  <Button variant="outline" onClick={() => addFlight(true)} className="flex-1 border-dashed border-accent text-accent hover:bg-accent/10">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Agregar opción de vuelo
                   </Button>
                   <PNRParserDialog onFlightsParsed={handleFlightsParsed} />
                 </div>
