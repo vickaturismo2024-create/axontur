@@ -1,151 +1,212 @@
 
-# Plan: Completar Sistema de Opciones de Vuelo
+# Plan: Mejoras al Sistema de Opciones de Vuelo
 
-## Problemas Identificados
+## Resumen de Cambios Solicitados
 
-El sistema actual tiene los siguientes problemas:
+Se requieren tres mejoras principales:
 
-### 1. Cálculo de Precios Incorrecto
-Los vuelos opcionales (`isOption: true`) se están sumando al total junto con los vuelos principales. Esto es incorrecto porque:
-- Los vuelos opcionales son alternativas excluyentes entre sí
-- Solo deben sumarse los vuelos principales al precio base
-- Las opciones deben mostrarse como alternativas con precio independiente
-
-### 2. Visualización en PDF Incompleta
-Las opciones de vuelo se muestran pero falta información clara:
-- No se distingue visualmente si es directo o con escala
-- No se muestra claramente el tipo de equipaje
-- No hay precios totales por opción que incluyan todo el viaje
-
-### 3. Lógica de Servicios Compartidos
-El hook `useOccupancyPricingCalculator.ts` suma todos los vuelos en "servicios compartidos", pero debería:
-- Sumar solo vuelos principales (`!isOption`)
-- Calcular opciones de vuelo separadamente
+1. **Deteccion de vuelos con escala en PNR**: Mejorar el parser para detectar vuelos conectados automaticamente, o permitir vincular tramos manualmente
+2. **Selector de equipaje predefinido**: Reemplazar el campo de texto libre por opciones fijas + opcion personalizada
+3. **Precios finales con opciones de vuelo**: Mostrar cuadros de precio separados combinando servicios fijos + cada opcion de vuelo
 
 ---
 
-## Solución Propuesta
+## Parte 1: Vinculacion de Tramos de Vuelo (Escalas)
 
-### Diseño Visual en el PDF
+### Problema Actual
+Cuando se importa un PNR con conexion (ej: Buenos Aires -> Miami -> Cancun), se crean dos tramos separados sin relacion entre si.
 
-```text
-┌─── VUELOS ──────────────────────────────────────────────────┐
-│ [Tabla con vuelos principales]                              │
-└─────────────────────────────────────────────────────────────┘
+### Solucion Propuesta
 
-┌─── OPCIONES DE VUELO ───────────────────────────────────────┐
-│ Elija una de las siguientes opciones:                       │
-│                                                             │
-│ ┌─ Buenos Aires → Cancún (15 dic) ─────────────────────────┐│
-│ │                                                          ││
-│ │ ╔═══════════════════════════════════════════════════════╗││
-│ │ ║  OPCIÓN 1: Vuelo directo con equipaje                ║││
-│ │ ║  ✈️ VUELO DIRECTO                                     ║││
-│ │ ║  🧳 2 valijas de 23kg + carry-on                     ║││
-│ │ ║                                                       ║││
-│ │ ║  Aeromexico AM456                                     ║││
-│ │ ║  10:30 - 16:45                                        ║││
-│ │ ║                                                       ║││
-│ │ ║                              USD 1,200/persona        ║││
-│ │ ╚═══════════════════════════════════════════════════════╝││
-│ │                                                          ││
-│ │ ╔═══════════════════════════════════════════════════════╗││
-│ │ ║  OPCIÓN 2: Solo carry-on                             ║││
-│ │ ║  ✈️ VUELO DIRECTO                                     ║││
-│ │ ║  🧳 Solo carry-on de 10kg                            ║││
-│ │ ║                                                       ║││
-│ │ ║  Aeromexico AM456                                     ║││
-│ │ ║  10:30 - 16:45                                        ║││
-│ │ ║                                                       ║││
-│ │ ║                              USD 950/persona          ║││
-│ │ ╚═══════════════════════════════════════════════════════╝││
-│ │                                                          ││
-│ │ ╔═══════════════════════════════════════════════════════╗││
-│ │ ║  OPCIÓN 3: Con escala en Miami                       ║││
-│ │ ║  ✈️ CON ESCALA                                        ║││
-│ │ ║  🧳 2 valijas de 23kg + carry-on                     ║││
-│ │ ║                                                       ║││
-│ │ ║  American AA789                                       ║││
-│ │ ║  08:00 - 18:30                                        ║││
-│ │ ║                                                       ║││
-│ │ ║                              USD 800/persona          ║││
-│ │ ╚═══════════════════════════════════════════════════════╝││
-│ └──────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
+#### 1.1 Actualizar el PNR Parser
+Modificar el prompt del edge function para que la IA detecte segmentos conectados y los marque.
+
+**Archivo: `supabase/functions/parse-pnr/index.ts`**
+- Agregar campo `connectionGroupId` en la respuesta
+- Instruir a la IA para detectar vuelos conectados (mismo dia, destino de uno = origen del siguiente)
+
+#### 1.2 Agregar campo de vinculacion en Flight
+**Archivo: `src/types/quote.ts`**
+
+Agregar a la interfaz Flight:
 ```
+connectionGroupId?: string; // Para vincular tramos de una misma conexion
+```
+
+#### 1.3 UI para vincular tramos manualmente
+**Archivo: `src/components/quotes/QuoteWizard.tsx`**
+
+Agregar un selector "Vincular con tramo anterior" para poder crear escalas manualmente:
+- Dropdown para seleccionar el tramo al que se vincula
+- Icono visual indicando que los tramos estan conectados
+- Badge "CON ESCALA" automatico cuando hay vinculacion
 
 ---
 
-## Cambios Técnicos
+## Parte 2: Selector de Equipaje Predefinido
 
-### 1. Actualizar `usePricingCalculator.ts`
-Modificar líneas 35-39 para excluir vuelos opcionales del total:
+### Problema Actual
+El campo de equipaje es texto libre, lo que dificulta la estandarizacion.
 
-```typescript
-// Sumar solo vuelos principales (no opcionales)
-const mainFlights = quote.flights.filter(f => !f.isOption);
-mainFlights.forEach(f => {
-  breakdown.flights.cost += f.cost || 0;
-  breakdown.flights.price += f.price || 0;
-});
+### Solucion Propuesta
+
+**Archivo: `src/components/quotes/QuoteWizard.tsx`**
+
+Reemplazar el Input por un Select con las siguientes opciones:
+
+| Valor | Etiqueta |
+|-------|----------|
+| `personal` | Articulo Personal |
+| `personal_carryon` | Articulo Personal + Carry On |
+| `personal_carryon_checked` | Articulo Personal + Carry On + Equipaje en Bodega |
+| `custom` | Personalizado... |
+
+Cuando se selecciona "Personalizado", aparece un campo de texto para escribir libremente.
+
+### Cambios en validaciones
+**Archivo: `src/lib/validations.ts`**
+
+Agregar campo `luggageType` con las opciones predefinidas.
+
+---
+
+## Parte 3: Precios Finales con Opciones de Vuelo
+
+### Problema Actual
+Las opciones de vuelo no afectan el precio final. Solo se muestran los precios individuales de cada opcion.
+
+### Solucion Propuesta
+
+Implementar un sistema similar al de opciones de alojamiento:
+
+```
+Servicios Fijos: $550
+  - Alojamiento: $500
+  - Asistencia: $50
+
+Opciones de Vuelo:
+  - Opcion 1: Con escala - $300
+  - Opcion 2: Directo - $390
+
+= Cuadros de Precio Final:
+  OPCION 1: Con escala     = $850 total ($550 + $300)
+  OPCION 2: Vuelo directo  = $940 total ($550 + $390)
 ```
 
-### 2. Actualizar `useOccupancyPricingCalculator.ts`
-Modificar líneas 411-415 para excluir vuelos opcionales:
+### 3.1 Actualizar el calculador de precios
+**Archivo: `src/hooks/useOccupancyPricingCalculator.ts`**
 
+Agregar logica para:
+- Detectar cuando hay opciones de vuelo (`isOption: true`)
+- Calcular un precio base excluyendo todas las opciones de vuelo
+- Generar un array de `FlightOptionPricing` con el precio total para cada opcion
+
+Nueva estructura de datos:
 ```typescript
-// Sumar solo vuelos principales
-const mainFlights = quote.flights.filter(f => !f.isOption);
-mainFlights.forEach(f => {
-  breakdown.flights.cost += f.cost || 0;
-  breakdown.flights.price += f.price || 0;
-});
+interface FlightOptionPricing {
+  flightId: string;
+  optionLabel: string;
+  flightType: 'direct' | 'stopover' | 'charter';
+  luggage: string;
+  flightPrice: number;
+  totalPrice: number;        // base + flightPrice
+  pricePerPerson: number;
+}
 ```
 
-### 3. Mejorar visualización en PDF (`PDFDetailsPages.tsx`)
+### 3.2 Actualizar tipos de datos
+**Archivo: `src/types/quote.ts`**
 
-En las líneas 247-311 (función `renderFlightOptionCard`), mejorar el diseño:
+Agregar interface `FlightOptionPricing` y campo en `Pricing`:
+```typescript
+flightOptionsPricing?: FlightOptionPricing[];
+```
 
-- Agregar badges visuales claros para "DIRECTO" / "CON ESCALA" / "CHARTER"
-- Resaltar el tipo de equipaje con icono
-- Mostrar el precio por persona de forma prominente
-- Mejorar contraste y jerarquía visual
+### 3.3 Actualizar visualizacion del PDF
+**Archivo: `src/components/pdf/PDFDetailsPages.tsx`**
 
-### 4. Agregar campos al Wizard
+En la seccion "Valor del Viaje", cuando hay opciones de vuelo:
+- Mostrar cada opcion de vuelo como un cuadro de precio separado
+- Incluir badge de tipo de vuelo (DIRECTO / CON ESCALA / CHARTER)
+- Incluir icono de equipaje
+- Mostrar precio total combinado
 
-En `QuoteWizard.tsx`, sección de vuelos:
-- Agregar selector visual de tipo de vuelo (radio buttons): Directo / Con escala / Charter
-- Mostrar el equipaje de forma más prominente
+Diseno visual propuesto:
+```
+┌─── VALOR DEL VIAJE ──────────────────────────────────────────┐
+│                                                              │
+│ Elija una de las siguientes opciones de vuelo:               │
+│                                                              │
+│ ╔══════════════════════════════════════════════════════════╗ │
+│ ║ OPCION 1: Vuelo con escala                              ║ │
+│ ║ ✈️ CON ESCALA · 🧳 Articulo Personal + Carry On         ║ │
+│ ║                                                          ║ │
+│ ║                          USD 850/persona                 ║ │
+│ ╚══════════════════════════════════════════════════════════╝ │
+│                                                              │
+│ ╔══════════════════════════════════════════════════════════╗ │
+│ ║ OPCION 2: Vuelo directo con equipaje                    ║ │
+│ ║ ✈️ VUELO DIRECTO · 🧳 Art. Personal + Carry On + Bodega ║ │
+│ ║                                                          ║ │
+│ ║                          USD 940/persona                 ║ │
+│ ╚══════════════════════════════════════════════════════════╝ │
+│                                                              │
+│ [Informacion de pago y condiciones...]                       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 3.4 Actualizar validaciones
+**Archivo: `src/lib/validations.ts`**
+
+Agregar esquema para `flightOptionsPricing` para que los precios calculados se persistan correctamente.
+
+---
+
+## Combinacion con Opciones de Alojamiento
+
+Si hay AMBOS tipos de opciones (vuelo + alojamiento), se generaran combinaciones:
+
+```
+Servicios Fijos: $50 (asistencia)
+
+Opciones de Vuelo:
+  - Vuelo con escala: $300
+  - Vuelo directo: $390
+
+Opciones de Alojamiento:
+  - Hotel 3*: $400
+  - Hotel 5*: $600
+
+= Combinaciones de Precio Final:
+  1. Vuelo escala + Hotel 3*:    $750 ($50 + $300 + $400)
+  2. Vuelo escala + Hotel 5*:    $950 ($50 + $300 + $600)
+  3. Vuelo directo + Hotel 3*:   $840 ($50 + $390 + $400)
+  4. Vuelo directo + Hotel 5*:  $1040 ($50 + $390 + $600)
+```
+
+Esta funcionalidad se puede implementar en una segunda fase si es necesario, comenzando primero con opciones de vuelo independientes.
 
 ---
 
 ## Archivos a Modificar
 
-| Archivo | Cambio |
-|---------|--------|
-| `src/hooks/usePricingCalculator.ts` | Excluir vuelos opcionales del cálculo de totales |
-| `src/hooks/useOccupancyPricingCalculator.ts` | Excluir vuelos opcionales de servicios compartidos |
-| `src/components/pdf/PDFDetailsPages.tsx` | Mejorar diseño visual de opciones de vuelo |
-| `src/components/quotes/QuoteWizard.tsx` | Mejorar UI del selector de tipo de vuelo |
+| Archivo | Cambios |
+|---------|---------|
+| `supabase/functions/parse-pnr/index.ts` | Detectar vuelos conectados, agregar `connectionGroupId` |
+| `src/types/quote.ts` | Agregar `connectionGroupId`, `luggageType`, `FlightOptionPricing` |
+| `src/lib/validations.ts` | Actualizar esquemas de vuelo y pricing |
+| `src/components/quotes/QuoteWizard.tsx` | Selector de equipaje, vinculacion de tramos |
+| `src/hooks/useOccupancyPricingCalculator.ts` | Calcular precios con opciones de vuelo |
+| `src/components/pdf/PDFDetailsPages.tsx` | Mostrar cuadros de precio por opcion de vuelo |
 
 ---
 
-## Resumen de Comportamiento Final
+## Orden de Implementacion
 
-### Vuelos Principales (isOption = false)
-- Se muestran en la tabla normal de vuelos
-- Sus precios se suman a los "servicios compartidos"
-- Afectan el precio total del viaje
-
-### Vuelos Opcionales (isOption = true)
-- Se muestran en sección separada "Opciones de Vuelo"
-- Sus precios NO se suman al total
-- Cada opción muestra su precio por persona
-- El cliente elige UNA opción
-- Se agrupan por ruta y fecha
-
-### Visualización Clara
-- Badge "VUELO DIRECTO" o "CON ESCALA" o "CHARTER"
-- Icono de equipaje con descripción clara
-- Precio por persona destacado
-- Diseño similar a las opciones de alojamiento
+1. **Tipos y validaciones**: Actualizar estructuras de datos
+2. **Selector de equipaje**: Implementar UI con opciones predefinidas
+3. **Vinculacion de tramos**: Campo para conectar vuelos como escala
+4. **PNR Parser**: Mejorar deteccion de conexiones
+5. **Calculador de precios**: Generar precios por opcion de vuelo
+6. **PDF**: Mostrar cuadros de precio combinados
+7. **Pruebas**: Verificar que todo funciona correctamente
