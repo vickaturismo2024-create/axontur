@@ -408,8 +408,9 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       insurance: { cost: 0, price: 0 },
     };
 
-    // Sumar vuelos
-    quote.flights.forEach(f => {
+    // Sumar solo vuelos principales (excluir opciones - son alternativas)
+    const mainFlights = quote.flights.filter(f => !f.isOption);
+    mainFlights.forEach(f => {
       breakdown.flights.cost += f.cost || 0;
       breakdown.flights.price += f.price || 0;
     });

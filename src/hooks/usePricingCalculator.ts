@@ -32,8 +32,9 @@ export function usePricingCalculator(quote: Quote): PricingCalculation {
       insurance: { cost: 0, price: 0 },
     };
 
-    // Sum flights
-    quote.flights.forEach(f => {
+    // Sum only main flights (exclude options - they are alternatives)
+    const mainFlights = quote.flights.filter(f => !f.isOption);
+    mainFlights.forEach(f => {
       breakdown.flights.cost += f.cost || 0;
       breakdown.flights.price += f.price || 0;
     });
