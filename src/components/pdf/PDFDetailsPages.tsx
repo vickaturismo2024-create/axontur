@@ -1,4 +1,4 @@
-import { Quote, Template, ItemPricesConfig, OccupancyPricing, OccupancyTypeWithOptions, Flight, FlightOptionPricing, LUGGAGE_LABELS, LuggageType } from '@/types/quote';
+import { Quote, Template, ItemPricesConfig, OccupancyPricing, OccupancyTypeWithOptions, Flight, FlightOptionPricing, LUGGAGE_LABELS, LuggageType, FlightSegment } from '@/types/quote';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -1121,7 +1121,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
     // Only show pricing section if there's meaningful data
     const hasPricingData = hasOccupancyTypesWithOptions || hasMainOccupancyPricing || hasOptionOccupancyPricing || hasFlightOptionsPricing || hasLodgingOptionsWithPrice || hasTotalPrice || hasPricePerPerson || hasTaxes || hasPaymentMethod || hasConditions || hasObservations;
     
-    // Helper to render flight option price card
+    // Helper to render flight option price card with segments for connections
     const renderFlightOptionPriceCard = (option: FlightOptionPricing, idx: number) => {
       const getFlightTypeBadge = (flightType: string) => {
         switch (flightType) {
@@ -1201,6 +1201,43 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
               </span>
             )}
           </div>
+
+          {/* Connection label for multi-segment flights */}
+          {option.isConnectionGroup && option.connectionLabel && (
+            <div style={{ marginBottom: '10px' }}>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: 'white', marginBottom: '6px' }}>
+                {option.connectionLabel}
+              </p>
+              {/* Show each segment */}
+              {option.segments && option.segments.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {option.segments.map((segment, segIdx) => (
+                    <div 
+                      key={segIdx}
+                      style={{ 
+                        padding: '6px 8px',
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        borderRadius: '4px',
+                        fontSize: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600 }}>
+                          Tramo {segIdx + 1}: {segment.origin} → {segment.destination}
+                        </span>
+                        <span style={{ color: 'rgba(255,255,255,0.8)' }}>
+                          {segment.airline} {segment.flightNumber}
+                        </span>
+                      </div>
+                      <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '9px', marginTop: '2px' }}>
+                        📅 {formatDate(segment.date)} · ⏰ {segment.departureTime} - {segment.arrivalTime}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Total price */}
           <div className="flex items-end justify-between">

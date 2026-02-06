@@ -351,6 +351,17 @@ export interface ItemPricesConfig {
 }
 
 // Precio calculado por opción de vuelo
+// Segmento de vuelo para conexiones
+export interface FlightSegment {
+  origin: string;
+  destination: string;
+  date: string;
+  departureTime: string;
+  arrivalTime: string;
+  airline: string;
+  flightNumber: string;
+}
+
 export interface FlightOptionPricing {
   flightId: string;
   optionLabel: string;
@@ -367,6 +378,11 @@ export interface FlightOptionPricing {
   costPerPerson: number;
   marginPerPerson: number;
   marginPercentage: number;
+  // NUEVO: Para opciones con múltiples tramos (escalas)
+  flightIds?: string[]; // IDs de todos los vuelos del grupo
+  isConnectionGroup?: boolean; // Es un grupo de tramos conectados
+  connectionLabel?: string; // "Buenos Aires → Miami → Cancún"
+  segments?: FlightSegment[];
 }
 
 export interface Pricing {
