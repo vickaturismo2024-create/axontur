@@ -1,134 +1,32 @@
 
-# Plan: Sistema de Opciones de Vuelos (Similar a Alojamientos)
+# Plan: Completar Sistema de Opciones de Vuelo
 
-## ✅ IMPLEMENTACIÓN COMPLETADA
+## Problemas Identificados
 
-### Lo que se implementó:
+El sistema actual tiene los siguientes problemas:
 
-1. **Tipos actualizados** (`src/types/quote.ts`)
-   - Nuevos campos en `Flight`: `isOption`, `optionLabel`, `groupId`, `flightType`
-   - Nueva interfaz `FlightGroup` para agrupación
+### 1. Cálculo de Precios Incorrecto
+Los vuelos opcionales (`isOption: true`) se están sumando al total junto con los vuelos principales. Esto es incorrecto porque:
+- Los vuelos opcionales son alternativas excluyentes entre sí
+- Solo deben sumarse los vuelos principales al precio base
+- Las opciones deben mostrarse como alternativas con precio independiente
 
-2. **Validaciones actualizadas** (`src/lib/validations.ts`)
-   - Campos de opciones de vuelo añadidos al `flightSchema`
-   - Nuevo `flightGroupSchema`
+### 2. Visualización en PDF Incompleta
+Las opciones de vuelo se muestran pero falta información clara:
+- No se distingue visualmente si es directo o con escala
+- No se muestra claramente el tipo de equipaje
+- No hay precios totales por opción que incluyan todo el viaje
 
-3. **Hook de grupos de vuelos** (`src/hooks/useFlightGroups.ts`)
-   - Agrupa vuelos por ruta y fecha
-   - Separa vuelos principales de opciones
-   - Funciones para aplicar y organizar grupos
-
-4. **Wizard de vuelos actualizado** (`src/components/quotes/QuoteWizard.tsx`)
-   - Checkbox "Es una opción alternativa"
-   - Campo "Etiqueta de la opción"
-   - Selector de tipo de vuelo (Directo/Con escala/Charter)
-   - Botón "Agregar opción de vuelo"
-
-5. **PDF actualizado** (`src/components/pdf/PDFDetailsPages.tsx`)
-   - Sección de vuelos principales separada de opciones
-   - Nueva sección "Opciones de Vuelo" con diseño similar a alojamientos
-   - Agrupación visual por ruta/fecha
+### 3. Lógica de Servicios Compartidos
+El hook `useOccupancyPricingCalculator.ts` suma todos los vuelos en "servicios compartidos", pero debería:
+- Sumar solo vuelos principales (`!isOption`)
+- Calcular opciones de vuelo separadamente
 
 ---
 
-## Objetivo
+## Solución Propuesta
 
-Implementar un sistema de opciones para vuelos similar al de alojamientos, permitiendo:
-- **Opciones alternativas de vuelo**: Directo vs con escala
-- **Opciones de equipaje**: Carry-on vs equipaje completo con diferentes precios
-- **Agrupación visual en PDF**: Mostrar las opciones de vuelo de forma clara para el cliente
-
----
-
-## Diseño del Sistema
-
-### Concepto
-
-Los vuelos se podrán marcar como "opciones" y agruparse. Por ejemplo:
-
-```text
-Grupo: Buenos Aires → Cancún (15 dic)
-├── Opción 1: Vuelo directo con equipaje completo - USD 1,200
-├── Opción 2: Vuelo directo solo carry-on - USD 950
-└── Opción 3: Vuelo con escala + equipaje - USD 800
-```
-
-### Nuevos campos en Flight
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `isOption` | boolean | Indica si es una opción alternativa |
-| `optionLabel` | string | Etiqueta (ej: "Opción 1", "Vuelo directo") |
-| `groupId` | string | ID del grupo de opciones al que pertenece |
-| `flightType` | string | "direct" / "stopover" / "charter" |
-
----
-
-## Cambios Técnicos
-
-### 1. Actualizar tipos (`src/types/quote.ts`)
-
-```typescript
-export interface Flight {
-  id: string;
-  origin: string;
-  destination: string;
-  date: string;
-  departureTime: string;
-  arrivalTime: string;
-  airline: string;
-  flightNumber: string;
-  luggage: string;
-  notes: string;
-  cost?: number;
-  price?: number;
-  // NUEVO: Sistema de opciones
-  isOption?: boolean;
-  optionLabel?: string;
-  groupId?: string;
-  flightType?: 'direct' | 'stopover' | 'charter';
-}
-
-// NUEVO: Grupo de opciones de vuelo
-export interface FlightGroup {
-  id: string;
-  origin: string;
-  destination: string;
-  date: string;
-  optionIds: string[];
-}
-```
-
-### 2. Crear hook de grupos de vuelos (`src/hooks/useFlightGroups.ts`)
-
-Similar a `useLodgingGroups.ts`:
-- Agrupar vuelos por origen/destino/fecha
-- Sugerir grupos automáticamente
-- Funciones para aplicar y organizar grupos
-
-### 3. Actualizar validaciones (`src/lib/validations.ts`)
-
-Agregar campos nuevos al `flightSchema`:
-```typescript
-export const flightSchema = z.object({
-  // ... campos existentes ...
-  isOption: z.boolean().optional(),
-  optionLabel: z.string().optional(),
-  groupId: z.string().optional(),
-  flightType: z.enum(['direct', 'stopover', 'charter']).optional(),
-});
-```
-
-### 4. Actualizar wizard de vuelos (`src/components/quotes/QuoteWizard.tsx`)
-
-- Agregar checkbox "Es una opción alternativa"
-- Agregar campo "Etiqueta de la opción"
-- Agregar selector de tipo de vuelo
-- Botón "Agregar opción de vuelo"
-
-### 5. Actualizar PDF (`src/components/pdf/PDFDetailsPages.tsx`)
-
-Mostrar vuelos principales separados de opciones de vuelo:
+### Diseño Visual en el PDF
 
 ```text
 ┌─── VUELOS ──────────────────────────────────────────────────┐
@@ -140,116 +38,114 @@ Mostrar vuelos principales separados de opciones de vuelo:
 │                                                             │
 │ ┌─ Buenos Aires → Cancún (15 dic) ─────────────────────────┐│
 │ │                                                          ││
-│ │ 🏷️ Opción 1: Vuelo directo + 2 valijas                  ││
-│ │    Aeromexico AM456 · 10:30 - 16:45 · USD 1,200         ││
+│ │ ╔═══════════════════════════════════════════════════════╗││
+│ │ ║  OPCIÓN 1: Vuelo directo con equipaje                ║││
+│ │ ║  ✈️ VUELO DIRECTO                                     ║││
+│ │ ║  🧳 2 valijas de 23kg + carry-on                     ║││
+│ │ ║                                                       ║││
+│ │ ║  Aeromexico AM456                                     ║││
+│ │ ║  10:30 - 16:45                                        ║││
+│ │ ║                                                       ║││
+│ │ ║                              USD 1,200/persona        ║││
+│ │ ╚═══════════════════════════════════════════════════════╝││
 │ │                                                          ││
-│ │ 🏷️ Opción 2: Vuelo directo solo carry-on               ││
-│ │    Aeromexico AM456 · 10:30 - 16:45 · USD 950           ││
+│ │ ╔═══════════════════════════════════════════════════════╗││
+│ │ ║  OPCIÓN 2: Solo carry-on                             ║││
+│ │ ║  ✈️ VUELO DIRECTO                                     ║││
+│ │ ║  🧳 Solo carry-on de 10kg                            ║││
+│ │ ║                                                       ║││
+│ │ ║  Aeromexico AM456                                     ║││
+│ │ ║  10:30 - 16:45                                        ║││
+│ │ ║                                                       ║││
+│ │ ║                              USD 950/persona          ║││
+│ │ ╚═══════════════════════════════════════════════════════╝││
 │ │                                                          ││
-│ │ 🏷️ Opción 3: Con escala en Miami                        ││
-│ │    American AA789 · 08:00 - 18:30 · USD 800             ││
+│ │ ╔═══════════════════════════════════════════════════════╗││
+│ │ ║  OPCIÓN 3: Con escala en Miami                       ║││
+│ │ ║  ✈️ CON ESCALA                                        ║││
+│ │ ║  🧳 2 valijas de 23kg + carry-on                     ║││
+│ │ ║                                                       ║││
+│ │ ║  American AA789                                       ║││
+│ │ ║  08:00 - 18:30                                        ║││
+│ │ ║                                                       ║││
+│ │ ║                              USD 800/persona          ║││
+│ │ ╚═══════════════════════════════════════════════════════╝││
 │ └──────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 6. Actualizar cálculo de precios (`src/hooks/useOccupancyPricingCalculator.ts`)
-
-Cuando hay opciones de vuelo, el cálculo debe considerar:
-- Vuelos principales: se suman a los servicios fijos
-- Opciones de vuelo: se muestran como alternativas que afectan el precio final
-
 ---
 
-## Flujo de Usuario
+## Cambios Técnicos
 
-### Paso 1: Agregar vuelo principal
-El agente agrega el vuelo que va en el presupuesto por defecto.
+### 1. Actualizar `usePricingCalculator.ts`
+Modificar líneas 35-39 para excluir vuelos opcionales del total:
 
-### Paso 2: Agregar opciones de vuelo
-1. Click en "Agregar opción de vuelo"
-2. Se crea un nuevo vuelo marcado como opción
-3. El agente puede personalizar la etiqueta (ej: "Vuelo directo", "Solo carry-on")
-4. Ingresa los datos y precios diferentes
-
-### Paso 3: Agrupación automática
-Los vuelos con misma ruta y fecha se agrupan automáticamente para mostrar en el PDF.
-
-### Paso 4: Vista previa
-El PDF muestra las opciones de vuelo de forma clara para que el cliente pueda elegir.
-
----
-
-## Impacto en Precios por Ocupación
-
-Cuando hay opciones de vuelo, el precio final debe mostrar todas las combinaciones posibles:
-
-```text
-┌─── HABITACIÓN DOBLE ────────────────────────────────────────┐
-│                                                             │
-│ Con vuelo directo + equipaje completo:     USD 3,500       │
-│ Con vuelo directo solo carry-on:           USD 3,250       │
-│ Con vuelo con escala:                      USD 3,050       │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```typescript
+// Sumar solo vuelos principales (no opcionales)
+const mainFlights = quote.flights.filter(f => !f.isOption);
+mainFlights.forEach(f => {
+  breakdown.flights.cost += f.cost || 0;
+  breakdown.flights.price += f.price || 0;
+});
 ```
 
-Sin embargo, para una primera versión, propongo:
-1. **Primera fase**: Mostrar opciones de vuelo en sección separada sin combinar con precios por ocupación
-2. **Segunda fase**: Integrar opciones de vuelo en el cálculo combinado (si lo deseas)
+### 2. Actualizar `useOccupancyPricingCalculator.ts`
+Modificar líneas 411-415 para excluir vuelos opcionales:
+
+```typescript
+// Sumar solo vuelos principales
+const mainFlights = quote.flights.filter(f => !f.isOption);
+mainFlights.forEach(f => {
+  breakdown.flights.cost += f.cost || 0;
+  breakdown.flights.price += f.price || 0;
+});
+```
+
+### 3. Mejorar visualización en PDF (`PDFDetailsPages.tsx`)
+
+En las líneas 247-311 (función `renderFlightOptionCard`), mejorar el diseño:
+
+- Agregar badges visuales claros para "DIRECTO" / "CON ESCALA" / "CHARTER"
+- Resaltar el tipo de equipaje con icono
+- Mostrar el precio por persona de forma prominente
+- Mejorar contraste y jerarquía visual
+
+### 4. Agregar campos al Wizard
+
+En `QuoteWizard.tsx`, sección de vuelos:
+- Agregar selector visual de tipo de vuelo (radio buttons): Directo / Con escala / Charter
+- Mostrar el equipaje de forma más prominente
 
 ---
 
-## Archivos a Modificar/Crear
+## Archivos a Modificar
 
-| Archivo | Acción |
+| Archivo | Cambio |
 |---------|--------|
-| `src/types/quote.ts` | Agregar campos a `Flight` + crear `FlightGroup` |
-| `src/hooks/useFlightGroups.ts` | **CREAR** - Hook similar a `useLodgingGroups` |
-| `src/lib/validations.ts` | Actualizar `flightSchema` |
-| `src/components/quotes/QuoteWizard.tsx` | Agregar UI para opciones de vuelo |
-| `src/components/pdf/PDFDetailsPages.tsx` | Agregar sección de opciones de vuelo |
+| `src/hooks/usePricingCalculator.ts` | Excluir vuelos opcionales del cálculo de totales |
+| `src/hooks/useOccupancyPricingCalculator.ts` | Excluir vuelos opcionales de servicios compartidos |
+| `src/components/pdf/PDFDetailsPages.tsx` | Mejorar diseño visual de opciones de vuelo |
+| `src/components/quotes/QuoteWizard.tsx` | Mejorar UI del selector de tipo de vuelo |
 
 ---
 
-## Orden de Implementación
+## Resumen de Comportamiento Final
 
-1. **Actualizar tipos** - Agregar campos nuevos a `Flight` y crear `FlightGroup`
-2. **Actualizar validaciones** - Asegurar que los nuevos campos se guarden correctamente
-3. **Crear hook de grupos** - Lógica para agrupar vuelos por ruta/fecha
-4. **Actualizar wizard** - UI para marcar vuelos como opciones
-5. **Actualizar PDF** - Mostrar opciones de vuelo agrupadas
-6. **Pruebas** - Verificar guardado, preview y exportación
+### Vuelos Principales (isOption = false)
+- Se muestran en la tabla normal de vuelos
+- Sus precios se suman a los "servicios compartidos"
+- Afectan el precio total del viaje
 
----
+### Vuelos Opcionales (isOption = true)
+- Se muestran en sección separada "Opciones de Vuelo"
+- Sus precios NO se suman al total
+- Cada opción muestra su precio por persona
+- El cliente elige UNA opción
+- Se agrupan por ruta y fecha
 
-## Ejemplo Visual en el Wizard
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ Tramo 1                                                 [🗑️] │
-├──────────────────────────────────────────────────────────────┤
-│ ☐ Es una opción alternativa                                  │
-│                                                              │
-│ Origen: [Buenos Aires (EZE)]  Destino: [Cancún (CUN)]       │
-│ Fecha: [2024-12-15]           Horarios: [10:30] - [16:45]   │
-│ Aerolínea: [Aeromexico]       Vuelo: [AM456]                │
-│ Tipo: [● Directo ○ Con escala ○ Charter]                    │
-│ Equipaje: [2 valijas de 23kg + carry-on                ]    │
-│                                                              │
-│ Costo neto: [950.00]          Precio venta: [1200.00]       │
-└──────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────┐
-│ 🏷️ Opción 2: Solo carry-on                             [🗑️] │
-├──────────────────────────────────────────────────────────────┤
-│ ☑ Es una opción alternativa                                  │
-│ Etiqueta: [Solo carry-on                               ]    │
-│                                                              │
-│ [... mismos campos ...]                                      │
-│                                                              │
-│ Equipaje: [Solo carry-on de 10kg                       ]    │
-│ Costo neto: [700.00]          Precio venta: [950.00]        │
-└──────────────────────────────────────────────────────────────┘
-
-[+ Agregar vuelo]  [+ Agregar opción de vuelo]  [📋 Parsear PNR]
-```
+### Visualización Clara
+- Badge "VUELO DIRECTO" o "CON ESCALA" o "CHARTER"
+- Icono de equipaje con descripción clara
+- Precio por persona destacado
+- Diseño similar a las opciones de alojamiento
