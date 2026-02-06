@@ -4,6 +4,17 @@ export interface Client {
   email: string;
 }
 
+// Tipos de equipaje predefinidos
+export type LuggageType = 'personal' | 'personal_carryon' | 'personal_carryon_checked' | 'custom';
+
+// Labels para tipos de equipaje
+export const LUGGAGE_LABELS: Record<LuggageType, string> = {
+  personal: 'Artículo Personal',
+  personal_carryon: 'Artículo Personal + Carry On',
+  personal_carryon_checked: 'Art. Personal + Carry On + Equipaje en Bodega',
+  custom: 'Personalizado',
+};
+
 export interface Flight {
   id: string;
   origin: string;
@@ -14,6 +25,7 @@ export interface Flight {
   airline: string;
   flightNumber: string;
   luggage: string;
+  luggageType?: LuggageType; // Tipo predefinido de equipaje
   notes: string;
   cost?: number;
   price?: number;
@@ -22,6 +34,8 @@ export interface Flight {
   optionLabel?: string;
   groupId?: string;
   flightType?: 'direct' | 'stopover' | 'charter';
+  // Vinculación de tramos (escalas)
+  connectionGroupId?: string; // ID para vincular tramos que son parte de una misma conexión
 }
 
 // Grupo de opciones de vuelo (para agrupación por ruta/fecha)
@@ -336,6 +350,25 @@ export interface ItemPricesConfig {
   insurance: boolean;
 }
 
+// Precio calculado por opción de vuelo
+export interface FlightOptionPricing {
+  flightId: string;
+  optionLabel: string;
+  flightType: 'direct' | 'stopover' | 'charter';
+  luggage: string;
+  luggageType?: LuggageType;
+  flightPrice: number;       // Precio del vuelo
+  flightCost: number;        // Costo del vuelo
+  basePriceWithoutFlights: number; // Servicios fijos sin vuelos
+  baseCostWithoutFlights: number;
+  totalPrice: number;        // base + flightPrice
+  totalCost: number;
+  pricePerPerson: number;
+  costPerPerson: number;
+  marginPerPerson: number;
+  marginPercentage: number;
+}
+
 export interface Pricing {
   totalPrice: number;
   pricePerPerson: number;
@@ -365,6 +398,8 @@ export interface Pricing {
   lodgingOptionsOccupancy?: LodgingOptionOccupancyPricing[]; // Legacy: opciones alternativas
   // NUEVO: Precios agrupados por tipo de ocupación con opciones dentro
   occupancyTypesWithOptions?: OccupancyTypeWithOptions[];
+  // Precios por opción de vuelo (combinando servicios fijos + cada opción)
+  flightOptionsPricing?: FlightOptionPricing[];
 }
 
 export interface ItineraryDay {
