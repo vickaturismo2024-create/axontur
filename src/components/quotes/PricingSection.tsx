@@ -45,8 +45,8 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
   const useOccupancyPricing = quote.pricing.useOccupancyPricing ?? hasAnyOccupancies;
 
   const handleCalculateAutomatic = () => {
-    // If we have occupancy configurations, use that system
-    if (hasAnyOccupancies) {
+    // If we have occupancy configurations OR flight options, use occupancy system
+    if (hasAnyOccupancies || occupancyCalculation.hasFlightOptions) {
       const occupancyPricingUpdates = applyOccupancyPricing(occupancyCalculation);
       onUpdatePricing(occupancyPricingUpdates);
     } else {
