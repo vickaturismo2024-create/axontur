@@ -1169,7 +1169,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
 
           {/* Brief flight type indicator */}
           <p style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '10px' }}>
-            {option.flightType === 'direct' ? '✈️ Vuelo Directo' : option.flightType === 'stopover' ? '✈️ Vuelo con Escala' : option.flightType === 'charter' ? '✈️ Charter' : '✈️ Vuelo'}
+            {option.flightType === 'direct' && (option.flightIds?.length ?? 0) > 1 ? '✈️ Ida y Vuelta' : option.flightType === 'direct' ? '✈️ Vuelo Directo' : option.flightType === 'stopover' ? '✈️ Vuelo con Escala' : option.flightType === 'charter' ? '✈️ Charter' : '✈️ Vuelo'}
           </p>
 
           {/* Total price */}

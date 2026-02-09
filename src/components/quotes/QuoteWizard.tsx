@@ -938,16 +938,16 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                           )}
                         </div>
 
-                        {/* Vincular con otro tramo (escala) */}
+                        {/* Vincular vuelos (escala / ida y vuelta) */}
                         <div className="md:col-span-2">
-                          <Label>Vincular tramo (escala)</Label>
+                          <Label>Vincular vuelos (escala / ida y vuelta)</Label>
                           <Select
                             value={flight.connectionGroupId || 'none'}
                             onValueChange={(value) => {
                               if (value === 'none') {
                                 updateFlight(flight.id, { connectionGroupId: undefined });
                               } else if (value === 'new') {
-                                // Crear nuevo grupo de conexión
+                                // Crear nuevo grupo de vuelos
                                 const newGroupId = crypto.randomUUID();
                                 updateFlight(flight.id, { 
                                   connectionGroupId: newGroupId,
@@ -966,7 +966,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">🚀 Sin vincular (vuelo independiente)</SelectItem>
-                              <SelectItem value="new">➕ Crear nueva conexión</SelectItem>
+                              <SelectItem value="new">➕ Crear nuevo grupo de vuelos</SelectItem>
                               {/* Mostrar vuelos existentes que podrían ser conexiones */}
                               {quote.flights
                                 .filter(f => f.id !== flight.id && f.connectionGroupId)
@@ -989,7 +989,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                           </Select>
                           {flight.connectionGroupId && (
                             <p className="text-xs text-amber-600 mt-1">
-                              ✈️ Este vuelo es parte de una conexión (escala)
+                              ✈️ Este vuelo está vinculado con otros tramos del mismo paquete aéreo
                             </p>
                           )}
                         </div>
