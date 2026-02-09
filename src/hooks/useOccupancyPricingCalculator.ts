@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { 
   Quote, 
+  Flight,
   Lodging, 
   RoomOccupancy, 
   OccupancyPricing, 
@@ -413,8 +414,25 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       insurance: { cost: 0, price: 0 },
     };
 
-    // Sumar solo vuelos principales (excluir opciones - son alternativas)
-    const mainFlights = quote.flights.filter(f => !f.isOption);
+    // Detectar unidades de vuelo para saber si excluir vuelos de shared
+    const connGroups = new Map<string, Flight[]>();
+    const standFlights: Flight[] = [];
+    for (const flight of quote.flights) {
+      if (flight.connectionGroupId) {
+        const g = connGroups.get(flight.connectionGroupId) || [];
+        g.push(flight);
+        connGroups.set(flight.connectionGroupId, g);
+      } else {
+        standFlights.push(flight);
+      }
+    }
+    const autoDetectedMultipleFlights = (connGroups.size + standFlights.length) > 1;
+
+    // Si hay auto-deteccion de multiples vuelos, NO incluir NINGUN vuelo en shared
+    // porque cada vuelo sera una opcion independiente
+    const mainFlights = autoDetectedMultipleFlights 
+      ? [] 
+      : quote.flights.filter(f => !f.isOption);
     mainFlights.forEach(f => {
       breakdown.flights.cost += f.cost || 0;
       breakdown.flights.price += f.price || 0;
@@ -827,6 +845,10 @@ export function applyOccupancyPricing(
         totalCost += occType.baseCostPerPerson * occType.totalGuests;
       }
     }
+  } else if (calculation.hasFlightOptions && calculation.flightOptionsPricing.length > 0) {
+    // Usar primera opcion de vuelo como precio total de referencia
+    totalPrice = calculation.flightOptionsPricing[0].totalPrice;
+    totalCost = calculation.flightOptionsPricing[0].totalCost;
   } else {
     totalPrice = calculation.grandTotal.price;
     totalCost = calculation.grandTotal.cost;
