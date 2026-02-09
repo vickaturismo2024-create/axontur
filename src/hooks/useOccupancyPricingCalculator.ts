@@ -427,15 +427,27 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       }
     }
 
-    // Auto-detectar pares ida/vuelta entre standalone flights
+    // Separar connection groups de 1 solo vuelo vs multi-tramo (escalas reales)
+    const singleConnGroupFlights: Flight[] = [];
+    let multiConnGroupCount = 0;
+    for (const [, groupFlights] of connGroups) {
+      if (groupFlights.length === 1) {
+        singleConnGroupFlights.push(groupFlights[0]);
+      } else {
+        multiConnGroupCount++;
+      }
+    }
+
+    // Combinar standalone + single-connection-groups para deteccion ida/vuelta
+    const allSinglesForDetection = [...standFlights, ...singleConnGroupFlights];
     const pairedStandIds = new Set<string>();
     const autoGroupsForDetection: Flight[][] = [];
-    for (let i = 0; i < standFlights.length; i++) {
-      if (pairedStandIds.has(standFlights[i].id)) continue;
-      for (let j = i + 1; j < standFlights.length; j++) {
-        if (pairedStandIds.has(standFlights[j].id)) continue;
-        const a = standFlights[i];
-        const b = standFlights[j];
+    for (let i = 0; i < allSinglesForDetection.length; i++) {
+      if (pairedStandIds.has(allSinglesForDetection[i].id)) continue;
+      for (let j = i + 1; j < allSinglesForDetection.length; j++) {
+        if (pairedStandIds.has(allSinglesForDetection[j].id)) continue;
+        const a = allSinglesForDetection[i];
+        const b = allSinglesForDetection[j];
         if (
           a.origin.toLowerCase().trim() === b.destination.toLowerCase().trim() &&
           a.destination.toLowerCase().trim() === b.origin.toLowerCase().trim()
@@ -447,8 +459,8 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
         }
       }
     }
-    const remainingStandForDetection = standFlights.filter(f => !pairedStandIds.has(f.id));
-    const autoDetectedMultipleFlights = (connGroups.size + autoGroupsForDetection.length + remainingStandForDetection.length) > 1;
+    const remainingStandForDetection = allSinglesForDetection.filter(f => !pairedStandIds.has(f.id));
+    const autoDetectedMultipleFlights = (multiConnGroupCount + autoGroupsForDetection.length + remainingStandForDetection.length) > 1;
 
     // Si hay auto-deteccion de multiples vuelos, NO incluir NINGUN vuelo en shared
     // porque cada vuelo sera una opcion independiente
@@ -768,13 +780,65 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     }
 
     // ============================================
+    // POST-PROCESO: Fusionar unidades de 1 solo tramo que forman ida/vuelta
+    // Esto cubre el caso de vuelos con connectionGroupId diferentes
+    // ============================================
+    const mergedUnits: FlightUnit[] = [];
+    const mergedUnitIds = new Set<string>();
+
+    for (let i = 0; i < flightUnits.length; i++) {
+      if (mergedUnitIds.has(flightUnits[i].id)) continue;
+      if (flightUnits[i].flights.length !== 1) {
+        mergedUnits.push(flightUnits[i]);
+        continue;
+      }
+
+      let merged = false;
+      for (let j = i + 1; j < flightUnits.length; j++) {
+        if (mergedUnitIds.has(flightUnits[j].id)) continue;
+        if (flightUnits[j].flights.length !== 1) continue;
+
+        const a = flightUnits[i].flights[0];
+        const b = flightUnits[j].flights[0];
+        if (
+          a.origin.toLowerCase().trim() === b.destination.toLowerCase().trim() &&
+          a.destination.toLowerCase().trim() === b.origin.toLowerCase().trim()
+        ) {
+          const combined = [a, b].sort((x, y) => x.date.localeCompare(y.date));
+          mergedUnits.push({
+            id: `rt_${a.id}_${b.id}`,
+            flights: combined,
+            isConnection: true,
+            optionLabel: '',
+            flightType: 'direct',
+          });
+          mergedUnitIds.add(flightUnits[i].id);
+          mergedUnitIds.add(flightUnits[j].id);
+          merged = true;
+          break;
+        }
+      }
+      if (!merged) {
+        mergedUnits.push(flightUnits[i]);
+      }
+    }
+
+    // Reasignar labels secuenciales
+    mergedUnits.forEach((unit, idx) => {
+      unit.optionLabel = `Opción ${idx + 1}`;
+    });
+
+    // Reemplazar flightUnits con mergedUnits
+    const finalFlightUnits = mergedUnits;
+
+    // ============================================
     // PASO 2: Si hay más de 1 unidad de vuelo, calcular precios 
     // para CADA unidad (detección automática de opciones)
     // ============================================
-    const hasMultipleFlightOptions = flightUnits.length > 1;
+    const hasMultipleFlightOptions = finalFlightUnits.length > 1;
 
     if (hasMultipleFlightOptions) {
-      for (const unit of flightUnits) {
+      for (const unit of finalFlightUnits) {
         // Sumar precios de todos los tramos de esta unidad
         const unitFlightPrice = unit.flights.reduce((sum, f) => sum + (f.price || 0), 0);
         const unitFlightCost = unit.flights.reduce((sum, f) => sum + (f.cost || 0), 0);
