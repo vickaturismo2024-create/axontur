@@ -1,65 +1,79 @@
 
+# Plan: Auto-detectar vuelos ida y vuelta sin necesidad de vincular manualmente
 
-# Plan: Agrupar vuelos ida y vuelta como un solo paquete aereo
+## Problema real
 
-## Problema
-
-Cuando se carga un vuelo de ida (ej: Buenos Aires a Cancun) y uno de vuelta (Cancun a Buenos Aires), el sistema los trata como 2 opciones de vuelo distintas y genera 2 cuadros de "Valor del Viaje". Son parte del mismo viaje, no opciones alternativas.
+Los vuelos tienen `connectionGroupId` diferentes (`conn_1` y `conn_2`) porque el usuario creó un grupo nuevo para cada vuelo en vez de vincular el segundo al grupo del primero. La UI no es lo suficientemente clara, y ademas no deberia ser necesario vincular manualmente vuelos ida y vuelta que son obvios.
 
 ## Solucion
 
-Reutilizar el mecanismo existente de `connectionGroupId` para vincular tanto escalas como vuelos ida/vuelta. Los vuelos vinculados se cuentan como 1 sola unidad de vuelo en los calculos de precio.
-
-### Cambio conceptual
-
-Actualmente `connectionGroupId` se usa solo para escalas. Lo expandimos para que signifique **"estos vuelos van juntos"** (ya sea escala o ida+vuelta). En la UI, el selector actual de "Vincular tramo (escala)" se renombra a algo mas general.
+Auto-detectar pares ida/vuelta en la logica de calculo, sin depender de `connectionGroupId`. Si hay vuelos standalone cuyas rutas son inversas (A->B y B->A), tratarlos como 1 sola unidad automaticamente.
 
 ---
 
 ## Cambios
 
-### Archivo 1: `src/components/quotes/QuoteWizard.tsx`
+### Archivo 1: `src/hooks/useOccupancyPricingCalculator.ts`
 
-**UI del selector de vinculacion** (alrededor de linea 943):
-- Renombrar "Vincular tramo (escala)" a "Vincular vuelos (escala / ida y vuelta)"
-- Cambiar el texto de ayuda de "Este vuelo es parte de una conexion (escala)" a "Este vuelo esta vinculado con otros tramos del mismo paquete aereo"
-- Cambiar la opcion "Crear nuevo grupo de conexion" a "Crear nuevo grupo de vuelos"
+**2 lugares donde se agrupan vuelos (lineas 417-429 y 640-713)**
 
-### Archivo 2: `src/hooks/useOccupancyPricingCalculator.ts`
+En ambos bloques, despues de separar vuelos en `connectionGroups` y `standaloneFlights`, agregar logica para detectar pares ida/vuelta entre los standalone:
 
-**Logica de tipo de vuelo en unidades** (linea 686):
-- Cuando un grupo de conexion contiene vuelos con rutas inversas (A a B + B a A), marcar como `flightType: 'direct'` (ida y vuelta) en vez de `stopover`
-- Esto afecta solo la etiqueta en el PDF, no el calculo
-
-Deteccion de ida/vuelta dentro de un connection group:
 ```typescript
-// Detectar si es ida/vuelta (origen del primero = destino del ultimo y viceversa)
-const isRoundTrip = groupFlights.length >= 2 && 
-  groupFlights[0].origin.toLowerCase().trim() === groupFlights[groupFlights.length - 1].destination.toLowerCase().trim() &&
-  groupFlights[0].destination.toLowerCase().trim() === groupFlights[groupFlights.length - 1].origin.toLowerCase().trim();
+// Despues de separar standalone y connection groups:
+// Auto-detectar pares ida/vuelta entre standalone flights
+const pairedStandalone: Set<string> = new Set();
+const autoGroups: Flight[][] = [];
 
-flightUnits.push({
-  ...
-  flightType: isRoundTrip ? 'direct' : 'stopover',
-});
+for (let i = 0; i < standaloneFlights.length; i++) {
+  if (pairedStandalone.has(standaloneFlights[i].id)) continue;
+  for (let j = i + 1; j < standaloneFlights.length; j++) {
+    if (pairedStandalone.has(standaloneFlights[j].id)) continue;
+    const a = standaloneFlights[i];
+    const b = standaloneFlights[j];
+    if (
+      a.origin.toLowerCase().trim() === b.destination.toLowerCase().trim() &&
+      a.destination.toLowerCase().trim() === b.origin.toLowerCase().trim()
+    ) {
+      // Par ida/vuelta detectado
+      pairedStandalone.add(a.id);
+      pairedStandalone.add(b.id);
+      autoGroups.push([a, b]);
+      break;
+    }
+  }
+}
+
+const remainingStandalone = standaloneFlights.filter(f => !pairedStandalone.has(f.id));
 ```
 
-### Archivo 3: `src/components/pdf/PDFDetailsPages.tsx`
+Luego, los `autoGroups` se tratan como connection groups (1 unidad cada uno), y `remainingStandalone` se tratan como vuelos individuales.
 
-**Etiqueta del cuadro de precio** (linea 1170):
-- Agregar caso para ida/vuelta: cuando `flightType === 'direct'` y hay multiples segmentos, mostrar "Ida y Vuelta" en vez de "Vuelo Directo"
+**Bloque 1 (lineas 417-429)** - Calculo de `autoDetectedMultipleFlights`:
+```typescript
+const autoDetectedMultipleFlights = 
+  (connGroups.size + autoGroups.length + remainingStandalone.length) > 1;
+```
+
+**Bloque 2 (lineas 640-713)** - Construccion de `flightUnits`:
+- Los `autoGroups` se agregan como unidades con `flightType: 'direct'` y `isConnection: true`
+- Los `remainingStandalone` se agregan como vuelos individuales
+- El counter sigue siendo secuencial
+
+### Archivo 2: Sin cambios adicionales necesarios
+
+La logica del PDF ya maneja correctamente `flightType === 'direct'` con multiples `flightIds`.
 
 ---
 
 ## Resultado esperado
 
-1. El usuario carga vuelo ida (BUE a CUN) y vuelo vuelta (CUN a BUE)
-2. En el editor, vincula ambos vuelos usando el selector "Vincular vuelos"
-3. El sistema los cuenta como 1 sola unidad de vuelo
-4. No se generan cuadros de opciones (porque hay 1 sola unidad)
-5. Se muestra el precio total unico normalmente: vuelos + hotel + servicios
+1. Usuario carga vuelo BUE->NAT y vuelo NAT->BUE (sin vincular manualmente)
+2. El sistema detecta automaticamente que son ida y vuelta
+3. Los cuenta como 1 sola unidad de vuelo
+4. No se generan cuadros de opciones (1 sola unidad = precio unico)
+5. Si hay un tercer vuelo alternativo, ahi si aparecen 2 opciones
 
-Si ademas hay una opcion alternativa (otro vuelo directo BUE a CUN sin vincular), ahi si se generan 2 opciones:
-- Opcion 1: ida/vuelta vinculados
-- Opcion 2: vuelo directo alternativo
+## Nota
 
+El boton de "Vincular vuelos" sigue disponible para casos donde la auto-deteccion no aplica (ej: multi-ciudad A->B, B->C que no es ida/vuelta pero es un solo paquete).
