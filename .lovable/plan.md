@@ -1,112 +1,52 @@
 
 
-# Fix: Auto-detectar ida/vuelta incluyendo vuelos ya vinculados
+# Fix completo: Preview + PDF final con datos correctos
 
-## Problema raiz encontrado
+## Problema
 
-Los vuelos ya tienen `connectionGroupId` asignados (ej: `conn_1` y `conn_2` por separado). El codigo actual separa los vuelos en dos categorias:
-- **connectionGroups**: vuelos CON `connectionGroupId` (van al Map)
-- **standaloneFlights**: vuelos SIN `connectionGroupId`
+Hay 3 puntos donde se usan los datos de pricing, y los 3 necesitan arreglarse:
 
-La auto-deteccion de ida/vuelta SOLO busca entre `standaloneFlights`. Como ambos vuelos ya tienen un `connectionGroupId` diferente, nunca llegan al bloque de auto-deteccion. Resultado: 2 connection groups = 2 unidades = 2 opciones de precio.
+1. **Preview en vivo** (QuoteWizard `previewQuote`): Solo aplica recalculo si `hasMultipleFlightUnits || hasOccupancies`. Cuando la fusion deja 1 sola unidad, `hasMultipleFlightUnits = false` y se devuelve el quote viejo con 2 opciones.
 
-## Solucion
+2. **Guardado** (QuoteWizard `handleSave`): Misma condicion. Si no entra al bloque, guarda los datos viejos en la base de datos.
 
-Despues de construir los connection groups y las unidades de vuelo, agregar un paso adicional: **fusionar unidades de 1 solo tramo que formen un par ida/vuelta**.
+3. **PDF final** (ExportPDF): Lee directo de la base de datos. Si los datos guardados estan mal, el PDF esta mal.
 
----
+## Solucion: 2 cambios
 
-## Cambios
+### Cambio 1: `src/hooks/useOccupancyPricingCalculator.ts` - `applyOccupancyPricing`
 
-### Archivo: `src/hooks/useOccupancyPricingCalculator.ts`
+Modificar la funcion para que SIEMPRE devuelva `flightOptionsPricing` (aunque sea array vacio `[]`), en vez de retornar `{}` cuando no hay opciones multiples. Esto limpia los datos obsoletos al hacer spread sobre el pricing existente.
 
-#### Bloque 1 (lineas 417-451) - Deteccion para shared services
+### Cambio 2: `src/components/quotes/QuoteWizard.tsx` - Condicion de aplicacion
 
-Cambiar la logica para que tambien detecte pares ida/vuelta entre connection groups de 1 solo vuelo:
+Cambiar la condicion en 2 lugares:
 
-```typescript
-// Despues de construir connGroups y standFlights:
-// Considerar connection groups de 1 solo vuelo como "standalone" para deteccion
-const singleConnGroups: Flight[] = [];
-const multiConnGroupCount = 0; // connection groups con 2+ tramos (escalas reales)
+**Preview (previewQuote useMemo):**
+```
+// ANTES:
+if (hasMultipleFlightUnits || hasOccupancies) { ... }
 
-for (const [, groupFlights] of connGroups) {
-  if (groupFlights.length === 1) {
-    singleConnGroups.push(groupFlights[0]);
-  } else {
-    multiConnGroupCount++;
-  }
-}
-
-// Combinar standalone + single-connection-groups para deteccion ida/vuelta
-const allSingles = [...standFlights, ...singleConnGroups];
-// ... misma logica de pairing sobre allSingles ...
-
-const autoDetectedMultipleFlights = 
-  (multiConnGroupCount + autoGroupsForDetection.length + remainingSingles.length) > 1;
+// DESPUES:
+if (quote.flights.length > 0 || hasOccupancies) { ... }
 ```
 
-#### Bloque 2 (lineas 661-768) - Construccion de flightUnits
+**Guardado (handleSave):**
+```
+// ANTES:
+if (hasMultipleFlightUnits || hasOccupancies) { ... }
 
-Misma idea: despues de construir las unidades iniciales, fusionar unidades de 1 solo vuelo que formen pares ida/vuelta:
-
-```typescript
-// Despues de construir flightUnits con connection groups y standalone:
-// Post-proceso: fusionar unidades de 1 solo tramo que son ida/vuelta
-const mergedUnits: FlightUnit[] = [];
-const mergedIds = new Set<string>();
-
-for (let i = 0; i < flightUnits.length; i++) {
-  if (mergedIds.has(flightUnits[i].id)) continue;
-  if (flightUnits[i].flights.length !== 1) {
-    mergedUnits.push(flightUnits[i]);
-    continue;
-  }
-  
-  let merged = false;
-  for (let j = i + 1; j < flightUnits.length; j++) {
-    if (mergedIds.has(flightUnits[j].id)) continue;
-    if (flightUnits[j].flights.length !== 1) continue;
-    
-    const a = flightUnits[i].flights[0];
-    const b = flightUnits[j].flights[0];
-    if (
-      a.origin.toLowerCase().trim() === b.destination.toLowerCase().trim() &&
-      a.destination.toLowerCase().trim() === b.origin.toLowerCase().trim()
-    ) {
-      // Fusionar como ida/vuelta
-      const combined = [a, b].sort((x, y) => x.date.localeCompare(y.date));
-      mergedUnits.push({
-        id: `rt_${a.id}_${b.id}`,
-        flights: combined,
-        isConnection: true,
-        optionLabel: '', // se reasigna abajo
-        flightType: 'direct',
-      });
-      mergedIds.add(flightUnits[i].id);
-      mergedIds.add(flightUnits[j].id);
-      merged = true;
-      break;
-    }
-  }
-  if (!merged) {
-    mergedUnits.push(flightUnits[i]);
-  }
-}
-
-// Reasignar option labels secuenciales
-mergedUnits.forEach((unit, idx) => {
-  unit.optionLabel = `Opcion ${idx + 1}`;
-});
-
-// Reemplazar flightUnits con mergedUnits
-// Usar mergedUnits para el calculo de hasMultipleFlightOptions
+// DESPUES:
+if (quote.flights.length > 0 || hasOccupancies) { ... }
 ```
 
-## Resultado esperado
+Esto asegura que siempre que haya vuelos, se aplique el calculo en vivo (que devolvera `flightOptionsPricing: []` si es 1 sola unidad), limpiando los datos viejos tanto en la preview como al guardar.
 
-- 2 vuelos con `connectionGroupId` diferentes pero que son ida/vuelta se fusionan en 1 unidad
-- 2 vuelos standalone que son ida/vuelta se fusionan en 1 unidad
-- Escalas reales (2+ tramos en un connection group) no se tocan
-- Se genera 1 solo cuadro de precio, no 2 opciones
+## Resultado
+
+- **Preview**: Muestra 1 solo precio porque `flightOptionsPricing` se sobreescribe con `[]`
+- **Guardado**: Persiste `flightOptionsPricing: []` en la base de datos
+- **PDF final**: Lee los datos correctos de la base de datos y muestra 1 solo precio
+
+No hace falta tocar ExportPDF.tsx. El fix esta en asegurar que los datos guardados sean correctos.
 
