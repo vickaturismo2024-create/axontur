@@ -682,7 +682,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
         id: groupId,
         flights: groupFlights,
         isConnection: true,
-        optionLabel: firstFlight.optionLabel || `Opción ${optionCounter}`,
+        optionLabel: `Opción ${optionCounter}`,
         flightType: 'stopover',
       });
       optionCounter++;
@@ -694,7 +694,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
         id: flight.id,
         flights: [flight],
         isConnection: false,
-        optionLabel: flight.optionLabel || `Opción ${optionCounter}`,
+        optionLabel: `Opción ${optionCounter}`,
         flightType: flight.flightType || 'direct',
       });
       optionCounter++;

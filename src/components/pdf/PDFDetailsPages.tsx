@@ -1167,72 +1167,10 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
             </span>
           </div>
 
-          {/* Flight type and luggage badges */}
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
-            <span 
-              className="rounded"
-              style={{ 
-                padding: '2px 8px',
-                fontSize: '9px',
-                fontWeight: 600,
-                backgroundColor: typeBadge.bg,
-                color: typeBadge.color
-              }}
-            >
-              {typeBadge.label}
-            </span>
-            {luggageLabel && (
-              <span 
-                className="rounded"
-                style={{ 
-                  padding: '2px 8px',
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  color: 'white'
-                }}
-              >
-                🧳 {luggageLabel}
-              </span>
-            )}
-          </div>
-
-          {/* Connection label for multi-segment flights */}
-          {option.isConnectionGroup && option.connectionLabel && (
-            <div style={{ marginBottom: '10px' }}>
-              <p style={{ fontSize: '12px', fontWeight: 600, color: 'white', marginBottom: '6px' }}>
-                {option.connectionLabel}
-              </p>
-              {/* Show each segment */}
-              {option.segments && option.segments.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {option.segments.map((segment, segIdx) => (
-                    <div 
-                      key={segIdx}
-                      style={{ 
-                        padding: '6px 8px',
-                        backgroundColor: 'rgba(255,255,255,0.1)',
-                        borderRadius: '4px',
-                        fontSize: '10px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600 }}>
-                          Tramo {segIdx + 1}: {segment.origin} → {segment.destination}
-                        </span>
-                        <span style={{ color: 'rgba(255,255,255,0.8)' }}>
-                          {segment.airline} {segment.flightNumber}
-                        </span>
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '9px', marginTop: '2px' }}>
-                        📅 {formatDate(segment.date)} · ⏰ {segment.departureTime} - {segment.arrivalTime}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Brief flight type indicator */}
+          <p style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '10px' }}>
+            {option.flightType === 'direct' ? '✈️ Vuelo Directo' : option.flightType === 'stopover' ? '✈️ Vuelo con Escala' : option.flightType === 'charter' ? '✈️ Charter' : '✈️ Vuelo'}
+          </p>
 
           {/* Total price */}
           <div className="flex items-end justify-between">
