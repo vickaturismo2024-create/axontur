@@ -954,9 +954,12 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
 export function applyOccupancyPricing(
   calculation: OccupancyPricingCalculation
 ): Partial<import('@/types/quote').Pricing> {
-  // Si no hay ocupaciones NI opciones de vuelo, no aplicar
+  // Si no hay ocupaciones NI opciones de vuelo, devolver solo flightOptionsPricing vacío
+  // para limpiar datos obsoletos de la base de datos
   if (!calculation.hasFlightOptions && !calculation.hasOccupancyTypesWithOptions && !calculation.hasMainOccupancies && !calculation.hasOptionOccupancies) {
-    return {};
+    return {
+      flightOptionsPricing: [],
+    };
   }
 
   // Calcular total del viaje (sin opciones alternativas)

@@ -223,9 +223,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
       ? quote.lodgings
       : (quote.lodging?.name ? [quote.lodging] : []);
     const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
-    const hasMultipleFlightUnits = occupancyCalculation.hasFlightOptions;
-
-    if (hasMultipleFlightUnits || hasOccupancies) {
+    if (quote.flights.length > 0 || hasOccupancies) {
       const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
       return {
         ...quote,
@@ -467,20 +465,14 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
 
   const handleSave = () => {
-    // Auto-detectar múltiples unidades de vuelo (misma lógica que el calculador)
-    const connectionGroupIds = new Set(
-      quote.flights.filter(f => f.connectionGroupId).map(f => f.connectionGroupId!)
-    );
-    const standaloneCount = quote.flights.filter(f => !f.connectionGroupId).length;
-    const flightUnitsCount = connectionGroupIds.size + standaloneCount;
-    const hasMultipleFlightUnits = flightUnitsCount > 1;
+    // Calcular alojamientos para determinar si hay ocupaciones
 
     const allLodgings = (quote.lodgings && quote.lodgings.length > 0)
       ? quote.lodgings
       : (quote.lodging?.name ? [quote.lodging] : []);
     const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
     
-    if (hasMultipleFlightUnits || hasOccupancies) {
+    if (quote.flights.length > 0 || hasOccupancies) {
       // Aplicar cálculos automáticos antes de guardar
       const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
       const updatedQuote: Quote = {
