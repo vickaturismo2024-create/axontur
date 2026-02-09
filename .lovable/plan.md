@@ -1,79 +1,51 @@
 
-# Plan: Auto-detectar vuelos ida y vuelta sin necesidad de vincular manualmente
 
-## Problema real
+# Plan: Aplicar calculo en vivo a la vista previa del PDF
 
-Los vuelos tienen `connectionGroupId` diferentes (`conn_1` y `conn_2`) porque el usuario creó un grupo nuevo para cada vuelo en vez de vincular el segundo al grupo del primero. La UI no es lo suficientemente clara, y ademas no deberia ser necesario vincular manualmente vuelos ida y vuelta que son obvios.
+## Problema raiz
+
+El calculo de precios se ejecuta en vivo con `useOccupancyPricingCalculator`, pero solo se aplica al quote cuando el usuario hace click en "Guardar". La vista previa del PDF (`PDFPreview`) muestra los datos de pricing guardados en la base de datos (datos viejos, antes del fix). Por eso sigue mostrando 2 opciones de vuelo aunque el codigo nuevo ya las agrupa correctamente.
 
 ## Solucion
 
-Auto-detectar pares ida/vuelta en la logica de calculo, sin depender de `connectionGroupId`. Si hay vuelos standalone cuyas rutas son inversas (A->B y B->A), tratarlos como 1 sola unidad automaticamente.
+En `QuoteWizard.tsx`, crear una version del quote con el pricing recalculado en vivo y pasar ESA version al `PDFPreview`, en vez del quote con datos viejos.
 
 ---
 
 ## Cambios
 
-### Archivo 1: `src/hooks/useOccupancyPricingCalculator.ts`
+### Archivo: `src/components/quotes/QuoteWizard.tsx`
 
-**2 lugares donde se agrupan vuelos (lineas 417-429 y 640-713)**
-
-En ambos bloques, despues de separar vuelos en `connectionGroups` y `standaloneFlights`, agregar logica para detectar pares ida/vuelta entre los standalone:
+1. Crear un `useMemo` que genere un `previewQuote` aplicando el calculo de ocupacion/vuelos al quote actual:
 
 ```typescript
-// Despues de separar standalone y connection groups:
-// Auto-detectar pares ida/vuelta entre standalone flights
-const pairedStandalone: Set<string> = new Set();
-const autoGroups: Flight[][] = [];
-
-for (let i = 0; i < standaloneFlights.length; i++) {
-  if (pairedStandalone.has(standaloneFlights[i].id)) continue;
-  for (let j = i + 1; j < standaloneFlights.length; j++) {
-    if (pairedStandalone.has(standaloneFlights[j].id)) continue;
-    const a = standaloneFlights[i];
-    const b = standaloneFlights[j];
-    if (
-      a.origin.toLowerCase().trim() === b.destination.toLowerCase().trim() &&
-      a.destination.toLowerCase().trim() === b.origin.toLowerCase().trim()
-    ) {
-      // Par ida/vuelta detectado
-      pairedStandalone.add(a.id);
-      pairedStandalone.add(b.id);
-      autoGroups.push([a, b]);
-      break;
-    }
+const previewQuote = useMemo(() => {
+  const allLodgings = (quote.lodgings && quote.lodgings.length > 0)
+    ? quote.lodgings
+    : (quote.lodging?.name ? [quote.lodging] : []);
+  const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
+  const hasMultipleFlightUnits = occupancyCalculation.hasFlightOptions;
+  
+  if (hasMultipleFlightUnits || hasOccupancies) {
+    const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
+    return {
+      ...quote,
+      pricing: { ...quote.pricing, ...pricingUpdates },
+    };
   }
-}
-
-const remainingStandalone = standaloneFlights.filter(f => !pairedStandalone.has(f.id));
+  return quote;
+}, [quote, occupancyCalculation]);
 ```
 
-Luego, los `autoGroups` se tratan como connection groups (1 unidad cada uno), y `remainingStandalone` se tratan como vuelos individuales.
+2. Reemplazar `quote` por `previewQuote` en las 2 llamadas a `PDFPreview` (lineas 2336 y 2384):
 
-**Bloque 1 (lineas 417-429)** - Calculo de `autoDetectedMultipleFlights`:
-```typescript
-const autoDetectedMultipleFlights = 
-  (connGroups.size + autoGroups.length + remainingStandalone.length) > 1;
+```tsx
+<PDFPreview quote={previewQuote} template={currentTemplate} />
 ```
-
-**Bloque 2 (lineas 640-713)** - Construccion de `flightUnits`:
-- Los `autoGroups` se agregan como unidades con `flightType: 'direct'` y `isConnection: true`
-- Los `remainingStandalone` se agregan como vuelos individuales
-- El counter sigue siendo secuencial
-
-### Archivo 2: Sin cambios adicionales necesarios
-
-La logica del PDF ya maneja correctamente `flightType === 'direct'` con multiples `flightIds`.
-
----
 
 ## Resultado esperado
 
-1. Usuario carga vuelo BUE->NAT y vuelo NAT->BUE (sin vincular manualmente)
-2. El sistema detecta automaticamente que son ida y vuelta
-3. Los cuenta como 1 sola unidad de vuelo
-4. No se generan cuadros de opciones (1 sola unidad = precio unico)
-5. Si hay un tercer vuelo alternativo, ahi si aparecen 2 opciones
-
-## Nota
-
-El boton de "Vincular vuelos" sigue disponible para casos donde la auto-deteccion no aplica (ej: multi-ciudad A->B, B->C que no es ida/vuelta pero es un solo paquete).
+- La vista previa refleja los calculos en tiempo real (no los datos guardados)
+- Con el fix anterior de auto-deteccion de ida/vuelta, los 2 vuelos se agrupan como 1 unidad
+- La vista previa muestra un solo precio, no 2 opciones
+- Al guardar, se persiste el mismo calculo que ya se ve en la preview
