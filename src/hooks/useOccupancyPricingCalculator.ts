@@ -426,7 +426,29 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
         standFlights.push(flight);
       }
     }
-    const autoDetectedMultipleFlights = (connGroups.size + standFlights.length) > 1;
+
+    // Auto-detectar pares ida/vuelta entre standalone flights
+    const pairedStandIds = new Set<string>();
+    const autoGroupsForDetection: Flight[][] = [];
+    for (let i = 0; i < standFlights.length; i++) {
+      if (pairedStandIds.has(standFlights[i].id)) continue;
+      for (let j = i + 1; j < standFlights.length; j++) {
+        if (pairedStandIds.has(standFlights[j].id)) continue;
+        const a = standFlights[i];
+        const b = standFlights[j];
+        if (
+          a.origin.toLowerCase().trim() === b.destination.toLowerCase().trim() &&
+          a.destination.toLowerCase().trim() === b.origin.toLowerCase().trim()
+        ) {
+          pairedStandIds.add(a.id);
+          pairedStandIds.add(b.id);
+          autoGroupsForDetection.push([a, b]);
+          break;
+        }
+      }
+    }
+    const remainingStandForDetection = standFlights.filter(f => !pairedStandIds.has(f.id));
+    const autoDetectedMultipleFlights = (connGroups.size + autoGroupsForDetection.length + remainingStandForDetection.length) > 1;
 
     // Si hay auto-deteccion de multiples vuelos, NO incluir NINGUN vuelo en shared
     // porque cada vuelo sera una opcion independiente
@@ -694,8 +716,47 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       optionCounter++;
     }
 
-    // Agregar vuelos standalone
-    for (const flight of standaloneFlights) {
+    // Auto-detectar pares ida/vuelta entre standalone flights
+    const pairedStandaloneIds = new Set<string>();
+    const autoRoundTripGroups: typeof allFlights[] = [];
+    for (let i = 0; i < standaloneFlights.length; i++) {
+      if (pairedStandaloneIds.has(standaloneFlights[i].id)) continue;
+      for (let j = i + 1; j < standaloneFlights.length; j++) {
+        if (pairedStandaloneIds.has(standaloneFlights[j].id)) continue;
+        const a = standaloneFlights[i];
+        const b = standaloneFlights[j];
+        if (
+          a.origin.toLowerCase().trim() === b.destination.toLowerCase().trim() &&
+          a.destination.toLowerCase().trim() === b.origin.toLowerCase().trim()
+        ) {
+          pairedStandaloneIds.add(a.id);
+          pairedStandaloneIds.add(b.id);
+          autoRoundTripGroups.push([a, b]);
+          break;
+        }
+      }
+    }
+
+    // Agregar auto-detected round trips como unidades
+    for (const groupFlights of autoRoundTripGroups) {
+      groupFlights.sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.departureTime.localeCompare(b.departureTime);
+      });
+      flightUnits.push({
+        id: `auto_rt_${groupFlights[0].id}`,
+        flights: groupFlights,
+        isConnection: true,
+        optionLabel: `Opción ${optionCounter}`,
+        flightType: 'direct', // Ida y vuelta
+      });
+      optionCounter++;
+    }
+
+    // Agregar vuelos standalone restantes
+    const remainingStandalone = standaloneFlights.filter(f => !pairedStandaloneIds.has(f.id));
+    for (const flight of remainingStandalone) {
       flightUnits.push({
         id: flight.id,
         flights: [flight],
