@@ -449,14 +449,20 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
 
   const handleSave = () => {
-    // Auto-calcular precios si hay vuelos opcionales o ocupaciones configuradas
-    const hasFlightOptions = quote.flights.some(f => f.isOption);
+    // Auto-detectar múltiples unidades de vuelo (misma lógica que el calculador)
+    const connectionGroupIds = new Set(
+      quote.flights.filter(f => f.connectionGroupId).map(f => f.connectionGroupId!)
+    );
+    const standaloneCount = quote.flights.filter(f => !f.connectionGroupId).length;
+    const flightUnitsCount = connectionGroupIds.size + standaloneCount;
+    const hasMultipleFlightUnits = flightUnitsCount > 1;
+
     const allLodgings = (quote.lodgings && quote.lodgings.length > 0)
       ? quote.lodgings
       : (quote.lodging?.name ? [quote.lodging] : []);
     const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
     
-    if (hasFlightOptions || hasOccupancies) {
+    if (hasMultipleFlightUnits || hasOccupancies) {
       // Aplicar cálculos automáticos antes de guardar
       const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
       const updatedQuote: Quote = {
