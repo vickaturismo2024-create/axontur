@@ -1,68 +1,109 @@
 
-# Plan: Sistema de Opciones de Vuelo ✅ COMPLETADO
+# Plan: Corrección Definitiva del Cálculo y Visualización de Opciones de Vuelo
 
-## Resumen de Cambios Implementados
+## Problemas Encontrados
 
-### 1. Detección Automática de Opciones de Vuelo ✅
-**Archivo:** `src/hooks/useOccupancyPricingCalculator.ts`
-
-El sistema ahora detecta automáticamente cuando hay múltiples vuelos y genera opciones de precio:
-
-- **Conexiones (escalas):** Vuelos con el mismo `connectionGroupId` se agrupan como UNA opción
-- **Vuelos independientes:** Cada vuelo sin conexión es UNA opción
-- **Cálculo automático:** Si hay más de 1 "unidad de vuelo", se calculan precios para cada una
-
-**Ejemplo:**
+### Bug 1: `handleSave` no detecta opciones de vuelo automáticas
+En `QuoteWizard.tsx` linea 453, la condicion para aplicar calculos automaticos es:
+```typescript
+const hasFlightOptions = quote.flights.some(f => f.isOption);
 ```
-Vuelos cargados:
-- Aerolíneas Argentinas directo (EZE → CUN) = $570
-- Copa con escala (EZE → PTY, PTY → CUN) = $590
+Pero el calculador ya detecta multiples vuelos automaticamente sin necesidad de `isOption`. Si los vuelos no estan marcados manualmente, los precios nunca se persisten.
 
-Sistema detecta 2 unidades de vuelo:
-- Opción 1: Vuelo directo
-- Opción 2: Vuelo con escala (agrupa ambos tramos)
-
-Genera flightOptionsPricing:
-- Opción 1: Base $2600 + Vuelo $570 = $3170/persona
-- Opción 2: Base $2600 + Vuelo $590 = $3190/persona
+**Solucion**: Cambiar la condicion para detectar multiples "unidades de vuelo" (misma logica que el calculador):
+```typescript
+// Detectar si hay multiples unidades de vuelo (auto-deteccion)
+const connectionGroups = new Set(quote.flights.filter(f => f.connectionGroupId).map(f => f.connectionGroupId));
+const standaloneCount = quote.flights.filter(f => !f.connectionGroupId).length;
+const flightUnitsCount = connectionGroups.size + standaloneCount;
+const hasMultipleFlightUnits = flightUnitsCount > 1;
 ```
 
-### 2. PDF Muestra Cuadros de Precio por Opción ✅
-**Archivo:** `src/components/pdf/PDFDetailsPages.tsx`
+### Bug 2: `applyOccupancyPricing` ignora flight options si no hay ocupaciones
+En linea 809, la funcion retorna `{}` si no hay ocupaciones configuradas, incluso si hay `flightOptionsPricing` calculados.
 
-- Si hay `flightOptionsPricing`, se muestran cuadros separados por cada opción
-- El cuadro único de "Valor del Viaje" NO se muestra cuando hay opciones de vuelo
-- Cada cuadro incluye:
-  - Etiqueta de opción
-  - Badge de tipo (DIRECTO, CON ESCALA, CHARTER)
-  - Badge de equipaje
-  - Ruta completa (para conexiones: EZE → PTY → CUN)
-  - Precio total por persona
-
-### 3. Persistencia Automática al Guardar ✅
-**Archivo:** `src/components/quotes/QuoteWizard.tsx`
-
-- Al guardar, se aplica automáticamente `applyOccupancyPricing()`
-- `flightOptionsPricing` se persiste en la base de datos
-- No requiere clic manual en "Recalcular precios"
-
-## Flujo Actual
-
+**Solucion**: Agregar `calculation.hasFlightOptions` a la condicion de salida:
+```typescript
+if (!calculation.hasFlightOptions && !calculation.hasOccupancyTypesWithOptions && ...) {
+  return {};
+}
 ```
-1. Usuario carga vuelos (directo y con escala)
-   ↓
-2. Sistema agrupa por connectionGroupId
-   ↓
-3. Detecta 2+ unidades de vuelo = genera opciones automáticamente
-   ↓
-4. Al guardar → persiste flightOptionsPricing
-   ↓
-5. PDF → muestra cuadros separados en "Valor del Viaje"
+Y asegurar que `flightOptionsPricing` siempre se incluya en el return.
+
+---
+
+## Cambios Especificos
+
+### Archivo 1: `src/hooks/useOccupancyPricingCalculator.ts`
+
+**Linea 809**: Cambiar la condicion de salida de `applyOccupancyPricing`:
+```typescript
+// ANTES:
+if (!calculation.hasOccupancyTypesWithOptions && !calculation.hasMainOccupancies && !calculation.hasOptionOccupancies) {
+  return {};
+}
+
+// DESPUES:
+if (!calculation.hasFlightOptions && !calculation.hasOccupancyTypesWithOptions && !calculation.hasMainOccupancies && !calculation.hasOptionOccupancies) {
+  return {};
+}
 ```
 
-## Notas Técnicas
+Tambien asegurar que cuando solo hay flight options (sin ocupaciones), se calculen totales correctos en el return.
 
-- El checkbox "Es una opción alternativa" en el wizard ya existía y sigue funcionando
-- La detección automática funciona AUNQUE los vuelos no estén marcados como opción
-- Las conexiones se identifican por `connectionGroupId` (generado por el parser PNR)
+### Archivo 2: `src/components/quotes/QuoteWizard.tsx`
 
+**Linea 451-472**: Cambiar `handleSave` para detectar multiples unidades de vuelo automaticamente:
+```typescript
+const handleSave = () => {
+  // Detectar multiples unidades de vuelo (auto-deteccion como el calculador)
+  const connectionGroupIds = new Set(
+    quote.flights.filter(f => f.connectionGroupId).map(f => f.connectionGroupId!)
+  );
+  const standaloneCount = quote.flights.filter(f => !f.connectionGroupId).length;
+  const flightUnitsCount = connectionGroupIds.size + standaloneCount;
+  const hasMultipleFlightUnits = flightUnitsCount > 1;
+
+  const allLodgings = (quote.lodgings && quote.lodgings.length > 0)
+    ? quote.lodgings
+    : (quote.lodging?.name ? [quote.lodging] : []);
+  const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
+
+  if (hasMultipleFlightUnits || hasOccupancies) {
+    const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
+    const updatedQuote: Quote = {
+      ...quote,
+      pricing: { ...quote.pricing, ...pricingUpdates },
+    };
+    onSave(updatedQuote);
+  } else {
+    onSave(quote);
+  }
+};
+```
+
+### Archivo 3: `src/components/pdf/PDFDetailsPages.tsx`
+
+**Linea 1561**: Asegurar que el cuadro de precio unico NO se muestre cuando hay `flightOptionsPricing`. Ya esta esta condicion, pero verificar que funcione correctamente. La condicion actual es:
+```typescript
+!hasFlightOptionsPricing && !hasOccupancyTypesWithOptions && !hasMainOccupancyPricing && (hasTotalPrice || hasPricePerPerson)
+```
+Esto es correcto, no necesita cambios.
+
+---
+
+## Resumen de Archivos a Modificar
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/hooks/useOccupancyPricingCalculator.ts` | Agregar `hasFlightOptions` a la condicion de salida de `applyOccupancyPricing` |
+| `src/components/quotes/QuoteWizard.tsx` | Detectar multiples unidades de vuelo automaticamente en `handleSave` |
+
+## Resultado Esperado
+
+Con el ejemplo del usuario (vuelo directo $570 + vuelo con escala $590 + hotel $2600):
+- Al guardar, se detectan 2+ unidades de vuelo automaticamente
+- `applyOccupancyPricing` persiste `flightOptionsPricing` con 2 opciones
+- PDF muestra 2 cuadros en "Valor del Viaje":
+  - Opcion 1 (directo): $570 + $2600 = $3170 por persona
+  - Opcion 2 (escala): $590 + $2600 = $3190 por persona
