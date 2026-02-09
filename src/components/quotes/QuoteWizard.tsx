@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras, Pricing, LuggageType, LUGGAGE_LABELS } from '@/types/quote';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
@@ -216,6 +216,24 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   const occupancyCalculation = useOccupancyPricingCalculator(quote);
 
   const currentTemplate = templates.find(t => t.id === quote.templateId) || defaultTemplate || (templates[0] ?? null);
+
+  // Generar quote con pricing en vivo para la vista previa del PDF
+  const previewQuote = useMemo(() => {
+    const allLodgings = (quote.lodgings && quote.lodgings.length > 0)
+      ? quote.lodgings
+      : (quote.lodging?.name ? [quote.lodging] : []);
+    const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
+    const hasMultipleFlightUnits = occupancyCalculation.hasFlightOptions;
+
+    if (hasMultipleFlightUnits || hasOccupancies) {
+      const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
+      return {
+        ...quote,
+        pricing: { ...quote.pricing, ...pricingUpdates },
+      };
+    }
+    return quote;
+  }, [quote, occupancyCalculation]);
 
   const updateQuote = (updates: Partial<Quote>) => {
     setQuote(prev => ({ ...prev, ...updates, updatedAt: new Date().toISOString() }));
@@ -2333,7 +2351,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             {currentStep === 11 && (
               <div className="rounded-lg border border-border bg-muted/30 p-4">
                 {currentTemplate ? (
-                  <PDFPreview quote={quote} template={currentTemplate} />
+                  <PDFPreview quote={previewQuote} template={currentTemplate} />
                 ) : (
                   <div className="text-center text-muted-foreground">
                     <p>No hay plantilla seleccionada</p>
@@ -2381,7 +2399,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
           <div className="sticky top-4 rounded-lg border bg-card p-4">
             <h3 className="mb-4 font-serif font-semibold">Vista previa</h3>
             <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
-              <PDFPreview quote={quote} template={currentTemplate} />
+              <PDFPreview quote={previewQuote} template={currentTemplate} />
             </div>
           </div>
         </div>
