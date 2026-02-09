@@ -1,73 +1,65 @@
 
 
-# Plan: Corregir numeracion de opciones y simplificar cuadros de Valor del Viaje
+# Plan: Agrupar vuelos ida y vuelta como un solo paquete aereo
 
-## Problema 1: Numeracion incorrecta de opciones
+## Problema
 
-En `src/hooks/useOccupancyPricingCalculator.ts` (linea 669), el `optionCounter` se incrementa por cada unidad de vuelo, lo cual es correcto. Pero el problema es que connection groups se agregan primero como "Opcion 1", y luego el vuelo directo standalone se agrega como "Opcion 2". Esto funciona bien.
+Cuando se carga un vuelo de ida (ej: Buenos Aires a Cancun) y uno de vuelta (Cancun a Buenos Aires), el sistema los trata como 2 opciones de vuelo distintas y genera 2 cuadros de "Valor del Viaje". Son parte del mismo viaje, no opciones alternativas.
 
-Sin embargo, revisando mas a fondo, el counter solo incrementa una vez por unidad (lineas 688 y 700), asi que con 1 connection group + 1 standalone deberia dar "Opcion 1" y "Opcion 2". El bug real puede estar en que el `optionLabel` del vuelo ya tiene un valor preexistente (como "Opcion 3" si fue el tercer vuelo ingresado). Verificar linea 697: `flight.optionLabel || Opcion ${optionCounter}` - si el vuelo ya tiene un `optionLabel` guardado, se usa ese en vez del counter.
+## Solucion
 
-**Solucion**: Ignorar `optionLabel` preexistente cuando estamos en modo auto-deteccion. Siempre usar el counter propio:
+Reutilizar el mecanismo existente de `connectionGroupId` para vincular tanto escalas como vuelos ida/vuelta. Los vuelos vinculados se cuentan como 1 sola unidad de vuelo en los calculos de precio.
 
-```typescript
-// Linea 685 y 697: Siempre usar optionCounter para auto-deteccion
-optionLabel: `Opcion ${optionCounter}`,
-```
+### Cambio conceptual
 
-## Problema 2: Demasiado detalle en los cuadros de Valor del Viaje
-
-En `src/components/pdf/PDFDetailsPages.tsx` (lineas 1170-1234), el cuadro de cada opcion de vuelo muestra:
-- Badge de tipo de vuelo (directo/escala)
-- Badge de equipaje
-- Label de conexion con todos los tramos
-- Detalle de cada segmento (aerolinea, numero de vuelo, horarios)
-
-Todo esto ya se muestra en la seccion de vuelos del presupuesto. El cuadro de Valor del Viaje solo necesita mostrar:
-- Nombre de la opcion ("Opcion 1", "Opcion 2")
-- Indicacion breve de que tipo es (directo vs con escala)
-- El precio total por persona
-
-**Solucion**: Simplificar `renderFlightOptionPriceCard` eliminando los badges de equipaje, los detalles de segmentos, y dejando solo el label de la opcion y el precio.
+Actualmente `connectionGroupId` se usa solo para escalas. Lo expandimos para que signifique **"estos vuelos van juntos"** (ya sea escala o ida+vuelta). En la UI, el selector actual de "Vincular tramo (escala)" se renombra a algo mas general.
 
 ---
 
 ## Cambios
 
-### Archivo 1: `src/hooks/useOccupancyPricingCalculator.ts`
+### Archivo 1: `src/components/quotes/QuoteWizard.tsx`
 
-Lineas 685 y 697: Forzar uso del counter en auto-deteccion, sin usar `optionLabel` preexistente:
+**UI del selector de vinculacion** (alrededor de linea 943):
+- Renombrar "Vincular tramo (escala)" a "Vincular vuelos (escala / ida y vuelta)"
+- Cambiar el texto de ayuda de "Este vuelo es parte de una conexion (escala)" a "Este vuelo esta vinculado con otros tramos del mismo paquete aereo"
+- Cambiar la opcion "Crear nuevo grupo de conexion" a "Crear nuevo grupo de vuelos"
 
+### Archivo 2: `src/hooks/useOccupancyPricingCalculator.ts`
+
+**Logica de tipo de vuelo en unidades** (linea 686):
+- Cuando un grupo de conexion contiene vuelos con rutas inversas (A a B + B a A), marcar como `flightType: 'direct'` (ida y vuelta) en vez de `stopover`
+- Esto afecta solo la etiqueta en el PDF, no el calculo
+
+Deteccion de ida/vuelta dentro de un connection group:
 ```typescript
-// Linea 685
-optionLabel: `Opcion ${optionCounter}`,
+// Detectar si es ida/vuelta (origen del primero = destino del ultimo y viceversa)
+const isRoundTrip = groupFlights.length >= 2 && 
+  groupFlights[0].origin.toLowerCase().trim() === groupFlights[groupFlights.length - 1].destination.toLowerCase().trim() &&
+  groupFlights[0].destination.toLowerCase().trim() === groupFlights[groupFlights.length - 1].origin.toLowerCase().trim();
 
-// Linea 697  
-optionLabel: `Opcion ${optionCounter}`,
+flightUnits.push({
+  ...
+  flightType: isRoundTrip ? 'direct' : 'stopover',
+});
 ```
 
-### Archivo 2: `src/components/pdf/PDFDetailsPages.tsx`
+### Archivo 3: `src/components/pdf/PDFDetailsPages.tsx`
 
-Simplificar `renderFlightOptionPriceCard` (lineas 1120-1256):
-- Mantener: header con nombre de opcion + indicacion breve del tipo (directo/escala)
-- Eliminar: badges de equipaje
-- Eliminar: detalle de segmentos (tramos, aerolineas, horarios)
-- Mantener: precio total por persona y total viaje
+**Etiqueta del cuadro de precio** (linea 1170):
+- Agregar caso para ida/vuelta: cuando `flightType === 'direct'` y hay multiples segmentos, mostrar "Ida y Vuelta" en vez de "Vuelo Directo"
 
-El cuadro quedaria asi:
-```
-+------------------------------------------+
-| OPCION 1 - Vuelo Directo                |
-|                                          |
-|     TOTAL POR PERSONA: USD 3,170        |
-|                    Total viaje: USD 3,170|
-+------------------------------------------+
+---
 
-+------------------------------------------+
-| OPCION 2 - Vuelo con Escala             |
-|                                          |
-|     TOTAL POR PERSONA: USD 3,190        |
-|                    Total viaje: USD 3,190|
-+------------------------------------------+
-```
+## Resultado esperado
+
+1. El usuario carga vuelo ida (BUE a CUN) y vuelo vuelta (CUN a BUE)
+2. En el editor, vincula ambos vuelos usando el selector "Vincular vuelos"
+3. El sistema los cuenta como 1 sola unidad de vuelo
+4. No se generan cuadros de opciones (porque hay 1 sola unidad)
+5. Se muestra el precio total unico normalmente: vuelos + hotel + servicios
+
+Si ademas hay una opcion alternativa (otro vuelo directo BUE a CUN sin vincular), ahi si se generan 2 opciones:
+- Opcion 1: ida/vuelta vinculados
+- Opcion 2: vuelo directo alternativo
 
