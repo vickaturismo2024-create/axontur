@@ -678,12 +678,18 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       });
 
       const firstFlight = groupFlights[0];
+      
+      // Detectar si es ida/vuelta (origen del primero = destino del último y viceversa)
+      const isRoundTrip = groupFlights.length >= 2 && 
+        groupFlights[0].origin.toLowerCase().trim() === groupFlights[groupFlights.length - 1].destination.toLowerCase().trim() &&
+        groupFlights[0].destination.toLowerCase().trim() === groupFlights[groupFlights.length - 1].origin.toLowerCase().trim();
+      
       flightUnits.push({
         id: groupId,
         flights: groupFlights,
         isConnection: true,
         optionLabel: `Opción ${optionCounter}`,
-        flightType: 'stopover',
+        flightType: isRoundTrip ? 'direct' : 'stopover',
       });
       optionCounter++;
     }
