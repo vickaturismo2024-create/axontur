@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuotes } from '@/contexts/QuotesContext';
+import { useQuotesSafe } from '@/contexts/QuotesContext';
 import { toast } from 'sonner';
 
 const navItems = [
@@ -24,8 +24,8 @@ export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { getDefaultTemplate } = useQuotes();
-  const defaultTemplate = getDefaultTemplate();
+  const quotesContext = useQuotesSafe();
+  const defaultTemplate = quotesContext?.getDefaultTemplate();
   const agencyName = defaultTemplate?.agencyName || 'Generador de Presupuestos';
 
   const handleSignOut = async () => {
