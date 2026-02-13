@@ -1,30 +1,34 @@
 
+# Corregir visualizacion del PDF publico en movil (fix definitivo)
 
-# Corregir visualización del PDF público en móvil
+## Problema raiz
 
-## Problema
+El `transform: scale()` aplicado actualmente solo cambia la representacion visual del contenido, pero el elemento DOM sigue ocupando su ancho original de 794px en el flujo del layout. Esto causa desbordamiento horizontal (scroll lateral) en pantallas mas angostas.
 
-La clase `.pdf-page` tiene un ancho fijo de `210mm` (aprox. 794px), que en pantallas de teléfono (360-414px) o tablet (768-834px) se desborda horizontalmente, cortando el contenido a la derecha.
+## Solucion
 
-La vista de previa interna (`PDFPreview.tsx`) ya resuelve esto usando `scale-[0.6]` con `transform-origin: top`, pero la página pública (`PublicPDF.tsx`) renderiza las páginas a tamaño completo sin ningún escalado.
+Envolver el contenido escalado en un contenedor que ajuste su ancho y alto real al tamano escalado, usando `overflow: hidden` y dimensiones dinamicas.
 
-## Solución
+## Cambio en `src/pages/PublicPDF.tsx`
 
-Agregar escalado responsivo dinámico en `PublicPDF.tsx` que calcule la proporción entre el ancho de la ventana y el ancho de la página PDF (794px), y aplique un `transform: scale()` para que siempre quepa en pantalla.
+- Agregar `overflow-x: hidden` al contenedor raiz para prevenir scroll horizontal
+- Envolver el div escalado en un contenedor con altura dinamica calculada (`contentHeight * scale`) para que no quede espacio vacio ni se corte
+- Medir la altura real del contenido con un ref y recalcularla cuando cambie el scale
 
-## Cambios
+La estructura quedaria:
 
-### `src/pages/PublicPDF.tsx`
+```
+contenedor (overflow-x: hidden, width: 100%)
+  └── wrapper (height: contentHeight * scale)
+       └── div escalado (transform: scale, transform-origin: top center)
+            └── paginas PDF
+```
 
-- Agregar un hook que mida el ancho del contenedor con `ResizeObserver`
-- Calcular `scale = Math.min(containerWidth / 794, 1)` (nunca mayor a 1 en desktop)
-- Aplicar `transform: scale(scale)` con `transform-origin: top center` al wrapper de las páginas PDF
-- Ajustar la altura del contenedor con `height * scale` para evitar espacio vacío
+## Detalle tecnico
 
-Esto garantiza que:
-- En móvil (360px): scale ~0.45, todo visible
-- En tablet (768px): scale ~0.95, casi completo
-- En desktop (1024px+): scale 1, sin cambio
+1. Usar el `contentRef` existente para medir la altura real del contenido PDF
+2. Calcular `scaledHeight = contentRef.scrollHeight * scale`
+3. Aplicar esa altura al wrapper para que el layout sea correcto
+4. Agregar `overflow-x: hidden` al contenedor principal
 
-No se modifican los componentes PDF internos ni los estilos de impresión.
-
+Esto garantiza que en movil el contenido se encoja correctamente sin causar scroll horizontal ni dejar espacio vacio.
