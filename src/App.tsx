@@ -14,6 +14,7 @@ import Templates from "./pages/Templates";
 import ExportPDF from "./pages/ExportPDF";
 import Tutorials from "./pages/Tutorials";
 import Auth from "./pages/Auth";
+import PublicPDF from "./pages/PublicPDF";
 import NotFound from "./pages/NotFound";
 
 // Create QueryClient outside component to prevent recreation on re-renders
@@ -39,6 +40,7 @@ const App = () => (
               <TourOverlay />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/pdf/:id" element={<PublicPDF />} />
                 <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/quote/:id" element={<ProtectedRoute><QuoteEditor /></ProtectedRoute>} />
                 <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
