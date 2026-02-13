@@ -112,9 +112,9 @@ export function PricingSection({ quote, onUpdatePricing }: PricingSectionProps) 
   const hasInsurance = !!quote.insurance?.company;
 
   return (
-    <div className="space-y-6">
+    <div data-tour="pricing-section" className="space-y-6">
       {/* Mode Selection */}
-      <div className="flex items-center gap-4">
+      <div data-tour="pricing-mode" className="flex items-center gap-4">
         <Label className="text-base font-semibold">Modo de carga:</Label>
         <div className="flex gap-2">
           <Button

@@ -3,11 +3,13 @@ import { Accordion } from '@/components/ui/accordion';
 import { TutorialSection } from '@/components/tutorials/TutorialSection';
 import { TutorialDemo } from '@/components/tutorials/TutorialDemo';
 import { TutorialCallout } from '@/components/tutorials/TutorialCallout';
-import { flightDemoSteps } from '@/components/tutorials/demos/FlightDemo';
-import { pricingDemoSteps } from '@/components/tutorials/demos/PricingDemo';
-import { lodgingDemoSteps } from '@/components/tutorials/demos/LodgingDemo';
-import { templateDemoSteps } from '@/components/tutorials/demos/TemplateDemo';
-import { pdfDemoSteps } from '@/components/tutorials/demos/PDFDemo';
+import InteractiveFlightDemo from '@/components/tutorials/demos/FlightDemo';
+import InteractivePricingDemo from '@/components/tutorials/demos/PricingDemo';
+import InteractiveLodgingDemo from '@/components/tutorials/demos/LodgingDemo';
+import InteractiveTemplateDemo from '@/components/tutorials/demos/TemplateDemo';
+import InteractivePDFDemo from '@/components/tutorials/demos/PDFDemo';
+import InteractiveTransportDemo from '@/components/tutorials/demos/TransportDemo';
+import InteractiveOccupancyDemo from '@/components/tutorials/demos/OccupancyDemo';
 import { useTour } from '@/contexts/TourContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,13 +40,20 @@ export default function Tutorials() {
           <p className="mt-2 text-muted-foreground">
             Todo lo que necesitás saber para crear presupuestos de viaje profesionales.
           </p>
-          <Button
-            variant="outline"
-            className="mt-4 gap-2"
-            onClick={() => startTour('general')}
-          >
-            <Navigation className="h-4 w-4" /> Iniciar tour guiado del editor
-          </Button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => startTour('general')}>
+              <Navigation className="h-4 w-4" /> Tour: Editor general
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={() => startTour('flights')}>
+              <Plane className="h-4 w-4" /> Tour: Vuelos
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={() => startTour('lodging')}>
+              <Hotel className="h-4 w-4" /> Tour: Alojamiento
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={() => startTour('pricing')}>
+              <Calculator className="h-4 w-4" /> Tour: Precios
+            </Button>
+          </div>
         </div>
 
         <Accordion type="multiple" className="space-y-0">
@@ -76,7 +85,9 @@ export default function Tutorials() {
             <TutorialCallout type="tip">
               Podés usar el <strong>parser de PNR</strong> para importar vuelos automáticamente desde un código de reserva.
             </TutorialCallout>
-            <TutorialDemo title="Agregar un vuelo" steps={flightDemoSteps} />
+            <TutorialDemo title="Agregar un vuelo">
+              <InteractiveFlightDemo />
+            </TutorialDemo>
           </TutorialSection>
 
           {/* 4 */}
@@ -87,7 +98,9 @@ export default function Tutorials() {
             <TutorialCallout type="info">
               Ofrecer 2-3 opciones de hotel genera más confianza y le da al cliente sensación de control.
             </TutorialCallout>
-            <TutorialDemo title="Configurar alojamiento" steps={lodgingDemoSteps} />
+            <TutorialDemo title="Configurar alojamiento">
+              <InteractiveLodgingDemo />
+            </TutorialDemo>
           </TutorialSection>
 
           {/* 5 */}
@@ -102,6 +115,9 @@ export default function Tutorials() {
             <TutorialCallout type="warning">
               Los traslados son opcionales. Si el hotel incluye transfer, podés marcarlo como "incluido" en la descripción.
             </TutorialCallout>
+            <TutorialDemo title="Tipos de transporte">
+              <InteractiveTransportDemo />
+            </TutorialDemo>
           </TutorialSection>
 
           {/* 6 */}
@@ -125,7 +141,9 @@ export default function Tutorials() {
             <TutorialCallout type="warning">
               Los precios del cliente <strong>nunca</strong> muestran tu costo neto ni tu margen. Esa información es solo para vos.
             </TutorialCallout>
-            <TutorialDemo title="Calcular precios" steps={pricingDemoSteps} />
+            <TutorialDemo title="Calcular precios">
+              <InteractivePricingDemo />
+            </TutorialDemo>
           </TutorialSection>
 
           {/* 8 */}
@@ -140,6 +158,9 @@ export default function Tutorials() {
             <TutorialCallout type="info">
               Activá las ocupaciones dentro de cada hotel en la sección de alojamiento. Los precios se recalculan automáticamente.
             </TutorialCallout>
+            <TutorialDemo title="Ocupaciones y precios">
+              <InteractiveOccupancyDemo />
+            </TutorialDemo>
           </TutorialSection>
 
           {/* 9 */}
@@ -160,7 +181,9 @@ export default function Tutorials() {
               <li><strong>Contacto:</strong> Configurá los datos de contacto y agentes de WhatsApp.</li>
             </ul>
             <p>Podés crear varias plantillas y asignar una diferente a cada presupuesto.</p>
-            <TutorialDemo title="Personalizar plantilla" steps={templateDemoSteps} />
+            <TutorialDemo title="Personalizar plantilla">
+              <InteractiveTemplateDemo />
+            </TutorialDemo>
           </TutorialSection>
 
           {/* 11 */}
@@ -172,7 +195,9 @@ export default function Tutorials() {
               <li><strong>Compartir por link:</strong> Obtené un enlace directo al presupuesto.</li>
               <li><strong>Código QR:</strong> Generá un QR que el cliente puede escanear para ver el presupuesto.</li>
             </ul>
-            <TutorialDemo title="Exportar y compartir" steps={pdfDemoSteps} />
+            <TutorialDemo title="Exportar y compartir">
+              <InteractivePDFDemo />
+            </TutorialDemo>
           </TutorialSection>
 
           {/* 12 */}

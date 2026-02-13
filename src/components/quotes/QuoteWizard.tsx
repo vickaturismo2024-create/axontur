@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras, Pricing, LuggageType, LUGGAGE_LABELS } from '@/types/quote';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
@@ -195,6 +195,18 @@ const createEmptyQuote = (defaultTemplateId?: string): Quote => ({
 
 export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, onCancel }: QuoteWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
+
+  // Listen for tour tab changes
+  useEffect(() => {
+    const handleTabChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tabIndex: number }>;
+      if (customEvent.detail?.tabIndex !== undefined) {
+        setCurrentStep(customEvent.detail.tabIndex);
+      }
+    };
+    window.addEventListener('tour-change-tab', handleTabChange);
+    return () => window.removeEventListener('tour-change-tab', handleTabChange);
+  }, []);
   const [quote, setQuote] = useState<Quote>(() => {
     if (initialQuote) {
       return {
@@ -773,7 +785,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             {currentStep === 3 && (
               <div className="space-y-4">
                 {/* Instrucciones */}
-                <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
+                <div data-tour="flight-instructions" className="rounded-lg border border-gold/30 bg-gold/5 p-4">
                   <p className="text-sm text-muted-foreground">
                     <strong>Consejo:</strong> Puedes agregar múltiples opciones de vuelo (directo, con escala, distintos equipajes) para que el pasajero elija.
                   </p>
@@ -1043,15 +1055,17 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                   </Card>
                 ))}
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => addFlight(false)} className="flex-1">
+                  <Button data-tour="add-flight" variant="outline" onClick={() => addFlight(false)} className="flex-1">
                     <Plus className="mr-2 h-4 w-4" />
                     Agregar vuelo
                   </Button>
-                  <Button variant="outline" onClick={() => addFlight(true)} className="flex-1 border-dashed border-accent text-accent hover:bg-accent/10">
+                  <Button data-tour="add-flight-option" variant="outline" onClick={() => addFlight(true)} className="flex-1 border-dashed border-accent text-accent hover:bg-accent/10">
                     <Plus className="mr-2 h-4 w-4" />
                     Agregar opción de vuelo
                   </Button>
-                  <PNRParserDialog onFlightsParsed={handleFlightsParsed} />
+                  <div data-tour="pnr-parser">
+                    <PNRParserDialog onFlightsParsed={handleFlightsParsed} />
+                  </div>
                 </div>
               </div>
             )}
@@ -1060,7 +1074,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             {currentStep === 4 && (
               <div className="space-y-6">
                 {/* Instrucciones según tipo de viaje */}
-                <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
+                <div data-tour="lodging-instructions" className="rounded-lg border border-gold/30 bg-gold/5 p-4">
                   <p className="text-sm text-muted-foreground">
                     {quote.trip.type === 'multiDestination' 
                       ? <><strong>Viaje multi-destino:</strong> Agrega un alojamiento por cada destino del tour.</>
@@ -1292,11 +1306,11 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
                 {/* Botones para agregar */}
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => addLodging(false)} className="flex-1">
+                  <Button data-tour="add-lodging" variant="outline" onClick={() => addLodging(false)} className="flex-1">
                     <Plus className="mr-2 h-4 w-4" />
                     Agregar alojamiento
                   </Button>
-                  <Button variant="outline" onClick={() => addLodging(true)} className="flex-1 border-dashed">
+                  <Button data-tour="add-lodging-option" variant="outline" onClick={() => addLodging(true)} className="flex-1 border-dashed">
                     <Plus className="mr-2 h-4 w-4" />
                     Agregar opción alternativa
                   </Button>
