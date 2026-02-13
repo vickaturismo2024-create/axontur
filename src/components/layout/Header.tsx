@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 const navItems = [
   { label: 'Dashboard', href: '/' },
   { label: 'Plantillas', href: '/templates' },
+  { label: 'Tutoriales', href: '/tutoriales' },
 ];
 
 export function Header() {
