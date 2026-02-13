@@ -1,4 +1,4 @@
-import { Quote } from '@/types/quote';
+import { Quote, Template } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,10 +12,12 @@ import { toast } from 'sonner';
 
 interface PDFShareMenuProps {
   quote: Quote;
+  template?: Template;
   onPrint: () => void;
 }
 
-export function PDFShareMenu({ quote, onPrint }: PDFShareMenuProps) {
+export function PDFShareMenu({ quote, template, onPrint }: PDFShareMenuProps) {
+  const agencyName = template?.agencyName || template?.name || 'Mi Agencia';
   const [copied, setCopied] = useState(false);
 
   const getShareUrl = () => {
@@ -43,7 +45,7 @@ export function PDFShareMenu({ quote, onPrint }: PDFShareMenuProps) {
       `Hola ${quote.client.name},\n\n` +
       `Te comparto tu presupuesto de viaje a ${quote.trip.destination}.\n\n` +
       `Puedes verlo en el siguiente enlace:\n${getShareUrl()}\n\n` +
-      `Saludos,\nVicka Turismo`
+      `Saludos,\n${agencyName}`
     );
     window.open(`mailto:${quote.client.email}?subject=${subject}&body=${body}`, '_blank');
   };

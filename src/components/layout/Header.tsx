@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuotes } from '@/contexts/QuotesContext';
 import { toast } from 'sonner';
 
 const navItems = [
@@ -23,6 +24,9 @@ export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { getDefaultTemplate } = useQuotes();
+  const defaultTemplate = getDefaultTemplate();
+  const agencyName = defaultTemplate?.agencyName || 'Generador de Presupuestos';
 
   const handleSignOut = async () => {
     await signOut();
@@ -38,7 +42,7 @@ export function Header() {
             <Plane className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="font-serif text-lg font-semibold text-foreground">Vicka Turismo</span>
+            <span className="font-serif text-lg font-semibold text-foreground">{agencyName}</span>
             <span className="text-xs text-muted-foreground">Generador de Presupuestos</span>
           </div>
         </Link>

@@ -435,6 +435,7 @@ export interface WhatsAppAgent {
 export interface Template {
   id: string;
   name: string;
+  agencyName?: string;
   logoUrl: string;
   colors: {
     primary: string;

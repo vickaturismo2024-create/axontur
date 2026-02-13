@@ -258,7 +258,7 @@ export function PDFContactPages({ quote, template }: PDFContactPagesProps) {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-serif font-bold" style={{ fontSize: '16px' }}>Vicka Turismo</h3>
+              <h3 className="font-serif font-bold" style={{ fontSize: '16px' }}>{template.agencyName || template.name}</h3>
               <p style={{ marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
                 Tu viaje soñado, nuestra pasión
               </p>
