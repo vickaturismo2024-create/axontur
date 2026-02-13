@@ -501,7 +501,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Steps Navigation */}
-        <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2">
+        <div data-tour="step-tabs" className="mb-6 flex items-center gap-2 overflow-x-auto pb-2">
           {steps.map((step, index) => {
             const Icon = step.icon;
             return (
@@ -600,6 +600,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                   <div>
                     <Label htmlFor="clientName">Nombre completo</Label>
                     <Input
+                      data-tour="client-name"
                       id="clientName"
                       value={quote.client.name}
                       onChange={(e) => updateQuote({ client: { ...quote.client, name: e.target.value } })}
@@ -647,6 +648,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                   <div>
                     <Label htmlFor="destination">Destino</Label>
                     <Input
+                      data-tour="trip-destination"
                       id="destination"
                       value={quote.trip.destination}
                       onChange={(e) => updateQuote({ trip: { ...quote.trip, destination: e.target.value } })}
@@ -2372,7 +2374,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             </Button>
             
             {currentStep === steps.length - 1 ? (
-              <Button onClick={handleSave} className="bg-gold text-gold-foreground hover:bg-gold/90">
+              <Button data-tour="save-button" onClick={handleSave} className="bg-gold text-gold-foreground hover:bg-gold/90">
                 Guardar presupuesto
               </Button>
             ) : (

@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QuotesProvider } from "@/contexts/QuotesContext";
+import { TourProvider } from "@/contexts/TourContext";
+import { TourOverlay } from "@/components/tour/TourOverlay";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import QuoteEditor from "./pages/QuoteEditor";
@@ -18,11 +20,8 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Disable automatic refetching when window regains focus
       refetchOnWindowFocus: false,
-      // Keep data fresh for 5 minutes
       staleTime: 5 * 60 * 1000,
-      // Retry failed requests only once
       retry: 1,
     },
   },
@@ -36,15 +35,18 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/quote/:id" element={<ProtectedRoute><QuoteEditor /></ProtectedRoute>} />
-              <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
-              <Route path="/export/:id" element={<ProtectedRoute><ExportPDF /></ProtectedRoute>} />
-              <Route path="/tutoriales" element={<ProtectedRoute><Tutorials /></ProtectedRoute>} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <TourProvider>
+              <TourOverlay />
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/quote/:id" element={<ProtectedRoute><QuoteEditor /></ProtectedRoute>} />
+                <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+                <Route path="/export/:id" element={<ProtectedRoute><ExportPDF /></ProtectedRoute>} />
+                <Route path="/tutoriales" element={<ProtectedRoute><Tutorials /></ProtectedRoute>} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </TourProvider>
           </BrowserRouter>
         </TooltipProvider>
       </QuotesProvider>
