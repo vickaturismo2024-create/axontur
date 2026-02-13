@@ -1,90 +1,30 @@
 
-# Enlaces de compartir funcionales para clientes
+
+# Corregir visualización del PDF público en móvil
 
 ## Problema
 
-Actualmente hay tres problemas que impiden que los enlaces compartidos funcionen:
+La clase `.pdf-page` tiene un ancho fijo de `210mm` (aprox. 794px), que en pantallas de teléfono (360-414px) o tablet (768-834px) se desborda horizontalmente, cortando el contenido a la derecha.
 
-1. El boton "Copiar enlace" genera URLs con la ruta `/pdf/:id`, pero esa ruta no existe en la app (solo existe `/export/:id`)
-2. La ruta `/export/:id` esta envuelta en `ProtectedRoute`, lo que obliga al visitante a iniciar sesion para ver el presupuesto
-3. Los datos del presupuesto se cargan desde el contexto de autenticacion (`QuotesContext`), que solo funciona para usuarios logueados
+La vista de previa interna (`PDFPreview.tsx`) ya resuelve esto usando `scale-[0.6]` con `transform-origin: top`, pero la página pública (`PublicPDF.tsx`) renderiza las páginas a tamaño completo sin ningún escalado.
 
-Resultado: cuando un cliente recibe el enlace por WhatsApp o email, ve un error 404 o es redirigido al login.
+## Solución
 
-## Solucion
+Agregar escalado responsivo dinámico en `PublicPDF.tsx` que calcule la proporción entre el ancho de la ventana y el ancho de la página PDF (794px), y aplique un `transform: scale()` para que siempre quepa en pantalla.
 
-Crear una pagina publica `/pdf/:id` que no requiera autenticacion, con una edge function backend que sirva los datos del presupuesto de forma segura sin exponer la tabla directamente.
+## Cambios
 
----
+### `src/pages/PublicPDF.tsx`
 
-## Cambios tecnicos
+- Agregar un hook que mida el ancho del contenedor con `ResizeObserver`
+- Calcular `scale = Math.min(containerWidth / 794, 1)` (nunca mayor a 1 en desktop)
+- Aplicar `transform: scale(scale)` con `transform-origin: top center` al wrapper de las páginas PDF
+- Ajustar la altura del contenedor con `height * scale` para evitar espacio vacío
 
-### 1. Nueva edge function: `get-public-quote`
+Esto garantiza que:
+- En móvil (360px): scale ~0.45, todo visible
+- En tablet (768px): scale ~0.95, casi completo
+- En desktop (1024px+): scale 1, sin cambio
 
-Crear una edge function que reciba el ID del presupuesto y devuelva los datos del quote + template asociado. Esta funcion usara el service role key para leer directamente de la base de datos, sin depender de la sesion del usuario.
+No se modifican los componentes PDF internos ni los estilos de impresión.
 
-- Ruta: `supabase/functions/get-public-quote/index.ts`
-- Metodo: GET con query param `?id=<quote-id>`
-- Retorna: `{ quote, template }` en formato JSON
-- No requiere autenticacion (es un enlace publico para el cliente)
-
-### 2. Nueva pagina publica: `src/pages/PublicPDF.tsx`
-
-Una pagina que:
-- Extrae el ID de la URL (`/pdf/:id`)
-- Llama a la edge function para obtener los datos
-- Muestra el presupuesto usando los mismos componentes PDF existentes (`PDFCoverPage`, `PDFDetailsPages`, etc.)
-- No muestra el menu de compartir ni el boton "Volver" (es una vista solo-lectura para el cliente)
-- Muestra un estado de carga mientras obtiene los datos
-- Muestra un mensaje de error si el presupuesto no existe
-
-### 3. Agregar ruta publica en `src/App.tsx`
-
-Agregar la ruta `/pdf/:id` SIN `ProtectedRoute`, para que cualquier persona pueda acceder.
-
-### 4. Corregir URL en `PDFShareMenu.tsx`
-
-Actualmente la URL ya apunta a `/pdf/:id` que es la ruta correcta de la nueva pagina publica. No requiere cambios, pero se verificara que sea consistente.
-
----
-
-## Flujo del usuario
-
-```text
-Agente crea presupuesto
-        |
-        v
-Agente va a /export/:id (vista privada, con controles)
-        |
-        v
-Agente comparte enlace /pdf/:id por WhatsApp o email
-        |
-        v
-Cliente abre /pdf/:id (pagina publica, solo lectura)
-        |
-        v
-Edge function obtiene datos con service role
-        |
-        v
-Cliente ve el presupuesto completo
-```
-
-## Archivos nuevos
-
-| Archivo | Descripcion |
-|---|---|
-| `supabase/functions/get-public-quote/index.ts` | Edge function que devuelve quote + template por ID |
-| `src/pages/PublicPDF.tsx` | Pagina publica de solo lectura para clientes |
-
-## Archivos modificados
-
-| Archivo | Cambio |
-|---|---|
-| `src/App.tsx` | Agregar ruta `/pdf/:id` sin ProtectedRoute |
-
-## Seguridad
-
-- No se modifican las politicas RLS existentes (la tabla sigue protegida)
-- La edge function usa el service role key para leer, pero solo expone los datos del presupuesto solicitado por ID
-- No se exponen datos sensibles adicionales (user_id, etc.)
-- El ID del presupuesto es un UUID, lo que hace practicamente imposible adivinar enlaces
