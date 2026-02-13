@@ -65,7 +65,8 @@ const Templates = () => {
       whatsappAgents: [
         { name: 'Victoria', phone: '5491123456789' },
       ],
-      footerText: 'Vicka Turismo | Tel: +54 11 2345-6789',
+      agencyName: '',
+      footerText: '',
       sectionsToggles: {
         flights: true,
         lodging: true,
@@ -267,6 +268,19 @@ const Templates = () => {
                   value={editingTemplate.name}
                   onChange={(e) => updateEditingTemplate({ name: e.target.value })}
                 />
+              </div>
+
+              {/* Nombre de agencia */}
+              <div>
+                <Label>Nombre de la agencia</Label>
+                <Input
+                  value={editingTemplate.agencyName || ''}
+                  onChange={(e) => updateEditingTemplate({ agencyName: e.target.value })}
+                  placeholder="Ej: Mi Agencia de Viajes"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Este nombre aparecerá en el header, los PDFs y los mensajes compartidos
+                </p>
               </div>
 
               {/* Logo */}

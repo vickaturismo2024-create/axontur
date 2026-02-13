@@ -31,6 +31,7 @@ const QuotesContext = createContext<QuotesContextType | undefined>(undefined);
 const dbToTemplate = (row: any): Template => ({
   id: row.id,
   name: row.name,
+  agencyName: row.agency_name || '',
   logoUrl: row.logo_url || '',
   colors: row.colors || { primary: '#1e3a5f', secondary: '#d4c4a8', accent: '#c9a227' },
   fonts: row.fonts || { heading: 'Playfair Display', body: 'Inter' },
@@ -44,6 +45,7 @@ const dbToTemplate = (row: any): Template => ({
 const templateToDb = (template: Template, userId: string, isDefault?: boolean) => ({
   id: template.id,
   name: template.name,
+  agency_name: template.agencyName || '',
   logo_url: template.logoUrl,
   colors: template.colors,
   fonts: template.fonts,

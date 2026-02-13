@@ -5,6 +5,7 @@ import parisHero from '@/assets/paris-hero.jpg';
 export const defaultTemplate: Template = {
   id: 'default',
   name: 'Elegante Clásico',
+  agencyName: 'Vicka Turismo',
   logoUrl: '',
   colors: {
     primary: '#1e3a5f',

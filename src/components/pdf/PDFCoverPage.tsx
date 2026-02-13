@@ -89,7 +89,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
                 >
                   <Plane className="h-3 w-3" style={{ color: primaryColor }} />
                 </div>
-                <span className="text-sm font-medium text-white/90">Vicka Turismo</span>
+                <span className="text-sm font-medium text-white/90">{template.agencyName || template.name}</span>
               </div>
             )}
           </div>

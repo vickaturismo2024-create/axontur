@@ -93,6 +93,7 @@ export type Database = {
       }
       templates: {
         Row: {
+          agency_name: string | null
           colors: Json
           created_at: string
           fonts: Json
@@ -108,6 +109,7 @@ export type Database = {
           whatsapp_agents: Json
         }
         Insert: {
+          agency_name?: string | null
           colors?: Json
           created_at?: string
           fonts?: Json
@@ -123,6 +125,7 @@ export type Database = {
           whatsapp_agents?: Json
         }
         Update: {
+          agency_name?: string | null
           colors?: Json
           created_at?: string
           fonts?: Json

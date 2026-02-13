@@ -45,7 +45,7 @@ const ExportPDF = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>
-          <PDFShareMenu quote={quote} onPrint={handlePrint} />
+          <PDFShareMenu quote={quote} template={template} onPrint={handlePrint} />
         </div>
       </div>
 
