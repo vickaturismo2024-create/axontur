@@ -404,3 +404,7 @@ export function useQuotes() {
   }
   return context;
 }
+
+export function useQuotesSafe() {
+  return useContext(QuotesContext);
+}
