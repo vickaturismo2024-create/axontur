@@ -56,16 +56,21 @@ const PublicPDF = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
+  const [contentHeight, setContentHeight] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Responsive scale calculation
+  // Responsive scale + content height calculation
   const updateScale = useCallback(() => {
     if (containerRef.current) {
       const containerWidth = containerRef.current.clientWidth;
-      const padding = 32; // 16px each side
+      const padding = 32;
       const availableWidth = containerWidth - padding;
-      setScale(Math.min(availableWidth / PDF_PAGE_WIDTH, 1));
+      const newScale = Math.min(availableWidth / PDF_PAGE_WIDTH, 1);
+      setScale(newScale);
+    }
+    if (contentRef.current) {
+      setContentHeight(contentRef.current.scrollHeight);
     }
   }, []);
 
@@ -73,6 +78,7 @@ const PublicPDF = () => {
     updateScale();
     const observer = new ResizeObserver(updateScale);
     if (containerRef.current) observer.observe(containerRef.current);
+    if (contentRef.current) observer.observe(contentRef.current);
     return () => observer.disconnect();
   }, [updateScale]);
 
@@ -134,22 +140,30 @@ const PublicPDF = () => {
   }
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-muted print:bg-white print:min-h-0">
+    <div ref={containerRef} className="min-h-screen bg-muted overflow-x-hidden print:bg-white print:min-h-0">
       <div className="mx-auto py-4 print:p-0 print:m-0 print:max-w-none">
         <div
-          className="print:!transform-none"
+          className="print:!h-auto"
           style={{
-            transform: `scale(${scale})`,
-            transformOrigin: 'top center',
+            height: contentHeight ? contentHeight * scale : 'auto',
+            overflow: 'hidden',
           }}
         >
-          <div ref={contentRef} className="flex flex-col items-center gap-8 print:gap-0 print:items-stretch">
-            <PDFCoverPage quote={quote} template={template} />
-            <PDFDetailsPages quote={quote} template={template} />
-            <PDFContactPages quote={quote} template={template} />
-            {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
-              <PDFItineraryPages quote={quote} template={template} />
-            )}
+          <div
+            className="print:!transform-none"
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: 'top center',
+            }}
+          >
+            <div ref={contentRef} className="flex flex-col items-center gap-8 print:gap-0 print:items-stretch">
+              <PDFCoverPage quote={quote} template={template} />
+              <PDFDetailsPages quote={quote} template={template} />
+              <PDFContactPages quote={quote} template={template} />
+              {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
+                <PDFItineraryPages quote={quote} template={template} />
+              )}
+            </div>
           </div>
         </div>
       </div>
