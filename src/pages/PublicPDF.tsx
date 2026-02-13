@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Quote, Template } from '@/types/quote';
 import { defaultTemplate } from '@/data/demoData';
 import { PDFCoverPage } from '@/components/pdf/PDFCoverPage';
@@ -47,12 +47,34 @@ function mapDbRowToTemplate(row: any): Template {
   };
 }
 
+const PDF_PAGE_WIDTH = 794; // 210mm in px
+
 const PublicPDF = () => {
   const { id } = useParams<{ id: string }>();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [template, setTemplate] = useState<Template>(defaultTemplate);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scale, setScale] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Responsive scale calculation
+  const updateScale = useCallback(() => {
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const padding = 32; // 16px each side
+      const availableWidth = containerWidth - padding;
+      setScale(Math.min(availableWidth / PDF_PAGE_WIDTH, 1));
+    }
+  }, []);
+
+  useEffect(() => {
+    updateScale();
+    const observer = new ResizeObserver(updateScale);
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [updateScale]);
 
   useEffect(() => {
     if (!id) return;
@@ -112,15 +134,23 @@ const PublicPDF = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted print:bg-white print:min-h-0">
-      <div className="container mx-auto py-8 print:p-0 print:m-0 print:max-w-none">
-        <div className="flex flex-col items-center gap-8 print:gap-0 print:items-stretch">
-          <PDFCoverPage quote={quote} template={template} />
-          <PDFDetailsPages quote={quote} template={template} />
-          <PDFContactPages quote={quote} template={template} />
-          {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
-            <PDFItineraryPages quote={quote} template={template} />
-          )}
+    <div ref={containerRef} className="min-h-screen bg-muted print:bg-white print:min-h-0">
+      <div className="mx-auto py-4 print:p-0 print:m-0 print:max-w-none">
+        <div
+          className="print:!transform-none"
+          style={{
+            transform: `scale(${scale})`,
+            transformOrigin: 'top center',
+          }}
+        >
+          <div ref={contentRef} className="flex flex-col items-center gap-8 print:gap-0 print:items-stretch">
+            <PDFCoverPage quote={quote} template={template} />
+            <PDFDetailsPages quote={quote} template={template} />
+            <PDFContactPages quote={quote} template={template} />
+            {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
+              <PDFItineraryPages quote={quote} template={template} />
+            )}
+          </div>
         </div>
       </div>
     </div>
