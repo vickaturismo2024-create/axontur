@@ -1,52 +1,43 @@
 
+# Seccion de Tutoriales y Guia del Sistema
 
-# Fix completo: Preview + PDF final con datos correctos
+## Descripcion
 
-## Problema
+Crear una nueva pagina "/tutoriales" con una guia completa e interactiva que explique todas las funcionalidades de la app de presupuestos de viaje. La pagina estara organizada en secciones colapsables (accordions) con explicaciones claras, pensadas para usuarios nuevos.
 
-Hay 3 puntos donde se usan los datos de pricing, y los 3 necesitan arreglarse:
+## Contenido de los tutoriales
 
-1. **Preview en vivo** (QuoteWizard `previewQuote`): Solo aplica recalculo si `hasMultipleFlightUnits || hasOccupancies`. Cuando la fusion deja 1 sola unidad, `hasMultipleFlightUnits = false` y se devuelve el quote viejo con 2 opciones.
+La guia cubrira los siguientes temas:
 
-2. **Guardado** (QuoteWizard `handleSave`): Misma condicion. Si no entra al bloque, guarda los datos viejos en la base de datos.
+1. **Primeros pasos** - Como crear tu primer presupuesto, navegar el dashboard y entender la interfaz
+2. **Datos del cliente** - Como completar la informacion del pasajero/cliente
+3. **Vuelos** - Como agregar vuelos, vincular ida y vuelta, agregar escalas con tramos conectados, y opciones de equipaje
+4. **Alojamientos** - Como agregar hoteles, configurar multiples opciones de alojamiento, precios por noche vs total estadia
+5. **Transportes** - Trenes, ferrys, autos de alquiler y traslados
+6. **Cruceros y Actividades** - Como agregar cruceros y excursiones
+7. **Sistema de precios** - Modo automatico vs manual, costo neto vs precio de venta, margenes
+8. **Ocupaciones** - Como configurar precios por tipo de habitacion (single, doble, etc.)
+9. **Opciones de vuelo** - Como presentar multiples alternativas de vuelo con precios independientes
+10. **Plantillas** - Como crear y usar plantillas de diseno para los PDFs
+11. **Vista previa y PDF final** - Como previsualizar, exportar y compartir el presupuesto
+12. **Tips para un buen presupuesto** - Mejores practicas y consejos
 
-3. **PDF final** (ExportPDF): Lee directo de la base de datos. Si los datos guardados estan mal, el PDF esta mal.
+## Cambios tecnicos
 
-## Solucion: 2 cambios
+### Nuevos archivos
 
-### Cambio 1: `src/hooks/useOccupancyPricingCalculator.ts` - `applyOccupancyPricing`
+- **`src/pages/Tutorials.tsx`** - Pagina principal con accordions organizados por tema, iconos descriptivos y textos claros
+- **`src/components/tutorials/TutorialSection.tsx`** - Componente reutilizable para cada seccion de tutorial (accordion con icono, titulo y contenido)
 
-Modificar la funcion para que SIEMPRE devuelva `flightOptionsPricing` (aunque sea array vacio `[]`), en vez de retornar `{}` cuando no hay opciones multiples. Esto limpia los datos obsoletos al hacer spread sobre el pricing existente.
+### Archivos modificados
 
-### Cambio 2: `src/components/quotes/QuoteWizard.tsx` - Condicion de aplicacion
+- **`src/App.tsx`** - Agregar ruta `/tutoriales` protegida
+- **`src/components/layout/Header.tsx`** - Agregar "Tutoriales" al menu de navegacion (desktop y mobile)
 
-Cambiar la condicion en 2 lugares:
+## Diseno
 
-**Preview (previewQuote useMemo):**
-```
-// ANTES:
-if (hasMultipleFlightUnits || hasOccupancies) { ... }
-
-// DESPUES:
-if (quote.flights.length > 0 || hasOccupancies) { ... }
-```
-
-**Guardado (handleSave):**
-```
-// ANTES:
-if (hasMultipleFlightUnits || hasOccupancies) { ... }
-
-// DESPUES:
-if (quote.flights.length > 0 || hasOccupancies) { ... }
-```
-
-Esto asegura que siempre que haya vuelos, se aplique el calculo en vivo (que devolvera `flightOptionsPricing: []` si es 1 sola unidad), limpiando los datos viejos tanto en la preview como al guardar.
-
-## Resultado
-
-- **Preview**: Muestra 1 solo precio porque `flightOptionsPricing` se sobreescribe con `[]`
-- **Guardado**: Persiste `flightOptionsPricing: []` en la base de datos
-- **PDF final**: Lee los datos correctos de la base de datos y muestra 1 solo precio
-
-No hace falta tocar ExportPDF.tsx. El fix esta en asegurar que los datos guardados sean correctos.
-
+- Pagina con fondo limpio y header consistente con el resto de la app
+- Secciones colapsables (Accordion de Radix UI) para no abrumar al usuario
+- Iconos de Lucide para cada seccion (Plane para vuelos, Hotel para alojamientos, etc.)
+- Textos en espanol, lenguaje amigable y no tecnico
+- Responsive para mobile y desktop
