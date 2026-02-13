@@ -1,10 +1,11 @@
 import { useTour } from '@/contexts/TourContext';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export function TourOverlay() {
-  const { isActive, currentStep, currentStepIndex, totalSteps, nextStep, prevStep, endTour, targetRect } = useTour();
+  const { isActive, currentStep, currentStepIndex, totalSteps, currentSectionLabel, nextStep, prevStep, endTour, targetRect } = useTour();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -20,13 +21,14 @@ export function TourOverlay() {
 
   const pad = 8;
   const hasTarget = targetRect !== null;
+  const progressPercent = totalSteps > 0 ? ((currentStepIndex + 1) / totalSteps) * 100 : 0;
 
   // Tooltip positioning
   const tooltipStyle: React.CSSProperties = hasTarget
     ? {
         position: 'fixed',
         top: targetRect.bottom + pad + 8,
-        left: Math.max(16, Math.min(targetRect.left, window.innerWidth - 360)),
+        left: Math.max(16, Math.min(targetRect.left, window.innerWidth - 370)),
         zIndex: 10002,
       }
     : {
@@ -36,6 +38,11 @@ export function TourOverlay() {
         transform: 'translate(-50%, -50%)',
         zIndex: 10002,
       };
+
+  // If tooltip would go below viewport, show above target
+  if (hasTarget && targetRect.bottom + pad + 8 + 200 > window.innerHeight) {
+    tooltipStyle.top = Math.max(16, targetRect.top - pad - 200);
+  }
 
   // Spotlight mask using box-shadow
   const spotlightStyle: React.CSSProperties = hasTarget
@@ -79,16 +86,24 @@ export function TourOverlay() {
       {/* Tooltip */}
       <div
         style={tooltipStyle}
-        className="w-80 rounded-xl border border-border bg-card p-5 shadow-xl animate-fade-in"
+        className="w-[350px] rounded-xl border border-border bg-card p-5 shadow-xl animate-fade-in"
       >
-        <div className="mb-1 flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">
+        {/* Section label + progress */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-primary">
+              {currentSectionLabel}
+            </span>
+            <button onClick={endTour} className="text-muted-foreground hover:text-foreground transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <Progress value={progressPercent} className="h-1.5" />
+          <span className="text-[10px] text-muted-foreground mt-1 block">
             Paso {currentStepIndex + 1} de {totalSteps}
           </span>
-          <button onClick={endTour} className="text-muted-foreground hover:text-foreground transition-colors">
-            <X className="h-4 w-4" />
-          </button>
         </div>
+
         <h4 className="font-serif text-base font-semibold text-foreground mb-1">
           {currentStep?.title}
         </h4>

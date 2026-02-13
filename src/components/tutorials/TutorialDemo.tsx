@@ -9,10 +9,11 @@ export interface DemoStep {
 
 interface TutorialDemoProps {
   title: string;
-  steps: DemoStep[];
+  steps?: DemoStep[];
+  children?: React.ReactNode;
 }
 
-export function TutorialDemo({ title, steps }: TutorialDemoProps) {
+export function TutorialDemo({ title, steps, children }: TutorialDemoProps) {
   const [active, setActive] = useState(false);
   const [current, setCurrent] = useState(0);
 
@@ -29,6 +30,25 @@ export function TutorialDemo({ title, steps }: TutorialDemoProps) {
     );
   }
 
+  // If children are provided, render as interactive component
+  if (children) {
+    return (
+      <div className="mt-4 rounded-xl border border-border bg-muted/30 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border px-4 py-2 bg-card">
+          <span className="text-xs font-semibold text-foreground">{title}</span>
+          <Button variant="ghost" size="sm" onClick={() => setActive(false)} className="text-xs h-7">
+            Cerrar demo
+          </Button>
+        </div>
+        <div className="p-4">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // Static steps mode
+  if (!steps || steps.length === 0) return null;
   const step = steps[current];
 
   return (
