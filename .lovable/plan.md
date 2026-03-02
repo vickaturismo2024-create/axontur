@@ -1,71 +1,69 @@
 
-# Nombre de agencia configurable
 
-## Problema
+# Detección automática de recargos en importación desde URL
 
-"Vicka Turismo" esta escrito directamente en el codigo en varios lugares: el header de la app, las paginas PDF de contacto, la portada (fallback sin logo), y los mensajes de email al compartir. Si otra agencia quiere usar el sistema, no puede cambiar ese nombre sin modificar el codigo.
+## Contexto
 
-## Solucion
+Esto es un requisito adicional para la funcionalidad de importación de paquetes desde URLs de mayoristas. Cuando el mayorista publica un precio, muchas veces agrega notas como:
 
-Agregar un campo `agency_name` a la tabla `templates` y al tipo `Template`, y reemplazar todas las referencias hardcodeadas de "Vicka Turismo" para que usen el nombre configurado en la plantilla.
+- "Agregar 1.5% en concepto de gastos administrativos"
+- "Precio + IVA 21%"
+- "Sumar impuesto PAIS 30% + percepción ganancias 45%"
+- "Fee de emisión USD 50 por pasajero"
 
-Para el Header (que no tiene acceso a una plantilla especifica), se usara el nombre de la plantilla por defecto del usuario.
+El sistema debe detectar estos recargos automáticamente y aplicarlos al precio final.
 
----
+## Diseño
 
-## Cambios
+### En la Edge Function `scrape-package`
 
-### 1. Migracion de base de datos
+El prompt de extracción con tool calling incluirá un campo `surcharges` (recargos) en el schema de la herramienta. La IA analizará el texto de la página y extraerá:
 
-Agregar columna `agency_name` a la tabla `templates`:
-
-```sql
-ALTER TABLE public.templates 
-ADD COLUMN agency_name TEXT DEFAULT 'Mi Agencia';
-UPDATE public.templates SET agency_name = 'Vicka Turismo' WHERE agency_name = 'Mi Agencia';
+```text
+surcharges: [
+  { type: "percentage", label: "Gastos administrativos", value: 1.5 },
+  { type: "percentage", label: "IVA", value: 21 },
+  { type: "fixed_per_person", label: "Fee de emisión", value: 50 },
+]
 ```
 
-### 2. Tipo `Template` en `src/types/quote.ts`
+Tipos de recargo soportados:
+- `percentage`: porcentaje sobre el precio base (ej: 1.5% gastos admin)
+- `fixed_total`: monto fijo total (ej: USD 100 de gestión)
+- `fixed_per_person`: monto fijo por pasajero (ej: USD 50 fee por persona)
 
-Agregar el campo `agencyName: string` a la interfaz `Template`.
+### Cálculo automático
 
-### 3. Contexto `QuotesContext.tsx`
+La edge function calculará dos valores:
+- `basePrice`: el precio publicado por el mayorista
+- `finalPrice`: el precio con todos los recargos aplicados
 
-Actualizar los helpers `dbToTemplate` y `templateToDb` para mapear `agency_name` a `agencyName`.
+La lógica:
+1. Tomar el precio base
+2. Sumar todos los recargos porcentuales (acumulativos sobre la base)
+3. Sumar los recargos fijos
+4. Devolver el precio final como `cost` del presupuesto
 
-### 4. Componentes PDF (usar `template.agencyName`)
+### En el preview de importación (`ImportURLDialog`)
 
-- **PDFCoverPage.tsx**: Reemplazar "Vicka Turismo" (linea 92) con `template.agencyName || template.name`
-- **PDFContactPage.tsx**: Reemplazar "Vicka Turismo" (linea 240) con `template.agencyName`
-- **PDFContactPages.tsx**: Reemplazar "Vicka Turismo" (linea 261) con `template.agencyName`
-- **PDFShareMenu.tsx**: Reemplazar "Vicka Turismo" en el email (linea 46). Requiere recibir `template` como prop adicional.
+Antes de confirmar, el usuario verá:
+- Precio base del mayorista
+- Lista de recargos detectados con sus montos
+- Precio final calculado
+- Opción de editar/eliminar recargos antes de confirmar
 
-### 5. Header (`src/components/layout/Header.tsx`)
+### Mapeo al presupuesto
 
-Importar `useQuotes` y mostrar `getDefaultTemplate()?.agencyName || 'Generador de Presupuestos'` en lugar de "Vicka Turismo".
+El precio final (con recargos aplicados) se carga como **costo** (`cost`) en cada servicio del presupuesto. El precio de venta (`price`) lo define el agente después, aplicando su margen como siempre.
 
-### 6. Pagina de Templates (`src/pages/Templates.tsx`)
-
-Agregar un campo de texto "Nombre de agencia" en el editor de plantillas, junto a los demas campos existentes, para que el usuario pueda configurar este valor.
-
-### 7. Demo data (`src/data/demoData.ts`)
-
-Agregar `agencyName: 'Vicka Turismo'` a la plantilla por defecto para mantener retrocompatibilidad.
-
----
-
-## Archivos modificados
+## Archivos involucrados
 
 | Archivo | Cambio |
 |---|---|
-| Migracion SQL | Nueva columna `agency_name` |
-| `src/types/quote.ts` | Agregar `agencyName` a `Template` |
-| `src/contexts/QuotesContext.tsx` | Mapear `agency_name` en helpers |
-| `src/components/pdf/PDFCoverPage.tsx` | Usar `template.agencyName` |
-| `src/components/pdf/PDFContactPage.tsx` | Usar `template.agencyName` |
-| `src/components/pdf/PDFContactPages.tsx` | Usar `template.agencyName` |
-| `src/components/pdf/PDFShareMenu.tsx` | Recibir template, usar `agencyName` |
-| `src/components/layout/Header.tsx` | Mostrar nombre de agencia dinamico |
-| `src/pages/Templates.tsx` | Campo editable para nombre de agencia |
-| `src/data/demoData.ts` | Agregar `agencyName` al default |
-| `src/pages/ExportPDF.tsx` | Pasar template a PDFShareMenu |
+| `supabase/functions/scrape-package/index.ts` | Schema de tool calling incluye `surcharges`, lógica de cálculo de precio final |
+| `src/components/quotes/ImportURLDialog.tsx` | Preview muestra recargos detectados, permite editar antes de confirmar |
+
+## Nota
+
+Esto se implementa como parte integral de la funcionalidad de importación desde URL (que aún no fue creada). No requiere cambios en el modelo de datos del presupuesto porque los recargos se resuelven antes de cargar los datos: el presupuesto recibe directamente el costo final ya calculado.
+
