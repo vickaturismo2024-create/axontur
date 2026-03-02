@@ -11,7 +11,8 @@ import {
   Search, 
   Plane,
   FileText,
-  Users
+  Users,
+  Link
 } from 'lucide-react';
 import { 
   Dialog, 
@@ -20,6 +21,7 @@ import {
   DialogTitle 
 } from '@/components/ui/dialog';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
+import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
 import { defaultTemplate } from '@/data/demoData';
 
 const Dashboard = () => {
@@ -27,6 +29,7 @@ const Dashboard = () => {
   const { quotes, templates, duplicateQuote, deleteQuote, isLoading, getDefaultTemplate } = useQuotes();
   const [searchQuery, setSearchQuery] = useState('');
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const filteredQuotes = quotes.filter(quote => {
     const query = searchQuery.toLowerCase();
@@ -101,14 +104,25 @@ const Dashboard = () => {
                 Crea presupuestos de viaje profesionales en minutos
               </p>
             </div>
-            <Button 
-              onClick={() => navigate('/quote/new')}
-              className="bg-gold text-navy hover:bg-gold/90 shadow-gold"
-              size="lg"
-            >
-              <Plus className="mr-2 h-5 w-5" />
-              Nuevo Presupuesto
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => setImportDialogOpen(true)}
+                variant="outline"
+                size="lg"
+                className="border-primary-foreground/30 text-primary-foreground hover:bg-white/10"
+              >
+                <Link className="mr-2 h-5 w-5" />
+                Importar desde URL
+              </Button>
+              <Button 
+                onClick={() => navigate('/quote/new')}
+                className="bg-gold text-navy hover:bg-gold/90 shadow-gold"
+                size="lg"
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                Nuevo Presupuesto
+              </Button>
+            </div>
           </div>
 
           {/* Stats */}
@@ -205,6 +219,15 @@ const Dashboard = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Import URL Dialog */}
+      <ImportURLDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImport={(data) => {
+          navigate('/quote/new', { state: { importedData: data } });
+        }}
+      />
     </div>
   );
 };
