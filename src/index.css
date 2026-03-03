@@ -170,6 +170,19 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.12);
       border-radius: 0;
       font-size: 15px;
+      overflow: visible !important;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .pdf-mobile-view .pdf-page:first-child {
+      min-height: 85vh !important;
+    }
+
+    .pdf-mobile-view .pdf-page table {
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .pdf-mobile-view .pdf-page h1 {

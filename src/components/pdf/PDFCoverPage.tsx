@@ -30,7 +30,7 @@ export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
 
   return (
     <div 
-      className="pdf-page relative flex flex-col overflow-hidden"
+      className="pdf-page relative flex flex-col"
       style={{
         background: hasImage ? undefined : `linear-gradient(135deg, ${primaryColor} 0%, ${template.colors.secondary} 100%)`,
         WebkitPrintColorAdjust: 'exact',
