@@ -1,69 +1,39 @@
 
 
-# Detección automática de recargos en importación desde URL
+# Optimización del PDF público para móviles
 
-## Contexto
+## Problema
 
-Esto es un requisito adicional para la funcionalidad de importación de paquetes desde URLs de mayoristas. Cuando el mayorista publica un precio, muchas veces agrega notas como:
+El PDF público (`/pdf/:id`) usa `transform: scale()` para reducir el contenido A4 (794px) al ancho del dispositivo. Esto tiene dos problemas en móviles:
 
-- "Agregar 1.5% en concepto de gastos administrativos"
-- "Precio + IVA 21%"
-- "Sumar impuesto PAIS 30% + percepción ganancias 45%"
-- "Fee de emisión USD 50 por pasajero"
+1. **Contenido "entrecortado"**: El `overflow: hidden` en el wrapper puede cortar contenido cuando la altura calculada (`contentHeight * scale`) no es precisa — el `scrollHeight` se lee antes de que todo renderice, o cambia con imágenes cargadas.
+2. **Sin zoom**: El viewport meta no bloquea zoom, pero el contenido escalado dentro de un contenedor fijo no responde bien al pinch-to-zoom del usuario.
 
-El sistema debe detectar estos recargos automáticamente y aplicarlos al precio final.
+## Solución
 
-## Diseño
+Cambiar la estrategia de visualización móvil: en vez de escalar con `transform: scale()` (que mantiene el layout A4 rígido), hacer que las páginas PDF sean **responsive nativas** en móvil.
 
-### En la Edge Function `scrape-package`
+### Enfoque: Dos modos de renderizado
 
-El prompt de extracción con tool calling incluirá un campo `surcharges` (recargos) en el schema de la herramienta. La IA analizará el texto de la página y extraerá:
+- **Desktop/tablet grande** (>768px): Mantener el modo actual con scale y aspecto A4
+- **Móvil** (<768px): Las `.pdf-page` se adaptan al ancho del dispositivo con CSS responsive, sin transform scale
 
-```text
-surcharges: [
-  { type: "percentage", label: "Gastos administrativos", value: 1.5 },
-  { type: "percentage", label: "IVA", value: 21 },
-  { type: "fixed_per_person", label: "Fee de emisión", value: 50 },
-]
-```
+### Cambios concretos
 
-Tipos de recargo soportados:
-- `percentage`: porcentaje sobre el precio base (ej: 1.5% gastos admin)
-- `fixed_total`: monto fijo total (ej: USD 100 de gestión)
-- `fixed_per_person`: monto fijo por pasajero (ej: USD 50 fee por persona)
+**`src/pages/PublicPDF.tsx`**:
+- Detectar si el ancho es menor a 768px con el ResizeObserver existente
+- En modo móvil: no aplicar `transform: scale()`, no calcular altura fija, no `overflow: hidden`
+- Renderizar las páginas directamente con ancho 100%
 
-### Cálculo automático
+**`src/index.css`**:
+- Agregar media query para `.pdf-page` en móvil: `width: 100%`, `min-height: auto`, `padding` reducido (5mm o 4vw)
+- Ajustar font-sizes internos del PDF con clamp/responsive units para que el texto sea legible
+- Reducir gaps entre páginas en móvil
 
-La edge function calculará dos valores:
-- `basePrice`: el precio publicado por el mayorista
-- `finalPrice`: el precio con todos los recargos aplicados
+**`src/components/pdf/PDFPageWrapper.tsx`**:
+- Sin cambios estructurales, el CSS responsive lo maneja
 
-La lógica:
-1. Tomar el precio base
-2. Sumar todos los recargos porcentuales (acumulativos sobre la base)
-3. Sumar los recargos fijos
-4. Devolver el precio final como `cost` del presupuesto
+### Resultado esperado
 
-### En el preview de importación (`ImportURLDialog`)
-
-Antes de confirmar, el usuario verá:
-- Precio base del mayorista
-- Lista de recargos detectados con sus montos
-- Precio final calculado
-- Opción de editar/eliminar recargos antes de confirmar
-
-### Mapeo al presupuesto
-
-El precio final (con recargos aplicados) se carga como **costo** (`cost`) en cada servicio del presupuesto. El precio de venta (`price`) lo define el agente después, aplicando su margen como siempre.
-
-## Archivos involucrados
-
-| Archivo | Cambio |
-|---|---|
-| `supabase/functions/scrape-package/index.ts` | Schema de tool calling incluye `surcharges`, lógica de cálculo de precio final |
-| `src/components/quotes/ImportURLDialog.tsx` | Preview muestra recargos detectados, permite editar antes de confirmar |
-
-## Nota
-
-Esto se implementa como parte integral de la funcionalidad de importación desde URL (que aún no fue creada). No requiere cambios en el modelo de datos del presupuesto porque los recargos se resuelven antes de cargar los datos: el presupuesto recibe directamente el costo final ya calculado.
+En móvil el presupuesto se ve como una página web continua y legible, con texto a tamaño natural, sin necesidad de hacer zoom. El usuario puede hacer scroll vertical normalmente. En desktop y al imprimir, se mantiene el formato A4 exacto.
 
