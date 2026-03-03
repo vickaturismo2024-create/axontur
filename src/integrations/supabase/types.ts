@@ -35,7 +35,7 @@ export type Database = {
           transfers: Json
           trip: Json
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           activities?: Json | null
@@ -57,7 +57,7 @@ export type Database = {
           transfers?: Json
           trip?: Json
           updated_at?: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           activities?: Json | null
@@ -79,7 +79,7 @@ export type Database = {
           transfers?: Json
           trip?: Json
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -105,7 +105,7 @@ export type Database = {
           sections_toggles: Json
           styles: Json
           updated_at: string
-          user_id: string | null
+          user_id: string
           whatsapp_agents: Json
         }
         Insert: {
@@ -121,7 +121,7 @@ export type Database = {
           sections_toggles?: Json
           styles?: Json
           updated_at?: string
-          user_id?: string | null
+          user_id: string
           whatsapp_agents?: Json
         }
         Update: {
@@ -137,7 +137,7 @@ export type Database = {
           sections_toggles?: Json
           styles?: Json
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           whatsapp_agents?: Json
         }
         Relationships: []
