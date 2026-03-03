@@ -7,10 +7,14 @@ const safeUrlSchema = z.preprocess(
     (url) => {
       if (!url || url.length === 0) return true; // Allow empty strings
       const trimmed = url.trim().toLowerCase();
-      // Block javascript: URIs but allow data: for base64 images
-      return !trimmed.startsWith('javascript:');
+      // Only allow http/https URLs and data:image/ URIs
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
+      if (trimmed.startsWith('data:image/')) return true;
+      if (trimmed.startsWith('/') || trimmed.startsWith('./')) return true;
+      // Block everything else (javascript:, vbscript:, data:text/html, etc.)
+      return !trimmed.includes(':');
     },
-    { message: 'URL no válida' }
+    { message: 'Solo se permiten URLs http/https o imágenes data:image/' }
   )
 );
 
@@ -468,9 +472,12 @@ export const templateSchema = z.object({
       (url) => {
         if (!url || url.length === 0) return true;
         const trimmed = url.trim().toLowerCase();
-        return !trimmed.startsWith('javascript:');
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
+        if (trimmed.startsWith('data:image/')) return true;
+        if (trimmed.startsWith('/') || trimmed.startsWith('./')) return true;
+        return !trimmed.includes(':');
       },
-      { message: 'URL no válida' }
+      { message: 'Solo se permiten URLs http/https o imágenes data:image/' }
     )
   ).optional().default(''),
   colors: z.object({
