@@ -48,6 +48,7 @@ function mapDbRowToTemplate(row: any): Template {
 }
 
 const PDF_PAGE_WIDTH = 794; // 210mm in px
+const MOBILE_BREAKPOINT = 768;
 
 const PublicPDF = () => {
   const { id } = useParams<{ id: string }>();
@@ -56,23 +57,29 @@ const PublicPDF = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
   const [contentHeight, setContentHeight] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Responsive scale + content height calculation
+  // Responsive scale + mobile detection
   const updateScale = useCallback(() => {
     if (containerRef.current) {
       const containerWidth = containerRef.current.clientWidth;
-      const padding = 32;
-      const availableWidth = containerWidth - padding;
-      const newScale = Math.min(availableWidth / PDF_PAGE_WIDTH, 1);
-      setScale(newScale);
+      const mobile = containerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
+
+      if (!mobile) {
+        const padding = 32;
+        const availableWidth = containerWidth - padding;
+        const newScale = Math.min(availableWidth / PDF_PAGE_WIDTH, 1);
+        setScale(newScale);
+      }
     }
-    if (contentRef.current) {
+    if (contentRef.current && !isMobile) {
       setContentHeight(contentRef.current.scrollHeight);
     }
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
     updateScale();
@@ -139,6 +146,29 @@ const PublicPDF = () => {
     );
   }
 
+  const pdfContent = (
+    <div ref={contentRef} className={`flex flex-col items-center gap-8 print:gap-0 print:items-stretch ${isMobile ? 'pdf-mobile-view gap-4' : ''}`}>
+      <PDFCoverPage quote={quote} template={template} />
+      <PDFDetailsPages quote={quote} template={template} />
+      <PDFContactPages quote={quote} template={template} />
+      {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
+        <PDFItineraryPages quote={quote} template={template} />
+      )}
+    </div>
+  );
+
+  // Mobile: render pages directly without transform scaling
+  if (isMobile) {
+    return (
+      <div ref={containerRef} className="min-h-screen bg-muted overflow-x-hidden print:bg-white print:min-h-0">
+        <div className="py-2 px-1 print:p-0 print:m-0">
+          {pdfContent}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop: keep A4 scaled rendering
   return (
     <div ref={containerRef} className="min-h-screen bg-muted overflow-x-hidden print:bg-white print:min-h-0">
       <div className="mx-auto py-4 print:p-0 print:m-0 print:max-w-none">
@@ -156,14 +186,7 @@ const PublicPDF = () => {
               transformOrigin: 'top center',
             }}
           >
-            <div ref={contentRef} className="flex flex-col items-center gap-8 print:gap-0 print:items-stretch">
-              <PDFCoverPage quote={quote} template={template} />
-              <PDFDetailsPages quote={quote} template={template} />
-              <PDFContactPages quote={quote} template={template} />
-              {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
-                <PDFItineraryPages quote={quote} template={template} />
-              )}
-            </div>
+            {pdfContent}
           </div>
         </div>
       </div>
