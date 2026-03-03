@@ -186,7 +186,7 @@ serve(async (req) => {
     const scrapeData = await scrapeResponse.json();
 
     if (!scrapeResponse.ok || !scrapeData.success) {
-      console.error("Firecrawl error:", scrapeData);
+      console.error("Firecrawl error: status", scrapeResponse.status);
       return new Response(
         JSON.stringify({
           success: false,
@@ -534,7 +534,7 @@ ${markdown.substring(0, 15000)}`;
         );
       }
       const errorText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errorText);
+      console.error("AI gateway error: status", aiResponse.status);
       return new Response(
         JSON.stringify({
           success: false,
@@ -553,7 +553,7 @@ ${markdown.substring(0, 15000)}`;
     // Extract tool call arguments
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall || toolCall.function.name !== "extract_package") {
-      console.error("No tool call in response:", JSON.stringify(aiData));
+      console.error("No tool call in AI response");
       return new Response(
         JSON.stringify({
           success: false,
@@ -571,10 +571,7 @@ ${markdown.substring(0, 15000)}`;
     try {
       extracted = JSON.parse(toolCall.function.arguments);
     } catch {
-      console.error(
-        "Failed to parse tool call arguments:",
-        toolCall.function.arguments
-      );
+      console.error("Failed to parse tool call arguments");
       return new Response(
         JSON.stringify({
           success: false,
@@ -615,7 +612,7 @@ ${markdown.substring(0, 15000)}`;
       }
     );
   } catch (error) {
-    console.error("scrape-package error:", error);
+    console.error("scrape-package error:", error instanceof Error ? error.name : "Unknown");
     return new Response(
       JSON.stringify({
         success: false,
