@@ -161,6 +161,48 @@
     color-adjust: exact !important;
   }
 
+  /* Mobile-responsive PDF pages */
+  @media (max-width: 767px) {
+    .pdf-mobile-view .pdf-page {
+      width: 100% !important;
+      min-height: auto !important;
+      padding: 4vw !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      border-radius: 0;
+      font-size: 15px;
+    }
+
+    .pdf-mobile-view .pdf-page h1 {
+      font-size: clamp(1.25rem, 5vw, 1.75rem) !important;
+    }
+
+    .pdf-mobile-view .pdf-page h2 {
+      font-size: clamp(1.1rem, 4vw, 1.4rem) !important;
+    }
+
+    .pdf-mobile-view .pdf-page h3 {
+      font-size: clamp(1rem, 3.5vw, 1.2rem) !important;
+    }
+
+    .pdf-mobile-view .pdf-page p,
+    .pdf-mobile-view .pdf-page span,
+    .pdf-mobile-view .pdf-page td,
+    .pdf-mobile-view .pdf-page li {
+      font-size: clamp(0.85rem, 3.2vw, 1rem) !important;
+      line-height: 1.5 !important;
+    }
+
+    .pdf-mobile-view .pdf-page table {
+      width: 100% !important;
+      font-size: 0.85rem;
+    }
+
+    .pdf-mobile-view .pdf-page img {
+      max-width: 100%;
+      height: auto !important;
+    }
+  }
+
   .pdf-page h1, .pdf-page h2, .pdf-page h3 {
     font-family: 'Playfair Display', serif;
   }
