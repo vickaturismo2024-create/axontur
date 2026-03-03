@@ -1,4 +1,5 @@
 import { useState, useRef, ChangeEvent } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,6 +38,11 @@ export function ImageUpload({
   };
 
   const convertToBase64 = (file: File) => {
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_SIZE) {
+      toast.error('La imagen es demasiado grande. Máximo 5MB.');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;

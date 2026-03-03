@@ -58,7 +58,10 @@ Deno.serve(async (req) => {
         .select("*")
         .eq("id", quote.template_id)
         .single();
-      template = tmpl;
+      if (tmpl) {
+        const { user_id: _templateUserId, ...safeTemplate } = tmpl;
+        template = safeTemplate;
+      }
     }
 
     // Strip sensitive fields
