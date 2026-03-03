@@ -1,39 +1,36 @@
 
 
-# Optimización del PDF público para móviles
+# Fix: PDF público cortado en móviles
 
-## Problema
+## Diagnóstico
 
-El PDF público (`/pdf/:id`) usa `transform: scale()` para reducir el contenido A4 (794px) al ancho del dispositivo. Esto tiene dos problemas en móviles:
+El problema persiste por varias razones que el cambio anterior no cubrió:
 
-1. **Contenido "entrecortado"**: El `overflow: hidden` en el wrapper puede cortar contenido cuando la altura calculada (`contentHeight * scale`) no es precisa — el `scrollHeight` se lee antes de que todo renderice, o cambia con imágenes cargadas.
-2. **Sin zoom**: El viewport meta no bloquea zoom, pero el contenido escalado dentro de un contenedor fijo no responde bien al pinch-to-zoom del usuario.
+1. **La portada (cover page)** usa `overflow-hidden` en el `.pdf-page` y posicionamiento `absolute inset-0` para la imagen de fondo. Con `min-height: auto` en móvil, la imagen de fondo absoluta no tiene altura de referencia y el contenido puede colapsarse o cortarse.
 
-## Solución
+2. **El `.pdf-page` base** sigue teniendo `overflow: hidden` implícito vía el CSS de la portada (`overflow-hidden` en el className). No hay un override explícito para móvil.
 
-Cambiar la estrategia de visualización móvil: en vez de escalar con `transform: scale()` (que mantiene el layout A4 rígido), hacer que las páginas PDF sean **responsive nativas** en móvil.
+3. **Tablas e inline styles** en `PDFDetailsPages` (1600+ líneas) usan anchos fijos en píxeles que pueden desbordar el contenedor móvil, causando corte horizontal.
 
-### Enfoque: Dos modos de renderizado
+4. **La portada necesita una altura mínima** en móvil para que el layout flex funcione correctamente (el fondo con posición absoluta necesita un contenedor con altura definida).
 
-- **Desktop/tablet grande** (>768px): Mantener el modo actual con scale y aspecto A4
-- **Móvil** (<768px): Las `.pdf-page` se adaptan al ancho del dispositivo con CSS responsive, sin transform scale
+## Cambios
 
-### Cambios concretos
+### `src/index.css`
+- Agregar `overflow: visible !important` a `.pdf-mobile-view .pdf-page` para que nada se corte
+- Agregar regla para la portada: `.pdf-mobile-view .pdf-page:first-child` con `min-height: 85vh` para que la cover tenga altura suficiente
+- Agregar `overflow-x: hidden` y `word-break: break-word` para evitar desborde horizontal por texto largo
+- Asegurar que tablas en móvil usen `display: block` + `overflow-x: auto` para scroll horizontal si son muy anchas
 
-**`src/pages/PublicPDF.tsx`**:
-- Detectar si el ancho es menor a 768px con el ResizeObserver existente
-- En modo móvil: no aplicar `transform: scale()`, no calcular altura fija, no `overflow: hidden`
-- Renderizar las páginas directamente con ancho 100%
+### `src/components/pdf/PDFCoverPage.tsx`
+- Agregar clase condicional o estilo para que en móvil la imagen de fondo use `position: relative` en vez de `absolute`, o bien darle al contenedor un `min-height` que funcione en mobile
+- Simplificar: agregar un `min-h-[80vh]` al `.pdf-page` de la portada para que siempre tenga altura suficiente en cualquier dispositivo
 
-**`src/index.css`**:
-- Agregar media query para `.pdf-page` en móvil: `width: 100%`, `min-height: auto`, `padding` reducido (5mm o 4vw)
-- Ajustar font-sizes internos del PDF con clamp/responsive units para que el texto sea legible
-- Reducir gaps entre páginas en móvil
+### `src/pages/PublicPDF.tsx`
+- Mover `contentRef` al wrapper del contenido móvil también, para que el observer funcione en ambos modos
+- Agregar `overflow-x-hidden` al contenedor raíz móvil (ya está, verificar)
 
-**`src/components/pdf/PDFPageWrapper.tsx`**:
-- Sin cambios estructurales, el CSS responsive lo maneja
+## Resultado
 
-### Resultado esperado
-
-En móvil el presupuesto se ve como una página web continua y legible, con texto a tamaño natural, sin necesidad de hacer zoom. El usuario puede hacer scroll vertical normalmente. En desktop y al imprimir, se mantiene el formato A4 exacto.
+En móvil: las páginas se ven completas sin cortes, con scroll vertical natural. La portada mantiene su aspecto visual con imagen de fondo. Las tablas anchas permiten scroll horizontal. En desktop/print: sin cambios.
 
