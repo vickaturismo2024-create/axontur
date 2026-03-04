@@ -1,36 +1,36 @@
 
 
-# Fix: PDF público cortado en móviles
+# Fix: PDF cortado en móviles - Solución agresiva
 
-## Diagnóstico
+## Diagnóstico raíz
 
-El problema persiste por varias razones que el cambio anterior no cubrió:
+Después de revisar el código en detalle, hay varios problemas que las correcciones anteriores no resolvieron:
 
-1. **La portada (cover page)** usa `overflow-hidden` en el `.pdf-page` y posicionamiento `absolute inset-0` para la imagen de fondo. Con `min-height: auto` en móvil, la imagen de fondo absoluta no tiene altura de referencia y el contenido puede colapsarse o cortarse.
+1. **Estado inicial `isMobile = false`**: El componente siempre renderiza primero en modo desktop (con `transform: scale()` y `overflow: hidden`). En un teléfono, el primer frame visible muestra el PDF escalado y cortado antes de que el ResizeObserver detecte que es móvil y re-renderice. Esto puede dejar artefactos.
 
-2. **El `.pdf-page` base** sigue teniendo `overflow: hidden` implícito vía el CSS de la portada (`overflow-hidden` en el className). No hay un override explícito para móvil.
+2. **Tablas con `overflow-hidden`**: En `PDFDetailsPages.tsx` (línea 171), los contenedores de tablas usan `className="overflow-hidden rounded border"`, lo que recorta contenido que excede el ancho del contenedor.
 
-3. **Tablas e inline styles** en `PDFDetailsPages` (1600+ líneas) usan anchos fijos en píxeles que pueden desbordar el contenedor móvil, causando corte horizontal.
+3. **Estilos inline con tamaños fijos**: Todo el contenido del PDF usa `style={{ fontSize: '11px' }}` directamente en los elementos, que no se puede sobrescribir con CSS (los inline styles tienen prioridad sobre clases CSS). Las reglas `!important` en el CSS solo funcionan para propiedades que NO están definidas inline.
 
-4. **La portada necesita una altura mínima** en móvil para que el layout flex funcione correctamente (el fondo con posición absoluta necesita un contenedor con altura definida).
+4. **Cover page con posicionamiento absoluto**: La imagen de fondo usa `absolute inset-0` que necesita un contenedor con altura explícita. El `min-height: 85vh` ayuda pero puede no ser suficiente.
 
-## Cambios
+## Solución
 
-### `src/index.css`
-- Agregar `overflow: visible !important` a `.pdf-mobile-view .pdf-page` para que nada se corte
-- Agregar regla para la portada: `.pdf-mobile-view .pdf-page:first-child` con `min-height: 85vh` para que la cover tenga altura suficiente
-- Agregar `overflow-x: hidden` y `word-break: break-word` para evitar desborde horizontal por texto largo
-- Asegurar que tablas en móvil usen `display: block` + `overflow-x: auto` para scroll horizontal si son muy anchas
+### 1. `src/pages/PublicPDF.tsx` — Detectar móvil desde el inicio
+- Usar `window.innerWidth` para inicializar `isMobile` correctamente desde el primer render, evitando el flash de la versión desktop
+- Eliminar el cálculo de `contentHeight` en modo móvil (no se usa)
 
-### `src/components/pdf/PDFCoverPage.tsx`
-- Agregar clase condicional o estilo para que en móvil la imagen de fondo use `position: relative` en vez de `absolute`, o bien darle al contenedor un `min-height` que funcione en mobile
-- Simplificar: agregar un `min-h-[80vh]` al `.pdf-page` de la portada para que siempre tenga altura suficiente en cualquier dispositivo
+### 2. `src/index.css` — CSS móvil más agresivo
+- Agregar override para `overflow-hidden` dentro de pdf-mobile-view: `.pdf-mobile-view .pdf-page .overflow-hidden { overflow: visible !important; }`
+- Forzar tamaños de fuente en TODOS los elementos con `*` selector dentro de `.pdf-mobile-view`
+- Asegurar que todos los elementos con `position: absolute` dentro de las páginas se comporten correctamente
 
-### `src/pages/PublicPDF.tsx`
-- Mover `contentRef` al wrapper del contenido móvil también, para que el observer funcione en ambos modos
-- Agregar `overflow-x-hidden` al contenedor raíz móvil (ya está, verificar)
+### 3. `src/components/pdf/PDFCoverPage.tsx` — Layout móvil robusto
+- Agregar `min-h-[85vh]` directamente como clase en el componente para que la portada siempre tenga altura suficiente en cualquier dispositivo, independiente de la media query CSS
 
-## Resultado
+### 4. `src/components/pdf/PDFDetailsPages.tsx` — Quitar overflow-hidden de tablas
+- Cambiar `overflow-hidden` por `overflow-x-auto` en los contenedores de tablas para que en móvil las tablas anchas se puedan scrollear en vez de cortarse
 
-En móvil: las páginas se ven completas sin cortes, con scroll vertical natural. La portada mantiene su aspecto visual con imagen de fondo. Las tablas anchas permiten scroll horizontal. En desktop/print: sin cambios.
+## Resultado esperado
+El PDF se visualiza correctamente desde el primer frame en móviles. No hay contenido cortado. Las tablas anchas se pueden scrollear. La portada siempre tiene altura correcta.
 
