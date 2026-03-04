@@ -169,22 +169,31 @@
       padding: 4vw !important;
       box-shadow: 0 1px 3px rgba(0,0,0,0.12);
       border-radius: 0;
-      font-size: 15px;
       overflow: visible !important;
       word-break: break-word;
       overflow-wrap: break-word;
     }
 
-    .pdf-mobile-view .pdf-page:first-child {
+    /* Cover page needs explicit height for absolute-positioned background */
+    .pdf-mobile-view .pdf-page.pdf-cover-page {
       min-height: 85vh !important;
     }
 
+    /* Override ALL overflow-hidden inside mobile PDF pages */
+    .pdf-mobile-view .pdf-page .overflow-hidden,
+    .pdf-mobile-view .pdf-page [class*="overflow-hidden"] {
+      overflow: visible !important;
+    }
+
+    /* Tables: scrollable horizontally */
     .pdf-mobile-view .pdf-page table {
       display: block;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      width: 100% !important;
     }
 
+    /* Force readable font sizes even over inline styles */
     .pdf-mobile-view .pdf-page h1 {
       font-size: clamp(1.25rem, 5vw, 1.75rem) !important;
     }
@@ -200,19 +209,22 @@
     .pdf-mobile-view .pdf-page p,
     .pdf-mobile-view .pdf-page span,
     .pdf-mobile-view .pdf-page td,
+    .pdf-mobile-view .pdf-page th,
     .pdf-mobile-view .pdf-page li {
-      font-size: clamp(0.85rem, 3.2vw, 1rem) !important;
+      font-size: clamp(0.8rem, 3vw, 0.95rem) !important;
       line-height: 1.5 !important;
-    }
-
-    .pdf-mobile-view .pdf-page table {
-      width: 100% !important;
-      font-size: 0.85rem;
     }
 
     .pdf-mobile-view .pdf-page img {
       max-width: 100%;
       height: auto !important;
+    }
+
+    /* Prevent any fixed-width children from overflowing */
+    .pdf-mobile-view .pdf-page > *,
+    .pdf-mobile-view .pdf-page div {
+      max-width: 100% !important;
+      box-sizing: border-box !important;
     }
   }
 
