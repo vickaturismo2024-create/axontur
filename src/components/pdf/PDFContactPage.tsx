@@ -19,8 +19,13 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
     ? quote.lodgings 
     : (quote.lodging?.name ? [quote.lodging] : []);
 
-  const getMapsUrl = (address: string) => 
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || '')}`;
+  const getFullAddress = (address: string, destination?: string) => {
+    const dest = destination || quote.trip?.destination;
+    return dest ? `${address}, ${dest}` : address;
+  };
+
+  const getMapsUrl = (address: string, destination?: string) => 
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(getFullAddress(address, destination) || '')}`;
 
   return (
     <div className="pdf-page flex flex-col" style={{ backgroundColor: cardBgColor }}>
@@ -106,7 +111,7 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
                       </p>
                       
                       <a 
-                        href={getMapsUrl(lodging.address)}
+                        href={getMapsUrl(lodging.address, lodging.destination)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center rounded-lg text-white"
@@ -134,8 +139,18 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
                         printColorAdjust: 'exact'
                       }}
                     >
+                      <iframe
+                        src={`https://www.google.com/maps?q=${encodeURIComponent(getFullAddress(lodging.address, lodging.destination))}&output=embed`}
+                        width="100%"
+                        height={lodgingsWithAddress.length > 1 ? '80' : '100'}
+                        style={{ border: 0, borderRadius: '8px' }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        title={`Mapa de ${lodging.name}`}
+                        className="print:hidden"
+                      />
                       <div 
-                        className="flex items-center justify-center"
+                        className="hidden print:flex items-center justify-center"
                         style={{ 
                           height: lodgingsWithAddress.length > 1 ? '80px' : '100px',
                           background: `linear-gradient(to bottom right, ${cardBgColor}, ${secondaryColor})`,
