@@ -173,6 +173,7 @@ export interface Activity {
   cost?: number;
   price?: number;
   notes: string;
+  supplier?: string;
 }
 
 // Cruceros
