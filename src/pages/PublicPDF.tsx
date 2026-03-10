@@ -147,12 +147,12 @@ const PublicPDF = () => {
   }
 
   const pdfContent = (
-    <div ref={contentRef} className={`flex flex-col items-center gap-8 print:gap-0 print:items-stretch ${isMobile ? 'pdf-mobile-view gap-4' : ''}`}>
-      <PDFCoverPage quote={quote} template={template} />
-      <PDFDetailsPages quote={quote} template={template} />
-      <PDFContactPages quote={quote} template={template} />
+    <div ref={contentRef} className={`flex flex-col items-center gap-8 print:gap-0 print:items-stretch ${isMobile ? 'gap-4' : ''}`}>
+      <PDFCoverPage quote={quote} template={template} isMobile={isMobile} />
+      <PDFDetailsPages quote={quote} template={template} isMobile={isMobile} />
+      <PDFContactPages quote={quote} template={template} isMobile={isMobile} />
       {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
-        <PDFItineraryPages quote={quote} template={template} />
+        <PDFItineraryPages quote={quote} template={template} isMobile={isMobile} />
       )}
     </div>
   );

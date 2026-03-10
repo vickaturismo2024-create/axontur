@@ -31,7 +31,7 @@ export function PDFCoverPage({ quote, template, isMobile = false }: PDFCoverPage
 
   return (
     <div 
-      className="pdf-page relative flex flex-col pdf-cover-page"
+      className={`${isMobile ? 'pdf-page-mobile pdf-cover-page-mobile' : 'pdf-page pdf-cover-page'} relative flex flex-col`}
       style={{
         background: hasImage ? undefined : `linear-gradient(135deg, ${primaryColor} 0%, ${template.colors.secondary} 100%)`,
         WebkitPrintColorAdjust: 'exact',

@@ -234,6 +234,7 @@ export function PDFItineraryPages({ quote, template, isMobile = false }: PDFItin
           backgroundColor={cardBgColor}
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
+          isMobile={isMobile}
         >
           <div className="relative">
             <TimelineLine />

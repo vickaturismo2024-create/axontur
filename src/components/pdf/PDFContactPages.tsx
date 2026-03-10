@@ -352,6 +352,7 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
           backgroundColor={cardBgColor}
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
+          isMobile={isMobile}
         >
           <div className="flex flex-col h-full">
             <div className="flex-1">

@@ -1603,6 +1603,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
           backgroundColor={cardBgColor}
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
+          isMobile={isMobile}
         >
           {pageSections.map((section) => (
             <div key={section.id}>{section.component}</div>

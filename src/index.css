@@ -161,71 +161,74 @@
     color-adjust: exact !important;
   }
 
-  /* Mobile-responsive PDF pages */
-  @media (max-width: 767px) {
-    .pdf-mobile-view .pdf-page {
-      width: 100% !important;
-      min-height: auto !important;
-      padding: 4vw !important;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-      border-radius: 0;
-      overflow: visible !important;
-      word-break: break-word;
-      overflow-wrap: break-word;
-    }
+  /* Mobile PDF pages - used via isMobile prop, no media query needed */
+  .pdf-page-mobile {
+    background: white;
+    width: 100%;
+    padding: 16px;
+    font-family: 'Inter', sans-serif;
+    box-sizing: border-box;
+    position: relative;
+    overflow: visible;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
 
-    /* Cover page needs explicit height for absolute-positioned background */
-    .pdf-mobile-view .pdf-page.pdf-cover-page {
-      min-height: 85vh !important;
-    }
+  .pdf-page-mobile h1, .pdf-page-mobile h2, .pdf-page-mobile h3 {
+    font-family: 'Playfair Display', serif;
+  }
 
-    /* Override ALL overflow-hidden inside mobile PDF pages */
-    .pdf-mobile-view .pdf-page .overflow-hidden,
-    .pdf-mobile-view .pdf-page [class*="overflow-hidden"] {
-      overflow: visible !important;
-    }
+  /* Cover page mobile */
+  .pdf-cover-page-mobile {
+    min-height: 85vh;
+    padding: 16px;
+  }
 
-    /* Tables: scrollable horizontally */
-    .pdf-mobile-view .pdf-page table {
-      display: block;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      width: 100% !important;
-    }
+  /* Responsive typography for mobile PDF */
+  .pdf-page-mobile h1 {
+    font-size: clamp(1.25rem, 5vw, 1.75rem) !important;
+  }
 
-    /* Force readable font sizes even over inline styles */
-    .pdf-mobile-view .pdf-page h1 {
-      font-size: clamp(1.25rem, 5vw, 1.75rem) !important;
-    }
+  .pdf-page-mobile h2 {
+    font-size: clamp(1.1rem, 4vw, 1.4rem) !important;
+  }
 
-    .pdf-mobile-view .pdf-page h2 {
-      font-size: clamp(1.1rem, 4vw, 1.4rem) !important;
-    }
+  .pdf-page-mobile h3 {
+    font-size: clamp(1rem, 3.5vw, 1.2rem) !important;
+  }
 
-    .pdf-mobile-view .pdf-page h3 {
-      font-size: clamp(1rem, 3.5vw, 1.2rem) !important;
-    }
+  .pdf-page-mobile p,
+  .pdf-page-mobile span,
+  .pdf-page-mobile td,
+  .pdf-page-mobile th,
+  .pdf-page-mobile li {
+    font-size: clamp(0.8rem, 3vw, 0.95rem) !important;
+    line-height: 1.5 !important;
+  }
 
-    .pdf-mobile-view .pdf-page p,
-    .pdf-mobile-view .pdf-page span,
-    .pdf-mobile-view .pdf-page td,
-    .pdf-mobile-view .pdf-page th,
-    .pdf-mobile-view .pdf-page li {
-      font-size: clamp(0.8rem, 3vw, 0.95rem) !important;
-      line-height: 1.5 !important;
-    }
+  .pdf-page-mobile img {
+    max-width: 100%;
+    height: auto !important;
+  }
 
-    .pdf-mobile-view .pdf-page img {
-      max-width: 100%;
-      height: auto !important;
-    }
+  /* Prevent overflow in mobile */
+  .pdf-page-mobile > *,
+  .pdf-page-mobile div {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
 
-    /* Prevent any fixed-width children from overflowing */
-    .pdf-mobile-view .pdf-page > *,
-    .pdf-mobile-view .pdf-page div {
-      max-width: 100% !important;
-      box-sizing: border-box !important;
-    }
+  /* Tables: scrollable wrapper, native table layout */
+  .pdf-page-mobile .overflow-hidden {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pdf-page-mobile table {
+    width: 100% !important;
+    min-width: 400px;
   }
 
   .pdf-page h1, .pdf-page h2, .pdf-page h3 {
