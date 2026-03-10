@@ -7,6 +7,7 @@ interface PDFPageWrapperProps {
   backgroundColor?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  isMobile?: boolean;
 }
 
 export function PDFPageWrapper({ 
@@ -15,10 +16,11 @@ export function PDFPageWrapper({
   continuation = false,
   backgroundColor = '#f8f9fa',
   primaryColor = '#1e3a5f',
-  secondaryColor = '#d4c4a8'
+  secondaryColor = '#d4c4a8',
+  isMobile = false
 }: PDFPageWrapperProps) {
   return (
-    <div className="pdf-page mb-8 print:mb-0" style={{ backgroundColor }}>
+    <div className={`${isMobile ? 'pdf-page-mobile' : 'pdf-page'} mb-8 print:mb-0`} style={{ backgroundColor }}>
       {title && (
         <h2 
           className="font-serif font-bold border-b"

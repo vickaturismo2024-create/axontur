@@ -7,6 +7,7 @@ import { ReactNode } from 'react';
 interface PDFContactPagesProps {
   quote: Quote;
   template: Template;
+  isMobile?: boolean;
 }
 
 // Height estimates for pagination (realistic values)
@@ -27,7 +28,7 @@ interface Section {
   isFixed?: boolean; // Sections that must be at the end
 }
 
-export function PDFContactPages({ quote, template }: PDFContactPagesProps) {
+export function PDFContactPages({ quote, template, isMobile = false }: PDFContactPagesProps) {
   // Template colors
   const primaryColor = template.colors.primary;
   const secondaryColor = template.colors.secondary;
@@ -351,6 +352,7 @@ export function PDFContactPages({ quote, template }: PDFContactPagesProps) {
           backgroundColor={cardBgColor}
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
+          isMobile={isMobile}
         >
           <div className="flex flex-col h-full">
             <div className="flex-1">

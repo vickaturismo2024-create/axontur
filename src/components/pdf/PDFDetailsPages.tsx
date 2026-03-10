@@ -35,6 +35,7 @@ const formatDate = (dateString: string) => {
 interface PDFDetailsPagesProps {
   quote: Quote;
   template: Template;
+  isMobile?: boolean;
 }
 
 // Height estimates in pixels for pagination
@@ -64,7 +65,7 @@ interface Section {
   component: ReactNode;
 }
 
-export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
+export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetailsPagesProps) {
   // Use the module-level formatDate function (defined above with parseISO)
 
   // Template colors
@@ -1602,6 +1603,7 @@ export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
           backgroundColor={cardBgColor}
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
+          isMobile={isMobile}
         >
           {pageSections.map((section) => (
             <div key={section.id}>{section.component}</div>
