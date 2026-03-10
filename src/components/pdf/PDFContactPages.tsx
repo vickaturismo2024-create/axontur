@@ -123,7 +123,7 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
                     </p>
                     
                     <a 
-                      href={getMapsUrl(lodging.address)}
+                      href={getMapsUrl(lodging.address, lodging.destination)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center rounded-lg text-white"
