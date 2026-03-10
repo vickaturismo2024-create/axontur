@@ -106,6 +106,7 @@ export interface Transfer {
   included: boolean;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 // Nuevos tipos de transporte
