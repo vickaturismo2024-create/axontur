@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras, Pricing, LuggageType, LUGGAGE_LABELS } from '@/types/quote';
+import { SupplierSelect } from '@/components/quotes/SupplierSelect';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
