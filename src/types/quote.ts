@@ -482,6 +482,13 @@ export interface Template {
     coverTextAlign?: 'center' | 'left' | 'right';
     showCreationDate?: boolean;
     preparedForLabel?: string;
+    // Itinerary customization
+    itineraryLayout?: 'timeline' | 'cards' | 'compact' | 'magazine';
+    itineraryDotStyle?: 'numbered' | 'icon' | 'filled' | 'ring';
+    itineraryCardStyle?: 'bordered' | 'filled' | 'minimal' | 'accent-top';
+    itinerarySummaryStyle?: 'gradient-banner' | 'simple-text' | 'card' | 'none';
+    itineraryShowDayDate?: boolean;
+    itineraryActivityIcon?: 'checkmark' | 'bullet' | 'arrow' | 'star';
   };
   whatsappAgents: WhatsAppAgent[];
   footerText: string;
