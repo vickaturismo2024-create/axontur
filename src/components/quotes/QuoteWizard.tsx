@@ -1525,8 +1525,11 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 rows={2}
                               />
                             </div>
+                            <SupplierSelect
+                              value={train.supplier}
+                              onChange={(val) => updateTrain(train.id, { supplier: val })}
+                            />
                             <div>
-                              <Label>Costo neto ({quote.trip.currency})</Label>
                               <Input
                                 type="number"
                                 min={0}
