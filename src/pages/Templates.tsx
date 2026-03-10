@@ -238,7 +238,7 @@ const Templates = () => {
             <div className="flex h-[calc(95vh-120px)]">
               {/* Left: Controls */}
               <div className="w-[55%] overflow-y-auto border-r p-4 space-y-1">
-                <Accordion type="multiple" defaultValue={['general', 'cover', 'typography', 'colors', 'cards', 'headings', 'tables', 'separators', 'sections', 'whatsapp', 'footer']} className="space-y-1">
+                <Accordion type="multiple" defaultValue={['general', 'cover', 'typography', 'colors', 'cards', 'headings', 'tables', 'separators', 'itinerary', 'sections', 'whatsapp', 'footer']} className="space-y-1">
                   
                   {/* General */}
                   <AccordionItem value="general">
@@ -410,6 +410,51 @@ const Templates = () => {
                         { value: 'medium', label: 'Medio — 3 Mar 2026' },
                         { value: 'short', label: 'Corto — 03/03/2026' },
                       ]} />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Itinerary */}
+                  <AccordionItem value="itinerary">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Layout className="h-4 w-4" /> Itinerario</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <StyleSelect label="Layout del itinerario" value={editingTemplate.styles.itineraryLayout || 'timeline'} onChange={(v) => uStyles({ itineraryLayout: v as any })} options={[
+                        { value: 'timeline', label: 'Timeline — Línea vertical con puntos' },
+                        { value: 'cards', label: 'Cards — Tarjetas independientes' },
+                        { value: 'compact', label: 'Compacto — Lista condensada' },
+                        { value: 'magazine', label: 'Magazine — Editorial con bloques grandes' },
+                      ]} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <StyleSelect label="Estilo del marcador" value={editingTemplate.styles.itineraryDotStyle || 'numbered'} onChange={(v) => uStyles({ itineraryDotStyle: v as any })} options={[
+                          { value: 'numbered', label: 'Número' },
+                          { value: 'icon', label: 'Icono calendario' },
+                          { value: 'filled', label: 'Punto sólido' },
+                          { value: 'ring', label: 'Anillo' },
+                        ]} />
+                        <StyleSelect label="Estilo de la tarjeta" value={editingTemplate.styles.itineraryCardStyle || 'bordered'} onChange={(v) => uStyles({ itineraryCardStyle: v as any })} options={[
+                          { value: 'bordered', label: 'Con borde' },
+                          { value: 'filled', label: 'Fondo de color' },
+                          { value: 'minimal', label: 'Minimal' },
+                          { value: 'accent-top', label: 'Acento superior' },
+                        ]} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <StyleSelect label="Icono de actividades" value={editingTemplate.styles.itineraryActivityIcon || 'checkmark'} onChange={(v) => uStyles({ itineraryActivityIcon: v as any })} options={[
+                          { value: 'checkmark', label: '✓ Checkmark' },
+                          { value: 'bullet', label: '● Punto' },
+                          { value: 'arrow', label: '→ Flecha' },
+                          { value: 'star', label: '★ Estrella' },
+                        ]} />
+                        <StyleSelect label="Resumen final" value={editingTemplate.styles.itinerarySummaryStyle || 'gradient-banner'} onChange={(v) => uStyles({ itinerarySummaryStyle: v as any })} options={[
+                          { value: 'gradient-banner', label: 'Banner degradado' },
+                          { value: 'card', label: 'Tarjeta con borde' },
+                          { value: 'simple-text', label: 'Texto simple' },
+                          { value: 'none', label: 'Sin resumen' },
+                        ]} />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Mostrar fecha en cada día</Label>
+                        <Switch checked={editingTemplate.styles.itineraryShowDayDate !== false} onCheckedChange={(v) => uStyles({ itineraryShowDayDate: v })} />
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
 
