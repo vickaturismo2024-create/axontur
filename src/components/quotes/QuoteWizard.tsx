@@ -1027,6 +1027,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             rows={2}
                           />
                         </div>
+                        <SupplierSelect
+                          value={flight.supplier}
+                          onChange={(val) => updateFlight(flight.id, { supplier: val })}
+                        />
                         <div className="grid grid-cols-2 gap-2 md:col-span-2">
                           <div>
                             <Label>Costo neto ({quote.trip.currency})</Label>
