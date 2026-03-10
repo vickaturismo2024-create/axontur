@@ -35,6 +35,7 @@ const formatDate = (dateString: string) => {
 interface PDFDetailsPagesProps {
   quote: Quote;
   template: Template;
+  isMobile?: boolean;
 }
 
 // Height estimates in pixels for pagination
