@@ -195,6 +195,7 @@ export interface Cruise {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 export interface CruisePort {
