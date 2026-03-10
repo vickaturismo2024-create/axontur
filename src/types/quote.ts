@@ -157,6 +157,7 @@ export interface RentalCar {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 // Excursiones/Actividades
