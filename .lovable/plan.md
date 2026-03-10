@@ -1,36 +1,61 @@
 
 
-# Fix: PDF cortado en móviles - Solución agresiva
+# Fix: PDF cortado en móviles - Enfoque raíz
 
-## Diagnóstico raíz
+## Problema real
 
-Después de revisar el código en detalle, hay varios problemas que las correcciones anteriores no resolvieron:
+Los intentos anteriores fallaron porque combaten síntomas, no la causa raíz. El problema es:
 
-1. **Estado inicial `isMobile = false`**: El componente siempre renderiza primero en modo desktop (con `transform: scale()` y `overflow: hidden`). En un teléfono, el primer frame visible muestra el PDF escalado y cortado antes de que el ResizeObserver detecte que es móvil y re-renderice. Esto puede dejar artefactos.
+1. **La clase `.pdf-page` define `width: 210mm` (794px)** como estilo base. Los overrides móviles usan `@media (max-width: 767px)` con `.pdf-mobile-view .pdf-page { width: 100% !important }`, pero esta combinación de media query + clase específica es frágil y puede no aplicarse correctamente en todos los navegadores móviles.
 
-2. **Tablas con `overflow-hidden`**: En `PDFDetailsPages.tsx` (línea 171), los contenedores de tablas usan `className="overflow-hidden rounded border"`, lo que recorta contenido que excede el ancho del contenedor.
+2. **Las tablas con `display: block`** rompen el layout de tabla nativo -- las celdas ya no se alinean correctamente.
 
-3. **Estilos inline con tamaños fijos**: Todo el contenido del PDF usa `style={{ fontSize: '11px' }}` directamente en los elementos, que no se puede sobrescribir con CSS (los inline styles tienen prioridad sobre clases CSS). Las reglas `!important` en el CSS solo funcionan para propiedades que NO están definidas inline.
+3. **Los componentes internos** (`PDFDetailsPages`, `PDFContactPages`, `PDFItineraryPages`) usan `PDFPageWrapper` que aplica la clase `pdf-page` incondicionalmente, forzando dimensiones A4 siempre.
 
-4. **Cover page con posicionamiento absoluto**: La imagen de fondo usa `absolute inset-0` que necesita un contenedor con altura explícita. El `min-height: 85vh` ayuda pero puede no ser suficiente.
+## Solución: pasar `isMobile` como prop y no usar `pdf-page` en móvil
 
-## Solución
+En lugar de luchar con CSS overrides, la solución es **no aplicar la clase `pdf-page` en modo móvil**. Esto elimina de raíz el ancho fijo de 210mm.
 
-### 1. `src/pages/PublicPDF.tsx` — Detectar móvil desde el inicio
-- Usar `window.innerWidth` para inicializar `isMobile` correctamente desde el primer render, evitando el flash de la versión desktop
-- Eliminar el cálculo de `contentHeight` en modo móvil (no se usa)
+### Cambios
 
-### 2. `src/index.css` — CSS móvil más agresivo
-- Agregar override para `overflow-hidden` dentro de pdf-mobile-view: `.pdf-mobile-view .pdf-page .overflow-hidden { overflow: visible !important; }`
-- Forzar tamaños de fuente en TODOS los elementos con `*` selector dentro de `.pdf-mobile-view`
-- Asegurar que todos los elementos con `position: absolute` dentro de las páginas se comporten correctamente
+#### 1. `src/pages/PublicPDF.tsx`
+- Pasar `isMobile` como prop a todos los componentes PDF: `PDFCoverPage`, `PDFDetailsPages`, `PDFContactPages`, `PDFItineraryPages`
 
-### 3. `src/components/pdf/PDFCoverPage.tsx` — Layout móvil robusto
-- Agregar `min-h-[85vh]` directamente como clase en el componente para que la portada siempre tenga altura suficiente en cualquier dispositivo, independiente de la media query CSS
+#### 2. `src/components/pdf/PDFPageWrapper.tsx`
+- Aceptar prop `isMobile?: boolean`
+- Cuando `isMobile` es true, usar una clase `pdf-page-mobile` en vez de `pdf-page`
+- La clase `pdf-page-mobile` no tendrá restricciones de ancho ni altura fija
 
-### 4. `src/components/pdf/PDFDetailsPages.tsx` — Quitar overflow-hidden de tablas
-- Cambiar `overflow-hidden` por `overflow-x-auto` en los contenedores de tablas para que en móvil las tablas anchas se puedan scrollear en vez de cortarse
+#### 3. `src/components/pdf/PDFCoverPage.tsx`
+- Aceptar prop `isMobile?: boolean`
+- Cuando es mobile, usar clase `pdf-page-mobile` en vez de `pdf-page`
+- No cambiar el layout interno, solo la clase del contenedor
+
+#### 4. `src/components/pdf/PDFDetailsPages.tsx`, `PDFContactPages.tsx`, `PDFItineraryPages.tsx`
+- Aceptar prop `isMobile?: boolean` y pasarla a `PDFPageWrapper`
+
+#### 5. `src/index.css`
+- Agregar clase `.pdf-page-mobile`:
+  ```css
+  .pdf-page-mobile {
+    background: white;
+    width: 100%;
+    padding: 16px;
+    font-family: 'Inter', sans-serif;
+    box-sizing: border-box;
+    position: relative;
+    overflow: visible;
+    word-break: break-word;
+  }
+  ```
+- Agregar reglas de tipografía responsiva para `.pdf-page-mobile` (sin `!important` ya que no hay conflicto con la clase base)
+- Reglas para tablas dentro de `.pdf-page-mobile`: `overflow-x: auto` en el contenedor, sin `display: block`
+- Eliminar o simplificar las reglas actuales de `@media (max-width: 767px)` que ya no serán necesarias
+
+#### 6. `src/pages/ExportPDF.tsx`
+- Sin cambios (esta página es para el agente en desktop, no para el cliente en móvil)
 
 ## Resultado esperado
-El PDF se visualiza correctamente desde el primer frame en móviles. No hay contenido cortado. Las tablas anchas se pueden scrollear. La portada siempre tiene altura correcta.
+
+En móvil, las páginas usan `pdf-page-mobile` que es 100% del ancho del dispositivo con padding razonable. No hay width fijo de 210mm ni min-height de 297mm. El contenido fluye naturalmente. En desktop y print, sigue usando `pdf-page` con las dimensiones A4 originales.
 
