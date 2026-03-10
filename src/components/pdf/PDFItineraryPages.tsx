@@ -27,7 +27,7 @@ interface Section {
   isFixed?: boolean;
 }
 
-export function PDFItineraryPages({ quote, template }: PDFItineraryPagesProps) {
+export function PDFItineraryPages({ quote, template, isMobile = false }: PDFItineraryPagesProps) {
   // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
