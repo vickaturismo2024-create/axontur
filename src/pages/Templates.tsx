@@ -8,29 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { Slider } from '@/components/ui/slider';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { 
-  Plus, 
-  Palette, 
-  Type, 
-  Layout,
-  Trash2,
-  Copy,
-  Pencil,
-  Save,
-  X,
-  MessageCircle,
-  Square,
-  Minus,
-  Layers,
-  Star
+  Plus, Palette, Type, Layout, Trash2, Copy, Pencil, Save, X,
+  MessageCircle, Square, Minus, Layers, Star, Image, Settings,
+  AlignCenter, AlignLeft, AlignRight, Eye
 } from 'lucide-react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle,
-  DialogFooter 
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { TemplatePreviewPanel } from '@/components/templates/TemplatePreviewPanel';
+import { FontSelect } from '@/components/templates/FontSelect';
 
 const Templates = () => {
   const { templates, addTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, defaultTemplateId, isLoading } = useQuotes();
@@ -48,11 +35,9 @@ const Templates = () => {
         accent: '#c9a227',
         background: '#ffffff',
         cardBackground: '#f8f9fa',
+        text: '#1e3a5f',
       },
-      fonts: {
-        heading: 'Playfair Display',
-        body: 'Inter',
-      },
+      fonts: { heading: 'Playfair Display', body: 'Inter' },
       styles: {
         borderRadius: '12px',
         cardShadow: true,
@@ -61,18 +46,27 @@ const Templates = () => {
         borderWidth: '1px',
         backgroundPattern: 'none',
         cardStyle: 'elevated',
+        coverLayout: 'classic',
+        headingStyle: 'underline',
+        iconStyle: 'filled',
+        contentDensity: 'normal',
+        coverOverlay: 'gradient',
+        logoPosition: 'top-right',
+        logoSize: 'medium',
+        tableStyle: 'clean',
+        dateFormat: 'long',
+        footerStyle: 'simple',
+        cardHoverEffect: 'none',
+        coverOverlayOpacity: 70,
+        coverTextAlign: 'center',
+        showCreationDate: true,
+        preparedForLabel: 'Preparado para',
       },
-      whatsappAgents: [
-        { name: 'Victoria', phone: '5491123456789' },
-      ],
+      whatsappAgents: [{ name: 'Victoria', phone: '5491123456789' }],
       agencyName: '',
       footerText: '',
       sectionsToggles: {
-        flights: true,
-        lodging: true,
-        transfers: true,
-        insurance: true,
-        itinerary: true,
+        flights: true, lodging: true, transfers: true, insurance: true, itinerary: true,
       },
     };
     setEditingTemplate(newTemplate);
@@ -80,88 +74,115 @@ const Templates = () => {
   };
 
   const handleEdit = (template: Template) => {
-    setEditingTemplate({ ...template });
+    // Ensure new fields have defaults
+    const t = {
+      ...template,
+      colors: { ...template.colors, text: template.colors.text || template.colors.primary },
+      styles: {
+        ...template.styles,
+        coverLayout: template.styles.coverLayout || 'classic',
+        headingStyle: template.styles.headingStyle || 'underline',
+        iconStyle: template.styles.iconStyle || 'filled',
+        contentDensity: template.styles.contentDensity || 'normal',
+        coverOverlay: template.styles.coverOverlay || 'gradient',
+        logoPosition: template.styles.logoPosition || 'top-right',
+        logoSize: template.styles.logoSize || 'medium',
+        tableStyle: template.styles.tableStyle || 'clean',
+        dateFormat: template.styles.dateFormat || 'long',
+        footerStyle: template.styles.footerStyle || 'simple',
+        cardHoverEffect: template.styles.cardHoverEffect || 'none',
+        coverOverlayOpacity: template.styles.coverOverlayOpacity ?? 70,
+        coverTextAlign: template.styles.coverTextAlign || 'center',
+        showCreationDate: template.styles.showCreationDate !== false,
+        preparedForLabel: template.styles.preparedForLabel || 'Preparado para',
+      },
+    };
+    setEditingTemplate(t);
     setIsDialogOpen(true);
   };
 
   const handleDuplicate = (template: Template) => {
-    const newTemplate: Template = {
-      ...template,
-      id: crypto.randomUUID(),
-      name: `${template.name} (copia)`,
-    };
-    addTemplate(newTemplate);
+    addTemplate({ ...template, id: crypto.randomUUID(), name: `${template.name} (copia)` });
   };
 
   const handleDelete = (id: string) => {
-    if (id === 'default') {
-      alert('No se puede eliminar la plantilla predeterminada');
-      return;
-    }
-    if (confirm('¿Estás seguro de eliminar esta plantilla?')) {
-      deleteTemplate(id);
-    }
+    if (id === 'default') { alert('No se puede eliminar la plantilla predeterminada'); return; }
+    if (confirm('¿Estás seguro de eliminar esta plantilla?')) deleteTemplate(id);
   };
 
   const handleSave = () => {
     if (!editingTemplate) return;
-    
     const exists = templates.find(t => t.id === editingTemplate.id);
-    if (exists) {
-      updateTemplate(editingTemplate);
-    } else {
-      addTemplate(editingTemplate);
-    }
+    if (exists) updateTemplate(editingTemplate);
+    else addTemplate(editingTemplate);
     setIsDialogOpen(false);
     setEditingTemplate(null);
   };
 
-  const updateEditingTemplate = (updates: Partial<Template>) => {
+  const u = (updates: Partial<Template>) => {
     if (!editingTemplate) return;
     setEditingTemplate({ ...editingTemplate, ...updates });
   };
 
+  const uStyles = (updates: Partial<Template['styles']>) => {
+    if (!editingTemplate) return;
+    u({ styles: { ...editingTemplate.styles, ...updates } });
+  };
+
+  const uColors = (updates: Partial<Template['colors']>) => {
+    if (!editingTemplate) return;
+    u({ colors: { ...editingTemplate.colors, ...updates } });
+  };
+
   const addWhatsAppAgent = () => {
     if (!editingTemplate) return;
-    updateEditingTemplate({
-      whatsappAgents: [
-        ...editingTemplate.whatsappAgents,
-        { name: '', phone: '' },
-      ],
-    });
+    u({ whatsappAgents: [...editingTemplate.whatsappAgents, { name: '', phone: '' }] });
   };
 
   const updateWhatsAppAgent = (index: number, updates: Partial<WhatsAppAgent>) => {
     if (!editingTemplate) return;
     const agents = [...editingTemplate.whatsappAgents];
     agents[index] = { ...agents[index], ...updates };
-    updateEditingTemplate({ whatsappAgents: agents });
+    u({ whatsappAgents: agents });
   };
 
   const removeWhatsAppAgent = (index: number) => {
     if (!editingTemplate) return;
-    updateEditingTemplate({
-      whatsappAgents: editingTemplate.whatsappAgents.filter((_, i) => i !== index),
-    });
+    u({ whatsappAgents: editingTemplate.whatsappAgents.filter((_, i) => i !== index) });
   };
+
+  // Reusable color picker
+  const ColorPicker = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+    <div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-8 w-8 cursor-pointer rounded border" />
+        <Input value={value} onChange={(e) => onChange(e.target.value)} className="flex-1 h-8 text-xs" />
+      </div>
+    </div>
+  );
+
+  // Reusable select
+  const StyleSelect = ({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) => (
+    <div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="font-serif text-3xl font-bold text-foreground">
-              Plantillas
-            </h1>
-            <p className="mt-1 text-muted-foreground">
-              Personaliza el diseño de tus presupuestos
-            </p>
+            <h1 className="font-serif text-3xl font-bold text-foreground">Plantillas</h1>
+            <p className="mt-1 text-muted-foreground">Personaliza el diseño de tus presupuestos</p>
           </div>
           <Button onClick={handleCreate} className="bg-primary">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Plantilla
+            <Plus className="mr-2 h-4 w-4" /> Nueva Plantilla
           </Button>
         </div>
 
@@ -169,30 +190,16 @@ const Templates = () => {
           {templates.map((template) => (
             <Card key={template.id} className="group overflow-hidden">
               <CardHeader className="relative pb-2">
-                {/* Color Preview */}
                 <div className="mb-3 flex gap-2">
-                  <div 
-                    className="h-8 w-8 rounded-full border"
-                    style={{ backgroundColor: template.colors.primary }}
-                    title="Primario"
-                  />
-                  <div 
-                    className="h-8 w-8 rounded-full border"
-                    style={{ backgroundColor: template.colors.secondary }}
-                    title="Secundario"
-                  />
-                  <div 
-                    className="h-8 w-8 rounded-full border"
-                    style={{ backgroundColor: template.colors.accent }}
-                    title="Acento"
-                  />
+                  {[template.colors.primary, template.colors.secondary, template.colors.accent].map((c, i) => (
+                    <div key={i} className="h-8 w-8 rounded-full border" style={{ backgroundColor: c }} />
+                  ))}
                 </div>
                 <CardTitle className="flex items-center gap-2 font-serif text-lg">
                   {template.name}
                   {defaultTemplateId === template.id && (
                     <span className="flex items-center gap-1 rounded-full bg-gold/20 px-2 py-0.5 text-xs text-gold-dark">
-                      <Star className="h-3 w-3 fill-current" />
-                      Predeterminada
+                      <Star className="h-3 w-3 fill-current" /> Predeterminada
                     </span>
                   )}
                 </CardTitle>
@@ -202,44 +209,14 @@ const Templates = () => {
                   <p>Tipografía: {template.fonts.heading}</p>
                   <p>Agentes WhatsApp: {template.whatsappAgents.length}</p>
                 </div>
-                
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(template)}
-                  >
-                    <Pencil className="mr-1 h-4 w-4" />
-                    Editar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDuplicate(template)}
-                  >
-                    <Copy className="mr-1 h-4 w-4" />
-                    Duplicar
-                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(template)}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDuplicate(template)}><Copy className="mr-1 h-4 w-4" /> Duplicar</Button>
                   {defaultTemplateId !== template.id && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDefaultTemplate(template.id)}
-                      className="text-gold-dark"
-                    >
-                      <Star className="mr-1 h-4 w-4" />
-                      Predeterminar
-                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setDefaultTemplate(template.id)} className="text-gold-dark"><Star className="mr-1 h-4 w-4" /> Predeterminar</Button>
                   )}
                   {template.id !== 'default' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(template.id)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="mr-1 h-4 w-4" />
-                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(template.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
                   )}
                 </div>
               </CardContent>
@@ -248,497 +225,292 @@ const Templates = () => {
         </div>
       </main>
 
-      {/* Edit Dialog */}
+      {/* Full-width Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-h-[95vh] max-w-7xl p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-4 pb-2 border-b">
             <DialogTitle className="font-serif">
-              {editingTemplate && templates.find(t => t.id === editingTemplate.id) 
-                ? 'Editar Plantilla' 
-                : 'Nueva Plantilla'}
+              {editingTemplate && templates.find(t => t.id === editingTemplate.id) ? 'Editar Plantilla' : 'Nueva Plantilla'}
             </DialogTitle>
           </DialogHeader>
 
           {editingTemplate && (
-            <div className="space-y-6">
-              {/* Nombre */}
-              <div>
-                <Label>Nombre de la plantilla</Label>
-                <Input
-                  value={editingTemplate.name}
-                  onChange={(e) => updateEditingTemplate({ name: e.target.value })}
-                />
-              </div>
+            <div className="flex h-[calc(95vh-120px)]">
+              {/* Left: Controls */}
+              <div className="w-[55%] overflow-y-auto border-r p-4 space-y-1">
+                <Accordion type="multiple" defaultValue={['general', 'cover', 'typography', 'colors', 'cards', 'headings', 'tables', 'separators', 'sections', 'whatsapp', 'footer']} className="space-y-1">
+                  
+                  {/* General */}
+                  <AccordionItem value="general">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Settings className="h-4 w-4" /> General</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <div>
+                        <Label>Nombre de la plantilla</Label>
+                        <Input value={editingTemplate.name} onChange={(e) => u({ name: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Nombre de la agencia</Label>
+                        <Input value={editingTemplate.agencyName || ''} onChange={(e) => u({ agencyName: e.target.value })} placeholder="Ej: Mi Agencia de Viajes" />
+                      </div>
+                      <ImageUpload label="Logo de la agencia" value={editingTemplate.logoUrl} onChange={(v) => u({ logoUrl: v })} placeholder="https://ejemplo.com/logo.png" previewClassName="h-20" />
+                    </AccordionContent>
+                  </AccordionItem>
 
-              {/* Nombre de agencia */}
-              <div>
-                <Label>Nombre de la agencia</Label>
-                <Input
-                  value={editingTemplate.agencyName || ''}
-                  onChange={(e) => updateEditingTemplate({ agencyName: e.target.value })}
-                  placeholder="Ej: Mi Agencia de Viajes"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Este nombre aparecerá en el header, los PDFs y los mensajes compartidos
-                </p>
-              </div>
-
-              {/* Logo */}
-              <ImageUpload
-                label="Logo de la agencia"
-                value={editingTemplate.logoUrl}
-                onChange={(value) => updateEditingTemplate({ logoUrl: value })}
-                placeholder="https://ejemplo.com/logo.png"
-                previewClassName="h-24"
-              />
-
-              {/* Colores */}
-              <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <Palette className="h-4 w-4" />
-                  Colores
-                </Label>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Primario</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editingTemplate.colors.primary}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, primary: e.target.value } 
-                        })}
-                        className="h-10 w-10 cursor-pointer rounded border"
-                      />
-                      <Input
-                        value={editingTemplate.colors.primary}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, primary: e.target.value } 
-                        })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Secundario</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editingTemplate.colors.secondary}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, secondary: e.target.value } 
-                        })}
-                        className="h-10 w-10 cursor-pointer rounded border"
-                      />
-                      <Input
-                        value={editingTemplate.colors.secondary}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, secondary: e.target.value } 
-                        })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Acento</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editingTemplate.colors.accent}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, accent: e.target.value } 
-                        })}
-                        className="h-10 w-10 cursor-pointer rounded border"
-                      />
-                      <Input
-                        value={editingTemplate.colors.accent}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, accent: e.target.value } 
-                        })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Fondo</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editingTemplate.colors.background || '#ffffff'}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, background: e.target.value } 
-                        })}
-                        className="h-10 w-10 cursor-pointer rounded border"
-                      />
-                      <Input
-                        value={editingTemplate.colors.background || '#ffffff'}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, background: e.target.value } 
-                        })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Fondo Cards</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editingTemplate.colors.cardBackground || '#f8f9fa'}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, cardBackground: e.target.value } 
-                        })}
-                        className="h-10 w-10 cursor-pointer rounded border"
-                      />
-                      <Input
-                        value={editingTemplate.colors.cardBackground || '#f8f9fa'}
-                        onChange={(e) => updateEditingTemplate({ 
-                          colors: { ...editingTemplate.colors, cardBackground: e.target.value } 
-                        })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tipografías */}
-              <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <Type className="h-4 w-4" />
-                  Tipografías
-                </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Títulos</Label>
-                    <Input
-                      value={editingTemplate.fonts.heading}
-                      onChange={(e) => updateEditingTemplate({ 
-                        fonts: { ...editingTemplate.fonts, heading: e.target.value } 
-                      })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Texto</Label>
-                    <Input
-                      value={editingTemplate.fonts.body}
-                      onChange={(e) => updateEditingTemplate({ 
-                        fonts: { ...editingTemplate.fonts, body: e.target.value } 
-                      })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Estilos de Cards */}
-              <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <Layers className="h-4 w-4" />
-                  Estilo de Cards
-                </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Tipo de card</Label>
-                    <select
-                      value={editingTemplate.styles.cardStyle}
-                      onChange={(e) => updateEditingTemplate({ 
-                        styles: { ...editingTemplate.styles, cardStyle: e.target.value as any } 
-                      })}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="flat">Plano</option>
-                      <option value="elevated">Elevado (sombra)</option>
-                      <option value="outlined">Con borde</option>
-                      <option value="glass">Efecto cristal</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Radio de bordes</Label>
-                    <select
-                      value={editingTemplate.styles.borderRadius}
-                      onChange={(e) => updateEditingTemplate({ 
-                        styles: { ...editingTemplate.styles, borderRadius: e.target.value } 
-                      })}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="0px">Sin bordes redondeados</option>
-                      <option value="4px">Mínimo (4px)</option>
-                      <option value="8px">Pequeño (8px)</option>
-                      <option value="12px">Medio (12px)</option>
-                      <option value="16px">Grande (16px)</option>
-                      <option value="20px">Extra grande (20px)</option>
-                      <option value="9999px">Completamente redondeado</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Sombra en cards</Label>
-                    <Switch
-                      checked={editingTemplate.styles.cardShadow}
-                      onCheckedChange={(checked) => updateEditingTemplate({
-                        styles: { ...editingTemplate.styles, cardShadow: checked }
-                      })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bordes decorativos */}
-              <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <Square className="h-4 w-4" />
-                  Bordes Decorativos
-                </Label>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Estilo de borde</Label>
-                      <select
-                        value={editingTemplate.styles.borderStyle}
-                        onChange={(e) => updateEditingTemplate({ 
-                          styles: { ...editingTemplate.styles, borderStyle: e.target.value as any } 
-                        })}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="none">Sin borde</option>
-                        <option value="solid">Sólido</option>
-                        <option value="dashed">Punteado</option>
-                        <option value="double">Doble</option>
-                        <option value="decorative">Decorativo</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Grosor de borde</Label>
-                      <select
-                        value={editingTemplate.styles.borderWidth}
-                        onChange={(e) => updateEditingTemplate({ 
-                          styles: { ...editingTemplate.styles, borderWidth: e.target.value } 
-                        })}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="1px">Fino (1px)</option>
-                        <option value="2px">Medio (2px)</option>
-                        <option value="3px">Grueso (3px)</option>
-                        <option value="4px">Extra grueso (4px)</option>
-                      </select>
-                    </div>
-                  </div>
-                  {/* Border Preview */}
-                  <div className="rounded border p-4">
-                    <p className="mb-2 text-xs text-muted-foreground">Vista previa:</p>
-                    <div 
-                      className="h-16 w-full rounded-lg p-3"
-                      style={{
-                        backgroundColor: editingTemplate.colors.cardBackground || '#f8f9fa',
-                        borderWidth: editingTemplate.styles.borderWidth,
-                        borderStyle: editingTemplate.styles.borderStyle === 'decorative' ? 'solid' : editingTemplate.styles.borderStyle,
-                        borderColor: editingTemplate.styles.borderStyle === 'decorative' ? editingTemplate.colors.accent : editingTemplate.colors.primary,
-                        boxShadow: editingTemplate.styles.borderStyle === 'decorative' 
-                          ? `inset 0 0 0 ${editingTemplate.styles.borderWidth} ${editingTemplate.colors.accent}, 0 0 0 calc(${editingTemplate.styles.borderWidth} + 2px) ${editingTemplate.colors.primary}`
-                          : 'none',
-                      }}
-                    >
-                      <p className="text-xs" style={{ color: editingTemplate.colors.primary }}>
-                        {editingTemplate.styles.borderStyle === 'none' && 'Sin borde'}
-                        {editingTemplate.styles.borderStyle === 'solid' && 'Borde sólido'}
-                        {editingTemplate.styles.borderStyle === 'dashed' && 'Borde punteado'}
-                        {editingTemplate.styles.borderStyle === 'double' && 'Borde doble'}
-                        {editingTemplate.styles.borderStyle === 'decorative' && 'Borde decorativo con doble línea'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Separadores */}
-              <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <Minus className="h-4 w-4" />
-                  Estilo de Separadores
-                </Label>
-                <div className="space-y-3">
-                  <select
-                    value={editingTemplate.styles.separatorStyle}
-                    onChange={(e) => updateEditingTemplate({ 
-                      styles: { ...editingTemplate.styles, separatorStyle: e.target.value as any } 
-                    })}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="none">Sin separador</option>
-                    <option value="line">Línea simple</option>
-                    <option value="dots">Puntos</option>
-                    <option value="gradient">Degradado</option>
-                    <option value="decorative">Decorativo (con ornamentos)</option>
-                  </select>
-                  {/* Separator Preview */}
-                  <div className="rounded border p-4">
-                    <p className="mb-2 text-xs text-muted-foreground">Vista previa:</p>
-                    <div className="flex items-center justify-center py-2">
-                      {editingTemplate.styles.separatorStyle === 'line' && (
-                        <div className="h-px w-full" style={{ backgroundColor: editingTemplate.colors.accent }} />
-                      )}
-                      {editingTemplate.styles.separatorStyle === 'dots' && (
-                        <div className="flex w-full items-center justify-center gap-2">
-                          {[...Array(5)].map((_, i) => (
-                            <div 
-                              key={i} 
-                              className="h-2 w-2 rounded-full" 
-                              style={{ backgroundColor: editingTemplate.colors.accent }}
-                            />
+                  {/* Cover */}
+                  <AccordionItem value="cover">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Image className="h-4 w-4" /> Portada</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <StyleSelect label="Layout de portada" value={editingTemplate.styles.coverLayout || 'classic'} onChange={(v) => uStyles({ coverLayout: v as any })} options={[
+                        { value: 'classic', label: 'Clásico — Imagen con overlay' },
+                        { value: 'split', label: 'Dividido — Mitad texto, mitad imagen' },
+                        { value: 'fullOverlay', label: 'Overlay completo — Imagen oscurecida' },
+                        { value: 'minimal', label: 'Minimal — Solo colores, sin imagen' },
+                      ]} />
+                      <StyleSelect label="Estilo del overlay" value={editingTemplate.styles.coverOverlay || 'gradient'} onChange={(v) => uStyles({ coverOverlay: v as any })} options={[
+                        { value: 'gradient', label: 'Degradado vertical' },
+                        { value: 'solid', label: 'Color sólido' },
+                        { value: 'blur', label: 'Desenfoque (blur)' },
+                        { value: 'vignette', label: 'Viñeta (bordes oscuros)' },
+                        { value: 'none', label: 'Sin overlay' },
+                      ]} />
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Opacidad del overlay ({editingTemplate.styles.coverOverlayOpacity ?? 70}%)</Label>
+                        <Slider value={[editingTemplate.styles.coverOverlayOpacity ?? 70]} onValueChange={([v]) => uStyles({ coverOverlayOpacity: v })} min={0} max={100} step={5} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Alineación del texto</Label>
+                        <div className="flex gap-2 mt-1">
+                          {[
+                            { v: 'left', Icon: AlignLeft },
+                            { v: 'center', Icon: AlignCenter },
+                            { v: 'right', Icon: AlignRight },
+                          ].map(({ v, Icon }) => (
+                            <Button key={v} variant={editingTemplate.styles.coverTextAlign === v ? 'default' : 'outline'} size="sm" onClick={() => uStyles({ coverTextAlign: v as any })}>
+                              <Icon className="h-4 w-4" />
+                            </Button>
                           ))}
                         </div>
-                      )}
-                      {editingTemplate.styles.separatorStyle === 'gradient' && (
-                        <div 
-                          className="h-1 w-full rounded-full"
-                          style={{ 
-                            background: `linear-gradient(90deg, transparent, ${editingTemplate.colors.accent}, transparent)` 
-                          }}
-                        />
-                      )}
-                      {editingTemplate.styles.separatorStyle === 'decorative' && (
-                        <div className="flex w-full items-center gap-2">
-                          <div className="h-px flex-1" style={{ backgroundColor: editingTemplate.colors.accent }} />
-                          <div 
-                            className="h-3 w-3 rotate-45" 
-                            style={{ backgroundColor: editingTemplate.colors.accent }}
-                          />
-                          <div className="h-px flex-1" style={{ backgroundColor: editingTemplate.colors.accent }} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <StyleSelect label="Posición del logo" value={editingTemplate.styles.logoPosition || 'top-right'} onChange={(v) => uStyles({ logoPosition: v as any })} options={[
+                          { value: 'top-right', label: 'Arriba derecha' },
+                          { value: 'top-left', label: 'Arriba izquierda' },
+                          { value: 'top-center', label: 'Arriba centro' },
+                          { value: 'bottom-center', label: 'Abajo centro' },
+                        ]} />
+                        <StyleSelect label="Tamaño del logo" value={editingTemplate.styles.logoSize || 'medium'} onChange={(v) => uStyles({ logoSize: v as any })} options={[
+                          { value: 'small', label: 'Chico (60px)' },
+                          { value: 'medium', label: 'Mediano (100px)' },
+                          { value: 'large', label: 'Grande (150px)' },
+                        ]} />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Mostrar fecha de armado</Label>
+                        <Switch checked={editingTemplate.styles.showCreationDate !== false} onCheckedChange={(v) => uStyles({ showCreationDate: v })} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Texto "Preparado para"</Label>
+                        <Input value={editingTemplate.styles.preparedForLabel || 'Preparado para'} onChange={(e) => uStyles({ preparedForLabel: e.target.value })} placeholder="Preparado para" className="h-8 text-sm" />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Typography */}
+                  <AccordionItem value="typography">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Type className="h-4 w-4" /> Tipografía</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <FontSelect label="Fuente de títulos" value={editingTemplate.fonts.heading} onChange={(v) => u({ fonts: { ...editingTemplate.fonts, heading: v } })} type="heading" />
+                      <FontSelect label="Fuente de texto" value={editingTemplate.fonts.body} onChange={(v) => u({ fonts: { ...editingTemplate.fonts, body: v } })} type="body" />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Colors */}
+                  <AccordionItem value="colors">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Palette className="h-4 w-4" /> Colores</div></AccordionTrigger>
+                    <AccordionContent className="pt-2">
+                      <div className="grid grid-cols-3 gap-3">
+                        <ColorPicker label="Primario" value={editingTemplate.colors.primary} onChange={(v) => uColors({ primary: v })} />
+                        <ColorPicker label="Secundario" value={editingTemplate.colors.secondary} onChange={(v) => uColors({ secondary: v })} />
+                        <ColorPicker label="Acento" value={editingTemplate.colors.accent} onChange={(v) => uColors({ accent: v })} />
+                        <ColorPicker label="Fondo" value={editingTemplate.colors.background || '#ffffff'} onChange={(v) => uColors({ background: v })} />
+                        <ColorPicker label="Fondo Cards" value={editingTemplate.colors.cardBackground || '#f8f9fa'} onChange={(v) => uColors({ cardBackground: v })} />
+                        <ColorPicker label="Texto" value={editingTemplate.colors.text || editingTemplate.colors.primary} onChange={(v) => uColors({ text: v })} />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Cards & Content */}
+                  <AccordionItem value="cards">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Layers className="h-4 w-4" /> Cards y Contenido</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <StyleSelect label="Tipo de card" value={editingTemplate.styles.cardStyle} onChange={(v) => uStyles({ cardStyle: v as any })} options={[
+                          { value: 'flat', label: 'Plano' },
+                          { value: 'elevated', label: 'Elevado (sombra)' },
+                          { value: 'outlined', label: 'Con borde' },
+                          { value: 'glass', label: 'Efecto cristal' },
+                        ]} />
+                        <StyleSelect label="Radio de bordes" value={editingTemplate.styles.borderRadius} onChange={(v) => uStyles({ borderRadius: v })} options={[
+                          { value: '0px', label: 'Sin bordes redondeados' },
+                          { value: '4px', label: 'Mínimo (4px)' },
+                          { value: '8px', label: 'Pequeño (8px)' },
+                          { value: '12px', label: 'Medio (12px)' },
+                          { value: '16px', label: 'Grande (16px)' },
+                          { value: '9999px', label: 'Completamente redondeado' },
+                        ]} />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Sombra en cards</Label>
+                        <Switch checked={editingTemplate.styles.cardShadow} onCheckedChange={(v) => uStyles({ cardShadow: v })} />
+                      </div>
+                      <StyleSelect label="Densidad del contenido" value={editingTemplate.styles.contentDensity || 'normal'} onChange={(v) => uStyles({ contentDensity: v as any })} options={[
+                        { value: 'compact', label: 'Compacto — Menos espacio, texto más chico' },
+                        { value: 'normal', label: 'Normal — Balance estándar' },
+                        { value: 'spacious', label: 'Espacioso — Más aire, texto más grande' },
+                      ]} />
+                      <StyleSelect label="Efecto hover en cards (web)" value={editingTemplate.styles.cardHoverEffect || 'none'} onChange={(v) => uStyles({ cardHoverEffect: v as any })} options={[
+                        { value: 'none', label: 'Sin efecto' },
+                        { value: 'lift', label: 'Elevación (lift)' },
+                        { value: 'glow', label: 'Resplandor (glow)' },
+                        { value: 'border-accent', label: 'Borde de acento' },
+                      ]} />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Headings & Icons */}
+                  <AccordionItem value="headings">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Type className="h-4 w-4" /> Encabezados e Iconos</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <StyleSelect label="Estilo de encabezados" value={editingTemplate.styles.headingStyle || 'underline'} onChange={(v) => uStyles({ headingStyle: v as any })} options={[
+                        { value: 'underline', label: 'Línea debajo' },
+                        { value: 'background', label: 'Fondo de color' },
+                        { value: 'accent-left', label: 'Barra lateral izquierda' },
+                        { value: 'pill', label: 'Pastilla redondeada' },
+                      ]} />
+                      <StyleSelect label="Estilo de iconos" value={editingTemplate.styles.iconStyle || 'filled'} onChange={(v) => uStyles({ iconStyle: v as any })} options={[
+                        { value: 'filled', label: 'Relleno con fondo' },
+                        { value: 'outlined', label: 'Solo contorno' },
+                        { value: 'none', label: 'Sin iconos' },
+                      ]} />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Tables */}
+                  <AccordionItem value="tables">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Layout className="h-4 w-4" /> Tablas y Fechas</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <StyleSelect label="Estilo de tablas" value={editingTemplate.styles.tableStyle || 'clean'} onChange={(v) => uStyles({ tableStyle: v as any })} options={[
+                        { value: 'clean', label: 'Limpio — Sin fondos alternados' },
+                        { value: 'striped', label: 'Rayado — Filas alternadas' },
+                        { value: 'bordered', label: 'Con bordes — Celdas visibles' },
+                        { value: 'minimal', label: 'Minimal — Solo líneas finas' },
+                      ]} />
+                      <StyleSelect label="Formato de fechas" value={editingTemplate.styles.dateFormat || 'long'} onChange={(v) => uStyles({ dateFormat: v as any })} options={[
+                        { value: 'long', label: 'Largo — 3 de Marzo, 2026' },
+                        { value: 'medium', label: 'Medio — 3 Mar 2026' },
+                        { value: 'short', label: 'Corto — 03/03/2026' },
+                      ]} />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Separators & Borders */}
+                  <AccordionItem value="separators">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Minus className="h-4 w-4" /> Separadores, Bordes y Fondo</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <StyleSelect label="Separadores" value={editingTemplate.styles.separatorStyle} onChange={(v) => uStyles({ separatorStyle: v as any })} options={[
+                          { value: 'none', label: 'Sin separador' },
+                          { value: 'line', label: 'Línea simple' },
+                          { value: 'dots', label: 'Puntos' },
+                          { value: 'gradient', label: 'Degradado' },
+                          { value: 'decorative', label: 'Decorativo' },
+                        ]} />
+                        <StyleSelect label="Patrón de fondo" value={editingTemplate.styles.backgroundPattern} onChange={(v) => uStyles({ backgroundPattern: v as any })} options={[
+                          { value: 'none', label: 'Sin patrón' },
+                          { value: 'dots', label: 'Puntos' },
+                          { value: 'lines', label: 'Líneas diagonales' },
+                          { value: 'grid', label: 'Cuadrícula' },
+                          { value: 'waves', label: 'Ondas' },
+                        ]} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <StyleSelect label="Estilo de borde" value={editingTemplate.styles.borderStyle} onChange={(v) => uStyles({ borderStyle: v as any })} options={[
+                          { value: 'none', label: 'Sin borde' },
+                          { value: 'solid', label: 'Sólido' },
+                          { value: 'dashed', label: 'Punteado' },
+                          { value: 'double', label: 'Doble' },
+                          { value: 'decorative', label: 'Decorativo' },
+                        ]} />
+                        <StyleSelect label="Grosor de borde" value={editingTemplate.styles.borderWidth} onChange={(v) => uStyles({ borderWidth: v })} options={[
+                          { value: '1px', label: 'Fino (1px)' },
+                          { value: '2px', label: 'Medio (2px)' },
+                          { value: '3px', label: 'Grueso (3px)' },
+                          { value: '4px', label: 'Extra grueso (4px)' },
+                        ]} />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Footer */}
+                  <AccordionItem value="footer">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Layout className="h-4 w-4" /> Pie de Página</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <StyleSelect label="Estilo del footer" value={editingTemplate.styles.footerStyle || 'simple'} onChange={(v) => uStyles({ footerStyle: v as any })} options={[
+                        { value: 'simple', label: 'Simple — Banner con info' },
+                        { value: 'banner', label: 'Banner — Fondo con contacto' },
+                        { value: 'centered', label: 'Centrado — Con separador' },
+                        { value: 'minimal', label: 'Minimal — Solo texto' },
+                      ]} />
+                      <div>
+                        <Label className="text-xs">Texto del pie de página</Label>
+                        <Input value={editingTemplate.footerText} onChange={(e) => u({ footerText: e.target.value })} placeholder="Vicka Turismo | Tel: ..." className="h-8 text-sm" />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Sections */}
+                  <AccordionItem value="sections">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Eye className="h-4 w-4" /> Secciones Visibles</div></AccordionTrigger>
+                    <AccordionContent className="pt-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        {Object.entries(editingTemplate.sectionsToggles).map(([key, value]) => (
+                          <div key={key} className="flex items-center justify-between">
+                            <Label className="capitalize text-xs">{key}</Label>
+                            <Switch checked={value} onCheckedChange={(checked) => u({ sectionsToggles: { ...editingTemplate.sectionsToggles, [key]: checked } })} />
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* WhatsApp */}
+                  <AccordionItem value="whatsapp">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /> Agentes WhatsApp</div></AccordionTrigger>
+                    <AccordionContent className="space-y-3 pt-2">
+                      {editingTemplate.whatsappAgents.map((agent, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Input value={agent.name} onChange={(e) => updateWhatsAppAgent(index, { name: e.target.value })} placeholder="Nombre" className="flex-1 h-8 text-sm" />
+                          <Input value={agent.phone} onChange={(e) => updateWhatsAppAgent(index, { phone: e.target.value })} placeholder="5491123456789" className="flex-1 h-8 text-sm" />
+                          <Button variant="ghost" size="icon" onClick={() => removeWhatsAppAgent(index)} className="text-destructive h-8 w-8"><Trash2 className="h-3 w-3" /></Button>
                         </div>
-                      )}
-                      {editingTemplate.styles.separatorStyle === 'none' && (
-                        <span className="text-xs text-muted-foreground">Sin separador</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                      ))}
+                      <Button variant="outline" onClick={addWhatsAppAgent} className="w-full h-8 text-sm"><Plus className="mr-2 h-3 w-3" /> Agregar agente</Button>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                </Accordion>
               </div>
 
-              {/* Patrón de fondo */}
-              <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <Layout className="h-4 w-4" />
-                  Patrón de Fondo
-                </Label>
-                <div className="space-y-3">
-                  <select
-                    value={editingTemplate.styles.backgroundPattern}
-                    onChange={(e) => updateEditingTemplate({ 
-                      styles: { ...editingTemplate.styles, backgroundPattern: e.target.value as any } 
-                    })}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="none">Sin patrón</option>
-                    <option value="dots">Puntos</option>
-                    <option value="lines">Líneas diagonales</option>
-                    <option value="grid">Cuadrícula</option>
-                    <option value="waves">Ondas</option>
-                  </select>
-                  {/* Pattern Preview */}
-                  <div 
-                    className="h-20 rounded border"
-                    style={{
-                      backgroundColor: editingTemplate.colors.background || '#ffffff',
-                      backgroundImage: 
-                        editingTemplate.styles.backgroundPattern === 'dots' 
-                          ? `radial-gradient(${editingTemplate.colors.primary}15 1px, transparent 1px)`
-                          : editingTemplate.styles.backgroundPattern === 'lines'
-                          ? `repeating-linear-gradient(45deg, ${editingTemplate.colors.primary}10, ${editingTemplate.colors.primary}10 1px, transparent 1px, transparent 10px)`
-                          : editingTemplate.styles.backgroundPattern === 'grid'
-                          ? `linear-gradient(${editingTemplate.colors.primary}10 1px, transparent 1px), linear-gradient(90deg, ${editingTemplate.colors.primary}10 1px, transparent 1px)`
-                          : editingTemplate.styles.backgroundPattern === 'waves'
-                          ? `url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 14 50 14c10.271 0 15.362 1.222 24.629 4.928.955.383 1.869.74 2.75 1.072h6.225c-2.51-.73-5.139-1.691-8.233-2.928C65.888 13.278 60.562 12 50 12c-10.626 0-16.855 1.397-26.66 5.063l-1.767.662c-2.475.923-4.66 1.674-6.724 2.275h6.335zm0-20C13.258 2.892 8.077 4 0 4V2c5.744 0 9.951-.574 14.85-2h6.334zM77.38 0C85.239 2.966 90.502 4 100 4V2c-6.842 0-11.386-.542-16.396-2h-6.225zM0 14c8.44 0 13.718-1.21 22.272-4.402l1.768-.661C33.64 5.347 39.647 4 50 4c10.271 0 15.362 1.222 24.629 4.928C84.112 12.722 89.438 14 100 14v-2c-10.271 0-15.362-1.222-24.629-4.928C65.888 3.278 60.562 2 50 2 39.374 2 33.145 3.397 23.34 7.063l-1.767.662C13.223 10.84 8.163 12 0 12v2z' fill='${encodeURIComponent(editingTemplate.colors.primary)}' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E")`
-                          : 'none',
-                      backgroundSize: 
-                        editingTemplate.styles.backgroundPattern === 'dots' ? '20px 20px'
-                        : editingTemplate.styles.backgroundPattern === 'grid' ? '20px 20px'
-                        : 'auto',
-                    }}
-                  >
-                    <p className="p-2 text-xs text-muted-foreground">Vista previa del patrón</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Secciones */}
-              <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <Layout className="h-4 w-4" />
-                  Secciones visibles
-                </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(editingTemplate.sectionsToggles).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between">
-                      <Label className="capitalize">{key}</Label>
-                      <Switch
-                        checked={value}
-                        onCheckedChange={(checked) => updateEditingTemplate({
-                          sectionsToggles: { ...editingTemplate.sectionsToggles, [key]: checked }
-                        })}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* WhatsApp Agents */}
-              <div>
-                <Label className="mb-2 flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  Agentes WhatsApp
-                </Label>
-                <div className="space-y-3">
-                  {editingTemplate.whatsappAgents.map((agent, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={agent.name}
-                        onChange={(e) => updateWhatsAppAgent(index, { name: e.target.value })}
-                        placeholder="Nombre"
-                        className="flex-1"
-                      />
-                      <Input
-                        value={agent.phone}
-                        onChange={(e) => updateWhatsAppAgent(index, { phone: e.target.value })}
-                        placeholder="5491123456789"
-                        className="flex-1"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeWhatsAppAgent(index)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button variant="outline" onClick={addWhatsAppAgent} className="w-full">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Agregar agente
-                  </Button>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div>
-                <Label>Texto del pie de página</Label>
-                <Input
-                  value={editingTemplate.footerText}
-                  onChange={(e) => updateEditingTemplate({ footerText: e.target.value })}
-                  placeholder="Vicka Turismo | Tel: ..."
-                />
+              {/* Right: Live Preview */}
+              <div className="w-[45%] overflow-y-auto p-4 bg-muted/30">
+                <TemplatePreviewPanel template={editingTemplate} />
               </div>
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              <X className="mr-2 h-4 w-4" />
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} className="bg-primary">
-              <Save className="mr-2 h-4 w-4" />
-              Guardar
-            </Button>
+          <DialogFooter className="px-6 py-3 border-t">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}><X className="mr-2 h-4 w-4" /> Cancelar</Button>
+            <Button onClick={handleSave} className="bg-primary"><Save className="mr-2 h-4 w-4" /> Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
