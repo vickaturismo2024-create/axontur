@@ -7,6 +7,7 @@ import { ReactNode } from 'react';
 interface PDFContactPagesProps {
   quote: Quote;
   template: Template;
+  isMobile?: boolean;
 }
 
 // Height estimates for pagination (realistic values)
