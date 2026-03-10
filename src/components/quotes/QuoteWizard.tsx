@@ -1398,6 +1398,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                               onChange={(val) => updateTransfer(transfer.id, { supplier: val })}
                             />
                             <div>
+                              <Label>Costo neto ({quote.trip.currency})</Label>
                               <Input
                                 type="number"
                                 min={0}
