@@ -323,6 +323,144 @@ export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
     );
   };
 
+  // Itinerary preview
+  const renderItinerary = () => {
+    const itLayout = template.styles.itineraryLayout || 'timeline';
+    const dotSt = template.styles.itineraryDotStyle || 'numbered';
+    const cardSt = template.styles.itineraryCardStyle || 'bordered';
+    const actIcon = template.styles.itineraryActivityIcon || 'checkmark';
+    const showDate = template.styles.itineraryShowDayDate !== false;
+    const sumStyle = template.styles.itinerarySummaryStyle || 'gradient-banner';
+
+    const ActIcon = () => {
+      const st = { width: '8px', height: '8px', color: a, flexShrink: 0 } as React.CSSProperties;
+      switch (actIcon) {
+        case 'bullet': return <Circle style={{ ...st, fill: a }} />;
+        case 'arrow': return <ChevronRight style={st} />;
+        case 'star': return <Star style={{ ...st, fill: a }} />;
+        default: return <CheckCircle2 style={st} />;
+      }
+    };
+
+    const Marker = ({ n }: { n: number }) => {
+      const base: React.CSSProperties = { width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '8px', fontWeight: 700 };
+      switch (dotSt) {
+        case 'icon': return <div style={{ ...base, backgroundColor: `${p}1a` }}><Calendar style={{ width: '10px', height: '10px', color: p }} /></div>;
+        case 'filled': return <div style={{ ...base, backgroundColor: p }}><span style={{ color: '#fff' }}>●</span></div>;
+        case 'ring': return <div style={{ ...base, border: `2px solid ${p}`, backgroundColor: bg }}><span style={{ color: p }}>{n}</span></div>;
+        default: return <div style={{ ...base, backgroundColor: p, color: '#fff' }}>{n}</div>;
+      }
+    };
+
+    const getCardSt = (): React.CSSProperties => {
+      switch (cardSt) {
+        case 'filled': return { padding: '6px', backgroundColor: cardBg, borderRadius: '4px' };
+        case 'minimal': return { padding: '6px 0', borderBottom: `1px solid ${s}40` };
+        case 'accent-top': return { padding: '6px', backgroundColor: bg, borderRadius: '4px', borderTop: `2px solid ${a}` };
+        default: return { padding: '6px', backgroundColor: bg, borderRadius: '4px', border: `1px solid ${s}` };
+      }
+    };
+
+    const DayCard = ({ day }: { day: typeof mockData.itinerary[0] }) => (
+      <div style={getCardSt()}>
+        {showDate && <p style={{ fontSize: '7px', color: `${p}80`, marginBottom: '2px' }}>📅 Lun 15 Mar</p>}
+        <p style={{ fontFamily: headingFont, fontSize: '9px', fontWeight: 600, color: p }}>{day.title}</p>
+        <p style={{ fontSize: '8px', color: `${p}80`, marginTop: '1px' }}>{day.desc}</p>
+        <div style={{ marginTop: '3px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {day.activities.map((act, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '7px', color: textColor }}>
+              <ActIcon /> {act}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
+    return (
+      <div style={{ backgroundColor: bg, borderRadius: '6px', padding: densityPadding, marginBottom: '10px' }}>
+        {renderHeading('Itinerario')}
+        
+        {itLayout === 'timeline' && (
+          <div style={{ position: 'relative', paddingLeft: '16px' }}>
+            <div style={{ position: 'absolute', left: '9px', top: 0, bottom: 0, width: '2px', background: `linear-gradient(to bottom, ${p}, ${a}, ${p}4d)` }} />
+            {mockData.itinerary.map((day) => (
+              <div key={day.day} style={{ display: 'flex', gap: '8px', marginBottom: '8px', position: 'relative' }}>
+                <div style={{ marginLeft: '-16px' }}><Marker n={day.day} /></div>
+                <div style={{ flex: 1 }}><DayCard day={day} /></div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {itLayout === 'cards' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            {mockData.itinerary.map((day) => (
+              <div key={day.day}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
+                  <Marker n={day.day} />
+                  <span style={{ fontSize: '8px', fontWeight: 600, color: p }}>Día {day.day}</span>
+                </div>
+                <DayCard day={day} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {itLayout === 'compact' && (
+          <div>
+            {mockData.itinerary.map((day) => (
+              <div key={day.day} style={{ display: 'flex', gap: '6px', marginBottom: '4px', paddingBottom: '4px', borderBottom: `1px solid ${s}30` }}>
+                <div style={{ minWidth: '28px', textAlign: 'center' }}>
+                  <span style={{ fontFamily: headingFont, fontSize: '14px', fontWeight: 700, color: p }}>{day.day}</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '9px', fontWeight: 600, color: p }}>{day.title}</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', marginTop: '2px' }}>
+                    {day.activities.map((act, i) => (
+                      <span key={i} style={{ fontSize: '7px', padding: '1px 4px', backgroundColor: `${p}0d`, borderRadius: '3px', color: p }}>{act}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {itLayout === 'magazine' && (
+          <div>
+            {mockData.itinerary.map((day, idx) => (
+              <div key={day.day} style={{ marginBottom: '8px', padding: '8px', borderRadius: '6px', backgroundColor: idx % 2 === 0 ? `${p}08` : bg, borderLeft: `3px solid ${idx % 2 === 0 ? a : p}` }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
+                  <span style={{ fontFamily: headingFont, fontSize: '14px', fontWeight: 700, color: p }}>Día {day.day}</span>
+                  {showDate && <span style={{ fontSize: '7px', color: `${p}70` }}>Lun 15 Mar</span>}
+                </div>
+                <p style={{ fontSize: '9px', fontWeight: 600, color: p }}>{day.title}</p>
+                <p style={{ fontSize: '8px', color: `${p}90`, marginTop: '2px' }}>{day.desc}</p>
+                <div style={{ marginTop: '4px', paddingTop: '3px', borderTop: `1px solid ${s}40`, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {day.activities.map((act, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '7px', color: `${p}cc` }}>
+                      <ActIcon /> {act}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {sumStyle !== 'none' && (
+          <div style={{ 
+            marginTop: '8px', padding: '6px', borderRadius: '4px', textAlign: 'center', fontSize: '8px', color: p,
+            ...(sumStyle === 'gradient-banner' ? { background: `linear-gradient(to right, ${s}80, ${a}33)` } : {}),
+            ...(sumStyle === 'card' ? { border: `1px solid ${s}`, backgroundColor: bg } : {}),
+          }}>
+            <span style={{ fontWeight: 600 }}>3 días</span> de aventura en <span style={{ fontWeight: 600 }}>Cancún</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Footer
   const renderFooter = () => {
     const text = template.footerText || `${template.agencyName || template.name} · Tu viaje soñado`;
@@ -373,6 +511,7 @@ export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
       <div className="p-3 space-y-0" style={{ maxHeight: '600px', overflowY: 'auto' }}>
         {renderCover()}
         {renderDetails()}
+        {renderItinerary()}
         {renderFooter()}
       </div>
     </div>
