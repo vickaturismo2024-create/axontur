@@ -452,6 +452,7 @@ export interface Template {
     accent: string;
     background?: string;
     cardBackground?: string;
+    text?: string;
   };
   fonts: {
     heading: string;
