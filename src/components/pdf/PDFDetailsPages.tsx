@@ -1604,6 +1604,9 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
           isMobile={isMobile}
+          headingStyle={template.styles.headingStyle}
+          accentColor={accentColor}
+          contentDensity={template.styles.contentDensity}
         >
           {pageSections.map((section) => (
             <div key={section.id}>{section.component}</div>

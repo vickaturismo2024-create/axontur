@@ -235,6 +235,9 @@ export function PDFItineraryPages({ quote, template, isMobile = false }: PDFItin
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
           isMobile={isMobile}
+          headingStyle={template.styles.headingStyle}
+          accentColor={template.colors.accent}
+          contentDensity={template.styles.contentDensity}
         >
           <div className="relative">
             <TimelineLine />

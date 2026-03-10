@@ -452,6 +452,7 @@ export interface Template {
     accent: string;
     background?: string;
     cardBackground?: string;
+    text?: string;
   };
   fonts: {
     heading: string;
@@ -465,6 +466,22 @@ export interface Template {
     borderWidth: string;
     backgroundPattern: 'none' | 'dots' | 'lines' | 'grid' | 'waves';
     cardStyle: 'flat' | 'elevated' | 'outlined' | 'glass';
+    // New customization options
+    coverLayout?: 'classic' | 'split' | 'fullOverlay' | 'minimal';
+    headingStyle?: 'underline' | 'background' | 'accent-left' | 'pill';
+    iconStyle?: 'filled' | 'outlined' | 'none';
+    contentDensity?: 'compact' | 'normal' | 'spacious';
+    coverOverlay?: 'gradient' | 'solid' | 'blur' | 'vignette' | 'none';
+    logoPosition?: 'top-right' | 'top-left' | 'top-center' | 'bottom-center';
+    logoSize?: 'small' | 'medium' | 'large';
+    tableStyle?: 'striped' | 'clean' | 'bordered' | 'minimal';
+    dateFormat?: 'long' | 'short' | 'medium';
+    footerStyle?: 'simple' | 'banner' | 'centered' | 'minimal';
+    cardHoverEffect?: 'none' | 'lift' | 'glow' | 'border-accent';
+    coverOverlayOpacity?: number;
+    coverTextAlign?: 'center' | 'left' | 'right';
+    showCreationDate?: boolean;
+    preparedForLabel?: string;
   };
   whatsappAgents: WhatsAppAgent[];
   footerText: string;

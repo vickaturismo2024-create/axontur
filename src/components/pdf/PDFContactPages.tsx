@@ -368,6 +368,9 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
           isMobile={isMobile}
+          headingStyle={template.styles.headingStyle}
+          accentColor={template.colors.accent}
+          contentDensity={template.styles.contentDensity}
         >
           <div className="flex flex-col h-full">
             <div className="flex-1">
