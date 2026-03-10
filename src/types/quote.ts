@@ -86,6 +86,7 @@ export interface Lodging {
   occupancies?: RoomOccupancy[];
   // Flag para usar sistema de ocupaciones (si false, usa sistema legacy)
   useOccupancies?: boolean;
+  supplier?: string;
 }
 
 // Grupo de opciones de alojamiento (para agrupación por destino/fechas)
