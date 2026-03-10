@@ -65,7 +65,7 @@ interface Section {
   component: ReactNode;
 }
 
-export function PDFDetailsPages({ quote, template }: PDFDetailsPagesProps) {
+export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetailsPagesProps) {
   // Use the module-level formatDate function (defined above with parseISO)
 
   // Template colors
