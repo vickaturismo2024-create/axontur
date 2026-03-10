@@ -21,6 +21,11 @@ const mockData = {
   hotelCategory: '★★★★★',
   regime: 'All Inclusive',
   nights: 7,
+  itinerary: [
+    { day: 1, title: 'Llegada a Cancún', desc: 'Traslado al hotel y check-in', activities: ['Check-in', 'Cena de bienvenida'] },
+    { day: 2, title: 'Playa y Relax', desc: 'Día libre en el resort', activities: ['Snorkel', 'Spa'] },
+    { day: 3, title: 'Chichén Itzá', desc: 'Excursión a las ruinas mayas', activities: ['Tour guiado', 'Cenote'] },
+  ],
 };
 
 export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
