@@ -28,7 +28,7 @@ interface Section {
   isFixed?: boolean; // Sections that must be at the end
 }
 
-export function PDFContactPages({ quote, template }: PDFContactPagesProps) {
+export function PDFContactPages({ quote, template, isMobile = false }: PDFContactPagesProps) {
   // Template colors
   const primaryColor = template.colors.primary;
   const secondaryColor = template.colors.secondary;
