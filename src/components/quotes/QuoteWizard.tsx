@@ -1894,8 +1894,11 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                               onChange={(e) => updateCruise({ nights: parseInt(e.target.value) || 0 })}
                             />
                           </div>
+                          <SupplierSelect
+                            value={quote.cruise?.supplier}
+                            onChange={(val) => updateCruise({ supplier: val })}
+                          />
                           <div>
-                            <Label>Costo neto total ({quote.trip.currency})</Label>
                             <Input
                               type="number"
                               min={0}
