@@ -42,8 +42,13 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
   
   const lodgingsWithAddress = allLodgings.filter(l => l.address);
 
-  const getMapsUrl = (address: string) => 
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || '')}`;
+  const getFullAddress = (address: string, destination?: string) => {
+    const dest = destination || quote.trip?.destination;
+    return dest ? `${address}, ${dest}` : address;
+  };
+
+  const getMapsUrl = (address: string, destination?: string) => 
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(getFullAddress(address, destination) || '')}`;
 
   // Build sections
   const buildSections = (): Section[] => {
