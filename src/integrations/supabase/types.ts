@@ -91,6 +91,27 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       templates: {
         Row: {
           agency_name: string | null
