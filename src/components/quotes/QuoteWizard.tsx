@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Quote, Template, Flight, Transfer, ItineraryDay, Lodging, Train, Ferry, RentalCar, Activity, Cruise, CruisePort, CruiseExtras, Pricing, LuggageType, LUGGAGE_LABELS } from '@/types/quote';
+import { SupplierSelect } from '@/components/quotes/SupplierSelect';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1026,6 +1027,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             rows={2}
                           />
                         </div>
+                        <SupplierSelect
+                          value={flight.supplier}
+                          onChange={(val) => updateFlight(flight.id, { supplier: val })}
+                        />
                         <div className="grid grid-cols-2 gap-2 md:col-span-2">
                           <div>
                             <Label>Costo neto ({quote.trip.currency})</Label>
@@ -1210,6 +1215,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                               rows={2}
                             />
                           </div>
+                          <SupplierSelect
+                            value={lodging.supplier}
+                            onChange={(val) => updateLodging(lodging.id!, { supplier: val })}
+                          />
                           
                           {/* Pricing mode and cost/price fields */}
                           <div className="md:col-span-2 border-t pt-4 mt-2">
@@ -1384,6 +1393,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 Incluido en el paquete
                               </label>
                             </div>
+                            <SupplierSelect
+                              value={transfer.supplier}
+                              onChange={(val) => updateTransfer(transfer.id, { supplier: val })}
+                            />
                             <div>
                               <Label>Costo neto ({quote.trip.currency})</Label>
                               <Input
@@ -1513,6 +1526,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 rows={2}
                               />
                             </div>
+                            <SupplierSelect
+                              value={train.supplier}
+                              onChange={(val) => updateTrain(train.id, { supplier: val })}
+                            />
                             <div>
                               <Label>Costo neto ({quote.trip.currency})</Label>
                               <Input
@@ -1634,6 +1651,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 rows={2}
                               />
                             </div>
+                            <SupplierSelect
+                              value={ferry.supplier}
+                              onChange={(val) => updateFerry(ferry.id, { supplier: val })}
+                            />
                             <div>
                               <Label>Costo neto ({quote.trip.currency})</Label>
                               <Input
@@ -1761,6 +1782,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 rows={2}
                               />
                             </div>
+                            <SupplierSelect
+                              value={car.supplier}
+                              onChange={(val) => updateRentalCar(car.id, { supplier: val })}
+                            />
                             <div>
                               <Label>Costo neto ({quote.trip.currency})</Label>
                               <Input
@@ -1873,6 +1898,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                               onChange={(e) => updateCruise({ nights: parseInt(e.target.value) || 0 })}
                             />
                           </div>
+                          <SupplierSelect
+                            value={quote.cruise?.supplier}
+                            onChange={(val) => updateCruise({ supplier: val })}
+                          />
                           <div>
                             <Label>Costo neto total ({quote.trip.currency})</Label>
                             <Input
@@ -2183,6 +2212,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             Incluida en el paquete
                           </label>
                         </div>
+                        <SupplierSelect
+                          value={activity.supplier}
+                          onChange={(val) => updateActivity(activity.id, { supplier: val })}
+                        />
                         <div>
                           <Label>Costo neto ({quote.trip.currency})</Label>
                           <Input
@@ -2261,6 +2294,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                     rows={2}
                   />
                 </div>
+                <SupplierSelect
+                  value={quote.insurance.supplier}
+                  onChange={(val) => updateQuote({ insurance: { ...quote.insurance, supplier: val } })}
+                />
                 <div>
                   <Label>Costo neto ({quote.trip.currency})</Label>
                   <Input

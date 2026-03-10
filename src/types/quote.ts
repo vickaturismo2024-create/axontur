@@ -29,6 +29,7 @@ export interface Flight {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string; // Operador mayorista (uso interno)
   // Sistema de opciones de vuelo
   isOption?: boolean;
   optionLabel?: string;
@@ -85,6 +86,7 @@ export interface Lodging {
   occupancies?: RoomOccupancy[];
   // Flag para usar sistema de ocupaciones (si false, usa sistema legacy)
   useOccupancies?: boolean;
+  supplier?: string;
 }
 
 // Grupo de opciones de alojamiento (para agrupación por destino/fechas)
@@ -105,6 +107,7 @@ export interface Transfer {
   included: boolean;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 // Nuevos tipos de transporte
@@ -122,6 +125,7 @@ export interface Train {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 export interface Ferry {
@@ -137,6 +141,7 @@ export interface Ferry {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 export interface RentalCar {
@@ -153,6 +158,7 @@ export interface RentalCar {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 // Excursiones/Actividades
@@ -168,6 +174,7 @@ export interface Activity {
   cost?: number;
   price?: number;
   notes: string;
+  supplier?: string;
 }
 
 // Cruceros
@@ -189,6 +196,7 @@ export interface Cruise {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 export interface CruisePort {
@@ -218,6 +226,7 @@ export interface Insurance {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 // Precio calculado por opción de alojamiento
