@@ -225,6 +225,7 @@ export interface Insurance {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 // Precio calculado por opción de alojamiento
