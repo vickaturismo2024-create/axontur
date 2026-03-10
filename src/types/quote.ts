@@ -29,6 +29,7 @@ export interface Flight {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string; // Operador mayorista (uso interno)
   // Sistema de opciones de vuelo
   isOption?: boolean;
   optionLabel?: string;
