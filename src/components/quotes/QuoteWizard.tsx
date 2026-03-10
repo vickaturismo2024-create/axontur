@@ -1215,6 +1215,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                               rows={2}
                             />
                           </div>
+                          <SupplierSelect
+                            value={lodging.supplier}
+                            onChange={(val) => updateLodging(lodging.id!, { supplier: val })}
+                          />
                           
                           {/* Pricing mode and cost/price fields */}
                           <div className="md:col-span-2 border-t pt-4 mt-2">
