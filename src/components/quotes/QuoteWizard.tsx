@@ -1649,8 +1649,11 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                                 rows={2}
                               />
                             </div>
+                            <SupplierSelect
+                              value={ferry.supplier}
+                              onChange={(val) => updateFerry(ferry.id, { supplier: val })}
+                            />
                             <div>
-                              <Label>Costo neto ({quote.trip.currency})</Label>
                               <Input
                                 type="number"
                                 min={0}
