@@ -159,7 +159,7 @@ export function PDFItineraryPages({ quote, template, isMobile = false }: PDFItin
 
     if (layout === 'cards') {
       // Cards layout: each day in an independent card, 2 columns when possible
-      const pairs: typeof quote.itineraryDays[][] = [];
+      const pairs: (typeof quote.itineraryDays[number])[][] = [];
       for (let i = 0; i < quote.itineraryDays.length; i += 2) {
         pairs.push(quote.itineraryDays.slice(i, i + 2));
       }
