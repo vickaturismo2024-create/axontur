@@ -139,8 +139,18 @@ export function PDFContactPage({ quote, template }: PDFContactPageProps) {
                         printColorAdjust: 'exact'
                       }}
                     >
+                      <iframe
+                        src={`https://www.google.com/maps?q=${encodeURIComponent(getFullAddress(lodging.address, lodging.destination))}&output=embed`}
+                        width="100%"
+                        height={lodgingsWithAddress.length > 1 ? '80' : '100'}
+                        style={{ border: 0, borderRadius: '8px' }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        title={`Mapa de ${lodging.name}`}
+                        className="print:hidden"
+                      />
                       <div 
-                        className="flex items-center justify-center"
+                        className="hidden print:flex items-center justify-center"
                         style={{ 
                           height: lodgingsWithAddress.length > 1 ? '80px' : '100px',
                           background: `linear-gradient(to bottom right, ${cardBgColor}, ${secondaryColor})`,
