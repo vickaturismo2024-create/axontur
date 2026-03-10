@@ -2207,8 +2207,11 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
                             Incluida en el paquete
                           </label>
                         </div>
+                        <SupplierSelect
+                          value={activity.supplier}
+                          onChange={(val) => updateActivity(activity.id, { supplier: val })}
+                        />
                         <div>
-                          <Label>Costo neto ({quote.trip.currency})</Label>
                           <Input
                             type="number"
                             min={0}
