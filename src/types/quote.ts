@@ -124,6 +124,7 @@ export interface Train {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 export interface Ferry {
