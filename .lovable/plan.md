@@ -1,36 +1,49 @@
 
 
-# Fix: PDF cortado en móviles - Solución agresiva
+# Fix: Google Maps URL + Mapa real en el PDF
 
-## Diagnóstico raíz
+## Problema 1: URL de Google Maps incorrecta
 
-Después de revisar el código en detalle, hay varios problemas que las correcciones anteriores no resolvieron:
+La función `getMapsUrl` solo usa `lodging.address` (ej: "Balcarce 700"), sin incluir la ciudad/destino. Esto hace que Google Maps encuentre cualquier "Balcarce 700" del país.
 
-1. **Estado inicial `isMobile = false`**: El componente siempre renderiza primero en modo desktop (con `transform: scale()` y `overflow: hidden`). En un teléfono, el primer frame visible muestra el PDF escalado y cortado antes de que el ResizeObserver detecte que es móvil y re-renderice. Esto puede dejar artefactos.
+**Fix**: Concatenar `lodging.destination` (o `quote.trip.destination`) con la dirección:
 
-2. **Tablas con `overflow-hidden`**: En `PDFDetailsPages.tsx` (línea 171), los contenedores de tablas usan `className="overflow-hidden rounded border"`, lo que recorta contenido que excede el ancho del contenedor.
+```typescript
+const getMapsUrl = (address: string, destination?: string) => {
+  const fullAddress = destination ? `${address}, ${destination}` : address;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
+};
+```
 
-3. **Estilos inline con tamaños fijos**: Todo el contenido del PDF usa `style={{ fontSize: '11px' }}` directamente en los elementos, que no se puede sobrescribir con CSS (los inline styles tienen prioridad sobre clases CSS). Las reglas `!important` en el CSS solo funcionan para propiedades que NO están definidas inline.
+Aplicar en `PDFContactPages.tsx` (línea 45-46 y línea 121) y `PDFContactPage.tsx` (línea 22-23).
 
-4. **Cover page con posicionamiento absoluto**: La imagen de fondo usa `absolute inset-0` que necesita un contenedor con altura explícita. El `min-height: 85vh` ayuda pero puede no ser suficiente.
+## Problema 2: Mapa real en vez de placeholder
 
-## Solución
+Actualmente el PDF muestra un placeholder con un ícono de MapPin y un degradado. Es posible reemplazarlo con una imagen estática de mapa real usando **OpenStreetMap tiles** via el servicio gratuito de **StaticMapLite** o directamente una imagen de **Google Maps Static API**.
 
-### 1. `src/pages/PublicPDF.tsx` — Detectar móvil desde el inicio
-- Usar `window.innerWidth` para inicializar `isMobile` correctamente desde el primer render, evitando el flash de la versión desktop
-- Eliminar el cálculo de `contentHeight` en modo móvil (no se usa)
+**Opción recomendada**: Usar una imagen embed de OpenStreetMap que no requiere API key. Se puede construir una URL de imagen estática con servicios como `https://staticmap.openstreetmap.de/staticmap.php` que es gratis, o usar un `<iframe>` embed de OpenStreetMap/Google Maps.
 
-### 2. `src/index.css` — CSS móvil más agresivo
-- Agregar override para `overflow-hidden` dentro de pdf-mobile-view: `.pdf-mobile-view .pdf-page .overflow-hidden { overflow: visible !important; }`
-- Forzar tamaños de fuente en TODOS los elementos con `*` selector dentro de `.pdf-mobile-view`
-- Asegurar que todos los elementos con `position: absolute` dentro de las páginas se comporten correctamente
+**Enfoque**: Usar un `<iframe>` de Google Maps embed (gratis, sin API key) con la dirección completa. Es la solución más simple y confiable:
 
-### 3. `src/components/pdf/PDFCoverPage.tsx` — Layout móvil robusto
-- Agregar `min-h-[85vh]` directamente como clase en el componente para que la portada siempre tenga altura suficiente en cualquier dispositivo, independiente de la media query CSS
+```html
+<iframe 
+  src={`https://www.google.com/maps?q=${encodeURIComponent(fullAddress)}&output=embed`}
+  width="100%" 
+  height="100px"
+  style={{ border: 0, borderRadius: '8px' }}
+/>
+```
 
-### 4. `src/components/pdf/PDFDetailsPages.tsx` — Quitar overflow-hidden de tablas
-- Cambiar `overflow-hidden` por `overflow-x-auto` en los contenedores de tablas para que en móvil las tablas anchas se puedan scrollear en vez de cortarse
+### Archivos a modificar
 
-## Resultado esperado
-El PDF se visualiza correctamente desde el primer frame en móviles. No hay contenido cortado. Las tablas anchas se pueden scrollear. La portada siempre tiene altura correcta.
+1. **`src/components/pdf/PDFContactPages.tsx`**:
+   - Actualizar `getMapsUrl` para incluir `destination`
+   - Reemplazar el placeholder de mapa con un `<iframe>` de Google Maps embed
+   - Pasar `destination` del lodging o `quote.trip.destination` como fallback
+
+2. **`src/components/pdf/PDFContactPage.tsx`** (legacy):
+   - Mismos cambios para mantener consistencia
+
+### Limitación
+Los iframes de mapa no se renderizan al imprimir (print/PDF). Para print, se puede mantener el placeholder como fallback. En la vista web (PublicPDF y ExportPDF) se verá el mapa real interactivo.
 
