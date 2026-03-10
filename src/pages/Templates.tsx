@@ -238,7 +238,7 @@ const Templates = () => {
             <div className="flex h-[calc(95vh-120px)]">
               {/* Left: Controls */}
               <div className="w-[55%] overflow-y-auto border-r p-4 space-y-1">
-                <Accordion type="multiple" defaultValue={['general', 'cover', 'typography', 'colors', 'cards', 'headings', 'tables', 'separators', 'sections', 'whatsapp', 'footer']} className="space-y-1">
+                <Accordion type="multiple" defaultValue={['general', 'cover', 'typography', 'colors', 'cards', 'headings', 'tables', 'separators', 'itinerary', 'sections', 'whatsapp', 'footer']} className="space-y-1">
                   
                   {/* General */}
                   <AccordionItem value="general">
