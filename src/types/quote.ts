@@ -140,6 +140,7 @@ export interface Ferry {
   notes: string;
   cost?: number;
   price?: number;
+  supplier?: string;
 }
 
 export interface RentalCar {
