@@ -6,9 +6,10 @@ import { Plane } from 'lucide-react';
 interface PDFCoverPageProps {
   quote: Quote;
   template: Template;
+  isMobile?: boolean;
 }
 
-export function PDFCoverPage({ quote, template }: PDFCoverPageProps) {
+export function PDFCoverPage({ quote, template, isMobile = false }: PDFCoverPageProps) {
   // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
