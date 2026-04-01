@@ -229,11 +229,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   });
   const [showPreviewPanel, setShowPreviewPanel] = useState(false);
   const [transportTab, setTransportTab] = useState('transfers');
+  const [generatingItinerary, setGeneratingItinerary] = useState(false);
+  const [itineraryVisible, setItineraryVisible] = useState(() => {
+    const tpl = templates.find(t => t.id === (initialQuote?.templateId || defaultTemplate?.id)) || defaultTemplate || (templates[0] ?? null);
+    return tpl?.sectionsToggles?.itinerary ?? true;
+  });
   
   // Hook para calcular precios automáticamente (debe estar aquí con los otros hooks)
   const occupancyCalculation = useOccupancyPricingCalculator(quote);
 
   const currentTemplate = templates.find(t => t.id === quote.templateId) || defaultTemplate || (templates[0] ?? null);
+
+  // Template con override de visibilidad del itinerario para preview
+  const previewTemplate = useMemo(() => {
+    if (!currentTemplate) return null;
+    return {
+      ...currentTemplate,
+      sectionsToggles: {
+        ...currentTemplate.sectionsToggles,
+        itinerary: itineraryVisible,
+      },
+    };
+  }, [currentTemplate, itineraryVisible]);
 
   // Generar quote con pricing en vivo para la vista previa del PDF
   const previewQuote = useMemo(() => {
