@@ -37,7 +37,9 @@ import {
   Train as TrainIcon,
   Ship,
   Compass,
-  Anchor
+  Anchor,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { defaultTemplate } from '@/data/demoData';
