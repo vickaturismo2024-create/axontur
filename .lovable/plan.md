@@ -1,59 +1,52 @@
-# Plan: Generación automática de itinerario con IA + visibilidad correcta
+
+
+# Plan: Generación automática de itinerario con IA + visibilidad correcta en preview y PDF
 
 ## Resumen
 
-Agregar un botón "Generar con IA" en el paso de itinerario del QuoteWizard que analiza vuelos, alojamientos, transfers y actividades para crear automáticamente los días del itinerario. Además, agregar un toggle de visibilidad del itinerario tanto en el paso de itinerario (step 10) como en la vista previa (step 11), y asegurar que ese toggle se respete correctamente en todos los renders del PDF.
+Agregar un botón "Generar con IA" en el paso de itinerario del QuoteWizard que analiza los servicios cargados (vuelos, hoteles, transfers, actividades) para crear automáticamente los días del itinerario. Además, agregar un toggle de visibilidad del itinerario en el paso de itinerario y en la vista previa, asegurando que se respete en todos los renders del PDF.
 
 ## Cambios por archivo
 
 ### 1. `supabase/functions/generate-itinerary/index.ts` (nuevo)
 
-Edge function que recibe los datos del presupuesto y usa Lovable AI (gemini-3-flash-preview) con tool calling para generar un array estructurado de `ItineraryDay`:
+Edge function que usa Lovable AI (gemini-3-flash-preview) con tool calling:
 - Recibe: `{ trip, flights, lodgings, transfers, activities, trains, ferries, cruise }`
-- System prompt en español que instruye al modelo a crear días con `dayNumber`, `date`, `title`, `description`, `activities[]` basándose en fechas reales y servicios cargados
-- Tool calling para obtener salida JSON estructurada
-- Manejo de errores 429/402
+- System prompt en español que genera días con `dayNumber`, `date`, `title`, `description`, `activities[]` basándose en fechas y servicios reales
+- Tool calling para salida JSON estructurada (array de ItineraryDay)
+- Manejo de errores 429/402 con mensajes claros
 
 ### 2. `src/components/quotes/QuoteWizard.tsx`
 
 **Step 10 (Itinerario):**
-- Agregar botón "✨ Generar itinerario con IA" arriba de la lista de días
-- Loading state mientras genera
-- Confirmación si ya hay días cargados antes de reemplazar
-- Toggle switch "Mostrar itinerario en el PDF" que modifica `currentTemplate.sectionsToggles.itinerary` localmente
+- Botón "✨ Generar itinerario con IA" arriba de la lista de días
+- Loading state durante la generación
+- Confirmación antes de reemplazar si ya hay días cargados
+- Toggle switch "Mostrar itinerario en el PDF"
 
 **Step 11 (Vista Previa):**
-- Agregar el mismo toggle switch "Mostrar itinerario en el PDF" arriba del preview
-- Pasar el template modificado (con el toggle actualizado) al `PDFPreview`
+- Mismo toggle switch "Mostrar itinerario en el PDF" arriba del preview
 
 **Estado local:**
 - Nuevo state `itineraryVisible` (inicializado desde `currentTemplate.sectionsToggles.itinerary`)
-- Crear un `previewTemplate` derivado que aplica el override de visibilidad del itinerario
-- Usar `previewTemplate` en lugar de `currentTemplate` en ambos renders de `PDFPreview` (step 11 y panel lateral)
+- Crear `previewTemplate` derivado que aplica el override de visibilidad
+- Usar `previewTemplate` en los dos `PDFPreview` (step 11 y panel lateral)
 
-### 3. `src/components/pdf/PDFPreview.tsx`
+### 3. Archivos que NO cambian
 
-Ya verifica `template.sectionsToggles.itinerary` en línea 30. No requiere cambios — el toggle del QuoteWizard modifica el template que se le pasa, por lo que la visibilidad se aplica automáticamente.
-
-### 4. `src/components/pdf/PDFItineraryPages.tsx`
-
-Ya verifica `template.sectionsToggles.itinerary` internamente. No requiere cambios.
-
-### 5. `src/pages/ExportPDF.tsx` y `src/pages/PublicPDF.tsx`
-
-Ya renderizan `PDFItineraryPages` y ya pasan el template con `sectionsToggles` desde la base de datos. No requieren cambios — la visibilidad se respeta porque el toggle se guarda como parte del template.
-
-**Nota**: El toggle en el QuoteWizard es local a la sesión de edición. Para que persista, el usuario debe guardarlo desde la configuración de plantillas. Esto es intencional: permite previsualizar con/sin itinerario sin alterar la plantilla permanentemente.
+- **`PDFPreview.tsx`**: Ya verifica `template.sectionsToggles.itinerary` en línea 30. El toggle del QuoteWizard modifica el template que se pasa como prop → funciona automáticamente.
+- **`PDFItineraryPages.tsx`**: Ya verifica `template.sectionsToggles.itinerary` internamente → funciona automáticamente.
+- **`ExportPDF.tsx` y `PublicPDF.tsx`**: Ya renderizan con el template de la base de datos que incluye `sectionsToggles` → funciona automáticamente.
 
 ### Sin migración de base de datos
 
-Los `itineraryDays` ya se guardan en la columna existente. No hay cambios de schema.
+Los `itineraryDays` usan la columna JSON existente. El toggle de visibilidad es parte del JSON del template.
 
 ## Flujo del usuario
 
 1. Carga vuelos, hoteles, transfers, actividades normalmente
-2. En el paso "Itinerario": clic en "Generar con IA" → la IA lee las fechas y servicios y genera los días
-3. Revisa, edita, agrega días extra manualmente
-4. Usa el toggle para decidir si el itinerario aparece en el PDF
-5. En vista previa, puede alternar la visibilidad con el mismo toggle
-6. Al guardar, los días del itinerario se persisten; la visibilidad depende de la plantilla seleccionada
+2. En "Itinerario" → clic en "Generar con IA" → la IA mapea servicios a días
+3. Revisa, edita, agrega días extra
+4. Usa el toggle para mostrar/ocultar el itinerario en la vista previa y PDF
+5. El toggle es local a la sesión; la visibilidad permanente se configura en la plantilla
+
