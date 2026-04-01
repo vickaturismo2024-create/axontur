@@ -422,7 +422,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
       });
     }
 
-    // Main Lodgings section
+    // Main Lodgings section - split into chunks to avoid overflow
     if (template.sectionsToggles.lodging && mainLodgings.length > 0) {
       const showLodgingPrices = showItemPrices && itemPricesConfig.lodging;
       
@@ -434,69 +434,80 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         return (lodging.pricePerNight || 0) * (lodging.nights || 0);
       };
 
-      sections.push({
-        id: 'mainLodgings',
-        height: HEIGHTS.SECTION_HEADER + (mainLodgings.length * HEIGHTS.LODGING_CARD),
-        component: (
-          <SectionCard icon={Building2} title={mainLodgings.length > 1 ? "Alojamientos" : "Alojamiento"}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {mainLodgings.map((lodging, index) => (
-                <div 
-                  key={lodging.id || index}
-                  className="rounded border"
-                  style={{ 
-                    padding: '10px',
-                    borderColor: secondaryColor,
-                    backgroundColor: index % 2 === 0 ? bgColor : cardBgColor
-                  }}
-                >
-                  {mainLodgings.length > 1 && lodging.destination && (
-                    <p style={{ fontSize: '10px', marginBottom: '4px', color: accentColor, fontWeight: 600 }}>
-                      📍 {lodging.destination}
-                    </p>
-                  )}
-                  <div className="grid grid-cols-2" style={{ gap: '12px' }}>
-                    <div>
-                      <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
-                      <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
-                      {lodging.address && (
-                        <p style={{ marginTop: '4px', fontSize: '11px' }}>{lodging.address}</p>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '11px' }}>
-                      {lodging.checkIn && lodging.checkIn.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
-                      {lodging.checkOut && lodging.checkOut.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
-                      {lodging.regime && lodging.regime.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
-                      {lodging.roomType && lodging.roomType.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
-                      {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
-                      {showLodgingPrices && getLodgingPrice(lodging) > 0 && (
-                        <p style={{ marginTop: '4px', fontWeight: 600, color: primaryColor }}>
-                          Precio: {formatCurrency(getLodgingPrice(lodging))}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {lodging.notes && (
-                    <p 
-                      className="rounded"
-                      style={{ 
-                        marginTop: '6px', 
-                        padding: '4px 6px', 
-                        fontSize: '10px', 
-                        backgroundColor: cardBgColor,
-                        color: `${primaryColor}99`,
-                        WebkitPrintColorAdjust: 'exact',
-                        printColorAdjust: 'exact'
-                      }}
-                    >
-                      {lodging.notes}
-                    </p>
-                  )}
-                </div>
-              ))}
+      const renderMainLodgingCard = (lodging: typeof mainLodgings[0], index: number) => (
+        <div 
+          key={lodging.id || index}
+          className="rounded border"
+          style={{ 
+            padding: '10px',
+            borderColor: secondaryColor,
+            backgroundColor: index % 2 === 0 ? bgColor : cardBgColor
+          }}
+        >
+          {mainLodgings.length > 1 && lodging.destination && (
+            <p style={{ fontSize: '10px', marginBottom: '4px', color: accentColor, fontWeight: 600 }}>
+              📍 {lodging.destination}
+            </p>
+          )}
+          <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+            <div>
+              <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
+              <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
+              {lodging.address && (
+                <p style={{ marginTop: '4px', fontSize: '11px' }}>{lodging.address}</p>
+              )}
             </div>
-          </SectionCard>
-        )
+            <div style={{ fontSize: '11px' }}>
+              {lodging.checkIn && lodging.checkIn.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
+              {lodging.checkOut && lodging.checkOut.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
+              {lodging.regime && lodging.regime.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
+              {lodging.roomType && lodging.roomType.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
+              {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
+              {showLodgingPrices && getLodgingPrice(lodging) > 0 && (
+                <p style={{ marginTop: '4px', fontWeight: 600, color: primaryColor }}>
+                  Precio: {formatCurrency(getLodgingPrice(lodging))}
+                </p>
+              )}
+            </div>
+          </div>
+          {lodging.notes && (
+            <p 
+              className="rounded"
+              style={{ 
+                marginTop: '6px', 
+                padding: '4px 6px', 
+                fontSize: '10px', 
+                backgroundColor: cardBgColor,
+                color: `${primaryColor}99`,
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }}
+            >
+              {lodging.notes}
+            </p>
+          )}
+        </div>
+      );
+
+      // Split lodgings into chunks that fit within a page
+      const MAX_LODGINGS_PER_CHUNK = Math.floor((HEIGHTS.PAGE_MAX - HEIGHTS.HEADER - HEIGHTS.SECTION_HEADER) / HEIGHTS.LODGING_CARD);
+      const lodgingChunks: typeof mainLodgings[] = [];
+      for (let i = 0; i < mainLodgings.length; i += MAX_LODGINGS_PER_CHUNK) {
+        lodgingChunks.push(mainLodgings.slice(i, i + MAX_LODGINGS_PER_CHUNK));
+      }
+
+      lodgingChunks.forEach((chunk, chunkIdx) => {
+        sections.push({
+          id: `mainLodgings-${chunkIdx}`,
+          height: (chunkIdx === 0 ? HEIGHTS.SECTION_HEADER : 0) + (chunk.length * HEIGHTS.LODGING_CARD),
+          component: (
+            <SectionCard icon={Building2} title={mainLodgings.length > 1 ? "Alojamientos" : "Alojamiento"}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {chunk.map((lodging, index) => renderMainLodgingCard(lodging, chunkIdx * MAX_LODGINGS_PER_CHUNK + index))}
+              </div>
+            </SectionCard>
+          )
+        });
       });
     }
 
@@ -585,70 +596,102 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         </div>
       );
 
-      // Calculate height based on groups and ungrouped
-      const groupCount = groupedLodgings.size;
-      const totalCards = optionLodgings.length;
-      const totalHeight = HEIGHTS.SECTION_HEADER + 30 + 
-        (groupCount * HEIGHTS.LODGING_GROUP_HEADER) + 
-        (totalCards * HEIGHTS.LODGING_CARD);
+      // Split option lodgings into chunks for pagination
+      // Build a flat list of renderable items with their heights
+      const allOptionItems: { height: number; component: ReactNode; id: string }[] = [];
 
-      sections.push({
-        id: 'optionLodgings',
-        height: totalHeight,
-        component: (
-          <SectionCard icon={Building2} title="Opciones de Alojamiento">
-            <p style={{ fontSize: '10px', marginBottom: '10px', color: `${primaryColor}80`, fontStyle: 'italic' }}>
-              A continuación se presentan opciones alternativas para su elección:
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Render grouped lodgings */}
-              {Array.from(groupedLodgings.entries()).map(([groupId, { group, lodgings: groupLodgings }]) => (
-                <div key={groupId}>
-                  {/* Group header */}
-                  <div 
-                    className="rounded-t"
-                    style={{ 
-                      padding: '8px 12px',
-                      backgroundColor: `${secondaryColor}20`,
-                      borderBottom: `2px solid ${accentColor}`,
-                      marginBottom: '8px'
-                    }}
-                  >
-                    <p style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
-                      📍 {group.destination || 'Sin destino'}
-                      {group.checkIn && group.checkOut && (
-                        <span style={{ marginLeft: '8px', fontWeight: 400, color: `${primaryColor}80` }}>
-                          ({formatDate(group.checkIn)} - {formatDate(group.checkOut)}, {group.nights} noches)
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  {/* Group lodging cards */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
-                    {groupLodgings.map((lodging, idx) => renderLodgingCard(lodging, idx, false))}
-                  </div>
-                </div>
-              ))}
-              
-              {/* Render ungrouped lodgings */}
-              {ungroupedOptions.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {groupedLodgings.size > 0 && (
-                    <p style={{ fontSize: '10px', color: `${primaryColor}60`, marginTop: '8px' }}>
-                      Otras opciones:
-                    </p>
+      // Add grouped lodgings
+      Array.from(groupedLodgings.entries()).forEach(([groupId, { group, lodgings: groupLodgings }]) => {
+        allOptionItems.push({
+          id: `group-header-${groupId}`,
+          height: HEIGHTS.LODGING_GROUP_HEADER,
+          component: (
+            <div>
+              <div 
+                className="rounded-t"
+                style={{ 
+                  padding: '8px 12px',
+                  backgroundColor: `${secondaryColor}20`,
+                  borderBottom: `2px solid ${accentColor}`,
+                  marginBottom: '8px'
+                }}
+              >
+                <p style={{ fontSize: '11px', fontWeight: 600, color: primaryColor }}>
+                  📍 {group.destination || 'Sin destino'}
+                  {group.checkIn && group.checkOut && (
+                    <span style={{ marginLeft: '8px', fontWeight: 400, color: `${primaryColor}80` }}>
+                      ({formatDate(group.checkIn)} - {formatDate(group.checkOut)}, {group.nights} noches)
+                    </span>
                   )}
-                  {ungroupedOptions.map((lodging, index) => renderLodgingCard(lodging, index, true))}
-                </div>
-              )}
-              
-              {/* Fallback: if no groups and no ungrouped (shouldn't happen but safe) */}
-              {groupedLodgings.size === 0 && ungroupedOptions.length === 0 && optionLodgings.map((lodging, index) => 
-                renderLodgingCard(lodging, index, true)
-              )}
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
+                {groupLodgings.map((lodging, idx) => renderLodgingCard(lodging, idx, false))}
+              </div>
             </div>
-          </SectionCard>
-        )
+          )
+        });
+        // Add height for the cards in this group
+        allOptionItems[allOptionItems.length - 1].height += groupLodgings.length * HEIGHTS.LODGING_CARD;
+      });
+
+      // Add ungrouped lodgings individually
+      ungroupedOptions.forEach((lodging, index) => {
+        allOptionItems.push({
+          id: `ungrouped-${lodging.id || index}`,
+          height: HEIGHTS.LODGING_CARD,
+          component: renderLodgingCard(lodging, index, true)
+        });
+      });
+
+      // Fallback
+      if (allOptionItems.length === 0) {
+        optionLodgings.forEach((lodging, index) => {
+          allOptionItems.push({
+            id: `fallback-${lodging.id || index}`,
+            height: HEIGHTS.LODGING_CARD,
+            component: renderLodgingCard(lodging, index, true)
+          });
+        });
+      }
+
+      // Now chunk items into pages
+      const optionChunks: typeof allOptionItems[] = [];
+      let currentChunk: typeof allOptionItems = [];
+      let currentChunkHeight = 0;
+      const maxChunkHeight = HEIGHTS.PAGE_MAX - HEIGHTS.HEADER - HEIGHTS.SECTION_HEADER - 30;
+
+      for (const item of allOptionItems) {
+        if (currentChunkHeight + item.height > maxChunkHeight && currentChunk.length > 0) {
+          optionChunks.push(currentChunk);
+          currentChunk = [item];
+          currentChunkHeight = item.height;
+        } else {
+          currentChunk.push(item);
+          currentChunkHeight += item.height;
+        }
+      }
+      if (currentChunk.length > 0) {
+        optionChunks.push(currentChunk);
+      }
+
+      optionChunks.forEach((chunk, chunkIdx) => {
+        sections.push({
+          id: `optionLodgings-${chunkIdx}`,
+          height: HEIGHTS.SECTION_HEADER + 30 + chunk.reduce((sum, item) => sum + item.height, 0),
+          component: (
+            <SectionCard icon={Building2} title="Opciones de Alojamiento">
+              {chunkIdx === 0 && (
+                <p style={{ fontSize: '10px', marginBottom: '10px', color: `${primaryColor}80`, fontStyle: 'italic' }}>
+                  A continuación se presentan opciones alternativas para su elección:
+                </p>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {chunk.map(item => <div key={item.id}>{item.component}</div>)}
+              </div>
+            </SectionCard>
+          )
+        });
       });
     }
 
