@@ -422,7 +422,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
       });
     }
 
-    // Main Lodgings section
+    // Main Lodgings section - split into chunks to avoid overflow
     if (template.sectionsToggles.lodging && mainLodgings.length > 0) {
       const showLodgingPrices = showItemPrices && itemPricesConfig.lodging;
       
@@ -434,69 +434,80 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         return (lodging.pricePerNight || 0) * (lodging.nights || 0);
       };
 
-      sections.push({
-        id: 'mainLodgings',
-        height: HEIGHTS.SECTION_HEADER + (mainLodgings.length * HEIGHTS.LODGING_CARD),
-        component: (
-          <SectionCard icon={Building2} title={mainLodgings.length > 1 ? "Alojamientos" : "Alojamiento"}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {mainLodgings.map((lodging, index) => (
-                <div 
-                  key={lodging.id || index}
-                  className="rounded border"
-                  style={{ 
-                    padding: '10px',
-                    borderColor: secondaryColor,
-                    backgroundColor: index % 2 === 0 ? bgColor : cardBgColor
-                  }}
-                >
-                  {mainLodgings.length > 1 && lodging.destination && (
-                    <p style={{ fontSize: '10px', marginBottom: '4px', color: accentColor, fontWeight: 600 }}>
-                      📍 {lodging.destination}
-                    </p>
-                  )}
-                  <div className="grid grid-cols-2" style={{ gap: '12px' }}>
-                    <div>
-                      <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
-                      <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
-                      {lodging.address && (
-                        <p style={{ marginTop: '4px', fontSize: '11px' }}>{lodging.address}</p>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '11px' }}>
-                      {lodging.checkIn && lodging.checkIn.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
-                      {lodging.checkOut && lodging.checkOut.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
-                      {lodging.regime && lodging.regime.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
-                      {lodging.roomType && lodging.roomType.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
-                      {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
-                      {showLodgingPrices && getLodgingPrice(lodging) > 0 && (
-                        <p style={{ marginTop: '4px', fontWeight: 600, color: primaryColor }}>
-                          Precio: {formatCurrency(getLodgingPrice(lodging))}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {lodging.notes && (
-                    <p 
-                      className="rounded"
-                      style={{ 
-                        marginTop: '6px', 
-                        padding: '4px 6px', 
-                        fontSize: '10px', 
-                        backgroundColor: cardBgColor,
-                        color: `${primaryColor}99`,
-                        WebkitPrintColorAdjust: 'exact',
-                        printColorAdjust: 'exact'
-                      }}
-                    >
-                      {lodging.notes}
-                    </p>
-                  )}
-                </div>
-              ))}
+      const renderMainLodgingCard = (lodging: typeof mainLodgings[0], index: number) => (
+        <div 
+          key={lodging.id || index}
+          className="rounded border"
+          style={{ 
+            padding: '10px',
+            borderColor: secondaryColor,
+            backgroundColor: index % 2 === 0 ? bgColor : cardBgColor
+          }}
+        >
+          {mainLodgings.length > 1 && lodging.destination && (
+            <p style={{ fontSize: '10px', marginBottom: '4px', color: accentColor, fontWeight: 600 }}>
+              📍 {lodging.destination}
+            </p>
+          )}
+          <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+            <div>
+              <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
+              <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
+              {lodging.address && (
+                <p style={{ marginTop: '4px', fontSize: '11px' }}>{lodging.address}</p>
+              )}
             </div>
-          </SectionCard>
-        )
+            <div style={{ fontSize: '11px' }}>
+              {lodging.checkIn && lodging.checkIn.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-in:</span> {formatDate(lodging.checkIn)}</p>}
+              {lodging.checkOut && lodging.checkOut.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Check-out:</span> {formatDate(lodging.checkOut)}</p>}
+              {lodging.regime && lodging.regime.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Régimen:</span> {lodging.regime}</p>}
+              {lodging.roomType && lodging.roomType.trim() !== '' && <p><span style={{ color: `${primaryColor}99` }}>Habitación:</span> {lodging.roomType}</p>}
+              {lodging.nights !== undefined && lodging.nights > 0 && <p><span style={{ color: `${primaryColor}99` }}>Noches:</span> {lodging.nights}</p>}
+              {showLodgingPrices && getLodgingPrice(lodging) > 0 && (
+                <p style={{ marginTop: '4px', fontWeight: 600, color: primaryColor }}>
+                  Precio: {formatCurrency(getLodgingPrice(lodging))}
+                </p>
+              )}
+            </div>
+          </div>
+          {lodging.notes && (
+            <p 
+              className="rounded"
+              style={{ 
+                marginTop: '6px', 
+                padding: '4px 6px', 
+                fontSize: '10px', 
+                backgroundColor: cardBgColor,
+                color: `${primaryColor}99`,
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }}
+            >
+              {lodging.notes}
+            </p>
+          )}
+        </div>
+      );
+
+      // Split lodgings into chunks that fit within a page
+      const MAX_LODGINGS_PER_CHUNK = Math.floor((HEIGHTS.PAGE_MAX - HEIGHTS.HEADER - HEIGHTS.SECTION_HEADER) / HEIGHTS.LODGING_CARD);
+      const lodgingChunks: typeof mainLodgings[] = [];
+      for (let i = 0; i < mainLodgings.length; i += MAX_LODGINGS_PER_CHUNK) {
+        lodgingChunks.push(mainLodgings.slice(i, i + MAX_LODGINGS_PER_CHUNK));
+      }
+
+      lodgingChunks.forEach((chunk, chunkIdx) => {
+        sections.push({
+          id: `mainLodgings-${chunkIdx}`,
+          height: (chunkIdx === 0 ? HEIGHTS.SECTION_HEADER : 0) + (chunk.length * HEIGHTS.LODGING_CARD),
+          component: (
+            <SectionCard icon={Building2} title={mainLodgings.length > 1 ? "Alojamientos" : "Alojamiento"}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {chunk.map((lodging, index) => renderMainLodgingCard(lodging, chunkIdx * MAX_LODGINGS_PER_CHUNK + index))}
+              </div>
+            </SectionCard>
+          )
+        });
       });
     }
 
