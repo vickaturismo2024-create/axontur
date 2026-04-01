@@ -1,36 +1,59 @@
+# Plan: Generación automática de itinerario con IA + visibilidad correcta
 
+## Resumen
 
-# Fix: PDF cortado en móviles - Solución agresiva
+Agregar un botón "Generar con IA" en el paso de itinerario del QuoteWizard que analiza vuelos, alojamientos, transfers y actividades para crear automáticamente los días del itinerario. Además, agregar un toggle de visibilidad del itinerario tanto en el paso de itinerario (step 10) como en la vista previa (step 11), y asegurar que ese toggle se respete correctamente en todos los renders del PDF.
 
-## Diagnóstico raíz
+## Cambios por archivo
 
-Después de revisar el código en detalle, hay varios problemas que las correcciones anteriores no resolvieron:
+### 1. `supabase/functions/generate-itinerary/index.ts` (nuevo)
 
-1. **Estado inicial `isMobile = false`**: El componente siempre renderiza primero en modo desktop (con `transform: scale()` y `overflow: hidden`). En un teléfono, el primer frame visible muestra el PDF escalado y cortado antes de que el ResizeObserver detecte que es móvil y re-renderice. Esto puede dejar artefactos.
+Edge function que recibe los datos del presupuesto y usa Lovable AI (gemini-3-flash-preview) con tool calling para generar un array estructurado de `ItineraryDay`:
+- Recibe: `{ trip, flights, lodgings, transfers, activities, trains, ferries, cruise }`
+- System prompt en español que instruye al modelo a crear días con `dayNumber`, `date`, `title`, `description`, `activities[]` basándose en fechas reales y servicios cargados
+- Tool calling para obtener salida JSON estructurada
+- Manejo de errores 429/402
 
-2. **Tablas con `overflow-hidden`**: En `PDFDetailsPages.tsx` (línea 171), los contenedores de tablas usan `className="overflow-hidden rounded border"`, lo que recorta contenido que excede el ancho del contenedor.
+### 2. `src/components/quotes/QuoteWizard.tsx`
 
-3. **Estilos inline con tamaños fijos**: Todo el contenido del PDF usa `style={{ fontSize: '11px' }}` directamente en los elementos, que no se puede sobrescribir con CSS (los inline styles tienen prioridad sobre clases CSS). Las reglas `!important` en el CSS solo funcionan para propiedades que NO están definidas inline.
+**Step 10 (Itinerario):**
+- Agregar botón "✨ Generar itinerario con IA" arriba de la lista de días
+- Loading state mientras genera
+- Confirmación si ya hay días cargados antes de reemplazar
+- Toggle switch "Mostrar itinerario en el PDF" que modifica `currentTemplate.sectionsToggles.itinerary` localmente
 
-4. **Cover page con posicionamiento absoluto**: La imagen de fondo usa `absolute inset-0` que necesita un contenedor con altura explícita. El `min-height: 85vh` ayuda pero puede no ser suficiente.
+**Step 11 (Vista Previa):**
+- Agregar el mismo toggle switch "Mostrar itinerario en el PDF" arriba del preview
+- Pasar el template modificado (con el toggle actualizado) al `PDFPreview`
 
-## Solución
+**Estado local:**
+- Nuevo state `itineraryVisible` (inicializado desde `currentTemplate.sectionsToggles.itinerary`)
+- Crear un `previewTemplate` derivado que aplica el override de visibilidad del itinerario
+- Usar `previewTemplate` en lugar de `currentTemplate` en ambos renders de `PDFPreview` (step 11 y panel lateral)
 
-### 1. `src/pages/PublicPDF.tsx` — Detectar móvil desde el inicio
-- Usar `window.innerWidth` para inicializar `isMobile` correctamente desde el primer render, evitando el flash de la versión desktop
-- Eliminar el cálculo de `contentHeight` en modo móvil (no se usa)
+### 3. `src/components/pdf/PDFPreview.tsx`
 
-### 2. `src/index.css` — CSS móvil más agresivo
-- Agregar override para `overflow-hidden` dentro de pdf-mobile-view: `.pdf-mobile-view .pdf-page .overflow-hidden { overflow: visible !important; }`
-- Forzar tamaños de fuente en TODOS los elementos con `*` selector dentro de `.pdf-mobile-view`
-- Asegurar que todos los elementos con `position: absolute` dentro de las páginas se comporten correctamente
+Ya verifica `template.sectionsToggles.itinerary` en línea 30. No requiere cambios — el toggle del QuoteWizard modifica el template que se le pasa, por lo que la visibilidad se aplica automáticamente.
 
-### 3. `src/components/pdf/PDFCoverPage.tsx` — Layout móvil robusto
-- Agregar `min-h-[85vh]` directamente como clase en el componente para que la portada siempre tenga altura suficiente en cualquier dispositivo, independiente de la media query CSS
+### 4. `src/components/pdf/PDFItineraryPages.tsx`
 
-### 4. `src/components/pdf/PDFDetailsPages.tsx` — Quitar overflow-hidden de tablas
-- Cambiar `overflow-hidden` por `overflow-x-auto` en los contenedores de tablas para que en móvil las tablas anchas se puedan scrollear en vez de cortarse
+Ya verifica `template.sectionsToggles.itinerary` internamente. No requiere cambios.
 
-## Resultado esperado
-El PDF se visualiza correctamente desde el primer frame en móviles. No hay contenido cortado. Las tablas anchas se pueden scrollear. La portada siempre tiene altura correcta.
+### 5. `src/pages/ExportPDF.tsx` y `src/pages/PublicPDF.tsx`
 
+Ya renderizan `PDFItineraryPages` y ya pasan el template con `sectionsToggles` desde la base de datos. No requieren cambios — la visibilidad se respeta porque el toggle se guarda como parte del template.
+
+**Nota**: El toggle en el QuoteWizard es local a la sesión de edición. Para que persista, el usuario debe guardarlo desde la configuración de plantillas. Esto es intencional: permite previsualizar con/sin itinerario sin alterar la plantilla permanentemente.
+
+### Sin migración de base de datos
+
+Los `itineraryDays` ya se guardan en la columna existente. No hay cambios de schema.
+
+## Flujo del usuario
+
+1. Carga vuelos, hoteles, transfers, actividades normalmente
+2. En el paso "Itinerario": clic en "Generar con IA" → la IA lee las fechas y servicios y genera los días
+3. Revisa, edita, agrega días extra manualmente
+4. Usa el toggle para decidir si el itinerario aparece en el PDF
+5. En vista previa, puede alternar la visibilidad con el mismo toggle
+6. Al guardar, los días del itinerario se persisten; la visibilidad depende de la plantilla seleccionada
