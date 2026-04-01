@@ -2399,6 +2399,37 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             {/* Itinerario */}
             {currentStep === 10 && (
               <div className="space-y-4">
+                {/* Controles superiores */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Button
+                    onClick={generateItineraryWithAI}
+                    disabled={generatingItinerary}
+                    className="bg-gradient-to-r from-primary to-accent text-primary-foreground"
+                  >
+                    {generatingItinerary ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generar itinerario con IA
+                      </>
+                    )}
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="itinerary-visible"
+                      checked={itineraryVisible}
+                      onCheckedChange={setItineraryVisible}
+                    />
+                    <Label htmlFor="itinerary-visible" className="text-sm">
+                      Mostrar itinerario en el PDF
+                    </Label>
+                  </div>
+                </div>
+
                 {quote.itineraryDays.map((day) => (
                   <Card key={day.id} className="relative">
                     <Button
@@ -2459,14 +2490,26 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
             {/* Vista Previa */}
             {currentStep === 11 && (
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
-                {currentTemplate ? (
-                  <PDFPreview quote={previewQuote} template={currentTemplate} />
-                ) : (
-                  <div className="text-center text-muted-foreground">
-                    <p>No hay plantilla seleccionada</p>
-                  </div>
-                )}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-2">
+                  <Switch
+                    id="itinerary-visible-preview"
+                    checked={itineraryVisible}
+                    onCheckedChange={setItineraryVisible}
+                  />
+                  <Label htmlFor="itinerary-visible-preview" className="text-sm">
+                    Mostrar itinerario en el PDF
+                  </Label>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  {previewTemplate ? (
+                    <PDFPreview quote={previewQuote} template={previewTemplate} />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <p>No hay plantilla seleccionada</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
