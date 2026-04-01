@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Select,
@@ -34,7 +37,9 @@ import {
   Train as TrainIcon,
   Ship,
   Compass,
-  Anchor
+  Anchor,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { defaultTemplate } from '@/data/demoData';
@@ -224,11 +229,28 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   });
   const [showPreviewPanel, setShowPreviewPanel] = useState(false);
   const [transportTab, setTransportTab] = useState('transfers');
+  const [generatingItinerary, setGeneratingItinerary] = useState(false);
+  const [itineraryVisible, setItineraryVisible] = useState(() => {
+    const tpl = templates.find(t => t.id === (initialQuote?.templateId || defaultTemplate?.id)) || defaultTemplate || (templates[0] ?? null);
+    return tpl?.sectionsToggles?.itinerary ?? true;
+  });
   
   // Hook para calcular precios automáticamente (debe estar aquí con los otros hooks)
   const occupancyCalculation = useOccupancyPricingCalculator(quote);
 
   const currentTemplate = templates.find(t => t.id === quote.templateId) || defaultTemplate || (templates[0] ?? null);
+
+  // Template con override de visibilidad del itinerario para preview
+  const previewTemplate = useMemo(() => {
+    if (!currentTemplate) return null;
+    return {
+      ...currentTemplate,
+      sectionsToggles: {
+        ...currentTemplate.sectionsToggles,
+        itinerary: itineraryVisible,
+      },
+    };
+  }, [currentTemplate, itineraryVisible]);
 
   // Generar quote con pricing en vivo para la vista previa del PDF
   const previewQuote = useMemo(() => {
@@ -476,6 +498,49 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     updateQuote({ itineraryDays: updatedDays });
   };
 
+
+  const generateItineraryWithAI = async () => {
+    if (quote.itineraryDays.length > 0) {
+      const confirmed = window.confirm('Ya tenés días cargados. ¿Querés reemplazarlos con el itinerario generado por IA?');
+      if (!confirmed) return;
+    }
+    if (!quote.trip.startDate || !quote.trip.endDate) {
+      toast.error('Necesitás cargar las fechas del viaje para generar el itinerario.');
+      return;
+    }
+    setGeneratingItinerary(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-itinerary', {
+        body: {
+          trip: quote.trip,
+          flights: quote.flights,
+          lodgings: quote.lodgings || [],
+          transfers: quote.transfers,
+          activities: quote.activities || [],
+          trains: quote.trains || [],
+          ferries: quote.ferries || [],
+          cruise: quote.cruise || null,
+        },
+      });
+      if (error) throw new Error(error.message || 'Error al generar el itinerario');
+      if (data?.error) { toast.error(data.error); return; }
+      const days: ItineraryDay[] = (data.days || []).map((day: any, idx: number) => ({
+        id: crypto.randomUUID(),
+        dayNumber: day.dayNumber || idx + 1,
+        date: day.date || '',
+        title: day.title || '',
+        description: day.description || '',
+        activities: day.activities || [],
+      }));
+      updateQuote({ itineraryDays: days });
+      toast.success(`Se generaron ${days.length} días de itinerario`);
+    } catch (err: any) {
+      console.error('Error generating itinerary:', err);
+      toast.error(err.message || 'Error al generar el itinerario con IA');
+    } finally {
+      setGeneratingItinerary(false);
+    }
+  };
 
   const handleSave = () => {
     // Calcular alojamientos para determinar si hay ocupaciones
@@ -2334,6 +2399,37 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             {/* Itinerario */}
             {currentStep === 10 && (
               <div className="space-y-4">
+                {/* Controles superiores */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Button
+                    onClick={generateItineraryWithAI}
+                    disabled={generatingItinerary}
+                    className="bg-gradient-to-r from-primary to-accent text-primary-foreground"
+                  >
+                    {generatingItinerary ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generar itinerario con IA
+                      </>
+                    )}
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="itinerary-visible"
+                      checked={itineraryVisible}
+                      onCheckedChange={setItineraryVisible}
+                    />
+                    <Label htmlFor="itinerary-visible" className="text-sm">
+                      Mostrar itinerario en el PDF
+                    </Label>
+                  </div>
+                </div>
+
                 {quote.itineraryDays.map((day) => (
                   <Card key={day.id} className="relative">
                     <Button
@@ -2394,14 +2490,26 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
             {/* Vista Previa */}
             {currentStep === 11 && (
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
-                {currentTemplate ? (
-                  <PDFPreview quote={previewQuote} template={currentTemplate} />
-                ) : (
-                  <div className="text-center text-muted-foreground">
-                    <p>No hay plantilla seleccionada</p>
-                  </div>
-                )}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-2">
+                  <Switch
+                    id="itinerary-visible-preview"
+                    checked={itineraryVisible}
+                    onCheckedChange={setItineraryVisible}
+                  />
+                  <Label htmlFor="itinerary-visible-preview" className="text-sm">
+                    Mostrar itinerario en el PDF
+                  </Label>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  {previewTemplate ? (
+                    <PDFPreview quote={previewQuote} template={previewTemplate} />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <p>No hay plantilla seleccionada</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -2439,12 +2547,12 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
       </div>
 
       {/* Preview Panel */}
-      {showPreviewPanel && currentTemplate && (
+      {showPreviewPanel && previewTemplate && (
         <div className="hidden w-[400px] shrink-0 lg:block">
           <div className="sticky top-4 rounded-lg border bg-card p-4">
             <h3 className="mb-4 font-serif font-semibold">Vista previa</h3>
             <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
-              <PDFPreview quote={previewQuote} template={currentTemplate} />
+              <PDFPreview quote={previewQuote} template={previewTemplate} />
             </div>
           </div>
         </div>
