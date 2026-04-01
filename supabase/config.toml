@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.scrape-package]
 verify_jwt = false
+
+[functions.generate-itinerary]
+verify_jwt = false
