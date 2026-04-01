@@ -499,6 +499,49 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   };
 
 
+  const generateItineraryWithAI = async () => {
+    if (quote.itineraryDays.length > 0) {
+      const confirmed = window.confirm('Ya tenés días cargados. ¿Querés reemplazarlos con el itinerario generado por IA?');
+      if (!confirmed) return;
+    }
+    if (!quote.trip.startDate || !quote.trip.endDate) {
+      toast.error('Necesitás cargar las fechas del viaje para generar el itinerario.');
+      return;
+    }
+    setGeneratingItinerary(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-itinerary', {
+        body: {
+          trip: quote.trip,
+          flights: quote.flights,
+          lodgings: quote.lodgings || [],
+          transfers: quote.transfers,
+          activities: quote.activities || [],
+          trains: quote.trains || [],
+          ferries: quote.ferries || [],
+          cruise: quote.cruise || null,
+        },
+      });
+      if (error) throw new Error(error.message || 'Error al generar el itinerario');
+      if (data?.error) { toast.error(data.error); return; }
+      const days: ItineraryDay[] = (data.days || []).map((day: any, idx: number) => ({
+        id: crypto.randomUUID(),
+        dayNumber: day.dayNumber || idx + 1,
+        date: day.date || '',
+        title: day.title || '',
+        description: day.description || '',
+        activities: day.activities || [],
+      }));
+      updateQuote({ itineraryDays: days });
+      toast.success(`Se generaron ${days.length} días de itinerario`);
+    } catch (err: any) {
+      console.error('Error generating itinerary:', err);
+      toast.error(err.message || 'Error al generar el itinerario con IA');
+    } finally {
+      setGeneratingItinerary(false);
+    }
+  };
+
   const handleSave = () => {
     // Calcular alojamientos para determinar si hay ocupaciones
 
