@@ -53,7 +53,7 @@ const ExportPDF = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>
-          <PDFShareMenu quote={quote} template={template} onPrint={handlePrint} onSetExpiry={handleSetExpiry} />
+          <PDFShareMenu quote={quote} template={template} onPrint={handlePrint} onSetExpiry={handleSetExpiry} pdfContainerSelector="#pdf-export-container" />
         </div>
       </div>
 
