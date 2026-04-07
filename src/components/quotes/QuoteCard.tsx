@@ -28,7 +28,7 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> =
   expired: { label: 'Vencido', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
-export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange }: QuoteCardProps) {
+export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange, onToggleArchive, onToggleFavorite }: QuoteCardProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
