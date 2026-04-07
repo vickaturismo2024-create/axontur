@@ -112,8 +112,15 @@ const Templates = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (id === 'default') { alert('No se puede eliminar la plantilla predeterminada'); return; }
-    if (confirm('¿Estás seguro de eliminar esta plantilla?')) deleteTemplate(id);
+    if (id === 'default') { toast.error('No se puede eliminar la plantilla predeterminada'); return; }
+    setDeleteTargetId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTargetId) {
+      deleteTemplate(deleteTargetId);
+      setDeleteTargetId(null);
+    }
   };
 
   const handleSave = () => {
