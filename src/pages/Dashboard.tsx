@@ -1,78 +1,81 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { useQuotes } from '@/contexts/QuotesContext';
-import { Quote } from '@/types/quote';
+import { Quote, QuoteStatus } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  Plus, 
-  Search, 
-  Plane,
-  FileText,
-  Users,
-  Link
+  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle
 } from 'lucide-react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
 import { defaultTemplate } from '@/data/demoData';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { quotes, templates, duplicateQuote, deleteQuote, isLoading, getDefaultTemplate } = useQuotes();
+  const { quotes, templates, duplicateQuote, deleteQuote, updateQuote, isLoading, getDefaultTemplate } = useQuotes();
   const [searchQuery, setSearchQuery] = useState('');
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Metrics
+  const metrics = useMemo(() => {
+    const now = new Date();
+    const thisMonth = quotes.filter(q => {
+      const d = new Date(q.createdAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    const totalValue = quotes.reduce((sum, q) => sum + (q.pricing.totalPrice || 0), 0);
+    const totalCost = quotes.reduce((sum, q) => sum + (q.pricing.totalCost || 0), 0);
+    const avgMargin = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+    const approved = quotes.filter(q => q.status === 'approved').length;
+    const approvalRate = quotes.length > 0 ? (approved / quotes.length) * 100 : 0;
+    return { total: quotes.length, totalValue, avgMargin, thisMonth: thisMonth.length, approvalRate };
+  }, [quotes]);
 
   const filteredQuotes = quotes.filter(quote => {
     const query = searchQuery.toLowerCase();
-    return (
-      quote.client.name.toLowerCase().includes(query) ||
-      quote.trip.destination.toLowerCase().includes(query)
-    );
+    const matchesSearch = quote.client.name.toLowerCase().includes(query) || quote.trip.destination.toLowerCase().includes(query);
+    const matchesStatus = statusFilter === 'all' || (quote.status || 'draft') === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
-  const handleEdit = (quote: Quote) => {
-    navigate(`/quote/${quote.id}`);
-  };
+  const handleEdit = (quote: Quote) => navigate(`/quote/${quote.id}`);
 
   const handleDuplicate = async (id: string) => {
-    try {
-      const newQuote = await duplicateQuote(id);
-      navigate(`/quote/${newQuote.id}`);
-    } catch (error) {
-      console.error('Error duplicating quote:', error);
+    try { const nq = await duplicateQuote(id); navigate(`/quote/${nq.id}`); } catch (e) { console.error(e); }
+  };
+
+  const handleDelete = (id: string) => setDeleteTargetId(id);
+
+  const confirmDelete = async () => {
+    if (deleteTargetId) {
+      try { await deleteQuote(deleteTargetId); } catch (e) { console.error(e); }
+      setDeleteTargetId(null);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este presupuesto?')) {
-      try {
-        await deleteQuote(id);
-      } catch (error) {
-        console.error('Error deleting quote:', error);
-      }
+  const handleStatusChange = async (id: string, status: QuoteStatus) => {
+    const quote = quotes.find(q => q.id === id);
+    if (quote) {
+      try { await updateQuote({ ...quote, status }); } catch (e) { console.error(e); }
     }
   };
 
-  const handlePreview = (quote: Quote) => {
-    setPreviewQuote(quote);
-  };
+  const handlePreview = (quote: Quote) => setPreviewQuote(quote);
+  const handleExport = (quote: Quote) => navigate(`/export/${quote.id}`);
 
-  const handleExport = (quote: Quote) => {
-    navigate(`/export/${quote.id}`);
-  };
-
-  const getTemplate = (templateId: string) => {
-    return templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
-  };
+  const getTemplate = (templateId: string) => templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
 
   if (isLoading) {
     return (
@@ -91,76 +94,78 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
       <main className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <div className="mb-8 rounded-2xl bg-gradient-to-br from-primary via-navy-light to-primary p-8 text-primary-foreground shadow-xl">
           <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div>
-              <h1 className="font-serif text-3xl font-bold md:text-4xl">
-                Generador de Presupuestos
-              </h1>
-              <p className="mt-2 text-primary-foreground/80">
-                Crea presupuestos de viaje profesionales en minutos
-              </p>
+              <h1 className="font-serif text-3xl font-bold md:text-4xl">Generador de Presupuestos</h1>
+              <p className="mt-2 text-primary-foreground/80">Crea presupuestos de viaje profesionales en minutos</p>
             </div>
             <div className="flex gap-3">
-              <Button 
-                onClick={() => setImportDialogOpen(true)}
-                variant="outline"
-                size="lg"
-                className="border-primary-foreground/30 text-primary-foreground hover:bg-white/10"
-              >
-                <Link className="mr-2 h-5 w-5" />
-                Importar desde URL
+              <Button onClick={() => setImportDialogOpen(true)} variant="outline" size="lg" className="border-primary-foreground/30 text-primary-foreground hover:bg-white/10">
+                <Link className="mr-2 h-5 w-5" />Importar desde URL
               </Button>
-              <Button 
-                onClick={() => navigate('/quote/new')}
-                className="bg-gold text-navy hover:bg-gold/90 shadow-gold"
-                size="lg"
-              >
-                <Plus className="mr-2 h-5 w-5" />
-                Nuevo Presupuesto
+              <Button onClick={() => navigate('/quote/new')} className="bg-gold text-navy hover:bg-gold/90 shadow-gold" size="lg">
+                <Plus className="mr-2 h-5 w-5" />Nuevo Presupuesto
               </Button>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="mt-8 grid grid-cols-3 gap-4">
+          {/* Metrics */}
+          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-5">
             <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-gold" />
-                <span className="text-2xl font-bold">{quotes.length}</span>
+                <span className="text-2xl font-bold">{metrics.total}</span>
               </div>
               <p className="mt-1 text-sm text-primary-foreground/70">Presupuestos</p>
             </div>
             <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-gold" />
-                <span className="text-2xl font-bold">{new Set(quotes.map(q => q.client.name)).size}</span>
+                <DollarSign className="h-5 w-5 text-gold" />
+                <span className="text-lg font-bold">${metrics.totalValue.toLocaleString()}</span>
               </div>
-              <p className="mt-1 text-sm text-primary-foreground/70">Clientes</p>
+              <p className="mt-1 text-sm text-primary-foreground/70">Valor total</p>
             </div>
             <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2">
-                <Plane className="h-5 w-5 text-gold" />
-                <span className="text-2xl font-bold">{new Set(quotes.map(q => q.trip.destination)).size}</span>
+                <TrendingUp className="h-5 w-5 text-gold" />
+                <span className="text-2xl font-bold">{metrics.avgMargin.toFixed(1)}%</span>
               </div>
-              <p className="mt-1 text-sm text-primary-foreground/70">Destinos</p>
+              <p className="mt-1 text-sm text-primary-foreground/70">Margen prom.</p>
+            </div>
+            <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-5 w-5 text-gold" />
+                <span className="text-2xl font-bold">{metrics.thisMonth}</span>
+              </div>
+              <p className="mt-1 text-sm text-primary-foreground/70">Este mes</p>
+            </div>
+            <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-gold" />
+                <span className="text-2xl font-bold">{metrics.approvalRate.toFixed(0)}%</span>
+              </div>
+              <p className="mt-1 text-sm text-primary-foreground/70">Aprobados</p>
             </div>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="mb-6">
+        {/* Status Tabs + Search */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+            <TabsList>
+              <TabsTrigger value="all">Todos</TabsTrigger>
+              <TabsTrigger value="draft">Borrador</TabsTrigger>
+              <TabsTrigger value="sent">Enviados</TabsTrigger>
+              <TabsTrigger value="approved">Aprobados</TabsTrigger>
+              <TabsTrigger value="expired">Vencidos</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por cliente o destino..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+            <Input placeholder="Buscar por cliente o destino..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
         </div>
 
@@ -168,35 +173,20 @@ const Dashboard = () => {
         {filteredQuotes.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredQuotes.map((quote) => (
-              <QuoteCard
-                key={quote.id}
-                quote={quote}
-                onEdit={handleEdit}
-                onDuplicate={handleDuplicate}
-                onDelete={handleDelete}
-                onPreview={handlePreview}
-                onExport={handleExport}
-              />
+              <QuoteCard key={quote.id} quote={quote} onEdit={handleEdit} onDuplicate={handleDuplicate}
+                onDelete={handleDelete} onPreview={handlePreview} onExport={handleExport} onStatusChange={handleStatusChange} />
             ))}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 rounded-full bg-muted p-6">
-              <Plane className="h-12 w-12 text-muted-foreground" />
-            </div>
+            <div className="mb-4 rounded-full bg-muted p-6"><Plane className="h-12 w-12 text-muted-foreground" /></div>
             <h3 className="font-serif text-xl font-semibold">No hay presupuestos</h3>
             <p className="mt-2 text-muted-foreground">
-              {searchQuery 
-                ? 'No se encontraron resultados para tu búsqueda'
-                : 'Crea tu primer presupuesto de viaje'}
+              {searchQuery ? 'No se encontraron resultados para tu búsqueda' : 'Crea tu primer presupuesto de viaje'}
             </p>
             {!searchQuery && (
-              <Button 
-                onClick={() => navigate('/quote/new')}
-                className="mt-4 bg-primary"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Crear Presupuesto
+              <Button onClick={() => navigate('/quote/new')} className="mt-4 bg-primary">
+                <Plus className="mr-2 h-4 w-4" />Crear Presupuesto
               </Button>
             )}
           </div>
@@ -207,27 +197,29 @@ const Dashboard = () => {
       <Dialog open={!!previewQuote} onOpenChange={() => setPreviewQuote(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle className="font-serif">
-              Vista Previa - {previewQuote?.trip.destination}
-            </DialogTitle>
+            <DialogTitle className="font-serif">Vista Previa - {previewQuote?.trip.destination}</DialogTitle>
           </DialogHeader>
-          {previewQuote && (
-            <PDFPreview 
-              quote={previewQuote} 
-              template={getTemplate(previewQuote.templateId)} 
-            />
-          )}
+          {previewQuote && <PDFPreview quote={previewQuote} template={getTemplate(previewQuote.templateId)} />}
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar presupuesto</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer. ¿Estás seguro de que querés eliminar este presupuesto?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Import URL Dialog */}
-      <ImportURLDialog
-        open={importDialogOpen}
-        onOpenChange={setImportDialogOpen}
-        onImport={(data) => {
-          navigate('/quote/new', { state: { importedData: data } });
-        }}
-      />
+      <ImportURLDialog open={importDialogOpen} onOpenChange={setImportDialogOpen}
+        onImport={(data) => navigate('/quote/new', { state: { importedData: data } })} />
     </div>
   );
 };
