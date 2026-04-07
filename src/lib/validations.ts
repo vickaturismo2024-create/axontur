@@ -131,6 +131,7 @@ export const trainSchema = z.object({
   class: z.string().default(''),
   seat: z.string().default(''),
   notes: z.string().default(''),
+  included: z.boolean().default(true),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
 });
