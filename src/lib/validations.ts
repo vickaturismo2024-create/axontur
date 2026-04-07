@@ -453,6 +453,9 @@ export const quoteSchema = z.object({
   insurance: insuranceSchema.default({}),
   pricing: pricingSchema.default({}),
   itineraryDays: z.array(itineraryDaySchema).default([]),
+  status: z.enum(['draft', 'sent', 'approved', 'expired']).default('draft'),
+  internalNotes: z.string().default(''),
+  publicLinkExpiry: z.string().optional(),
 });
 
 // WhatsApp Agent validation - no length restrictions
