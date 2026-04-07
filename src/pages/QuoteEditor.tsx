@@ -113,6 +113,7 @@ const QuoteEditor = () => {
 
   const existingQuote = id !== 'new' ? quotes.find(q => q.id === id) : undefined;
   const importedData = (location.state as any)?.importedData;
+  const { saveVersion } = useQuoteVersions(existingQuote?.id);
 
   const importedQuote = useMemo(() => {
     if (!importedData || existingQuote) return undefined;
