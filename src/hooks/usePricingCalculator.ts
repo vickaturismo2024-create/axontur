@@ -64,7 +64,8 @@ export function usePricingCalculator(quote: Quote): PricingCalculation {
     });
 
     // Sum activities
-    (quote.activities || []).forEach(a => {
+    // Sum activities (only included ones count toward total)
+    (quote.activities || []).filter(a => a.included).forEach(a => {
       breakdown.activities.cost += a.cost || 0;
       breakdown.activities.price += a.price || 0;
     });

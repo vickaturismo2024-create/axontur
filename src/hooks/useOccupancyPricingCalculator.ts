@@ -497,7 +497,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     });
 
     // Sumar actividades
-    (quote.activities || []).forEach(a => {
+    (quote.activities || []).filter(a => a.included).forEach(a => {
       breakdown.activities.cost += a.cost || 0;
       breakdown.activities.price += a.price || 0;
     });
