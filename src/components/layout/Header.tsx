@@ -26,6 +26,7 @@ export function Header() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const quotesContext = useQuotesSafe();
+  const { theme, toggleTheme } = useTheme();
   const defaultTemplate = quotesContext?.getDefaultTemplate();
   const agencyName = defaultTemplate?.agencyName || 'Generador de Presupuestos';
 
