@@ -35,7 +35,11 @@ const Dashboard = () => {
       const d = new Date(q.createdAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const totalValue = quotes.reduce((sum, q) => sum + (q.pricing.totalPrice || 0), 0);
+    const totalsByCurrency: Record<string, number> = {};
+    quotes.forEach(q => {
+      const currency = (q.trip as any).currency || 'USD';
+      totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + (q.pricing.totalPrice || 0);
+    });
     const quotesWithMargin = quotes.filter(q => (q.pricing.totalCost || 0) > 0 && (q.pricing.totalPrice || 0) > 0);
     const avgMargin = quotesWithMargin.length > 0
       ? quotesWithMargin.reduce((sum, q) => {
