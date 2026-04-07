@@ -35,7 +35,11 @@ const Dashboard = () => {
       const d = new Date(q.createdAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const totalValue = quotes.reduce((sum, q) => sum + (q.pricing.totalPrice || 0), 0);
+    const totalsByCurrency: Record<string, number> = {};
+    quotes.forEach(q => {
+      const currency = (q.trip as any).currency || 'USD';
+      totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + (q.pricing.totalPrice || 0);
+    });
     const quotesWithMargin = quotes.filter(q => (q.pricing.totalCost || 0) > 0 && (q.pricing.totalPrice || 0) > 0);
     const avgMargin = quotesWithMargin.length > 0
       ? quotesWithMargin.reduce((sum, q) => {
@@ -46,7 +50,7 @@ const Dashboard = () => {
       : 0;
     const approved = quotes.filter(q => q.status === 'approved').length;
     const approvalRate = quotes.length > 0 ? (approved / quotes.length) * 100 : 0;
-    return { total: quotes.length, totalValue, avgMargin, thisMonth: thisMonth.length, approvalRate };
+    return { total: quotes.length, totalsByCurrency, avgMargin, thisMonth: thisMonth.length, approvalRate };
   }, [quotes]);
 
   const filteredQuotes = quotes.filter(quote => {
@@ -130,7 +134,17 @@ const Dashboard = () => {
             <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-gold" />
-                <span className="text-lg font-bold">${metrics.totalValue.toLocaleString()}</span>
+                <div className="flex flex-col">
+                  {Object.entries(metrics.totalsByCurrency).length > 0 ? (
+                    Object.entries(metrics.totalsByCurrency).map(([currency, value]) => (
+                      <span key={currency} className="text-lg font-bold leading-tight">
+                        {currency} ${value.toLocaleString()}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-lg font-bold">USD $0</span>
+                  )}
+                </div>
               </div>
               <p className="mt-1 text-sm text-primary-foreground/70">Valor total</p>
             </div>
