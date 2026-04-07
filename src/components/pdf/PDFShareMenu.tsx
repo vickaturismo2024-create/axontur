@@ -16,9 +16,10 @@ interface PDFShareMenuProps {
   pdfContainerSelector?: string;
 }
 
-export function PDFShareMenu({ quote, template, onPrint, onSetExpiry }: PDFShareMenuProps) {
+export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContainerSelector }: PDFShareMenuProps) {
   const agencyName = template?.agencyName || template?.name || 'Mi Agencia';
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const getShareUrl = () => `${window.location.origin}/pdf/${quote.id}`;
 
