@@ -498,4 +498,14 @@ export interface Quote {
   status?: QuoteStatus;
   internalNotes?: string;
   publicLinkExpiry?: string;
+  archived?: boolean;
+  favorited?: boolean;
+}
+
+export interface QuoteVersion {
+  id: string;
+  quoteId: string;
+  versionNumber: number;
+  data: any;
+  createdAt: string;
 }
