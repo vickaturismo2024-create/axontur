@@ -78,6 +78,9 @@ const dbToQuote = (row: any): Quote => ({
   insurance: row.insurance || {},
   pricing: row.pricing || {},
   itineraryDays: row.itinerary_days || [],
+  status: row.status || 'draft',
+  internalNotes: row.pricing?.internalNotes || '',
+  publicLinkExpiry: row.pricing?.publicLinkExpiry || undefined,
 });
 
 // Helper to convert Quote to DB row
