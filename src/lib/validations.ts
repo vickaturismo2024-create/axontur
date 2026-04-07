@@ -456,6 +456,8 @@ export const quoteSchema = z.object({
   status: z.enum(['draft', 'sent', 'approved', 'expired']).default('draft'),
   internalNotes: z.string().default(''),
   publicLinkExpiry: z.string().optional(),
+  archived: z.boolean().default(false),
+  favorited: z.boolean().default(false),
 });
 
 // WhatsApp Agent validation - no length restrictions
