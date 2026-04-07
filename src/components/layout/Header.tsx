@@ -1,4 +1,4 @@
-import { Plane, Menu, LogOut, User } from 'lucide-react';
+import { Plane, Menu, LogOut, User, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
@@ -12,6 +12,7 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuotesSafe } from '@/contexts/QuotesContext';
+import { useTheme } from '@/hooks/useTheme';
 import { toast } from 'sonner';
 
 const navItems = [
