@@ -1092,9 +1092,14 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                     >
                       {activity.included ? 'Incluida' : 'Opcional'}
                     </span>
-                    {showActivityPrices && activity.price !== undefined && activity.price > 0 && (
+                    {showActivityPrices && activity.included && activity.price !== undefined && activity.price > 0 && (
                       <p style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: primaryColor }}>
                         {formatCurrency(activity.price)}
+                      </p>
+                    )}
+                    {!activity.included && activity.price !== undefined && activity.price > 0 && (
+                      <p style={{ marginTop: '4px', fontSize: '10px', fontWeight: 500, color: primaryColor }}>
+                        Precio aparte: {formatCurrency(activity.price)}
                       </p>
                     )}
                   </div>
