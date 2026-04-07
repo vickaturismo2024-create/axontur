@@ -81,6 +81,8 @@ const dbToQuote = (row: any): Quote => ({
   status: row.status || 'draft',
   internalNotes: row.pricing?.internalNotes || '',
   publicLinkExpiry: row.pricing?.publicLinkExpiry || undefined,
+  archived: row.archived || false,
+  favorited: row.favorited || false,
 });
 
 // Helper to convert Quote to DB row
