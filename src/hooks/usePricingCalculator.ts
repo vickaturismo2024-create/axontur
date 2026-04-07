@@ -39,8 +39,8 @@ export function usePricingCalculator(quote: Quote): PricingCalculation {
       breakdown.flights.price += f.price || 0;
     });
 
-    // Sum transfers
-    quote.transfers.forEach(t => {
+    // Sum transfers (only included ones count toward total)
+    quote.transfers.filter(t => t.included).forEach(t => {
       breakdown.transfers.cost += t.cost || 0;
       breakdown.transfers.price += t.price || 0;
     });
@@ -64,7 +64,8 @@ export function usePricingCalculator(quote: Quote): PricingCalculation {
     });
 
     // Sum activities
-    (quote.activities || []).forEach(a => {
+    // Sum activities (only included ones count toward total)
+    (quote.activities || []).filter(a => a.included).forEach(a => {
       breakdown.activities.cost += a.cost || 0;
       breakdown.activities.price += a.price || 0;
     });

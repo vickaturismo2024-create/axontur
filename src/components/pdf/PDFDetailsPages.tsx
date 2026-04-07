@@ -812,7 +812,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
     // Transfers section
     if (template.sectionsToggles.transfers && quote.transfers.length > 0) {
       const showTransferPrices = showItemPrices && itemPricesConfig.transfers;
-      const transfersTotalPrice = quote.transfers.reduce((sum, t) => sum + (t.price || 0), 0);
+      const transfersTotalPrice = quote.transfers.filter(t => t.included).reduce((sum, t) => sum + (t.price || 0), 0);
       
       sections.push({
         id: 'transfers',
@@ -827,8 +827,13 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                     {transfer.dateTime && <span style={{ marginLeft: '6px', color: `${primaryColor}80` }}>({transfer.dateTime})</span>}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {showTransferPrices && formatCurrency(transfer.price) && (
+                    {showTransferPrices && transfer.included && formatCurrency(transfer.price) && (
                       <span style={{ fontWeight: 500 }}>{formatCurrency(transfer.price)}</span>
+                    )}
+                    {!transfer.included && transfer.price > 0 && (
+                      <span style={{ fontWeight: 500, fontSize: '10px', color: primaryColor }}>
+                        Precio aparte: {formatCurrency(transfer.price)}
+                      </span>
                     )}
                     <span 
                       className="rounded"
@@ -1034,7 +1039,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
     // Activities section
     if ((template.sectionsToggles?.activities !== false) && quote.activities && quote.activities.length > 0) {
       const showActivityPrices = showItemPrices && itemPricesConfig.activities;
-      const activitiesTotalPrice = quote.activities.reduce((sum, a) => sum + (a.price || 0), 0);
+      const activitiesTotalPrice = quote.activities.filter(a => a.included).reduce((sum, a) => sum + (a.price || 0), 0);
       
       sections.push({
         id: 'activities',
@@ -1087,9 +1092,14 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                     >
                       {activity.included ? 'Incluida' : 'Opcional'}
                     </span>
-                    {showActivityPrices && activity.price !== undefined && activity.price > 0 && (
+                    {showActivityPrices && activity.included && activity.price !== undefined && activity.price > 0 && (
                       <p style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: primaryColor }}>
                         {formatCurrency(activity.price)}
+                      </p>
+                    )}
+                    {!activity.included && activity.price !== undefined && activity.price > 0 && (
+                      <p style={{ marginTop: '4px', fontSize: '10px', fontWeight: 500, color: primaryColor }}>
+                        Precio aparte: {formatCurrency(activity.price)}
                       </p>
                     )}
                   </div>
