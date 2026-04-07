@@ -1,132 +1,38 @@
 
 
-# Plan: Optimización completa de la app — Todas las prioridades
+# Plan: Corregir bugs encontrados en la prueba E2E
 
-## Resumen
+## Bugs identificados
 
-Implementar las 7 mejoras identificadas: refactorizar QuoteWizard, agregar toggle `included` a trenes/ferrys/autos, reemplazar `confirm()` por AlertDialog, agregar estados de presupuesto, métricas en dashboard, links con vencimiento, y notas internas.
+### Bug 1: Margen promedio inflado (879%)
+**Archivo**: `src/pages/Dashboard.tsx` (línea 40)
+**Problema**: La fórmula `(totalValue - totalCost) / totalCost * 100` suma todos los presupuestos, incluyendo los que tienen costo 0 o null. Esto infla el margen enormemente.
+**Solución**: Calcular el margen individualmente por presupuesto (solo donde cost > 0 y totalPrice > 0), y promediar esos márgenes.
 
----
+### Bug 2: forwardRef warnings en Header
+**Archivo**: `src/components/layout/Header.tsx`
+**Problema**: Componentes funcionales reciben refs sin usar `React.forwardRef()`, generando warnings en consola.
+**Solución**: Identificar el componente que recibe ref en Header y envolverlo con `forwardRef`.
 
-## 1. Refactorizar QuoteWizard (Prioridad Alta)
+### Bug 3: Tren "no incluido" no muestra precio aparte en PDF
+**Archivo**: `src/components/pdf/PDFDetailsPages.tsx`
+**Problema**: Cuando un tren tiene `included: false`, el PDF lo muestra pero no indica que es opcional ni su precio aparte (USD 150).
+**Solución**: Agregar badge "Opcional" y texto "Precio aparte: USD X" para trenes/ferrys/autos con `included: false`, igual que ya se hace para transfers.
 
-Extraer cada paso del wizard en su propio componente. El archivo actual tiene 2562 líneas.
+## Archivos a modificar
 
-**Nuevos archivos:**
-- `src/components/quotes/steps/ClientStep.tsx` — Datos del cliente
-- `src/components/quotes/steps/TripStep.tsx` — Datos del viaje
-- `src/components/quotes/steps/CoverStep.tsx` — Portada
-- `src/components/quotes/steps/FlightsStep.tsx` — Vuelos
-- `src/components/quotes/steps/LodgingStep.tsx` — Alojamientos
-- `src/components/quotes/steps/TransportStep.tsx` — Traslados, trenes, ferrys, autos
-- `src/components/quotes/steps/ActivitiesStep.tsx` — Actividades
-- `src/components/quotes/steps/CruiseStep.tsx` — Crucero
-- `src/components/quotes/steps/InsuranceStep.tsx` — Seguro
-- `src/components/quotes/steps/ItineraryStep.tsx` — Itinerario
-- `src/components/quotes/steps/PricingStep.tsx` — Precios y resumen
-- `src/components/quotes/steps/PreviewStep.tsx` — Vista previa
+1. `src/pages/Dashboard.tsx` — Fix cálculo de margen promedio
+2. `src/components/layout/Header.tsx` — Fix forwardRef warning
+3. `src/components/pdf/PDFDetailsPages.tsx` — Mostrar precio aparte para transportes no incluidos
 
-Cada componente recibe el quote parcial y callbacks `onChange` para actualizar el estado. El `QuoteWizard.tsx` queda como orquestador (~300 líneas): maneja estado global, navegación entre pasos y el botón guardar.
+## Lo que funcionó correctamente
 
----
-
-## 2. Toggle `included` en Trenes, Ferrys y Autos de alquiler (Prioridad Alta)
-
-**Tipos** (`src/types/quote.ts`):
-- Agregar `included: boolean` a `Train`, `Ferry` y `RentalCar`
-
-**Calculadores de precios** (`usePricingCalculator.ts` y `useOccupancyPricingCalculator.ts`):
-- Filtrar por `.filter(t => t.included)` antes de sumar trains, ferries y rentalCars
-
-**UI** (en `TransportStep.tsx` post-refactor):
-- Agregar Switch "Incluido en el precio" igual que transfers y activities
-
-**PDF** (`PDFDetailsPages.tsx`):
-- Mostrar badge "Opcional" y "Precio aparte: $X" para trenes/ferrys/autos con `included: false`
-
-**Defaults**: `included` defaultea a `true` en formularios y en `buildQuoteFromImport`
-
----
-
-## 3. Reemplazar `confirm()` por AlertDialog (Prioridad Media)
-
-**Archivo**: `src/pages/Dashboard.tsx`
-
-Reemplazar `if (confirm('¿Estás seguro...'))` por un `AlertDialog` de shadcn/ui con:
-- Título: "Eliminar presupuesto"
-- Descripción: "Esta acción no se puede deshacer. ¿Estás seguro?"
-- Botones: "Cancelar" / "Eliminar" (destructive)
-
-Estado local `deleteTargetId` para controlar qué presupuesto se elimina.
-
----
-
-## 4. Estados/workflow de presupuestos (Prioridad Media)
-
-**Tipo** (`src/types/quote.ts`):
-- Agregar `status?: 'draft' | 'sent' | 'approved' | 'expired'` a `Quote`
-
-**Contexto** (`QuotesContext.tsx`):
-- Mapear `status` en `dbToQuote` / `quoteToDb` (ya vive dentro del JSON de `pricing` o como campo top-level en el JSON — sin migración DB, se almacena dentro del objeto quote existente)
-
-**Migración DB**: Agregar columna `status text default 'draft'` a la tabla `quotes`
-
-**Dashboard**:
-- Badge de color por estado en `QuoteCard`
-- Filtro por estado (tabs o dropdown) arriba de la grilla
-- Botón "Marcar como enviado/aprobado" en el menú de acciones de cada card
-
----
-
-## 5. Métricas en Dashboard (Prioridad Media)
-
-Reemplazar las 3 stats actuales (Presupuestos, Clientes, Destinos) por 5 métricas más útiles:
-- Total presupuestos
-- Valor total cotizado (suma de `totalPrice`)
-- Margen promedio (%)
-- Presupuestos este mes
-- Tasa de aprobación (aprobados / total)
-
-Las métricas se calculan client-side desde el array `quotes`.
-
----
-
-## 6. Links públicos con vencimiento (Prioridad Baja)
-
-**Tipo**: Agregar `publicLinkExpiry?: string` (ISO date) a `Quote`
-
-**Edge Function** (`get-public-quote`): Verificar `publicLinkExpiry` — si expiró, retornar 410 Gone
-
-**UI**: En el menú de compartir (`PDFShareMenu`), agregar selector de vencimiento (24h, 7 días, 30 días, sin vencimiento)
-
-**Migración DB**: No necesaria (se guarda en el JSON del quote o como columna nueva)
-
----
-
-## 7. Notas internas por presupuesto (Prioridad Baja)
-
-**Tipo**: Agregar `internalNotes?: string` a `Quote`
-
-**UI**: Campo de texto en el QuoteWizard (en el paso de Precios o como paso separado), con label "Notas internas (no visibles en el PDF)"
-
-**Contexto**: Mapear en `dbToQuote` / `quoteToDb`
-
-No se renderiza en ningún componente PDF.
-
----
-
-## Orden de implementación
-
-1. Refactorizar QuoteWizard en componentes (base para todo lo demás)
-2. Toggle `included` en trenes/ferrys/autos
-3. AlertDialog para eliminar
-4. Campo `status` + badges + filtros en dashboard
-5. Métricas en dashboard
-6. Notas internas
-7. Links con vencimiento
-
-## Impacto en base de datos
-
-- Una migración: agregar columna `status text default 'draft'` a `quotes`
-- El resto de campos nuevos se almacenan en los JSON existentes
+- Creación de presupuesto con todos los datos
+- Toggle "Incluido en el paquete" visible y funcional en trenes
+- Cálculo automático excluye correctamente el tren no incluido (total USD 950, no 1100)
+- Transición de estados: Borrador → Enviado → Aprobado
+- Badges de estado con colores correctos
+- Menú de compartir con opciones de vencimiento
+- Exportación PDF con portada y datos
+- Métricas de aprobados se actualizan (0% → 3%)
 
