@@ -473,7 +473,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     });
 
     // Sumar transfers
-    quote.transfers.forEach(t => {
+    quote.transfers.filter(t => t.included).forEach(t => {
       breakdown.transfers.cost += t.cost || 0;
       breakdown.transfers.price += t.price || 0;
     });
