@@ -1,38 +1,29 @@
 
 
-# Plan: Corregir bugs encontrados en la prueba E2E
+# Plan: Separar "Valor total" por moneda (ARS y USD)
 
-## Bugs identificados
+## Cambio
 
-### Bug 1: Margen promedio inflado (879%)
-**Archivo**: `src/pages/Dashboard.tsx` (línea 40)
-**Problema**: La fórmula `(totalValue - totalCost) / totalCost * 100` suma todos los presupuestos, incluyendo los que tienen costo 0 o null. Esto infla el margen enormemente.
-**Solución**: Calcular el margen individualmente por presupuesto (solo donde cost > 0 y totalPrice > 0), y promediar esos márgenes.
+Modificar el cálculo de métricas y la UI en `src/pages/Dashboard.tsx` para agrupar el valor total por moneda (`quote.trip.currency`).
 
-### Bug 2: forwardRef warnings en Header
-**Archivo**: `src/components/layout/Header.tsx`
-**Problema**: Componentes funcionales reciben refs sin usar `React.forwardRef()`, generando warnings en consola.
-**Solución**: Identificar el componente que recibe ref en Header y envolverlo con `forwardRef`.
+## Detalle técnico
 
-### Bug 3: Tren "no incluido" no muestra precio aparte en PDF
-**Archivo**: `src/components/pdf/PDFDetailsPages.tsx`
-**Problema**: Cuando un tren tiene `included: false`, el PDF lo muestra pero no indica que es opcional ni su precio aparte (USD 150).
-**Solución**: Agregar badge "Opcional" y texto "Precio aparte: USD X" para trenes/ferrys/autos con `included: false`, igual que ya se hace para transfers.
+**Cálculo** (líneas ~38): En lugar de un solo `totalValue`, agrupar por moneda:
+```typescript
+const totalsByCurrency: Record<string, number> = {};
+quotes.forEach(q => {
+  const currency = q.trip.currency || 'USD';
+  totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + (q.pricing.totalPrice || 0);
+});
+```
 
-## Archivos a modificar
+**UI** (líneas ~130-136): Reemplazar la card única de "Valor total" por una que muestre ambas líneas:
+- `USD $X,XXX` 
+- `ARS $X,XXX`
 
-1. `src/pages/Dashboard.tsx` — Fix cálculo de margen promedio
-2. `src/components/layout/Header.tsx` — Fix forwardRef warning
-3. `src/components/pdf/PDFDetailsPages.tsx` — Mostrar precio aparte para transportes no incluidos
+Si solo hay una moneda, mostrar solo esa. Usar el símbolo `$` con prefijo de moneda para claridad.
 
-## Lo que funcionó correctamente
+## Archivo a modificar
 
-- Creación de presupuesto con todos los datos
-- Toggle "Incluido en el paquete" visible y funcional en trenes
-- Cálculo automático excluye correctamente el tren no incluido (total USD 950, no 1100)
-- Transición de estados: Borrador → Enviado → Aprobado
-- Badges de estado con colores correctos
-- Menú de compartir con opciones de vencimiento
-- Exportación PDF con portada y datos
-- Métricas de aprobados se actualizan (0% → 3%)
+1. `src/pages/Dashboard.tsx` — Cálculo de métricas + renderizado de la card "Valor total"
 
