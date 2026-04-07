@@ -478,20 +478,20 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       breakdown.transfers.price += t.price || 0;
     });
 
-    // Sumar trenes
-    (quote.trains || []).forEach(t => {
+    // Sumar trenes (solo incluidos)
+    (quote.trains || []).filter(t => t.included !== false).forEach(t => {
       breakdown.trains.cost += t.cost || 0;
       breakdown.trains.price += t.price || 0;
     });
 
-    // Sumar ferries
-    (quote.ferries || []).forEach(f => {
+    // Sumar ferries (solo incluidos)
+    (quote.ferries || []).filter(f => f.included !== false).forEach(f => {
       breakdown.ferries.cost += f.cost || 0;
       breakdown.ferries.price += f.price || 0;
     });
 
-    // Sumar autos
-    (quote.rentalCars || []).forEach(r => {
+    // Sumar autos (solo incluidos)
+    (quote.rentalCars || []).filter(r => r.included !== false).forEach(r => {
       breakdown.rentalCars.cost += r.cost || 0;
       breakdown.rentalCars.price += r.price || 0;
     });

@@ -1,16 +1,9 @@
-import { Quote } from '@/types/quote';
+import { Quote, QuoteStatus } from '@/types/quote';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  MapPin, 
-  Calendar, 
-  Users, 
-  Copy, 
-  Pencil, 
-  FileDown, 
-  Trash2,
-  Eye 
+  MapPin, Calendar, Users, Copy, Pencil, FileDown, Trash2, Eye, Send, CheckCircle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -22,42 +15,42 @@ interface QuoteCardProps {
   onDelete: (id: string) => void;
   onPreview: (quote: Quote) => void;
   onExport: (quote: Quote) => void;
+  onStatusChange?: (id: string, status: QuoteStatus) => void;
 }
 
-export function QuoteCard({ 
-  quote, 
-  onEdit, 
-  onDuplicate, 
-  onDelete, 
-  onPreview,
-  onExport 
-}: QuoteCardProps) {
-  // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
+const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> = {
+  draft: { label: 'Borrador', className: 'bg-muted text-muted-foreground' },
+  sent: { label: 'Enviado', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  approved: { label: 'Aprobado', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  expired: { label: 'Vencido', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+};
+
+export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange }: QuoteCardProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
-      // For ISO datetime strings (createdAt), parse normally
-      // For date-only strings (YYYY-MM-DD), use parseISO to avoid timezone offset
       const date = dateString.includes('T') ? new Date(dateString) : parseISO(dateString);
       return format(date, 'd MMM yyyy', { locale: es });
-    } catch {
-      return dateString;
-    }
+    } catch { return dateString; }
   };
+
+  const status = quote.status || 'draft';
+  const statusConfig = STATUS_CONFIG[status];
+
+  const nextStatus: QuoteStatus | null = status === 'draft' ? 'sent' : status === 'sent' ? 'approved' : null;
 
   return (
     <Card className="group overflow-hidden transition-all duration-300 hover:shadow-premium">
       <CardHeader className="relative bg-gradient-to-br from-primary/5 to-secondary/30 pb-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-muted-foreground">
-              {quote.client.name}
-            </p>
-            <h3 className="mt-1 font-serif text-xl font-semibold text-foreground">
-              {quote.trip.destination}
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <Badge className={statusConfig.className}>{statusConfig.label}</Badge>
+            </div>
+            <p className="text-sm font-medium text-muted-foreground">{quote.client.name}</p>
+            <h3 className="mt-1 font-serif text-xl font-semibold text-foreground">{quote.trip.destination}</h3>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-end gap-1">
             <Badge variant="secondary" className="bg-gold/20 text-gold-dark">
               {quote.trip.currency} {quote.pricing.totalPrice.toLocaleString()}
             </Badge>
@@ -82,55 +75,30 @@ export function QuoteCard({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onPreview(quote)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Eye className="mr-1.5 h-4 w-4" />
-            Ver
+          <Button variant="ghost" size="sm" onClick={() => onPreview(quote)} className="text-muted-foreground hover:text-foreground">
+            <Eye className="mr-1.5 h-4 w-4" />Ver
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onEdit(quote)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="mr-1.5 h-4 w-4" />
-            Editar
+          <Button variant="ghost" size="sm" onClick={() => onEdit(quote)} className="text-muted-foreground hover:text-foreground">
+            <Pencil className="mr-1.5 h-4 w-4" />Editar
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onDuplicate(quote.id)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Copy className="mr-1.5 h-4 w-4" />
-            Duplicar
+          <Button variant="ghost" size="sm" onClick={() => onDuplicate(quote.id)} className="text-muted-foreground hover:text-foreground">
+            <Copy className="mr-1.5 h-4 w-4" />Duplicar
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onExport(quote)}
-            className="text-gold-dark hover:bg-gold/10 hover:text-gold-dark"
-          >
-            <FileDown className="mr-1.5 h-4 w-4" />
-            PDF
+          {nextStatus && onStatusChange && (
+            <Button variant="ghost" size="sm" onClick={() => onStatusChange(quote.id, nextStatus)} className="text-muted-foreground hover:text-foreground">
+              {nextStatus === 'sent' ? <Send className="mr-1.5 h-4 w-4" /> : <CheckCircle className="mr-1.5 h-4 w-4" />}
+              {nextStatus === 'sent' ? 'Enviar' : 'Aprobar'}
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => onExport(quote)} className="text-gold-dark hover:bg-gold/10 hover:text-gold-dark">
+            <FileDown className="mr-1.5 h-4 w-4" />PDF
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete(quote.id)}
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-          >
+          <Button variant="ghost" size="sm" onClick={() => onDelete(quote.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
             <Trash2 className="mr-1.5 h-4 w-4" />
           </Button>
         </div>
 
-        <p className="mt-3 text-xs text-muted-foreground">
-          Creado: {formatDate(quote.createdAt)}
-        </p>
+        <p className="mt-3 text-xs text-muted-foreground">Creado: {formatDate(quote.createdAt)}</p>
       </CardContent>
     </Card>
   );

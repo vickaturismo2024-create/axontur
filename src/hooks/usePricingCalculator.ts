@@ -45,20 +45,20 @@ export function usePricingCalculator(quote: Quote): PricingCalculation {
       breakdown.transfers.price += t.price || 0;
     });
 
-    // Sum trains
-    (quote.trains || []).forEach(t => {
+    // Sum trains (only included ones)
+    (quote.trains || []).filter(t => t.included !== false).forEach(t => {
       breakdown.trains.cost += t.cost || 0;
       breakdown.trains.price += t.price || 0;
     });
 
-    // Sum ferries
-    (quote.ferries || []).forEach(f => {
+    // Sum ferries (only included ones)
+    (quote.ferries || []).filter(f => f.included !== false).forEach(f => {
       breakdown.ferries.cost += f.cost || 0;
       breakdown.ferries.price += f.price || 0;
     });
 
-    // Sum rental cars
-    (quote.rentalCars || []).forEach(r => {
+    // Sum rental cars (only included ones)
+    (quote.rentalCars || []).filter(r => r.included !== false).forEach(r => {
       breakdown.rentalCars.cost += r.cost || 0;
       breakdown.rentalCars.price += r.price || 0;
     });

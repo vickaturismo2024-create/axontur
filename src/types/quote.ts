@@ -25,21 +25,18 @@ export interface Flight {
   airline: string;
   flightNumber: string;
   luggage: string;
-  luggageType?: LuggageType; // Tipo predefinido de equipaje
+  luggageType?: LuggageType;
   notes: string;
   cost?: number;
   price?: number;
-  supplier?: string; // Operador mayorista (uso interno)
-  // Sistema de opciones de vuelo
+  supplier?: string;
   isOption?: boolean;
   optionLabel?: string;
   groupId?: string;
   flightType?: 'direct' | 'stopover' | 'charter';
-  // Vinculación de tramos (escalas)
-  connectionGroupId?: string; // ID para vincular tramos que son parte de una misma conexión
+  connectionGroupId?: string;
 }
 
-// Grupo de opciones de vuelo (para agrupación por ruta/fecha)
 export interface FlightGroup {
   id: string;
   origin: string;
@@ -48,17 +45,16 @@ export interface FlightGroup {
   optionIds: string[];
 }
 
-// Tipo de ocupación/habitación dentro de un alojamiento
 export interface RoomOccupancy {
   id: string;
   roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
-  customTypeName?: string; // Para tipos personalizados
-  roomCount: number; // Cantidad de habitaciones de este tipo
-  guestsPerRoom: number; // Pasajeros por habitación (1 para single, 2 para doble, etc.)
-  costPerNight?: number; // Costo neto por noche por habitación
-  pricePerNight?: number; // Precio de venta por noche por habitación
-  totalCost?: number; // Para modo pricing = 'total'
-  totalPrice?: number; // Para modo pricing = 'total'
+  customTypeName?: string;
+  roomCount: number;
+  guestsPerRoom: number;
+  costPerNight?: number;
+  pricePerNight?: number;
+  totalCost?: number;
+  totalPrice?: number;
   pricingMode?: 'perNight' | 'total';
 }
 
@@ -73,23 +69,20 @@ export interface Lodging {
   roomType: string;
   nights: number;
   notes: string;
-  destination?: string; // Para viajes multi-destino
-  isOption?: boolean; // Es una opción alternativa para el pasajero
-  optionLabel?: string; // Etiqueta para la opción (ej: "Opción 1", "Opción económica")
-  costPerNight?: number; // Costo real por noche (interno) - legacy, usar occupancies
-  pricePerNight?: number; // Precio de venta por noche - legacy, usar occupancies
-  totalCost?: number; // Costo total de la estadía (si pricingMode = 'total')
-  totalPrice?: number; // Precio total de la estadía (si pricingMode = 'total')
-  pricingMode?: 'perNight' | 'total'; // Modo de ingreso de precios - legacy
-  groupId?: string; // ID del grupo de opciones al que pertenece
-  // Nuevo: configuración de ocupaciones múltiples
+  destination?: string;
+  isOption?: boolean;
+  optionLabel?: string;
+  costPerNight?: number;
+  pricePerNight?: number;
+  totalCost?: number;
+  totalPrice?: number;
+  pricingMode?: 'perNight' | 'total';
+  groupId?: string;
   occupancies?: RoomOccupancy[];
-  // Flag para usar sistema de ocupaciones (si false, usa sistema legacy)
   useOccupancies?: boolean;
   supplier?: string;
 }
 
-// Grupo de opciones de alojamiento (para agrupación por destino/fechas)
 export interface LodgingGroup {
   id: string;
   destination: string;
@@ -110,7 +103,6 @@ export interface Transfer {
   supplier?: string;
 }
 
-// Nuevos tipos de transporte
 export interface Train {
   id: string;
   origin: string;
@@ -126,6 +118,7 @@ export interface Train {
   cost?: number;
   price?: number;
   supplier?: string;
+  included?: boolean;
 }
 
 export interface Ferry {
@@ -142,6 +135,7 @@ export interface Ferry {
   cost?: number;
   price?: number;
   supplier?: string;
+  included?: boolean;
 }
 
 export interface RentalCar {
@@ -154,14 +148,14 @@ export interface RentalCar {
   dropoffDate: string;
   dropoffTime: string;
   carType: string;
-  extras: string; // GPS, silla bebé, etc
+  extras: string;
   notes: string;
   cost?: number;
   price?: number;
   supplier?: string;
+  included?: boolean;
 }
 
-// Excursiones/Actividades
 export interface Activity {
   id: string;
   name: string;
@@ -177,7 +171,6 @@ export interface Activity {
   supplier?: string;
 }
 
-// Cruceros
 export interface Cruise {
   id: string;
   shipName: string;
@@ -190,7 +183,7 @@ export interface Cruise {
   disembarkationPort: string;
   disembarkationDate: string;
   nights: number;
-  regime: string; // All inclusive, full board, etc.
+  regime: string;
   itinerary: CruisePort[];
   extras: CruiseExtras;
   notes: string;
@@ -229,7 +222,6 @@ export interface Insurance {
   supplier?: string;
 }
 
-// Precio calculado por opción de alojamiento
 export interface LodgingOptionPricing {
   lodgingId: string;
   lodgingLabel: string;
@@ -242,19 +234,17 @@ export interface LodgingOptionPricing {
   marginPercentage: number;
 }
 
-// Precio calculado por tipo de ocupación (single, double, etc.)
 export interface OccupancyPricing {
   occupancyId: string;
-  occupancyType: string; // "Habitación Doble", "Habitación Single"
+  occupancyType: string;
   roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
-  guestCount: number; // Cantidad de pasajeros en este tipo
-  roomCount: number; // Cantidad de habitaciones
-  sharedServicesPerPerson: number; // Porción de servicios fijos por persona
-  lodgingTotalPrice: number; // Precio total del alojamiento para este tipo
-  lodgingPerPerson: number; // Costo de alojamiento por persona
-  totalPerPerson: number; // Total por persona para este tipo
-  totalForType: number; // Total para todas las personas de este tipo
-  // Costos internos
+  guestCount: number;
+  roomCount: number;
+  sharedServicesPerPerson: number;
+  lodgingTotalPrice: number;
+  lodgingPerPerson: number;
+  totalPerPerson: number;
+  totalForType: number;
   sharedServicesCostPerPerson: number;
   lodgingTotalCost: number;
   lodgingCostPerPerson: number;
@@ -263,25 +253,17 @@ export interface OccupancyPricing {
   marginPercentage: number;
 }
 
-// Precios de ocupación para una opción de alojamiento alternativa
 export interface LodgingOptionOccupancyPricing {
   lodgingId: string;
-  lodgingLabel: string; // "Opción 1", "Hotel económico", etc.
+  lodgingLabel: string;
   lodgingName: string;
-  // Precios por tipo de ocupación dentro de esta opción
   occupancyPricing: OccupancyPricing[];
-  // Totales para esta opción
   totalPrice: number;
   totalCost: number;
   margin: number;
   marginPercentage: number;
 }
 
-// =====================================================
-// NUEVO: Sistema de precios agrupados por tipo de ocupación
-// =====================================================
-
-// Opción de alojamiento dentro de un tipo de ocupación
 export interface LodgingOptionForOccupancy {
   lodgingId: string;
   lodgingName: string;
@@ -289,32 +271,26 @@ export interface LodgingOptionForOccupancy {
   destination?: string;
   lodgingPricePerPerson: number;
   totalPricePerPerson: number;
-  // Internos (no se muestran en PDF)
   lodgingCostPerPerson: number;
   totalCostPerPerson: number;
   marginPerPerson: number;
   marginPercentage: number;
 }
 
-// Tipo de ocupación con todas sus opciones (NUEVA estructura principal)
 export interface OccupancyTypeWithOptions {
   id: string;
   roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
   customTypeName?: string;
-  occupancyLabel: string; // "Habitación Single", "Habitación Doble"
+  occupancyLabel: string;
   guestsPerRoom: number;
-  totalRooms: number; // Total de habitaciones de este tipo
-  totalGuests: number; // Total de pasajeros en este tipo
-  
-  // Base (servicios fijos + alojamientos obligatorios)
+  totalRooms: number;
+  totalGuests: number;
   sharedServicesPerPerson: number;
   sharedServicesCostPerPerson: number;
-  mainLodgingPricePerPerson: number; // Suma de alojamientos NO opciones
+  mainLodgingPricePerPerson: number;
   mainLodgingCostPerPerson: number;
-  basePricePerPerson: number; // sharedServices + mainLodging
+  basePricePerPerson: number;
   baseCostPerPerson: number;
-  
-  // Detalles de alojamientos principales (para mostrar desglose)
   mainLodgingDetails: {
     lodgingId: string;
     lodgingName: string;
@@ -322,19 +298,14 @@ export interface OccupancyTypeWithOptions {
     pricePerPerson: number;
     costPerPerson: number;
   }[];
-  
-  // Opciones alternativas (si existen)
   hasOptions: boolean;
   lodgingOptions: LodgingOptionForOccupancy[];
-  
-  // Precio único (si no hay opciones alternativas)
   singleTotalPerPerson?: number;
   singleTotalCostPerPerson?: number;
   marginPerPerson?: number;
   marginPercentage?: number;
 }
 
-// Desglose de precios por categoría
 export interface PricingBreakdown {
   flights: { cost: number; price: number };
   transfers: { cost: number; price: number };
@@ -346,7 +317,6 @@ export interface PricingBreakdown {
   insurance: { cost: number; price: number };
 }
 
-// Configuración de visibilidad de precios individuales
 export interface ItemPricesConfig {
   flights: boolean;
   lodging: boolean;
@@ -359,8 +329,6 @@ export interface ItemPricesConfig {
   insurance: boolean;
 }
 
-// Precio calculado por opción de vuelo
-// Segmento de vuelo para conexiones
 export interface FlightSegment {
   origin: string;
   destination: string;
@@ -377,22 +345,23 @@ export interface FlightOptionPricing {
   flightType: 'direct' | 'stopover' | 'charter';
   luggage: string;
   luggageType?: LuggageType;
-  flightPrice: number;       // Precio del vuelo
-  flightCost: number;        // Costo del vuelo
-  basePriceWithoutFlights: number; // Servicios fijos sin vuelos
+  flightPrice: number;
+  flightCost: number;
+  basePriceWithoutFlights: number;
   baseCostWithoutFlights: number;
-  totalPrice: number;        // base + flightPrice
+  totalPrice: number;
   totalCost: number;
   pricePerPerson: number;
   costPerPerson: number;
   marginPerPerson: number;
   marginPercentage: number;
-  // NUEVO: Para opciones con múltiples tramos (escalas)
-  flightIds?: string[]; // IDs de todos los vuelos del grupo
-  isConnectionGroup?: boolean; // Es un grupo de tramos conectados
-  connectionLabel?: string; // "Buenos Aires → Miami → Cancún"
+  flightIds?: string[];
+  isConnectionGroup?: boolean;
+  connectionLabel?: string;
   segments?: FlightSegment[];
 }
+
+export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'expired';
 
 export interface Pricing {
   totalPrice: number;
@@ -401,29 +370,20 @@ export interface Pricing {
   paymentMethod: string;
   conditions: string;
   observations: string;
-  // Modo de cálculo
   calculationMode?: 'manual' | 'automatic';
-  // Servicios fijos (sin alojamiento)
   fixedServicesTotal?: number;
   fixedServicesCost?: number;
-  // Desglose por categoría
   breakdown?: PricingBreakdown;
-  // Precios por opción de alojamiento (sistema legacy)
   lodgingOptions?: LodgingOptionPricing[];
-  // Margen general (para cuando hay un solo alojamiento)
   totalCost?: number;
   margin?: number;
   marginPercentage?: number;
-  // Configuración de visibilidad de precios individuales en PDF
   showItemPrices?: boolean;
   itemPricesConfig?: ItemPricesConfig;
-  // Sistema de precios diferenciados por tipo de ocupación
   useOccupancyPricing?: boolean;
-  occupancyPricing?: OccupancyPricing[]; // Legacy: ocupaciones de alojamientos principales
-  lodgingOptionsOccupancy?: LodgingOptionOccupancyPricing[]; // Legacy: opciones alternativas
-  // NUEVO: Precios agrupados por tipo de ocupación con opciones dentro
+  occupancyPricing?: OccupancyPricing[];
+  lodgingOptionsOccupancy?: LodgingOptionOccupancyPricing[];
   occupancyTypesWithOptions?: OccupancyTypeWithOptions[];
-  // Precios por opción de vuelo (combinando servicios fijos + cada opción)
   flightOptionsPricing?: FlightOptionPricing[];
 }
 
@@ -466,7 +426,6 @@ export interface Template {
     borderWidth: string;
     backgroundPattern: 'none' | 'dots' | 'lines' | 'grid' | 'waves';
     cardStyle: 'flat' | 'elevated' | 'outlined' | 'glass';
-    // New customization options
     coverLayout?: 'classic' | 'split' | 'fullOverlay' | 'minimal';
     headingStyle?: 'underline' | 'background' | 'accent-left' | 'pill';
     iconStyle?: 'filled' | 'outlined' | 'none';
@@ -482,7 +441,6 @@ export interface Template {
     coverTextAlign?: 'center' | 'left' | 'right';
     showCreationDate?: boolean;
     preparedForLabel?: string;
-    // Itinerary customization
     itineraryLayout?: 'timeline' | 'cards' | 'compact' | 'magazine';
     itineraryDotStyle?: 'numbered' | 'icon' | 'filled' | 'ring';
     itineraryCardStyle?: 'bordered' | 'filled' | 'minimal' | 'accent-top';
@@ -526,8 +484,8 @@ export interface Quote {
     imageUrl: string;
   };
   flights: Flight[];
-  lodging: Lodging; // Alojamiento principal (retrocompatibilidad)
-  lodgings?: Lodging[]; // Múltiples alojamientos
+  lodging: Lodging;
+  lodgings?: Lodging[];
   transfers: Transfer[];
   trains?: Train[];
   ferries?: Ferry[];
@@ -537,4 +495,7 @@ export interface Quote {
   insurance: Insurance;
   pricing: Pricing;
   itineraryDays: ItineraryDay[];
+  status?: QuoteStatus;
+  internalNotes?: string;
+  publicLinkExpiry?: string;
 }

@@ -30,6 +30,7 @@ export type Database = {
           lodgings: Json | null
           pricing: Json
           rental_cars: Json | null
+          status: string
           template_id: string | null
           trains: Json | null
           transfers: Json
@@ -52,6 +53,7 @@ export type Database = {
           lodgings?: Json | null
           pricing?: Json
           rental_cars?: Json | null
+          status?: string
           template_id?: string | null
           trains?: Json | null
           transfers?: Json
@@ -74,6 +76,7 @@ export type Database = {
           lodgings?: Json | null
           pricing?: Json
           rental_cars?: Json | null
+          status?: string
           template_id?: string | null
           trains?: Json | null
           transfers?: Json

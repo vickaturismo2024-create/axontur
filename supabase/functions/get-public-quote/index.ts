@@ -16,19 +16,14 @@ Deno.serve(async (req) => {
     const id = url.searchParams.get("id");
 
     if (!id) {
-      return new Response(
-        JSON.stringify({ error: "Missing quote id" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Missing quote id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(id)) {
-      return new Response(
-        JSON.stringify({ error: "Invalid quote id" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Invalid quote id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabase = createClient(
@@ -36,7 +31,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch quote
     const { data: quote, error: quoteError } = await supabase
       .from("quotes")
       .select("*")
@@ -44,37 +38,35 @@ Deno.serve(async (req) => {
       .single();
 
     if (quoteError || !quote) {
-      return new Response(
-        JSON.stringify({ error: "Quote not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Quote not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Fetch template if exists
+    // Check link expiry
+    const publicLinkExpiry = quote.pricing?.publicLinkExpiry;
+    if (publicLinkExpiry) {
+      const expiryDate = new Date(publicLinkExpiry);
+      if (expiryDate < new Date()) {
+        return new Response(JSON.stringify({ error: "Este enlace ha expirado" }),
+          { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     let template = null;
     if (quote.template_id) {
-      const { data: tmpl } = await supabase
-        .from("templates")
-        .select("*")
-        .eq("id", quote.template_id)
-        .single();
+      const { data: tmpl } = await supabase.from("templates").select("*").eq("id", quote.template_id).single();
       if (tmpl) {
         const { user_id: _templateUserId, ...safeTemplate } = tmpl;
         template = safeTemplate;
       }
     }
 
-    // Strip sensitive fields
     const { user_id, ...safeQuote } = quote;
 
-    return new Response(
-      JSON.stringify({ quote: safeQuote, template }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ quote: safeQuote, template }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
