@@ -75,8 +75,19 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContain
         <DropdownMenuItem onClick={handleShareWhatsApp} className="gap-2 cursor-pointer">
           <MessageCircle className="h-4 w-4 text-green-600" />Enviar por WhatsApp
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onPrint()} className="gap-2 cursor-pointer">
-          <Download className="h-4 w-4" />Descargar PDF
+        <DropdownMenuItem onClick={async () => {
+          if (!pdfContainerSelector) { onPrint(); return; }
+          setDownloading(true);
+          try {
+            await generatePDF(pdfContainerSelector, `presupuesto-${quote.trip.destination.replace(/\s+/g, '-')}.pdf`);
+            toast.success('PDF descargado');
+          } catch (e) {
+            console.error(e);
+            toast.error('Error al generar el PDF, usando impresión');
+            onPrint();
+          } finally { setDownloading(false); }
+        }} className="gap-2 cursor-pointer" disabled={downloading}>
+          <Download className="h-4 w-4" />{downloading ? 'Generando...' : 'Descargar PDF'}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onPrint} className="gap-2 cursor-pointer">
           <Printer className="h-4 w-4" />Imprimir
