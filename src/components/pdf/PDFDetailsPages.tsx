@@ -890,16 +890,26 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                 <tbody>
                   {quote.trains.map((train, idx) => (
                     <tr key={train.id} style={{ backgroundColor: idx % 2 === 0 ? bgColor : cardBgColor }}>
-                      <td style={{ padding: '6px 8px' }}>{train.origin} → {train.destination}</td>
+                      <td style={{ padding: '6px 8px' }}>
+                        {train.origin} → {train.destination}
+                        {(train as any).included === false && (
+                          <span className="rounded" style={{ marginLeft: '6px', padding: '1px 5px', fontSize: '9px', backgroundColor: `${accentColor}33`, color: primaryColor }}>Opcional</span>
+                        )}
+                      </td>
                       <td style={{ padding: '6px 8px' }}>{formatDate(train.date)}</td>
                       <td style={{ padding: '6px 8px' }}>{train.departureTime} - {train.arrivalTime}</td>
                       <td style={{ padding: '6px 8px' }}>
                         {train.company} {train.trainNumber}
                         {train.class && <span style={{ marginLeft: '4px', fontSize: '10px', color: `${primaryColor}80` }}>({train.class})</span>}
                       </td>
-                      {showTrainPrices && (
+                      {showTrainPrices && (train as any).included !== false && (
                         <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500 }}>
                           {formatCurrency(train.price) || '-'}
+                        </td>
+                      )}
+                      {(train as any).included === false && train.price > 0 && (
+                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500, fontSize: '10px', color: primaryColor }}>
+                          Precio aparte: {formatCurrency(train.price)}
                         </td>
                       )}
                     </tr>
@@ -950,16 +960,26 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                 <tbody>
                   {quote.ferries.map((ferry, idx) => (
                     <tr key={ferry.id} style={{ backgroundColor: idx % 2 === 0 ? bgColor : cardBgColor }}>
-                      <td style={{ padding: '6px 8px' }}>{ferry.origin} → {ferry.destination}</td>
+                      <td style={{ padding: '6px 8px' }}>
+                        {ferry.origin} → {ferry.destination}
+                        {(ferry as any).included === false && (
+                          <span className="rounded" style={{ marginLeft: '6px', padding: '1px 5px', fontSize: '9px', backgroundColor: `${accentColor}33`, color: primaryColor }}>Opcional</span>
+                        )}
+                      </td>
                       <td style={{ padding: '6px 8px' }}>{formatDate(ferry.date)}</td>
                       <td style={{ padding: '6px 8px' }}>{ferry.departureTime} - {ferry.arrivalTime}</td>
                       <td style={{ padding: '6px 8px' }}>
                         {ferry.company}
                         {ferry.vessel && <span style={{ marginLeft: '4px', fontSize: '10px', color: `${primaryColor}80` }}>({ferry.vessel})</span>}
                       </td>
-                      {showFerryPrices && (
+                      {showFerryPrices && (ferry as any).included !== false && (
                         <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500 }}>
                           {formatCurrency(ferry.price) || '-'}
+                        </td>
+                      )}
+                      {(ferry as any).included === false && ferry.price > 0 && (
+                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500, fontSize: '10px', color: primaryColor }}>
+                          Precio aparte: {formatCurrency(ferry.price)}
                         </td>
                       )}
                     </tr>
@@ -1003,7 +1023,12 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                 >
                   <div className="grid grid-cols-2" style={{ gap: '8px', fontSize: '11px' }}>
                     <div>
-                      <p className="font-semibold" style={{ color: primaryColor }}>{car.company}</p>
+                      <p className="font-semibold" style={{ color: primaryColor }}>
+                        {car.company}
+                        {(car as any).included === false && (
+                          <span className="rounded" style={{ marginLeft: '6px', padding: '1px 5px', fontSize: '9px', backgroundColor: `${accentColor}33`, color: primaryColor }}>Opcional</span>
+                        )}
+                      </p>
                       {car.carType && <p style={{ fontSize: '10px', color: `${primaryColor}80` }}>{car.carType}</p>}
                     </div>
                     <div style={{ fontSize: '10px' }}>
@@ -1016,9 +1041,14 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                   {car.extras && car.extras.trim() !== '' && (
                     <p style={{ marginTop: '4px', fontSize: '10px', color: `${primaryColor}80` }}>Extras: {car.extras}</p>
                   )}
-                  {showRentalCarPrices && formatCurrency(car.price) && (
+                  {showRentalCarPrices && (car as any).included !== false && formatCurrency(car.price) && (
                     <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px dashed ${secondaryColor}`, textAlign: 'right' }}>
                       <span style={{ fontWeight: 600, color: primaryColor }}>{formatCurrency(car.price)}</span>
+                    </div>
+                  )}
+                  {(car as any).included === false && car.price > 0 && (
+                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px dashed ${secondaryColor}`, textAlign: 'right' }}>
+                      <span style={{ fontWeight: 500, fontSize: '10px', color: primaryColor }}>Precio aparte: {formatCurrency(car.price)}</span>
                     </div>
                   )}
                 </div>

@@ -36,8 +36,14 @@ const Dashboard = () => {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
     const totalValue = quotes.reduce((sum, q) => sum + (q.pricing.totalPrice || 0), 0);
-    const totalCost = quotes.reduce((sum, q) => sum + (q.pricing.totalCost || 0), 0);
-    const avgMargin = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+    const quotesWithMargin = quotes.filter(q => (q.pricing.totalCost || 0) > 0 && (q.pricing.totalPrice || 0) > 0);
+    const avgMargin = quotesWithMargin.length > 0
+      ? quotesWithMargin.reduce((sum, q) => {
+          const cost = q.pricing.totalCost || 0;
+          const price = q.pricing.totalPrice || 0;
+          return sum + ((price - cost) / cost) * 100;
+        }, 0) / quotesWithMargin.length
+      : 0;
     const approved = quotes.filter(q => q.status === 'approved').length;
     const approvalRate = quotes.length > 0 ? (approved / quotes.length) * 100 : 0;
     return { total: quotes.length, totalValue, avgMargin, thisMonth: thisMonth.length, approvalRate };
