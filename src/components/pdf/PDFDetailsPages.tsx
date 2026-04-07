@@ -1023,7 +1023,12 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                 >
                   <div className="grid grid-cols-2" style={{ gap: '8px', fontSize: '11px' }}>
                     <div>
-                      <p className="font-semibold" style={{ color: primaryColor }}>{car.company}</p>
+                      <p className="font-semibold" style={{ color: primaryColor }}>
+                        {car.company}
+                        {(car as any).included === false && (
+                          <span className="rounded" style={{ marginLeft: '6px', padding: '1px 5px', fontSize: '9px', backgroundColor: `${accentColor}33`, color: primaryColor }}>Opcional</span>
+                        )}
+                      </p>
                       {car.carType && <p style={{ fontSize: '10px', color: `${primaryColor}80` }}>{car.carType}</p>}
                     </div>
                     <div style={{ fontSize: '10px' }}>
@@ -1036,9 +1041,14 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                   {car.extras && car.extras.trim() !== '' && (
                     <p style={{ marginTop: '4px', fontSize: '10px', color: `${primaryColor}80` }}>Extras: {car.extras}</p>
                   )}
-                  {showRentalCarPrices && formatCurrency(car.price) && (
+                  {showRentalCarPrices && (car as any).included !== false && formatCurrency(car.price) && (
                     <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px dashed ${secondaryColor}`, textAlign: 'right' }}>
                       <span style={{ fontWeight: 600, color: primaryColor }}>{formatCurrency(car.price)}</span>
+                    </div>
+                  )}
+                  {(car as any).included === false && car.price > 0 && (
+                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px dashed ${secondaryColor}`, textAlign: 'right' }}>
+                      <span style={{ fontWeight: 500, fontSize: '10px', color: primaryColor }}>Precio aparte: {formatCurrency(car.price)}</span>
                     </div>
                   )}
                 </div>
