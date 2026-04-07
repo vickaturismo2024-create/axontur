@@ -19,6 +19,10 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { TemplatePreviewPanel } from '@/components/templates/TemplatePreviewPanel';
 import { FontSelect } from '@/components/templates/FontSelect';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const Templates = () => {
   const { templates, addTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, defaultTemplateId, isLoading } = useQuotes();
