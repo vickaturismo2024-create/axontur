@@ -131,6 +131,7 @@ export const trainSchema = z.object({
   class: z.string().default(''),
   seat: z.string().default(''),
   notes: z.string().default(''),
+  included: z.boolean().default(true),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
 });
@@ -147,6 +148,7 @@ export const ferrySchema = z.object({
   vessel: z.string().default(''),
   cabinType: z.string().default(''),
   notes: z.string().default(''),
+  included: z.boolean().default(true),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
 });
@@ -164,6 +166,7 @@ export const rentalCarSchema = z.object({
   carType: z.string().default(''),
   extras: z.string().default(''),
   notes: z.string().default(''),
+  included: z.boolean().default(true),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
 });
@@ -450,6 +453,9 @@ export const quoteSchema = z.object({
   insurance: insuranceSchema.default({}),
   pricing: pricingSchema.default({}),
   itineraryDays: z.array(itineraryDaySchema).default([]),
+  status: z.enum(['draft', 'sent', 'approved', 'expired']).default('draft'),
+  internalNotes: z.string().default(''),
+  publicLinkExpiry: z.string().optional(),
 });
 
 // WhatsApp Agent validation - no length restrictions
