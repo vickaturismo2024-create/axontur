@@ -1039,7 +1039,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
     // Activities section
     if ((template.sectionsToggles?.activities !== false) && quote.activities && quote.activities.length > 0) {
       const showActivityPrices = showItemPrices && itemPricesConfig.activities;
-      const activitiesTotalPrice = quote.activities.reduce((sum, a) => sum + (a.price || 0), 0);
+      const activitiesTotalPrice = quote.activities.filter(a => a.included).reduce((sum, a) => sum + (a.price || 0), 0);
       
       sections.push({
         id: 'activities',
