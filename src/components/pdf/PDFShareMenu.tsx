@@ -6,6 +6,7 @@ import {
 import { Share2, Mail, MessageCircle, Download, Printer, Link2, Check, Clock } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { generatePDF } from '@/lib/generatePDF';
 
 interface PDFShareMenuProps {
   quote: Quote;
