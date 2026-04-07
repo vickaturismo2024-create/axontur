@@ -50,7 +50,7 @@ const Dashboard = () => {
       : 0;
     const approved = quotes.filter(q => q.status === 'approved').length;
     const approvalRate = quotes.length > 0 ? (approved / quotes.length) * 100 : 0;
-    return { total: quotes.length, totalValue, avgMargin, thisMonth: thisMonth.length, approvalRate };
+    return { total: quotes.length, totalsByCurrency, avgMargin, thisMonth: thisMonth.length, approvalRate };
   }, [quotes]);
 
   const filteredQuotes = quotes.filter(quote => {
