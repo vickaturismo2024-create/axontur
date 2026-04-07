@@ -12,7 +12,7 @@ import { ArrowLeft } from 'lucide-react';
 const ExportPDF = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { quotes, templates } = useQuotes();
+  const { quotes, templates, updateQuote } = useQuotes();
 
   const quote = quotes.find(q => q.id === id);
   const template = quote 
@@ -36,6 +36,14 @@ const ExportPDF = () => {
     window.print();
   };
 
+  const handleSetExpiry = async (expiry: string | undefined) => {
+    try {
+      await updateQuote({ ...quote, publicLinkExpiry: expiry || '' });
+    } catch (e) {
+      console.error('Error setting expiry:', e);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-muted print:bg-white print:min-h-0">
       {/* Controls - Hidden when printing */}
@@ -45,7 +53,7 @@ const ExportPDF = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>
-          <PDFShareMenu quote={quote} template={template} onPrint={handlePrint} />
+          <PDFShareMenu quote={quote} template={template} onPrint={handlePrint} onSetExpiry={handleSetExpiry} />
         </div>
       </div>
 
