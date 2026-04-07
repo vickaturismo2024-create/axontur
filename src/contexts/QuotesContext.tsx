@@ -100,8 +100,9 @@ const quoteToDb = (quote: Quote, userId: string) => ({
   activities: quote.activities || [],
   cruise: quote.cruise || null,
   insurance: quote.insurance,
-  pricing: quote.pricing,
+  pricing: { ...quote.pricing, internalNotes: quote.internalNotes || '', publicLinkExpiry: quote.publicLinkExpiry || null },
   itinerary_days: quote.itineraryDays,
+  status: quote.status || 'draft',
   user_id: userId,
 });
 
