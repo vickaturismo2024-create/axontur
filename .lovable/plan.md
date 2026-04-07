@@ -1,37 +1,132 @@
 
 
-# Plan: Excluir transportes no incluidos del cálculo de precios
+# Plan: Optimización completa de la app — Todas las prioridades
 
-## Problema
+## Resumen
 
-Cuando un traslado o actividad tiene la casilla "Incluido" desactivada (campo `included: false`), su costo y precio se suman igual al total del presupuesto. Lo correcto es que solo se sumen al total si `included === true`. Los que no están incluidos deben mostrar su precio aparte en el PDF pero no afectar el precio final del paquete.
+Implementar las 7 mejoras identificadas: refactorizar QuoteWizard, agregar toggle `included` a trenes/ferrys/autos, reemplazar `confirm()` por AlertDialog, agregar estados de presupuesto, métricas en dashboard, links con vencimiento, y notas internas.
 
-## Cambios
+---
 
-### 1. `src/hooks/usePricingCalculator.ts`
+## 1. Refactorizar QuoteWizard (Prioridad Alta)
 
-Filtrar transfers y activities por `included === true` antes de sumar:
+Extraer cada paso del wizard en su propio componente. El archivo actual tiene 2562 líneas.
 
-- Línea ~43: cambiar `quote.transfers.forEach(...)` → `quote.transfers.filter(t => t.included).forEach(...)`
-- Línea ~67: cambiar `(quote.activities || []).forEach(...)` → `(quote.activities || []).filter(a => a.included).forEach(...)`
+**Nuevos archivos:**
+- `src/components/quotes/steps/ClientStep.tsx` — Datos del cliente
+- `src/components/quotes/steps/TripStep.tsx` — Datos del viaje
+- `src/components/quotes/steps/CoverStep.tsx` — Portada
+- `src/components/quotes/steps/FlightsStep.tsx` — Vuelos
+- `src/components/quotes/steps/LodgingStep.tsx` — Alojamientos
+- `src/components/quotes/steps/TransportStep.tsx` — Traslados, trenes, ferrys, autos
+- `src/components/quotes/steps/ActivitiesStep.tsx` — Actividades
+- `src/components/quotes/steps/CruiseStep.tsx` — Crucero
+- `src/components/quotes/steps/InsuranceStep.tsx` — Seguro
+- `src/components/quotes/steps/ItineraryStep.tsx` — Itinerario
+- `src/components/quotes/steps/PricingStep.tsx` — Precios y resumen
+- `src/components/quotes/steps/PreviewStep.tsx` — Vista previa
 
-### 2. `src/hooks/useOccupancyPricingCalculator.ts`
+Cada componente recibe el quote parcial y callbacks `onChange` para actualizar el estado. El `QuoteWizard.tsx` queda como orquestador (~300 líneas): maneja estado global, navegación entre pasos y el botón guardar.
 
-Mismo cambio:
+---
 
-- Línea ~476: filtrar transfers por `included`
-- Línea ~500: filtrar activities por `included`
+## 2. Toggle `included` en Trenes, Ferrys y Autos de alquiler (Prioridad Alta)
 
-### 3. PDF — Precio visible para servicios no incluidos
+**Tipos** (`src/types/quote.ts`):
+- Agregar `included: boolean` a `Train`, `Ferry` y `RentalCar`
 
-En `src/components/pdf/PDFDetailsPages.tsx` y `src/components/pdf/PDFDetailsPage.tsx`, los traslados y actividades con `included: false` ya muestran un badge "Opcional". Verificar que también muestren el precio individual al lado (con un texto tipo "Precio aparte: $X") para que el cliente sepa cuánto cuesta ese servicio opcional. Si ya se muestra el precio, no hay cambio; si no, agregar la visualización.
+**Calculadores de precios** (`usePricingCalculator.ts` y `useOccupancyPricingCalculator.ts`):
+- Filtrar por `.filter(t => t.included)` antes de sumar trains, ferries y rentalCars
 
-### Archivos que no cambian
+**UI** (en `TransportStep.tsx` post-refactor):
+- Agregar Switch "Incluido en el precio" igual que transfers y activities
 
-- Los tipos (`Transfer`, `Activity`) ya tienen el campo `included: boolean`
-- Los trenes, ferrys y autos de alquiler no tienen campo `included` en sus tipos, por lo que siempre se incluyen en el cálculo (comportamiento correcto según la estructura actual)
+**PDF** (`PDFDetailsPages.tsx`):
+- Mostrar badge "Opcional" y "Precio aparte: $X" para trenes/ferrys/autos con `included: false`
 
-## Impacto
+**Defaults**: `included` defaultea a `true` en formularios y en `buildQuoteFromImport`
 
-Solo se modifican las funciones de cálculo para respetar el flag existente. No hay cambios en la base de datos ni en los tipos.
+---
+
+## 3. Reemplazar `confirm()` por AlertDialog (Prioridad Media)
+
+**Archivo**: `src/pages/Dashboard.tsx`
+
+Reemplazar `if (confirm('¿Estás seguro...'))` por un `AlertDialog` de shadcn/ui con:
+- Título: "Eliminar presupuesto"
+- Descripción: "Esta acción no se puede deshacer. ¿Estás seguro?"
+- Botones: "Cancelar" / "Eliminar" (destructive)
+
+Estado local `deleteTargetId` para controlar qué presupuesto se elimina.
+
+---
+
+## 4. Estados/workflow de presupuestos (Prioridad Media)
+
+**Tipo** (`src/types/quote.ts`):
+- Agregar `status?: 'draft' | 'sent' | 'approved' | 'expired'` a `Quote`
+
+**Contexto** (`QuotesContext.tsx`):
+- Mapear `status` en `dbToQuote` / `quoteToDb` (ya vive dentro del JSON de `pricing` o como campo top-level en el JSON — sin migración DB, se almacena dentro del objeto quote existente)
+
+**Migración DB**: Agregar columna `status text default 'draft'` a la tabla `quotes`
+
+**Dashboard**:
+- Badge de color por estado en `QuoteCard`
+- Filtro por estado (tabs o dropdown) arriba de la grilla
+- Botón "Marcar como enviado/aprobado" en el menú de acciones de cada card
+
+---
+
+## 5. Métricas en Dashboard (Prioridad Media)
+
+Reemplazar las 3 stats actuales (Presupuestos, Clientes, Destinos) por 5 métricas más útiles:
+- Total presupuestos
+- Valor total cotizado (suma de `totalPrice`)
+- Margen promedio (%)
+- Presupuestos este mes
+- Tasa de aprobación (aprobados / total)
+
+Las métricas se calculan client-side desde el array `quotes`.
+
+---
+
+## 6. Links públicos con vencimiento (Prioridad Baja)
+
+**Tipo**: Agregar `publicLinkExpiry?: string` (ISO date) a `Quote`
+
+**Edge Function** (`get-public-quote`): Verificar `publicLinkExpiry` — si expiró, retornar 410 Gone
+
+**UI**: En el menú de compartir (`PDFShareMenu`), agregar selector de vencimiento (24h, 7 días, 30 días, sin vencimiento)
+
+**Migración DB**: No necesaria (se guarda en el JSON del quote o como columna nueva)
+
+---
+
+## 7. Notas internas por presupuesto (Prioridad Baja)
+
+**Tipo**: Agregar `internalNotes?: string` a `Quote`
+
+**UI**: Campo de texto en el QuoteWizard (en el paso de Precios o como paso separado), con label "Notas internas (no visibles en el PDF)"
+
+**Contexto**: Mapear en `dbToQuote` / `quoteToDb`
+
+No se renderiza en ningún componente PDF.
+
+---
+
+## Orden de implementación
+
+1. Refactorizar QuoteWizard en componentes (base para todo lo demás)
+2. Toggle `included` en trenes/ferrys/autos
+3. AlertDialog para eliminar
+4. Campo `status` + badges + filtros en dashboard
+5. Métricas en dashboard
+6. Notas internas
+7. Links con vencimiento
+
+## Impacto en base de datos
+
+- Una migración: agregar columna `status text default 'draft'` a `quotes`
+- El resto de campos nuevos se almacenan en los JSON existentes
 
