@@ -812,7 +812,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
     // Transfers section
     if (template.sectionsToggles.transfers && quote.transfers.length > 0) {
       const showTransferPrices = showItemPrices && itemPricesConfig.transfers;
-      const transfersTotalPrice = quote.transfers.reduce((sum, t) => sum + (t.price || 0), 0);
+      const transfersTotalPrice = quote.transfers.filter(t => t.included).reduce((sum, t) => sum + (t.price || 0), 0);
       
       sections.push({
         id: 'transfers',
