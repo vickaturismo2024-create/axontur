@@ -960,16 +960,26 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                 <tbody>
                   {quote.ferries.map((ferry, idx) => (
                     <tr key={ferry.id} style={{ backgroundColor: idx % 2 === 0 ? bgColor : cardBgColor }}>
-                      <td style={{ padding: '6px 8px' }}>{ferry.origin} → {ferry.destination}</td>
+                      <td style={{ padding: '6px 8px' }}>
+                        {ferry.origin} → {ferry.destination}
+                        {(ferry as any).included === false && (
+                          <span className="rounded" style={{ marginLeft: '6px', padding: '1px 5px', fontSize: '9px', backgroundColor: `${accentColor}33`, color: primaryColor }}>Opcional</span>
+                        )}
+                      </td>
                       <td style={{ padding: '6px 8px' }}>{formatDate(ferry.date)}</td>
                       <td style={{ padding: '6px 8px' }}>{ferry.departureTime} - {ferry.arrivalTime}</td>
                       <td style={{ padding: '6px 8px' }}>
                         {ferry.company}
                         {ferry.vessel && <span style={{ marginLeft: '4px', fontSize: '10px', color: `${primaryColor}80` }}>({ferry.vessel})</span>}
                       </td>
-                      {showFerryPrices && (
+                      {showFerryPrices && (ferry as any).included !== false && (
                         <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500 }}>
                           {formatCurrency(ferry.price) || '-'}
+                        </td>
+                      )}
+                      {(ferry as any).included === false && ferry.price > 0 && (
+                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500, fontSize: '10px', color: primaryColor }}>
+                          Precio aparte: {formatCurrency(ferry.price)}
                         </td>
                       )}
                     </tr>
