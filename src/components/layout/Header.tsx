@@ -62,6 +62,10 @@ export function Header() {
             </Link>
           ))}
 
+          <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-1">
+            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -105,6 +105,8 @@ const quoteToDb = (quote: Quote, userId: string) => ({
   pricing: { ...quote.pricing, internalNotes: quote.internalNotes || '', publicLinkExpiry: quote.publicLinkExpiry || null },
   itinerary_days: quote.itineraryDays,
   status: quote.status || 'draft',
+  archived: quote.archived || false,
+  favorited: quote.favorited || false,
   user_id: userId,
 });
 
