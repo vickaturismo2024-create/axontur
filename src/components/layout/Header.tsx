@@ -110,6 +110,11 @@ export function Header() {
                 </Link>
               ))}
 
+              <Button variant="ghost" className="w-full justify-start" onClick={toggleTheme}>
+                {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              </Button>
+
               {user && (
                 <>
                   <div className="my-4 border-t" />
