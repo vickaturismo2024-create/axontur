@@ -13,6 +13,7 @@ interface PDFShareMenuProps {
   template?: Template;
   onPrint: () => void;
   onSetExpiry?: (expiry: string | undefined) => void;
+  pdfContainerSelector?: string;
 }
 
 export function PDFShareMenu({ quote, template, onPrint, onSetExpiry }: PDFShareMenuProps) {
