@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  MapPin, Calendar, Users, Copy, Pencil, FileDown, Trash2, Eye, Send, CheckCircle
+  MapPin, Calendar, Users, Copy, Pencil, FileDown, Trash2, Eye, Send, CheckCircle,
+  Archive, Star, ArchiveRestore
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -16,6 +17,8 @@ interface QuoteCardProps {
   onPreview: (quote: Quote) => void;
   onExport: (quote: Quote) => void;
   onStatusChange?: (id: string, status: QuoteStatus) => void;
+  onToggleArchive?: (quote: Quote) => void;
+  onToggleFavorite?: (quote: Quote) => void;
 }
 
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> = {
