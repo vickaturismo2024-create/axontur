@@ -14,13 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      quote_versions: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          quote_id: string
+          user_id: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: string
+          quote_id: string
+          user_id: string
+          version_number?: number
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          quote_id?: string
+          user_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_versions_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotes: {
         Row: {
           activities: Json | null
+          archived: boolean
           client: Json
           cover: Json
           created_at: string
           cruise: Json | null
+          favorited: boolean
           ferries: Json | null
           flights: Json
           id: string
@@ -40,10 +77,12 @@ export type Database = {
         }
         Insert: {
           activities?: Json | null
+          archived?: boolean
           client?: Json
           cover?: Json
           created_at?: string
           cruise?: Json | null
+          favorited?: boolean
           ferries?: Json | null
           flights?: Json
           id?: string
@@ -63,10 +102,12 @@ export type Database = {
         }
         Update: {
           activities?: Json | null
+          archived?: boolean
           client?: Json
           cover?: Json
           created_at?: string
           cruise?: Json | null
+          favorited?: boolean
           ferries?: Json | null
           flights?: Json
           id?: string
