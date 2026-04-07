@@ -81,6 +81,8 @@ const dbToQuote = (row: any): Quote => ({
   status: row.status || 'draft',
   internalNotes: row.pricing?.internalNotes || '',
   publicLinkExpiry: row.pricing?.publicLinkExpiry || undefined,
+  archived: row.archived || false,
+  favorited: row.favorited || false,
 });
 
 // Helper to convert Quote to DB row
@@ -103,6 +105,8 @@ const quoteToDb = (quote: Quote, userId: string) => ({
   pricing: { ...quote.pricing, internalNotes: quote.internalNotes || '', publicLinkExpiry: quote.publicLinkExpiry || null },
   itinerary_days: quote.itineraryDays,
   status: quote.status || 'draft',
+  archived: quote.archived || false,
+  favorited: quote.favorited || false,
   user_id: userId,
 });
 

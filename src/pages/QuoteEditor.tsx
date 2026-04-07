@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/Header';
 import { QuoteWizard } from '@/components/quotes/QuoteWizard';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { Quote, Flight, Lodging, Transfer, Activity } from '@/types/quote';
+import { useQuoteVersions } from '@/hooks/useQuoteVersions';
 
 function buildQuoteFromImport(data: any): Partial<Quote> {
   const flights: Flight[] = (data.flights || []).map((f: any) => ({
@@ -112,6 +113,7 @@ const QuoteEditor = () => {
 
   const existingQuote = id !== 'new' ? quotes.find(q => q.id === id) : undefined;
   const importedData = (location.state as any)?.importedData;
+  const { saveVersion } = useQuoteVersions(existingQuote?.id);
 
   const importedQuote = useMemo(() => {
     if (!importedData || existingQuote) return undefined;
@@ -133,6 +135,8 @@ const QuoteEditor = () => {
   const handleSave = async (quote: Quote) => {
     try {
       if (existingQuote) {
+        // Save version snapshot before updating
+        await saveVersion(existingQuote);
         await updateQuote(quote);
       } else {
         await addQuote(quote);

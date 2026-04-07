@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { Template, WhatsAppAgent } from '@/types/quote';
@@ -18,11 +19,16 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { TemplatePreviewPanel } from '@/components/templates/TemplatePreviewPanel';
 import { FontSelect } from '@/components/templates/FontSelect';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const Templates = () => {
   const { templates, addTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, defaultTemplateId, isLoading } = useQuotes();
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const handleCreate = () => {
     const newTemplate: Template = {
@@ -106,8 +112,15 @@ const Templates = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (id === 'default') { alert('No se puede eliminar la plantilla predeterminada'); return; }
-    if (confirm('¿Estás seguro de eliminar esta plantilla?')) deleteTemplate(id);
+    if (id === 'default') { toast.error('No se puede eliminar la plantilla predeterminada'); return; }
+    setDeleteTargetId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTargetId) {
+      deleteTemplate(deleteTargetId);
+      setDeleteTargetId(null);
+    }
   };
 
   const handleSave = () => {
@@ -559,6 +572,20 @@ const Templates = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar plantilla</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer. ¿Estás seguro de que querés eliminar esta plantilla?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

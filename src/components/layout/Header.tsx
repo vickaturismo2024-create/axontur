@@ -1,4 +1,4 @@
-import { Plane, Menu, LogOut, User } from 'lucide-react';
+import { Plane, Menu, LogOut, User, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
@@ -12,6 +12,7 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuotesSafe } from '@/contexts/QuotesContext';
+import { useTheme } from '@/hooks/useTheme';
 import { toast } from 'sonner';
 
 const navItems = [
@@ -25,6 +26,7 @@ export function Header() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const quotesContext = useQuotesSafe();
+  const { theme, toggleTheme } = useTheme();
   const defaultTemplate = quotesContext?.getDefaultTemplate();
   const agencyName = defaultTemplate?.agencyName || 'Generador de Presupuestos';
 
@@ -59,6 +61,10 @@ export function Header() {
               </Button>
             </Link>
           ))}
+
+          <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-1">
+            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
 
           {user && (
             <DropdownMenu>
@@ -103,6 +109,11 @@ export function Header() {
                   </Button>
                 </Link>
               ))}
+
+              <Button variant="ghost" className="w-full justify-start" onClick={toggleTheme}>
+                {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              </Button>
 
               {user && (
                 <>

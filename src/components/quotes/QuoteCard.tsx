@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  MapPin, Calendar, Users, Copy, Pencil, FileDown, Trash2, Eye, Send, CheckCircle
+  MapPin, Calendar, Users, Copy, Pencil, FileDown, Trash2, Eye, Send, CheckCircle,
+  Archive, Star, ArchiveRestore
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -16,6 +17,8 @@ interface QuoteCardProps {
   onPreview: (quote: Quote) => void;
   onExport: (quote: Quote) => void;
   onStatusChange?: (id: string, status: QuoteStatus) => void;
+  onToggleArchive?: (quote: Quote) => void;
+  onToggleFavorite?: (quote: Quote) => void;
 }
 
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> = {
@@ -25,7 +28,7 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> =
   expired: { label: 'Vencido', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
-export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange }: QuoteCardProps) {
+export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange, onToggleArchive, onToggleFavorite }: QuoteCardProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
@@ -93,6 +96,16 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
           <Button variant="ghost" size="sm" onClick={() => onExport(quote)} className="text-gold-dark hover:bg-gold/10 hover:text-gold-dark">
             <FileDown className="mr-1.5 h-4 w-4" />PDF
           </Button>
+          {onToggleFavorite && (
+            <Button variant="ghost" size="sm" onClick={() => onToggleFavorite(quote)} className={quote.favorited ? 'text-gold-dark' : 'text-muted-foreground'}>
+              <Star className={`mr-1.5 h-4 w-4 ${quote.favorited ? 'fill-current' : ''}`} />
+            </Button>
+          )}
+          {onToggleArchive && (
+            <Button variant="ghost" size="sm" onClick={() => onToggleArchive(quote)} className="text-muted-foreground hover:text-foreground">
+              {quote.archived ? <ArchiveRestore className="mr-1.5 h-4 w-4" /> : <Archive className="mr-1.5 h-4 w-4" />}
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => onDelete(quote.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
             <Trash2 className="mr-1.5 h-4 w-4" />
           </Button>

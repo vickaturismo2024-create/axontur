@@ -53,13 +53,13 @@ const ExportPDF = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>
-          <PDFShareMenu quote={quote} template={template} onPrint={handlePrint} onSetExpiry={handleSetExpiry} />
+          <PDFShareMenu quote={quote} template={template} onPrint={handlePrint} onSetExpiry={handleSetExpiry} pdfContainerSelector="#pdf-export-container" />
         </div>
       </div>
 
       {/* PDF Pages - Centered for preview, full-width for print */}
       <div className="container mx-auto py-8 print:p-0 print:m-0 print:max-w-none">
-        <div className="flex flex-col items-center gap-8 print:gap-0 print:items-stretch">
+        <div id="pdf-export-container" className="flex flex-col items-center gap-8 print:gap-0 print:items-stretch">
           {/* Página 1: Portada */}
           <PDFCoverPage quote={quote} template={template} />
 

@@ -6,17 +6,20 @@ import {
 import { Share2, Mail, MessageCircle, Download, Printer, Link2, Check, Clock } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { generatePDF } from '@/lib/generatePDF';
 
 interface PDFShareMenuProps {
   quote: Quote;
   template?: Template;
   onPrint: () => void;
   onSetExpiry?: (expiry: string | undefined) => void;
+  pdfContainerSelector?: string;
 }
 
-export function PDFShareMenu({ quote, template, onPrint, onSetExpiry }: PDFShareMenuProps) {
+export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContainerSelector }: PDFShareMenuProps) {
   const agencyName = template?.agencyName || template?.name || 'Mi Agencia';
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const getShareUrl = () => `${window.location.origin}/pdf/${quote.id}`;
 
@@ -72,8 +75,19 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry }: PDFShare
         <DropdownMenuItem onClick={handleShareWhatsApp} className="gap-2 cursor-pointer">
           <MessageCircle className="h-4 w-4 text-green-600" />Enviar por WhatsApp
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onPrint()} className="gap-2 cursor-pointer">
-          <Download className="h-4 w-4" />Descargar PDF
+        <DropdownMenuItem onClick={async () => {
+          if (!pdfContainerSelector) { onPrint(); return; }
+          setDownloading(true);
+          try {
+            await generatePDF(pdfContainerSelector, `presupuesto-${quote.trip.destination.replace(/\s+/g, '-')}.pdf`);
+            toast.success('PDF descargado');
+          } catch (e) {
+            console.error(e);
+            toast.error('Error al generar el PDF, usando impresión');
+            onPrint();
+          } finally { setDownloading(false); }
+        }} className="gap-2 cursor-pointer" disabled={downloading}>
+          <Download className="h-4 w-4" />{downloading ? 'Generando...' : 'Descargar PDF'}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onPrint} className="gap-2 cursor-pointer">
           <Printer className="h-4 w-4" />Imprimir

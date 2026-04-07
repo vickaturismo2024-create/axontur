@@ -17,6 +17,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
+import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
+import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
 import { defaultTemplate } from '@/data/demoData';
 
 const Dashboard = () => {
@@ -27,20 +29,24 @@ const Dashboard = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewFilter, setViewFilter] = useState<'active' | 'archived' | 'favorites'>('active');
+  const [filters, setFilters] = useState<DashboardFilterValues>(defaultFilters);
 
-  // Metrics
+  // Metrics (exclude archived)
+  const activeQuotes = useMemo(() => quotes.filter(q => !q.archived), [quotes]);
+
   const metrics = useMemo(() => {
     const now = new Date();
-    const thisMonth = quotes.filter(q => {
+    const thisMonth = activeQuotes.filter(q => {
       const d = new Date(q.createdAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
     const totalsByCurrency: Record<string, number> = {};
-    quotes.forEach(q => {
+    activeQuotes.forEach(q => {
       const currency = (q.trip as any).currency || 'USD';
       totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + (q.pricing.totalPrice || 0);
     });
-    const quotesWithMargin = quotes.filter(q => (q.pricing.totalCost || 0) > 0 && (q.pricing.totalPrice || 0) > 0);
+    const quotesWithMargin = activeQuotes.filter(q => (q.pricing.totalCost || 0) > 0 && (q.pricing.totalPrice || 0) > 0);
     const avgMargin = quotesWithMargin.length > 0
       ? quotesWithMargin.reduce((sum, q) => {
           const cost = q.pricing.totalCost || 0;
@@ -48,43 +54,96 @@ const Dashboard = () => {
           return sum + ((price - cost) / cost) * 100;
         }, 0) / quotesWithMargin.length
       : 0;
-    const approved = quotes.filter(q => q.status === 'approved').length;
-    const approvalRate = quotes.length > 0 ? (approved / quotes.length) * 100 : 0;
-    return { total: quotes.length, totalsByCurrency, avgMargin, thisMonth: thisMonth.length, approvalRate };
-  }, [quotes]);
+    const approved = activeQuotes.filter(q => q.status === 'approved').length;
+    const approvalRate = activeQuotes.length > 0 ? (approved / activeQuotes.length) * 100 : 0;
+    return { total: activeQuotes.length, totalsByCurrency, avgMargin, thisMonth: thisMonth.length, approvalRate };
+  }, [activeQuotes]);
 
-  const filteredQuotes = quotes.filter(quote => {
+  const filteredQuotes = useMemo(() => {
+    let result = quotes;
+
+    // View filter (active/archived/favorites)
+    if (viewFilter === 'archived') {
+      result = result.filter(q => q.archived);
+    } else if (viewFilter === 'favorites') {
+      result = result.filter(q => q.favorited && !q.archived);
+    } else {
+      result = result.filter(q => !q.archived);
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(q => (q.status || 'draft') === statusFilter);
+    }
+
+    // Search
     const query = searchQuery.toLowerCase();
-    const matchesSearch = quote.client.name.toLowerCase().includes(query) || quote.trip.destination.toLowerCase().includes(query);
-    const matchesStatus = statusFilter === 'all' || (quote.status || 'draft') === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+    if (query) {
+      result = result.filter(q =>
+        q.client.name.toLowerCase().includes(query) || q.trip.destination.toLowerCase().includes(query)
+      );
+    }
+
+    // Advanced filters
+    if (filters.dateFrom) {
+      result = result.filter(q => q.createdAt >= filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      result = result.filter(q => q.createdAt <= filters.dateTo + 'T23:59:59');
+    }
+    if (filters.destination) {
+      const dest = filters.destination.toLowerCase();
+      result = result.filter(q => q.trip.destination.toLowerCase().includes(dest));
+    }
+    if (filters.currency !== 'all') {
+      result = result.filter(q => (q.trip as any).currency === filters.currency);
+    }
+    if (filters.priceMin) {
+      result = result.filter(q => (q.pricing.totalPrice || 0) >= Number(filters.priceMin));
+    }
+    if (filters.priceMax) {
+      result = result.filter(q => (q.pricing.totalPrice || 0) <= Number(filters.priceMax));
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      const dir = filters.sortOrder === 'asc' ? 1 : -1;
+      switch (filters.sortBy) {
+        case 'price': return ((a.pricing.totalPrice || 0) - (b.pricing.totalPrice || 0)) * dir;
+        case 'client': return a.client.name.localeCompare(b.client.name) * dir;
+        case 'destination': return a.trip.destination.localeCompare(b.trip.destination) * dir;
+        default: return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir;
+      }
+    });
+
+    return result;
+  }, [quotes, searchQuery, statusFilter, viewFilter, filters]);
 
   const handleEdit = (quote: Quote) => navigate(`/quote/${quote.id}`);
-
   const handleDuplicate = async (id: string) => {
     try { const nq = await duplicateQuote(id); navigate(`/quote/${nq.id}`); } catch (e) { console.error(e); }
   };
-
   const handleDelete = (id: string) => setDeleteTargetId(id);
-
   const confirmDelete = async () => {
     if (deleteTargetId) {
       try { await deleteQuote(deleteTargetId); } catch (e) { console.error(e); }
       setDeleteTargetId(null);
     }
   };
-
   const handleStatusChange = async (id: string, status: QuoteStatus) => {
     const quote = quotes.find(q => q.id === id);
     if (quote) {
       try { await updateQuote({ ...quote, status }); } catch (e) { console.error(e); }
     }
   };
-
+  const handleToggleArchive = async (quote: Quote) => {
+    try { await updateQuote({ ...quote, archived: !quote.archived }); } catch (e) { console.error(e); }
+  };
+  const handleToggleFavorite = async (quote: Quote) => {
+    try { await updateQuote({ ...quote, favorited: !quote.favorited }); } catch (e) { console.error(e); }
+  };
   const handlePreview = (quote: Quote) => setPreviewQuote(quote);
   const handleExport = (quote: Quote) => navigate(`/export/${quote.id}`);
-
   const getTemplate = (templateId: string) => templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
 
   if (isLoading) {
@@ -172,21 +231,38 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Status Tabs + Search */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-            <TabsList>
-              <TabsTrigger value="all">Todos</TabsTrigger>
-              <TabsTrigger value="draft">Borrador</TabsTrigger>
-              <TabsTrigger value="sent">Enviados</TabsTrigger>
-              <TabsTrigger value="approved">Aprobados</TabsTrigger>
-              <TabsTrigger value="expired">Vencidos</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Buscar por cliente o destino..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+        {/* Charts */}
+        <div className="mb-8">
+          <DashboardCharts quotes={activeQuotes} />
+        </div>
+
+        {/* View Tabs (Active/Archived/Favorites) + Status Tabs + Search + Filters */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-4 flex-wrap">
+              <Tabs value={viewFilter} onValueChange={(v) => setViewFilter(v as any)}>
+                <TabsList>
+                  <TabsTrigger value="active">Activos</TabsTrigger>
+                  <TabsTrigger value="favorites">⭐ Favoritos</TabsTrigger>
+                  <TabsTrigger value="archived">📦 Archivados</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+                <TabsList>
+                  <TabsTrigger value="all">Todos</TabsTrigger>
+                  <TabsTrigger value="draft">Borrador</TabsTrigger>
+                  <TabsTrigger value="sent">Enviados</TabsTrigger>
+                  <TabsTrigger value="approved">Aprobados</TabsTrigger>
+                  <TabsTrigger value="expired">Vencidos</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Buscar por cliente o destino..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+            </div>
           </div>
+          <DashboardFilters filters={filters} onChange={setFilters} />
         </div>
 
         {/* Quotes Grid */}
@@ -194,7 +270,8 @@ const Dashboard = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredQuotes.map((quote) => (
               <QuoteCard key={quote.id} quote={quote} onEdit={handleEdit} onDuplicate={handleDuplicate}
-                onDelete={handleDelete} onPreview={handlePreview} onExport={handleExport} onStatusChange={handleStatusChange} />
+                onDelete={handleDelete} onPreview={handlePreview} onExport={handleExport} onStatusChange={handleStatusChange}
+                onToggleArchive={handleToggleArchive} onToggleFavorite={handleToggleFavorite} />
             ))}
           </div>
         ) : (
@@ -202,9 +279,9 @@ const Dashboard = () => {
             <div className="mb-4 rounded-full bg-muted p-6"><Plane className="h-12 w-12 text-muted-foreground" /></div>
             <h3 className="font-serif text-xl font-semibold">No hay presupuestos</h3>
             <p className="mt-2 text-muted-foreground">
-              {searchQuery ? 'No se encontraron resultados para tu búsqueda' : 'Crea tu primer presupuesto de viaje'}
+              {searchQuery ? 'No se encontraron resultados para tu búsqueda' : viewFilter === 'archived' ? 'No hay presupuestos archivados' : viewFilter === 'favorites' ? 'No hay favoritos' : 'Crea tu primer presupuesto de viaje'}
             </p>
-            {!searchQuery && (
+            {!searchQuery && viewFilter === 'active' && (
               <Button onClick={() => navigate('/quote/new')} className="mt-4 bg-primary">
                 <Plus className="mr-2 h-4 w-4" />Crear Presupuesto
               </Button>
