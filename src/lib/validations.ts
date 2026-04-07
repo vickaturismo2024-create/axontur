@@ -166,6 +166,7 @@ export const rentalCarSchema = z.object({
   carType: z.string().default(''),
   extras: z.string().default(''),
   notes: z.string().default(''),
+  included: z.boolean().default(true),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
 });
