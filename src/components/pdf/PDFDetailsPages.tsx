@@ -827,8 +827,13 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                     {transfer.dateTime && <span style={{ marginLeft: '6px', color: `${primaryColor}80` }}>({transfer.dateTime})</span>}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {showTransferPrices && formatCurrency(transfer.price) && (
+                    {showTransferPrices && transfer.included && formatCurrency(transfer.price) && (
                       <span style={{ fontWeight: 500 }}>{formatCurrency(transfer.price)}</span>
+                    )}
+                    {!transfer.included && transfer.price > 0 && (
+                      <span style={{ fontWeight: 500, fontSize: '10px', color: primaryColor }}>
+                        Precio aparte: {formatCurrency(transfer.price)}
+                      </span>
                     )}
                     <span 
                       className="rounded"
