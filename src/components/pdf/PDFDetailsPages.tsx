@@ -890,16 +890,26 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                 <tbody>
                   {quote.trains.map((train, idx) => (
                     <tr key={train.id} style={{ backgroundColor: idx % 2 === 0 ? bgColor : cardBgColor }}>
-                      <td style={{ padding: '6px 8px' }}>{train.origin} → {train.destination}</td>
+                      <td style={{ padding: '6px 8px' }}>
+                        {train.origin} → {train.destination}
+                        {(train as any).included === false && (
+                          <span className="rounded" style={{ marginLeft: '6px', padding: '1px 5px', fontSize: '9px', backgroundColor: `${accentColor}33`, color: primaryColor }}>Opcional</span>
+                        )}
+                      </td>
                       <td style={{ padding: '6px 8px' }}>{formatDate(train.date)}</td>
                       <td style={{ padding: '6px 8px' }}>{train.departureTime} - {train.arrivalTime}</td>
                       <td style={{ padding: '6px 8px' }}>
                         {train.company} {train.trainNumber}
                         {train.class && <span style={{ marginLeft: '4px', fontSize: '10px', color: `${primaryColor}80` }}>({train.class})</span>}
                       </td>
-                      {showTrainPrices && (
+                      {showTrainPrices && (train as any).included !== false && (
                         <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500 }}>
                           {formatCurrency(train.price) || '-'}
+                        </td>
+                      )}
+                      {(train as any).included === false && train.price > 0 && (
+                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500, fontSize: '10px', color: primaryColor }}>
+                          Precio aparte: {formatCurrency(train.price)}
                         </td>
                       )}
                     </tr>
