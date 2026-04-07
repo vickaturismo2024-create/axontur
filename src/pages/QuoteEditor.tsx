@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/Header';
 import { QuoteWizard } from '@/components/quotes/QuoteWizard';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { Quote, Flight, Lodging, Transfer, Activity } from '@/types/quote';
+import { useQuoteVersions } from '@/hooks/useQuoteVersions';
 
 function buildQuoteFromImport(data: any): Partial<Quote> {
   const flights: Flight[] = (data.flights || []).map((f: any) => ({
