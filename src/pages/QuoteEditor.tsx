@@ -124,6 +124,8 @@ const QuoteEditor = () => {
       templateId: defaultTpl?.id || 'default',
       client: { name: '', phone: '', email: '' },
       itineraryDays: [],
+      status: 'draft' as const,
+      internalNotes: '',
       ...partial,
     } as Quote;
   }, [importedData, existingQuote]);
