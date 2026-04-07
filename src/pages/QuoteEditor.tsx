@@ -135,6 +135,8 @@ const QuoteEditor = () => {
   const handleSave = async (quote: Quote) => {
     try {
       if (existingQuote) {
+        // Save version snapshot before updating
+        await saveVersion(existingQuote);
         await updateQuote(quote);
       } else {
         await addQuote(quote);
