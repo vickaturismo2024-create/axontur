@@ -1,52 +1,37 @@
 
 
-# Plan: Generación automática de itinerario con IA + visibilidad correcta en preview y PDF
+# Plan: Excluir transportes no incluidos del cálculo de precios
 
-## Resumen
+## Problema
 
-Agregar un botón "Generar con IA" en el paso de itinerario del QuoteWizard que analiza los servicios cargados (vuelos, hoteles, transfers, actividades) para crear automáticamente los días del itinerario. Además, agregar un toggle de visibilidad del itinerario en el paso de itinerario y en la vista previa, asegurando que se respete en todos los renders del PDF.
+Cuando un traslado o actividad tiene la casilla "Incluido" desactivada (campo `included: false`), su costo y precio se suman igual al total del presupuesto. Lo correcto es que solo se sumen al total si `included === true`. Los que no están incluidos deben mostrar su precio aparte en el PDF pero no afectar el precio final del paquete.
 
-## Cambios por archivo
+## Cambios
 
-### 1. `supabase/functions/generate-itinerary/index.ts` (nuevo)
+### 1. `src/hooks/usePricingCalculator.ts`
 
-Edge function que usa Lovable AI (gemini-3-flash-preview) con tool calling:
-- Recibe: `{ trip, flights, lodgings, transfers, activities, trains, ferries, cruise }`
-- System prompt en español que genera días con `dayNumber`, `date`, `title`, `description`, `activities[]` basándose en fechas y servicios reales
-- Tool calling para salida JSON estructurada (array de ItineraryDay)
-- Manejo de errores 429/402 con mensajes claros
+Filtrar transfers y activities por `included === true` antes de sumar:
 
-### 2. `src/components/quotes/QuoteWizard.tsx`
+- Línea ~43: cambiar `quote.transfers.forEach(...)` → `quote.transfers.filter(t => t.included).forEach(...)`
+- Línea ~67: cambiar `(quote.activities || []).forEach(...)` → `(quote.activities || []).filter(a => a.included).forEach(...)`
 
-**Step 10 (Itinerario):**
-- Botón "✨ Generar itinerario con IA" arriba de la lista de días
-- Loading state durante la generación
-- Confirmación antes de reemplazar si ya hay días cargados
-- Toggle switch "Mostrar itinerario en el PDF"
+### 2. `src/hooks/useOccupancyPricingCalculator.ts`
 
-**Step 11 (Vista Previa):**
-- Mismo toggle switch "Mostrar itinerario en el PDF" arriba del preview
+Mismo cambio:
 
-**Estado local:**
-- Nuevo state `itineraryVisible` (inicializado desde `currentTemplate.sectionsToggles.itinerary`)
-- Crear `previewTemplate` derivado que aplica el override de visibilidad
-- Usar `previewTemplate` en los dos `PDFPreview` (step 11 y panel lateral)
+- Línea ~476: filtrar transfers por `included`
+- Línea ~500: filtrar activities por `included`
 
-### 3. Archivos que NO cambian
+### 3. PDF — Precio visible para servicios no incluidos
 
-- **`PDFPreview.tsx`**: Ya verifica `template.sectionsToggles.itinerary` en línea 30. El toggle del QuoteWizard modifica el template que se pasa como prop → funciona automáticamente.
-- **`PDFItineraryPages.tsx`**: Ya verifica `template.sectionsToggles.itinerary` internamente → funciona automáticamente.
-- **`ExportPDF.tsx` y `PublicPDF.tsx`**: Ya renderizan con el template de la base de datos que incluye `sectionsToggles` → funciona automáticamente.
+En `src/components/pdf/PDFDetailsPages.tsx` y `src/components/pdf/PDFDetailsPage.tsx`, los traslados y actividades con `included: false` ya muestran un badge "Opcional". Verificar que también muestren el precio individual al lado (con un texto tipo "Precio aparte: $X") para que el cliente sepa cuánto cuesta ese servicio opcional. Si ya se muestra el precio, no hay cambio; si no, agregar la visualización.
 
-### Sin migración de base de datos
+### Archivos que no cambian
 
-Los `itineraryDays` usan la columna JSON existente. El toggle de visibilidad es parte del JSON del template.
+- Los tipos (`Transfer`, `Activity`) ya tienen el campo `included: boolean`
+- Los trenes, ferrys y autos de alquiler no tienen campo `included` en sus tipos, por lo que siempre se incluyen en el cálculo (comportamiento correcto según la estructura actual)
 
-## Flujo del usuario
+## Impacto
 
-1. Carga vuelos, hoteles, transfers, actividades normalmente
-2. En "Itinerario" → clic en "Generar con IA" → la IA mapea servicios a días
-3. Revisa, edita, agrega días extra
-4. Usa el toggle para mostrar/ocultar el itinerario en la vista previa y PDF
-5. El toggle es local a la sesión; la visibilidad permanente se configura en la plantilla
+Solo se modifican las funciones de cálculo para respetar el flag existente. No hay cambios en la base de datos ni en los tipos.
 
