@@ -20,7 +20,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { TemplatePreviewPanel } from '@/components/templates/TemplatePreviewPanel';
 import { FontSelect } from '@/components/templates/FontSelect';
 import { presetTemplates } from '@/data/presetTemplates';
-import { FontSelect } from '@/components/templates/FontSelect';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
