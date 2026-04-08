@@ -3,10 +3,11 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Share2, Mail, MessageCircle, Download, Printer, Link2, Check, Clock } from 'lucide-react';
+import { Share2, Mail, MessageCircle, Download, Printer, Link2, Check, Clock, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { generatePDF } from '@/lib/generatePDF';
+import { exportQuoteToExcel } from '@/lib/exportExcel';
 
 interface PDFShareMenuProps {
   quote: Quote;
