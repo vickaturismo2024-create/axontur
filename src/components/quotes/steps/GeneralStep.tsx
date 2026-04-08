@@ -1,6 +1,7 @@
 import { Quote } from '@/types/quote';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ClientSelect } from '@/components/quotes/ClientSelect';
 
@@ -116,6 +117,22 @@ export function GeneralStep({ quote, onUpdate }: GeneralStepProps) {
             />
           </div>
         </div>
+      </div>
+
+      {/* Internal Notes - full width */}
+      <div className="md:col-span-2 mt-2">
+        <Label htmlFor="internalNotes" className="flex items-center gap-2">
+          📝 Notas internas
+          <span className="text-xs text-muted-foreground font-normal">(solo visibles para vos, no aparecen en el PDF)</span>
+        </Label>
+        <Textarea
+          id="internalNotes"
+          value={quote.internalNotes || ''}
+          onChange={(e) => onUpdate({ internalNotes: e.target.value })}
+          placeholder="Ej: El cliente prefiere ventanilla. Confirmar hotel antes del 15."
+          rows={3}
+          className="mt-1"
+        />
       </div>
     </div>
   );

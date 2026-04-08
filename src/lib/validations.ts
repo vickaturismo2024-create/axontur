@@ -458,6 +458,10 @@ export const quoteSchema = z.object({
   publicLinkExpiry: z.string().optional(),
   archived: z.boolean().default(false),
   favorited: z.boolean().default(false),
+  approvedAt: z.string().optional(),
+  approvedByName: z.string().optional(),
+  approvedIp: z.string().optional(),
+  viewCount: z.number().optional(),
 });
 
 // WhatsApp Agent validation - no length restrictions

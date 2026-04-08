@@ -83,6 +83,9 @@ const dbToQuote = (row: any): Quote => ({
   publicLinkExpiry: row.pricing?.publicLinkExpiry || undefined,
   archived: row.archived || false,
   favorited: row.favorited || false,
+  approvedAt: row.approved_at || undefined,
+  approvedByName: row.approved_by_name || undefined,
+  approvedIp: row.approved_ip || undefined,
 });
 
 // Helper to convert Quote to DB row
@@ -153,7 +156,25 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
 
       if (quotesError) throw quotesError;
 
-      setQuotes((quotesData || []).map(dbToQuote));
+      // Fetch view counts
+      const quoteIds = (quotesData || []).map((q: any) => q.id);
+      let viewCounts: Record<string, number> = {};
+      if (quoteIds.length > 0) {
+        const { data: viewsData } = await supabase
+          .from('quote_views' as any)
+          .select('quote_id')
+          .in('quote_id', quoteIds);
+        if (viewsData) {
+          (viewsData as any[]).forEach((v: any) => {
+            viewCounts[v.quote_id] = (viewCounts[v.quote_id] || 0) + 1;
+          });
+        }
+      }
+
+      setQuotes((quotesData || []).map((row: any) => ({
+        ...dbToQuote(row),
+        viewCount: viewCounts[row.id] || 0,
+      })));
       hasLoadedRef.current = true;
     } catch (error) {
       logError('fetchData', error);

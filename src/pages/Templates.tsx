@@ -19,6 +19,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { TemplatePreviewPanel } from '@/components/templates/TemplatePreviewPanel';
 import { FontSelect } from '@/components/templates/FontSelect';
+import { presetTemplates } from '@/data/presetTemplates';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -29,6 +30,7 @@ const Templates = () => {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   const handleCreate = () => {
     const newTemplate: Template = {
@@ -194,9 +196,14 @@ const Templates = () => {
             <h1 className="font-serif text-3xl font-bold text-foreground">Plantillas</h1>
             <p className="mt-1 text-muted-foreground">Personaliza el diseño de tus presupuestos</p>
           </div>
-          <Button onClick={handleCreate} className="bg-primary">
-            <Plus className="mr-2 h-4 w-4" /> Nueva Plantilla
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setGalleryOpen(true)}>
+              <Layers className="mr-2 h-4 w-4" /> Galería
+            </Button>
+            <Button onClick={handleCreate} className="bg-primary">
+              <Plus className="mr-2 h-4 w-4" /> Nueva Plantilla
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -586,6 +593,42 @@ const Templates = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Template Gallery Dialog */}
+      <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Galería de plantillas prediseñadas</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 md:grid-cols-2">
+            {presetTemplates.map((preset, i) => (
+              <Card key={i} className="overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="mb-2 flex gap-2">
+                    {[preset.colors.primary, preset.colors.secondary, preset.colors.accent].map((c, j) => (
+                      <div key={j} className="h-6 w-6 rounded-full border" style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                  <CardTitle className="text-base">{preset.name}</CardTitle>
+                  <p className="text-xs text-muted-foreground">{preset.fonts.heading} / {preset.fonts.body}</p>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      addTemplate({ ...preset, id: crypto.randomUUID() } as Template);
+                      setGalleryOpen(false);
+                    }}
+                  >
+                    <Plus className="mr-1 h-4 w-4" /> Importar
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

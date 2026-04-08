@@ -18,6 +18,7 @@ import PublicPDF from "./pages/PublicPDF";
 import Agency from "./pages/Agency";
 import Clients from "./pages/Clients";
 import Suppliers from "./pages/Suppliers";
+import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 // Create QueryClient outside component to prevent recreation on re-renders
@@ -52,6 +53,7 @@ const App = () => (
                 <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
                 <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
                 <Route path="/tutoriales" element={<ProtectedRoute><Tutorials /></ProtectedRoute>} />
+                <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </TourProvider>
