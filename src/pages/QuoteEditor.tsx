@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteWizard } from '@/components/quotes/QuoteWizard';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { Quote, Flight, Lodging, Transfer, Activity } from '@/types/quote';
 import { useQuoteVersions } from '@/hooks/useQuoteVersions';
+import { VersionHistory } from '@/components/quotes/VersionHistory';
+import { PaymentsSection } from '@/components/quotes/PaymentsSection';
+import { toast } from 'sonner';
 
 function buildQuoteFromImport(data: any): Partial<Quote> {
   const flights: Flight[] = (data.flights || []).map((f: any) => ({
