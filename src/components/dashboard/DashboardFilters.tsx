@@ -12,13 +12,14 @@ export interface DashboardFilterValues {
   priceMin: string;
   priceMax: string;
   currency: string;
+  clientName: string;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
 }
 
 const defaultFilters: DashboardFilterValues = {
   dateFrom: '', dateTo: '', destination: '', priceMin: '', priceMax: '',
-  currency: 'all', sortBy: 'date', sortOrder: 'desc',
+  currency: 'all', clientName: '', sortBy: 'date', sortOrder: 'desc',
 };
 
 interface DashboardFiltersProps {
@@ -29,7 +30,7 @@ interface DashboardFiltersProps {
 export function DashboardFilters({ filters, onChange }: DashboardFiltersProps) {
   const [open, setOpen] = useState(false);
 
-  const hasFilters = filters.dateFrom || filters.dateTo || filters.destination || filters.priceMin || filters.priceMax || filters.currency !== 'all';
+  const hasFilters = filters.dateFrom || filters.dateTo || filters.destination || filters.priceMin || filters.priceMax || filters.currency !== 'all' || filters.clientName;
 
   const clearFilters = () => onChange(defaultFilters);
 
@@ -63,6 +64,10 @@ export function DashboardFilters({ filters, onChange }: DashboardFiltersProps) {
             <div>
               <Label className="text-xs">Destino</Label>
               <Input placeholder="Ej: Europa" value={filters.destination} onChange={(e) => onChange({ ...filters, destination: e.target.value })} className="h-8 text-sm" />
+            </div>
+            <div>
+              <Label className="text-xs">Cliente</Label>
+              <Input placeholder="Nombre del cliente" value={filters.clientName} onChange={(e) => onChange({ ...filters, clientName: e.target.value })} className="h-8 text-sm" />
             </div>
             <div>
               <Label className="text-xs">Moneda</Label>
