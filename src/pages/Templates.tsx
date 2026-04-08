@@ -31,6 +31,7 @@ const Templates = () => {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   const handleCreate = () => {
     const newTemplate: Template = {
