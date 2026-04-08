@@ -105,6 +105,10 @@ const Dashboard = () => {
     if (filters.priceMax) {
       result = result.filter(q => (q.pricing.totalPrice || 0) <= Number(filters.priceMax));
     }
+    if (filters.clientName) {
+      const cn = filters.clientName.toLowerCase();
+      result = result.filter(q => q.client.name.toLowerCase().includes(cn));
+    }
 
     // Sort
     result = [...result].sort((a, b) => {
