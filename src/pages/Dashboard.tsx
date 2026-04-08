@@ -232,9 +232,14 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Charts */}
-        <div className="mb-8">
-          <DashboardCharts quotes={activeQuotes} />
+        {/* Charts + Reminders */}
+        <div className="mb-8 grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <DashboardCharts quotes={activeQuotes} />
+          </div>
+          <div>
+            <RemindersPanel />
+          </div>
         </div>
 
         {/* View Tabs (Active/Archived/Favorites) + Status Tabs + Search + Filters */}
