@@ -22,7 +22,10 @@ function parseExcelDate(val: any): string {
     const parts = s.split('/');
     if (parts.length === 3) {
       let [d, m, y] = parts.map(Number);
-      if (y < 100) y += y < 50 ? 2000 : 1900;
+      if (y < 100) {
+        const currentYearShort = new Date().getFullYear() % 100;
+        y += y <= currentYearShort ? 2000 : 1900;
+      }
       if (y < 1900) return '';
       return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     }
