@@ -14,34 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
-      clients: {
+      client_group_members: {
+        Row: {
+          client_id: string
+          group_id: string
+          id: string
+        }
+        Insert: {
+          client_id: string
+          group_id: string
+          id?: string
+        }
+        Update: {
+          client_id?: string
+          group_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_group_members_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "client_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_groups: {
         Row: {
           created_at: string
-          email: string | null
           id: string
           name: string
-          notes: string | null
-          phone: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          email?: string | null
           id?: string
-          name?: string
-          notes?: string | null
-          phone?: string | null
+          name: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
-          email?: string | null
           id?: string
           name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      clients: {
+        Row: {
+          address: string | null
+          birth_date: string | null
+          created_at: string
+          cuil_cuit: string | null
+          dni: string | null
+          dni_expiry: string | null
+          email: string | null
+          id: string
+          locality: string | null
+          name: string
+          nationality: string | null
+          notes: string | null
+          passport: string | null
+          passport_expiry: string | null
+          passport_issue: string | null
+          phone: string | null
+          phone_mobile: string | null
+          phone_work: string | null
+          sex: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          birth_date?: string | null
+          created_at?: string
+          cuil_cuit?: string | null
+          dni?: string | null
+          dni_expiry?: string | null
+          email?: string | null
+          id?: string
+          locality?: string | null
+          name?: string
+          nationality?: string | null
           notes?: string | null
+          passport?: string | null
+          passport_expiry?: string | null
+          passport_issue?: string | null
           phone?: string | null
+          phone_mobile?: string | null
+          phone_work?: string | null
+          sex?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          birth_date?: string | null
+          created_at?: string
+          cuil_cuit?: string | null
+          dni?: string | null
+          dni_expiry?: string | null
+          email?: string | null
+          id?: string
+          locality?: string | null
+          name?: string
+          nationality?: string | null
+          notes?: string | null
+          passport?: string | null
+          passport_expiry?: string | null
+          passport_issue?: string | null
+          phone?: string | null
+          phone_mobile?: string | null
+          phone_work?: string | null
+          sex?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -407,7 +503,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      owns_client_group: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
