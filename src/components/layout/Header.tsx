@@ -1,4 +1,5 @@
 import { Plane, Menu, LogOut, User, Moon, Sun } from 'lucide-react';
+import { RemindersBadge } from '@/components/reminders/RemindersBadge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
