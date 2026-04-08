@@ -83,6 +83,9 @@ const dbToQuote = (row: any): Quote => ({
   publicLinkExpiry: row.pricing?.publicLinkExpiry || undefined,
   archived: row.archived || false,
   favorited: row.favorited || false,
+  approvedAt: row.approved_at || undefined,
+  approvedByName: row.approved_by_name || undefined,
+  approvedIp: row.approved_ip || undefined,
 });
 
 // Helper to convert Quote to DB row
