@@ -6,7 +6,10 @@ import { PDFCoverPage } from '@/components/pdf/PDFCoverPage';
 import { PDFDetailsPages } from '@/components/pdf/PDFDetailsPages';
 import { PDFContactPages } from '@/components/pdf/PDFContactPages';
 import { PDFItineraryPages } from '@/components/pdf/PDFItineraryPages';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle, Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 // Transform snake_case DB row to camelCase Quote
 function mapDbRowToQuote(row: any): Quote {
@@ -30,6 +33,8 @@ function mapDbRowToQuote(row: any): Quote {
     insurance: row.insurance as any,
     pricing: row.pricing as any,
     itineraryDays: row.itinerary_days as any,
+    approvedAt: row.approved_at,
+    approvedByName: row.approved_by_name,
   };
 }
 
@@ -47,7 +52,7 @@ function mapDbRowToTemplate(row: any): Template {
   };
 }
 
-const PDF_PAGE_WIDTH = 794; // 210mm in px
+const PDF_PAGE_WIDTH = 794;
 const MOBILE_BREAKPOINT = 768;
 
 const PublicPDF = () => {
@@ -61,6 +66,11 @@ const PublicPDF = () => {
   const [contentHeight, setContentHeight] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Approval state
+  const [approvalName, setApprovalName] = useState('');
+  const [approving, setApproving] = useState(false);
+  const [isApproved, setIsApproved] = useState(false);
 
   // Responsive scale + mobile detection
   const updateScale = useCallback(() => {
@@ -96,22 +106,35 @@ const PublicPDF = () => {
       try {
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-public-quote?id=${id}`;
         const response = await fetch(url, {
-          headers: {
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
+          headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
         });
 
         if (!response.ok) {
-          setError('Presupuesto no encontrado');
+          const data = await response.json().catch(() => ({}));
+          setError(data.error || 'Presupuesto no encontrado');
           setLoading(false);
           return;
         }
 
         const result = await response.json();
-        setQuote(mapDbRowToQuote(result.quote));
+        const q = mapDbRowToQuote(result.quote);
+        setQuote(q);
+        setIsApproved(!!q.approvedAt);
         if (result.template) {
           setTemplate(mapDbRowToTemplate(result.template));
         }
+
+        // Track view (fire and forget)
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/quote_views`, {
+          method: 'POST',
+          headers: {
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ quote_id: id }),
+        }).catch(() => {});
       } catch (err) {
         setError('Error al cargar el presupuesto');
       } finally {
@@ -121,6 +144,35 @@ const PublicPDF = () => {
 
     fetchQuote();
   }, [id]);
+
+  const handleApprove = async () => {
+    if (!id || !approvalName.trim()) return;
+    setApproving(true);
+    try {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approve-quote`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id, name: approvalName.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsApproved(true);
+        toast.success('¡Presupuesto aprobado exitosamente!');
+      } else if (res.status === 409) {
+        setIsApproved(true);
+      } else {
+        toast.error(data.error || 'Error al aprobar');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setApproving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -146,6 +198,39 @@ const PublicPDF = () => {
     );
   }
 
+  const approvalSection = (
+    <div className="mx-auto max-w-lg my-8 print:hidden">
+      {isApproved ? (
+        <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-6 text-center">
+          <CheckCircle className="mx-auto h-12 w-12 text-emerald-500" />
+          <h3 className="mt-3 text-lg font-semibold text-emerald-800">Presupuesto aprobado</h3>
+          <p className="mt-1 text-sm text-emerald-600">
+            {quote.approvedByName ? `Aprobado por ${quote.approvedByName}` : 'Este presupuesto ya fue aprobado'}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl border-2 border-primary/20 bg-card p-6 shadow-lg">
+          <h3 className="text-lg font-semibold text-center mb-1">¿Aprobás este presupuesto?</h3>
+          <p className="text-sm text-muted-foreground text-center mb-4">
+            Ingresá tu nombre para confirmar la aprobación
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Tu nombre completo"
+              value={approvalName}
+              onChange={(e) => setApprovalName(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleApprove} disabled={!approvalName.trim() || approving}>
+              {approving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              Aprobar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const pdfContent = (
     <div ref={contentRef} className={`flex flex-col items-center gap-8 print:gap-0 print:items-stretch ${isMobile ? 'gap-4' : ''}`}>
       <PDFCoverPage quote={quote} template={template} isMobile={isMobile} />
@@ -157,18 +242,17 @@ const PublicPDF = () => {
     </div>
   );
 
-  // Mobile: render pages directly without transform scaling
   if (isMobile) {
     return (
       <div ref={containerRef} className="min-h-screen bg-muted overflow-x-hidden print:bg-white print:min-h-0">
         <div className="py-2 px-1 print:p-0 print:m-0">
           {pdfContent}
+          {approvalSection}
         </div>
       </div>
     );
   }
 
-  // Desktop: keep A4 scaled rendering
   return (
     <div ref={containerRef} className="min-h-screen bg-muted overflow-x-hidden print:bg-white print:min-h-0">
       <div className="mx-auto py-4 print:p-0 print:m-0 print:max-w-none">
@@ -189,6 +273,7 @@ const PublicPDF = () => {
             {pdfContent}
           </div>
         </div>
+        {approvalSection}
       </div>
     </div>
   );

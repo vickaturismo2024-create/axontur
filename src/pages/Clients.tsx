@@ -121,7 +121,22 @@ const Clients = () => {
             </h1>
             <p className="mt-1 text-muted-foreground">Gestioná tus clientes y reutilizá sus datos en nuevos presupuestos</p>
           </div>
-          <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Nuevo Cliente</Button>
+          <div className="flex gap-2">
+            {clients.length > 0 && (
+              <Button variant="outline" onClick={() => {
+                const ws = XLSX.utils.json_to_sheet(clients.map(c => ({
+                  Nombre: c.name, Email: c.email, Teléfono: c.phone, Notas: c.notes,
+                })));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+                XLSX.writeFile(wb, 'clientes.xlsx');
+                toast.success('Clientes exportados');
+              }}>
+                <Download className="mr-2 h-4 w-4" /> Exportar
+              </Button>
+            )}
+            <Button onClick={handleNew}><Plus className="mr-2 h-4 w-4" /> Nuevo Cliente</Button>
+          </div>
         </div>
 
         <div className="mb-6 max-w-md">

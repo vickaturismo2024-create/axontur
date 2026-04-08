@@ -47,8 +47,18 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
       <CardHeader className="relative bg-gradient-to-br from-primary/5 to-secondary/30 pb-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <Badge className={statusConfig.className}>{statusConfig.label}</Badge>
+              {quote.approvedAt && (
+                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  ✅ Aprobado por {quote.approvedByName}
+                </Badge>
+              )}
+              {(quote as any).viewCount > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  👁 {(quote as any).viewCount} vista{(quote as any).viewCount > 1 ? 's' : ''}
+                </Badge>
+              )}
             </div>
             <p className="text-sm font-medium text-muted-foreground">{quote.client.name}</p>
             <h3 className="mt-1 font-serif text-xl font-semibold text-foreground">{quote.trip.destination}</h3>

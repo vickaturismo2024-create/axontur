@@ -11,14 +11,15 @@ const COLORS = ['hsl(215, 50%, 23%)', 'hsl(38, 70%, 55%)', 'hsl(38, 45%, 85%)', 
 
 export function DashboardCharts({ quotes }: DashboardChartsProps) {
   const monthlyData = useMemo(() => {
-    const months: Record<string, { month: string; count: number; revenue: number }> = {};
+    const months: Record<string, { month: string; count: number; revenue: number; cost: number }> = {};
     quotes.forEach(q => {
       const d = new Date(q.createdAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = d.toLocaleDateString('es', { month: 'short', year: '2-digit' });
-      if (!months[key]) months[key] = { month: label, count: 0, revenue: 0 };
+      if (!months[key]) months[key] = { month: label, count: 0, revenue: 0, cost: 0 };
       months[key].count++;
       months[key].revenue += q.pricing.totalPrice || 0;
+      months[key].cost += q.pricing.totalCost || 0;
     });
     return Object.entries(months).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v).slice(-6);
   }, [quotes]);
@@ -54,59 +55,176 @@ export function DashboardCharts({ quotes }: DashboardChartsProps) {
       .map(([, v]) => ({ month: v.month, margin: Math.round(v.margin / v.count) }));
   }, [quotes]);
 
+  // Status distribution
+  const statusData = useMemo(() => {
+    const statuses: Record<string, number> = {};
+    quotes.forEach(q => {
+      const s = q.status || 'draft';
+      const labels: Record<string, string> = { draft: 'Borrador', sent: 'Enviado', approved: 'Aprobado', expired: 'Vencido' };
+      statuses[labels[s] || s] = (statuses[labels[s] || s] || 0) + 1;
+    });
+    return Object.entries(statuses).map(([name, value]) => ({ name, value }));
+  }, [quotes]);
+
+  // Top clients by revenue
+  const topClients = useMemo(() => {
+    const clients: Record<string, number> = {};
+    quotes.forEach(q => {
+      const name = q.client.name || 'Sin nombre';
+      clients[name] = (clients[name] || 0) + (q.pricing.totalPrice || 0);
+    });
+    return Object.entries(clients)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([name, value]) => ({ name: name.length > 15 ? name.substring(0, 15) + '…' : name, value }));
+  }, [quotes]);
+
+  // Profitability by destination
+  const destProfitData = useMemo(() => {
+    const dests: Record<string, { revenue: number; cost: number }> = {};
+    quotes.forEach(q => {
+      const dest = q.trip.destination || 'Sin destino';
+      if (!dests[dest]) dests[dest] = { revenue: 0, cost: 0 };
+      dests[dest].revenue += q.pricing.totalPrice || 0;
+      dests[dest].cost += q.pricing.totalCost || 0;
+    });
+    return Object.entries(dests)
+      .filter(([, v]) => v.cost > 0)
+      .sort(([, a], [, b]) => (b.revenue - b.cost) - (a.revenue - a.cost))
+      .slice(0, 6)
+      .map(([name, v]) => ({
+        name: name.length > 12 ? name.substring(0, 12) + '…' : name,
+        margin: v.cost > 0 ? Math.round(((v.revenue - v.cost) / v.cost) * 100) : 0,
+      }));
+  }, [quotes]);
+
   if (quotes.length < 2) return null;
 
   return (
-    <div className="grid gap-6 md:grid-cols-3">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Presupuestos por mes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="count" fill="hsl(215, 50%, 23%)" radius={[4, 4, 0, 0]} name="Presupuestos" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {/* Row 1: Original 3 charts */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Presupuestos por mes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="count" fill="hsl(215, 50%, 23%)" radius={[4, 4, 0, 0]} name="Presupuestos" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Destinos populares</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={destinationData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{ fontSize: 10 }}>
-                {destinationData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Destinos populares</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={destinationData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{ fontSize: 10 }}>
+                  {destinationData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Evolución del margen</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={marginData}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} unit="%" />
-              <Tooltip formatter={(v: number) => `${v}%`} />
-              <Line type="monotone" dataKey="margin" stroke="hsl(38, 70%, 55%)" strokeWidth={2} dot={{ fill: 'hsl(38, 70%, 55%)' }} name="Margen" />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Evolución del margen</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={marginData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} unit="%" />
+                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Line type="monotone" dataKey="margin" stroke="hsl(38, 70%, 55%)" strokeWidth={2} dot={{ fill: 'hsl(38, 70%, 55%)' }} name="Margen" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 2: New advanced charts */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Ingresos vs Costos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Line type="monotone" dataKey="revenue" stroke="hsl(150, 50%, 40%)" strokeWidth={2} name="Ingresos" />
+                <Line type="monotone" dataKey="cost" stroke="hsl(0, 72%, 51%)" strokeWidth={2} name="Costos" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Estados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={statusData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} dataKey="value" label={({ name, value }) => `${name}: ${value}`} labelLine={false} style={{ fontSize: 10 }}>
+                  {statusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Top clientes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={topClients} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis type="number" tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={80} />
+                <Tooltip />
+                <Bar dataKey="value" fill="hsl(215, 50%, 23%)" radius={[0, 4, 4, 0]} name="Facturación" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Margen por destino</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={destProfitData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                <YAxis tick={{ fontSize: 10 }} unit="%" />
+                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Bar dataKey="margin" fill="hsl(38, 70%, 55%)" radius={[4, 4, 0, 0]} name="Margen %" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
