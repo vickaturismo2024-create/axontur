@@ -252,23 +252,71 @@ export type Database = {
           },
         ]
       }
+      reminders: {
+        Row: {
+          completed: boolean
+          created_at: string
+          id: string
+          message: string
+          quote_id: string | null
+          reminder_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          message?: string
+          quote_id?: string | null
+          reminder_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          message?: string
+          quote_id?: string | null
+          reminder_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           created_at: string
+          email: string | null
           id: string
           name: string
+          notes: string | null
+          phone: string | null
+          type: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          email?: string | null
           id?: string
           name: string
+          notes?: string | null
+          phone?: string | null
+          type?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          email?: string | null
           id?: string
           name?: string
+          notes?: string | null
+          phone?: string | null
+          type?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
