@@ -166,9 +166,33 @@ export type Database = {
           },
         ]
       }
+      quote_views: {
+        Row: {
+          id: string
+          ip_address: string | null
+          quote_id: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          ip_address?: string | null
+          quote_id: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          ip_address?: string | null
+          quote_id?: string
+          viewed_at?: string
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           activities: Json | null
+          approved_at: string | null
+          approved_by_name: string | null
+          approved_ip: string | null
           archived: boolean
           client: Json
           cover: Json
@@ -194,6 +218,9 @@ export type Database = {
         }
         Insert: {
           activities?: Json | null
+          approved_at?: string | null
+          approved_by_name?: string | null
+          approved_ip?: string | null
           archived?: boolean
           client?: Json
           cover?: Json
@@ -219,6 +246,9 @@ export type Database = {
         }
         Update: {
           activities?: Json | null
+          approved_at?: string | null
+          approved_by_name?: string | null
+          approved_ip?: string | null
           archived?: boolean
           client?: Json
           cover?: Json
