@@ -66,6 +66,12 @@ export function Header() {
             </Link>
           ))}
 
+          <Link to="/">
+            <Button variant="ghost" size="icon" className="ml-1 relative">
+              <RemindersBadge />
+            </Button>
+          </Link>
+
           <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-1">
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
