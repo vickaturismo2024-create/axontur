@@ -500,6 +500,10 @@ export interface Quote {
   publicLinkExpiry?: string;
   archived?: boolean;
   favorited?: boolean;
+  approvedAt?: string;
+  approvedByName?: string;
+  approvedIp?: string;
+  viewCount?: number;
 }
 
 export interface QuoteVersion {

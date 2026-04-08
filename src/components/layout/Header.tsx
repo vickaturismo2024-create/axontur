@@ -22,6 +22,7 @@ const navItems = [
   { label: 'Clientes', href: '/clients' },
   { label: 'Proveedores', href: '/suppliers' },
   { label: 'Mi Agencia', href: '/agency' },
+  { label: 'Calendario', href: '/calendar' },
   { label: 'Tutoriales', href: '/tutoriales' },
 ];
 
