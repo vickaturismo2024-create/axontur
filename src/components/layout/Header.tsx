@@ -20,6 +20,7 @@ const navItems = [
   { label: 'Dashboard', href: '/' },
   { label: 'Plantillas', href: '/templates' },
   { label: 'Clientes', href: '/clients' },
+  { label: 'Proveedores', href: '/suppliers' },
   { label: 'Mi Agencia', href: '/agency' },
   { label: 'Tutoriales', href: '/tutoriales' },
 ];
