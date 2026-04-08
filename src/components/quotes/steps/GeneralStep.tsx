@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { Quote } from '@/types/quote';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ClientSelect } from '@/components/quotes/ClientSelect';
+import { Users } from 'lucide-react';
 
 interface GeneralStepProps {
   quote: Quote;
@@ -11,13 +14,33 @@ interface GeneralStepProps {
 }
 
 export function GeneralStep({ quote, onUpdate }: GeneralStepProps) {
+  const [groupMembers, setGroupMembers] = useState<{ name: string; email: string; phone: string }[]>([]);
+
+  const handleSelectGroup = (members: { name: string; email: string; phone: string }[]) => {
+    setGroupMembers(members);
+    onUpdate({ trip: { ...quote.trip, travelers: members.length } });
+  };
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h4 className="font-medium">Datos del Cliente</h4>
-          <ClientSelect onSelect={(c) => onUpdate({ client: { ...quote.client, ...c } })} />
+          <ClientSelect
+            onSelect={(c) => onUpdate({ client: { ...quote.client, ...c } })}
+            onSelectGroup={handleSelectGroup}
+          />
         </div>
+        {groupMembers.length > 1 && (
+          <div className="rounded-md border bg-muted/50 p-3">
+            <p className="text-xs font-medium flex items-center gap-1 mb-1"><Users className="h-3 w-3" /> Grupo ({groupMembers.length} pasajeros)</p>
+            <div className="flex flex-wrap gap-1">
+              {groupMembers.map((m, i) => (
+                <Badge key={i} variant="secondary" className="text-xs">{m.name}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <Label htmlFor="clientName">Nombre completo</Label>
           <Input
