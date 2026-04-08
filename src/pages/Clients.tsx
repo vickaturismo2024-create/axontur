@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -14,6 +16,7 @@ import { toast } from 'sonner';
 import { ClientFormDialog, ClientRecord, emptyClient } from '@/components/clients/ClientFormDialog';
 import { ImportExcelDialog } from '@/components/clients/ImportExcelDialog';
 import { GroupsManager } from '@/components/clients/GroupsManager';
+import { Quote } from '@/types/quote';
 
 function mapRow(c: any): ClientRecord {
   return {
@@ -27,9 +30,24 @@ function mapRow(c: any): ClientRecord {
   };
 }
 
+async function fetchAllClients(userId: string): Promise<ClientRecord[]> {
+  const all: any[] = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await supabase.from('clients').select('*').order('name').range(from, from + PAGE - 1);
+    if (error) { console.error(error); break; }
+    all.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all.map(mapRow);
+}
+
 const Clients = () => {
   const { user } = useAuth();
   const { quotes } = useQuotes();
+  const navigate = useNavigate();
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -37,16 +55,22 @@ const Clients = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [quotesDialogClient, setQuotesDialogClient] = useState<ClientRecord | null>(null);
 
   const fetchClients = async () => {
     if (!user) return;
-    const { data, error } = await supabase.from('clients').select('*').order('name');
-    if (error) { console.error(error); return; }
-    setClients((data || []).map(mapRow));
+    const data = await fetchAllClients(user.id);
+    setClients(data);
     setLoading(false);
   };
 
   useEffect(() => { fetchClients(); }, [user]);
+
+  const existingDnis = useMemo(() => {
+    const set = new Set<string>();
+    clients.forEach(c => { if (c.dni) set.add(c.dni); });
+    return set;
+  }, [clients]);
 
   const filtered = useMemo(() => {
     if (!search) return clients;
@@ -57,8 +81,8 @@ const Clients = () => {
     );
   }, [clients, search]);
 
-  const getQuoteCount = (client: ClientRecord) =>
-    quotes.filter(q => q.client.name === client.name || q.client.email === client.email).length;
+  const getClientQuotes = (client: ClientRecord): Quote[] =>
+    quotes.filter(q => q.client.name === client.name || (client.email && q.client.email === client.email));
 
   const handleNew = () => { setEditingClient({ id: '', ...emptyClient }); setIsDialogOpen(true); };
   const handleEdit = (client: ClientRecord) => { setEditingClient({ ...client }); setIsDialogOpen(true); };
@@ -67,7 +91,6 @@ const Clients = () => {
     if (!editingClient || !user) return;
     const payload: any = { ...editingClient };
     delete payload.id;
-    // clean empty dates to null
     ['birth_date', 'dni_expiry', 'passport_issue', 'passport_expiry'].forEach(f => {
       if (!payload[f]) payload[f] = null;
     });
@@ -99,19 +122,9 @@ const Clients = () => {
     } catch (e) { console.error(e); toast.error('Error al eliminar'); }
   };
 
-  const handleBulkImport = async (rows: Omit<ClientRecord, 'id'>[]) => {
-    if (!user) return;
-    const payload = rows.map(r => {
-      const obj: any = { ...r, user_id: user.id };
-      ['birth_date', 'dni_expiry', 'passport_issue', 'passport_expiry'].forEach(f => {
-        if (!obj[f]) obj[f] = null;
-      });
-      return obj;
-    });
-    const { error } = await supabase.from('clients').insert(payload);
-    if (error) { console.error(error); toast.error('Error al importar clientes'); return; }
-    toast.success(`${rows.length} clientes importados`);
-    fetchClients();
+  const handleBulkImportDone = async () => {
+    // Called after import finishes, just refresh
+    await fetchClients();
   };
 
   const handleExport = () => {
@@ -128,6 +141,8 @@ const Clients = () => {
     XLSX.writeFile(wb, 'clientes.xlsx');
     toast.success('Clientes exportados');
   };
+
+  const clientQuotes = quotesDialogClient ? getClientQuotes(quotesDialogClient) : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -180,28 +195,36 @@ const Clients = () => {
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filtered.map(client => (
-                  <Card key={client.id} className="group">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">{client.name}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        {client.dni && <p className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" />DNI: {client.dni}</p>}
-                        {client.email && <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{client.email}</p>}
-                        {(client.phone || client.phone_mobile) && (
-                          <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{client.phone_mobile || client.phone}</p>
-                        )}
-                        {client.nationality && <p className="text-xs">🌍 {client.nationality}</p>}
-                        <p className="text-xs">{getQuoteCount(client)} presupuesto(s)</p>
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(client)}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setDeleteTargetId(client.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                {filtered.map(client => {
+                  const qCount = getClientQuotes(client).length;
+                  return (
+                    <Card key={client.id} className="group">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg">{client.name}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                          {client.dni && <p className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" />DNI: {client.dni}</p>}
+                          {client.email && <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{client.email}</p>}
+                          {(client.phone || client.phone_mobile) && (
+                            <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{client.phone_mobile || client.phone}</p>
+                          )}
+                          {client.nationality && <p className="text-xs">🌍 {client.nationality}</p>}
+                          <button
+                            onClick={() => qCount > 0 ? setQuotesDialogClient(client) : null}
+                            className={`text-xs ${qCount > 0 ? 'text-primary underline cursor-pointer hover:text-primary/80' : ''}`}
+                          >
+                            {qCount} presupuesto(s)
+                          </button>
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(client)}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setDeleteTargetId(client.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -223,8 +246,35 @@ const Clients = () => {
       <ImportExcelDialog
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
-        onImport={handleBulkImport}
+        onImport={handleBulkImportDone}
+        existingDnis={existingDnis}
       />
+
+      {/* Client Quotes Dialog */}
+      <Dialog open={!!quotesDialogClient} onOpenChange={() => setQuotesDialogClient(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Presupuestos de {quotesDialogClient?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {clientQuotes.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Sin presupuestos asociados</p>
+            ) : clientQuotes.map(q => (
+              <button
+                key={q.id}
+                onClick={() => { setQuotesDialogClient(null); navigate(`/quote/${q.id}`); }}
+                className="w-full rounded-md border p-3 text-left hover:bg-muted transition-colors"
+              >
+                <p className="font-medium text-sm">{q.trip.destination || 'Sin destino'}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-muted-foreground">{new Date(q.createdAt).toLocaleDateString()}</span>
+                  <span className="text-xs font-medium">{(q.trip as any).currency || 'USD'} ${(q.pricing.totalPrice || 0).toLocaleString()}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTargetId} onOpenChange={() => setDeleteTargetId(null)}>
         <AlertDialogContent>

@@ -1,14 +1,16 @@
 import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Upload } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Upload, CheckCircle, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ClientRecord, emptyClient } from './ClientFormDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 function parseExcelDate(val: any): string {
   if (!val && val !== 0) return '';
   if (typeof val === 'number') {
-    // Excel serial date: 1 = 1900-01-01, treat <=366 as placeholder "sin dato"
     if (val <= 366) return '';
     const d = XLSX.SSF.parse_date_code(val);
     if (!d) return '';
@@ -41,12 +43,17 @@ function clean(val: any): string {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onImport: (clients: Omit<ClientRecord, 'id'>[]) => void;
+  onImport: (clients: Omit<ClientRecord, 'id'>[]) => Promise<void>;
+  existingDnis?: Set<string>;
 }
 
-export function ImportExcelDialog({ open, onOpenChange, onImport }: Props) {
+export function ImportExcelDialog({ open, onOpenChange, onImport, existingDnis = new Set() }: Props) {
   const [preview, setPreview] = useState<Omit<ClientRecord, 'id'>[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,23 +90,75 @@ export function ImportExcelDialog({ open, onOpenChange, onImport }: Props) {
       }).filter(c => c.name.trim().length > 0);
 
       setPreview(mapped);
+      setResult(null);
     };
     reader.readAsBinaryString(file);
   };
 
-  const handleConfirm = () => {
-    onImport(preview);
+  const newClients = preview.filter(c => !c.dni || !existingDnis.has(c.dni));
+  const duplicateCount = preview.length - newClients.length;
+
+  const handleConfirm = async () => {
+    if (!user || newClients.length === 0) return;
+    setImporting(true);
+    setProgress(0);
+
+    const BATCH = 500;
+    let imported = 0;
+    for (let i = 0; i < newClients.length; i += BATCH) {
+      const batch = newClients.slice(i, i + BATCH).map(r => {
+        const obj: any = { ...r, user_id: user.id };
+        ['birth_date', 'dni_expiry', 'passport_issue', 'passport_expiry'].forEach(f => {
+          if (!obj[f]) obj[f] = null;
+        });
+        return obj;
+      });
+      const { error } = await supabase.from('clients').insert(batch);
+      if (error) {
+        console.error('Batch insert error:', error);
+      } else {
+        imported += batch.length;
+      }
+      setProgress(Math.round(((i + batch.length) / newClients.length) * 100));
+    }
+
+    setResult({ imported, skipped: duplicateCount });
+    setImporting(false);
+    // Trigger parent refresh
+    await onImport([]);
+  };
+
+  const handleClose = () => {
     setPreview([]);
+    setResult(null);
+    setProgress(0);
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) setPreview([]); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(v); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Importar Clientes desde Excel</DialogTitle>
         </DialogHeader>
-        {preview.length === 0 ? (
+
+        {result ? (
+          <div className="flex flex-col items-center gap-4 py-8">
+            <CheckCircle className="h-12 w-12 text-green-500" />
+            <p className="text-sm text-center">
+              <strong>{result.imported}</strong> clientes importados correctamente.
+              {result.skipped > 0 && <><br /><span className="text-muted-foreground">{result.skipped} omitidos (DNI ya existente)</span></>}
+            </p>
+            <Button onClick={handleClose}>Cerrar</Button>
+          </div>
+        ) : importing ? (
+          <div className="flex flex-col items-center gap-4 py-8">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Importando {newClients.length} clientes...</p>
+            <Progress value={progress} className="w-full" />
+            <p className="text-xs text-muted-foreground">{progress}%</p>
+          </div>
+        ) : preview.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-8">
             <Upload className="h-12 w-12 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">Seleccioná un archivo .xlsx con las columnas APELLIDO, NOMBRE, DNI, etc.</p>
@@ -108,30 +167,49 @@ export function ImportExcelDialog({ open, onOpenChange, onImport }: Props) {
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm">Se detectaron <strong>{preview.length}</strong> clientes para importar.</p>
+            <div className="flex gap-4">
+              <div className="flex-1 rounded-md border p-3 text-center">
+                <p className="text-2xl font-bold text-primary">{newClients.length}</p>
+                <p className="text-xs text-muted-foreground">Nuevos</p>
+              </div>
+              {duplicateCount > 0 && (
+                <div className="flex-1 rounded-md border p-3 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                    <p className="text-2xl font-bold text-amber-500">{duplicateCount}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Ya existentes (se omiten)</p>
+                </div>
+              )}
+            </div>
             <div className="max-h-60 overflow-y-auto rounded-md border">
               <table className="w-full text-xs">
                 <thead className="bg-muted sticky top-0">
                   <tr>
                     <th className="px-2 py-1 text-left">Nombre</th>
                     <th className="px-2 py-1 text-left">DNI</th>
-                    <th className="px-2 py-1 text-left">Email</th>
+                    <th className="px-2 py-1 text-left">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.map((c, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-2 py-1">{c.name}</td>
-                      <td className="px-2 py-1">{c.dni || '-'}</td>
-                      <td className="px-2 py-1">{c.email || '-'}</td>
-                    </tr>
-                  ))}
+                  {preview.map((c, i) => {
+                    const isDup = c.dni && existingDnis.has(c.dni);
+                    return (
+                      <tr key={i} className={`border-t ${isDup ? 'opacity-50' : ''}`}>
+                        <td className="px-2 py-1">{c.name}</td>
+                        <td className="px-2 py-1">{c.dni || '-'}</td>
+                        <td className="px-2 py-1">{isDup ? <span className="text-amber-500">Existente</span> : <span className="text-green-600">Nuevo</span>}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setPreview([])}>Cancelar</Button>
-              <Button onClick={handleConfirm}>Importar {preview.length} clientes</Button>
+              <Button onClick={handleConfirm} disabled={newClients.length === 0}>
+                Importar {newClients.length} clientes
+              </Button>
             </DialogFooter>
           </div>
         )}

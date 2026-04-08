@@ -12,13 +12,14 @@ export interface DashboardFilterValues {
   priceMin: string;
   priceMax: string;
   currency: string;
+  clientName: string;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
 }
 
 const defaultFilters: DashboardFilterValues = {
   dateFrom: '', dateTo: '', destination: '', priceMin: '', priceMax: '',
-  currency: 'all', sortBy: 'date', sortOrder: 'desc',
+  currency: 'all', clientName: '', sortBy: 'date', sortOrder: 'desc',
 };
 
 interface DashboardFiltersProps {
