@@ -3,10 +3,11 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Share2, Mail, MessageCircle, Download, Printer, Link2, Check, Clock } from 'lucide-react';
+import { Share2, Mail, MessageCircle, Download, Printer, Link2, Check, Clock, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { generatePDF } from '@/lib/generatePDF';
+import { exportQuoteToExcel } from '@/lib/exportExcel';
 
 interface PDFShareMenuProps {
   quote: Quote;
@@ -91,6 +92,10 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContain
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onPrint} className="gap-2 cursor-pointer">
           <Printer className="h-4 w-4" />Imprimir
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => { try { exportQuoteToExcel(quote); toast.success('Excel descargado'); } catch { toast.error('Error al exportar'); } }} className="gap-2 cursor-pointer">
+          <FileSpreadsheet className="h-4 w-4 text-green-600" />Exportar a Excel
         </DropdownMenuItem>
         {onSetExpiry && (
           <>

@@ -1,4 +1,5 @@
 import { Plane, Menu, LogOut, User, Moon, Sun } from 'lucide-react';
+import { RemindersBadge } from '@/components/reminders/RemindersBadge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
@@ -19,6 +20,7 @@ const navItems = [
   { label: 'Dashboard', href: '/' },
   { label: 'Plantillas', href: '/templates' },
   { label: 'Clientes', href: '/clients' },
+  { label: 'Proveedores', href: '/suppliers' },
   { label: 'Mi Agencia', href: '/agency' },
   { label: 'Tutoriales', href: '/tutoriales' },
 ];
@@ -63,6 +65,12 @@ export function Header() {
               </Button>
             </Link>
           ))}
+
+          <Link to="/">
+            <Button variant="ghost" size="icon" className="ml-1 relative">
+              <RemindersBadge />
+            </Button>
+          </Link>
 
           <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-1">
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
