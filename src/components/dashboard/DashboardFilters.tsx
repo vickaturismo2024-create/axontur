@@ -30,7 +30,7 @@ interface DashboardFiltersProps {
 export function DashboardFilters({ filters, onChange }: DashboardFiltersProps) {
   const [open, setOpen] = useState(false);
 
-  const hasFilters = filters.dateFrom || filters.dateTo || filters.destination || filters.priceMin || filters.priceMax || filters.currency !== 'all';
+  const hasFilters = filters.dateFrom || filters.dateTo || filters.destination || filters.priceMin || filters.priceMax || filters.currency !== 'all' || filters.clientName;
 
   const clearFilters = () => onChange(defaultFilters);
 
