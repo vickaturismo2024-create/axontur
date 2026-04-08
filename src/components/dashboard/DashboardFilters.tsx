@@ -66,6 +66,10 @@ export function DashboardFilters({ filters, onChange }: DashboardFiltersProps) {
               <Input placeholder="Ej: Europa" value={filters.destination} onChange={(e) => onChange({ ...filters, destination: e.target.value })} className="h-8 text-sm" />
             </div>
             <div>
+              <Label className="text-xs">Cliente</Label>
+              <Input placeholder="Nombre del cliente" value={filters.clientName} onChange={(e) => onChange({ ...filters, clientName: e.target.value })} className="h-8 text-sm" />
+            </div>
+            <div>
               <Label className="text-xs">Moneda</Label>
               <select value={filters.currency} onChange={(e) => onChange({ ...filters, currency: e.target.value })} className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm">
                 <option value="all">Todas</option>
