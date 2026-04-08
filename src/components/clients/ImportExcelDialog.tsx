@@ -6,22 +6,27 @@ import * as XLSX from 'xlsx';
 import { ClientRecord, emptyClient } from './ClientFormDialog';
 
 function parseExcelDate(val: any): string {
-  if (!val) return '';
+  if (!val && val !== 0) return '';
   if (typeof val === 'number') {
+    // Excel serial date: 1 = 1900-01-01, treat <=366 as placeholder "sin dato"
+    if (val <= 366) return '';
     const d = XLSX.SSF.parse_date_code(val);
     if (!d) return '';
     const y = d.y, m = d.m, day = d.d;
     if (y < 1950 || (y === 2000 && m === 1 && day === 1)) return '';
     return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
-  const s = String(val).trim();
-  if (s === '01/01/00' || s === '1/1/00' || !s) return '';
+  const s = String(val).trim().replace(/\s+\d{2}:\d{2}(:\d{2})?$/, '');
+  if (!s || s === '01/01/00' || s === '1/1/00') return '';
   try {
     const parts = s.split('/');
     if (parts.length === 3) {
       let [d, m, y] = parts.map(Number);
-      if (y < 100) y += y < 50 ? 2000 : 1900;
-      if (y < 1950) return '';
+      if (y < 100) {
+        const currentYearShort = new Date().getFullYear() % 100;
+        y += y <= currentYearShort ? 2000 : 1900;
+      }
+      if (y < 1900) return '';
       return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     }
   } catch { /* ignore */ }
@@ -70,7 +75,7 @@ export function ImportExcelDialog({ open, onOpenChange, onImport }: Props) {
           dni_expiry: parseExcelDate(r['VTO_DOC'] || r['vto_doc'] || r['VTO_DNI']),
           passport: clean(r['PASAPORTE'] || r['pasaporte'] || r['NRO_PAS']),
           passport_issue: parseExcelDate(r['EMISIÓN PASAPORTE'] || r['EMISION PASAPORTE'] || r['F_EMISION_PAS'] || r['EMISIÓN_PAS']),
-          passport_expiry: parseExcelDate(r['VENCIMIENTO PASAPORTE'] || r['VTO_PAS'] || r['vto_pas']),
+          passport_expiry: parseExcelDate(r['VENCIMIENTO PASAPORTE'] || r['VENCIMINETO PASAPORTE'] || r['VTO_PAS'] || r['vto_pas']),
           locality: clean(r['LOCALIDAD'] || r['localidad'] || ''),
           cuil_cuit: clean(r['CUIL/CUIT'] || r['CUIL'] || r['CUIT'] || r['cuil_cuit'] || ''),
           sex: clean(r['SEXO'] || r['sexo'] || '').charAt(0).toUpperCase(),
