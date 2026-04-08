@@ -197,9 +197,14 @@ const Templates = () => {
             <h1 className="font-serif text-3xl font-bold text-foreground">Plantillas</h1>
             <p className="mt-1 text-muted-foreground">Personaliza el diseño de tus presupuestos</p>
           </div>
-          <Button onClick={handleCreate} className="bg-primary">
-            <Plus className="mr-2 h-4 w-4" /> Nueva Plantilla
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setGalleryOpen(true)}>
+              <Layers className="mr-2 h-4 w-4" /> Galería
+            </Button>
+            <Button onClick={handleCreate} className="bg-primary">
+              <Plus className="mr-2 h-4 w-4" /> Nueva Plantilla
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
