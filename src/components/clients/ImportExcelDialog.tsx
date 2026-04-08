@@ -72,7 +72,7 @@ export function ImportExcelDialog({ open, onOpenChange, onImport }: Props) {
           dni_expiry: parseExcelDate(r['VTO_DOC'] || r['vto_doc'] || r['VTO_DNI']),
           passport: clean(r['PASAPORTE'] || r['pasaporte'] || r['NRO_PAS']),
           passport_issue: parseExcelDate(r['EMISIÓN PASAPORTE'] || r['EMISION PASAPORTE'] || r['F_EMISION_PAS'] || r['EMISIÓN_PAS']),
-          passport_expiry: parseExcelDate(r['VENCIMIENTO PASAPORTE'] || r['VTO_PAS'] || r['vto_pas']),
+          passport_expiry: parseExcelDate(r['VENCIMIENTO PASAPORTE'] || r['VENCIMINETO PASAPORTE'] || r['VTO_PAS'] || r['vto_pas']),
           locality: clean(r['LOCALIDAD'] || r['localidad'] || ''),
           cuil_cuit: clean(r['CUIL/CUIT'] || r['CUIL'] || r['CUIT'] || r['cuil_cuit'] || ''),
           sex: clean(r['SEXO'] || r['sexo'] || '').charAt(0).toUpperCase(),
