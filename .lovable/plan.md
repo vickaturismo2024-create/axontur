@@ -1,71 +1,76 @@
 
 
-# Plan: Nuevas funcionalidades para profesionalizar la app
+# Plan: Nuevas funcionalidades avanzadas
 
-## Funcionalidades propuestas
+## Ya implementado (referencia)
+Autenticación, Dashboard con métricas ARS/USD, filtros avanzados, editor de 13 pasos, plantillas personalizables, CRM clientes, perfil agencia, proveedores, pagos, recordatorios, historial de versiones, exportar Excel, compartir PDF con vencimiento, importar URL, parsear PNR, generar itinerario con IA, tutoriales.
+
+---
+
+## Nuevas funcionalidades propuestas
 
 ### Prioridad Alta
 
-#### 1. Exportar presupuesto a Excel (.xlsx)
-Generar un archivo Excel con desglose completo: vuelos, alojamientos, transportes, actividades, costos, precios, márgenes. Para uso interno de la agencia.
-- Instalar librería `xlsx`
-- Botón "Exportar Excel" en `PDFShareMenu`
-- Genera archivo con múltiples hojas (Resumen, Vuelos, Alojamiento, Transportes, etc.)
+#### 1. Firma digital del cliente
+El cliente puede aprobar el presupuesto desde el link publico con un boton "Aprobar presupuesto". Se registra fecha, IP y nombre. El estado cambia automaticamente a "Aprobado" y el agente recibe notificacion visual en el dashboard.
+- Seccion de aprobacion en `PublicPDF.tsx` con campo nombre y boton
+- Edge function `approve-quote` (sin JWT, acceso publico)
+- Badge "Aprobado por el cliente" en QuoteCard
 
 #### 2. Duplicar plantilla
-Botón para clonar una plantilla existente y editarla sin modificar la original.
-- Agregar botón "Duplicar" en `Templates.tsx`
-- Crear copia con nombre "Copia de [nombre]"
+Boton rapido en la lista de plantillas para clonar una existente con nombre "Copia de [nombre]".
+- Boton en `Templates.tsx` junto a editar/eliminar
+- Reutilizar `addTemplate` con datos clonados
 
-#### 3. Envío de presupuesto por email (transaccional)
-Enviar el link del presupuesto directamente al email del cliente desde la app, con un diseño profesional.
-- Requiere configurar un dominio de email (actualmente no hay ninguno configurado)
-- Edge function `send-quote-email`
-- Botón "Enviar por email" en `PDFShareMenu`
+#### 3. Notas internas por presupuesto
+Campo de texto libre visible solo para el agente (no aparece en el PDF). Para anotar "el cliente prefiere ventanilla", "confirmar hotel antes del 15", etc.
+- Ya existe `internalNotes` en el tipo Quote pero no tiene UI
+- Agregar campo en el wizard (paso General o como panel lateral)
+- Guardar en la columna quotes (agregar al schema si falta)
 
-#### 4. Proveedores con gestión completa
-Expandir la tabla `suppliers` para incluir contacto, tipo de servicio, notas. Permitir asociar proveedores a vuelos, hoteles y servicios para trazabilidad.
-- Migración: agregar columnas `email`, `phone`, `type`, `notes` a `suppliers`
-- Nueva página `/suppliers` con CRUD completo
-- Selector de proveedor en cada sección del presupuesto
+#### 4. Dashboard de rentabilidad avanzado
+Nuevos graficos: top 5 clientes por facturacion, rentabilidad por destino (barras), evolucion de ingresos vs costos (linea doble), distribucion de estados (pie).
+- Expandir `DashboardCharts.tsx` con 4 graficos nuevos
+- Cruzar datos de quotes + payments
 
 ### Prioridad Media
 
 #### 5. Calendario de viajes
-Vista mensual que muestre todos los viajes activos con sus fechas, para planificación visual.
-- Nueva página `/calendar`
-- Implementar con CSS grid nativo (sin dependencias externas)
-- Mostrar viajes como barras de color por destino
+Vista mensual con grid CSS que muestre los viajes activos como barras de color. Click para ir al presupuesto.
+- Nueva pagina `/calendar` con navegacion mes anterior/siguiente
+- Sin dependencias externas, CSS grid puro
+- Agregar link en Header
 
-#### 6. Plantillas prediseñadas
-Incluir 3-4 plantillas profesionales listas para usar que el usuario pueda importar.
-- Seed data con estilos variados (elegante, moderno, minimalista, colorido)
-- Botón "Importar plantilla" en Templates
+#### 6. Plantillas prediseñadas importables
+4 plantillas profesionales listas para usar: Elegante (oscura), Moderna (colores vivos), Minimalista (blanco), Tropical (tonos calidos).
+- Boton "Galeria de plantillas" en Templates
+- Dialog con preview de cada una y boton "Importar"
+- Datos hardcodeados en un archivo de constantes
 
-#### 7. Dashboard de rentabilidad
-Panel dedicado con métricas financieras detalladas: rentabilidad por destino, por cliente, evolución mensual, mejores clientes.
-- Nuevos gráficos en `DashboardCharts`
-- Análisis cruzado quotes + clients + payments
+#### 7. Selector de proveedor en servicios
+Dropdown en cada seccion del wizard (vuelos, hoteles, transfers, actividades) para asociar un proveedor de la base de datos.
+- Componente `SupplierSelect` reutilizable
+- Integrar en FlightsStep, LodgingStep, TransportStep, ActivitiesStep
+- El proveedor se guarda en cada item del presupuesto
 
-#### 8. Recordatorios y seguimiento
-Sistema de recordatorios para seguimiento de presupuestos: "Llamar al cliente en 3 días", "Vence el presupuesto mañana".
-- Nueva tabla `reminders` (quote_id, date, message, completed)
-- Notificaciones en el dashboard
-- Badge con cantidad de recordatorios pendientes en el header
+#### 8. Exportar contactos de clientes
+Boton en `/clients` para descargar la lista de clientes como CSV o Excel.
+- Reutilizar libreria `xlsx` ya instalada
+- Boton "Exportar clientes" en Clients.tsx
 
 ### Prioridad Baja
 
-#### 9. Múltiples monedas con conversión
-Permitir mezclar monedas en un mismo presupuesto (vuelos en USD, hotel en EUR, transfers en ARS) con tipo de cambio configurable.
-- Campo de moneda por servicio
-- Tipo de cambio configurable en la sección de precios
-- Conversión automática al total
+#### 9. Modo oscuro
+Toggle en el header para cambiar entre tema claro y oscuro. Persistir preferencia en localStorage.
+- Agregar clase `dark` en `<html>` y usar variantes Tailwind `dark:`
+- Toggle en Header con icono sol/luna
+- Hook `useTheme` para gestionar estado
 
-#### 10. Firma digital del cliente
-Permitir que el cliente "apruebe" el presupuesto desde el link público con una firma o botón de aceptación.
-- Agregar sección de aprobación en `PublicPDF`
-- Edge function para registrar la aprobación
-- Cambio automático de estado a "Aprobado"
+#### 10. Estadisticas en link publico
+Trackear cuantas veces el cliente abrio el link publico. Mostrar "Visto X veces" en el QuoteCard.
+- Nueva tabla `quote_views` (quote_id, viewed_at, ip)
+- Registrar vista en PublicPDF al cargar
+- Mostrar contador en el dashboard
 
 ---
 
@@ -73,22 +78,19 @@ Permitir que el cliente "apruebe" el presupuesto desde el link público con una 
 
 | # | Funcionalidad | Complejidad | Impacto |
 |---|--------------|-------------|---------|
-| 1 | Exportar a Excel | Baja | Alto |
+| 1 | Firma digital cliente | Media | Alto |
 | 2 | Duplicar plantilla | Baja | Medio |
-| 3 | Email transaccional | Media | Alto |
-| 4 | Gestión de proveedores | Media | Alto |
+| 3 | Notas internas | Baja | Alto |
+| 4 | Dashboard rentabilidad | Media | Alto |
 | 5 | Calendario de viajes | Media | Medio |
 | 6 | Plantillas prediseñadas | Baja | Medio |
-| 7 | Dashboard rentabilidad | Media | Alto |
-| 8 | Recordatorios | Media | Alto |
-| 9 | Multi-moneda con conversión | Alta | Medio |
-| 10 | Firma digital del cliente | Media | Alto |
+| 7 | Selector proveedor en servicios | Baja | Alto |
+| 8 | Exportar clientes | Baja | Bajo |
+| 9 | Modo oscuro | Media | Bajo |
+| 10 | Estadisticas link publico | Media | Alto |
 
-## Nota sobre email
-Para el envío de emails transaccionales, primero necesitás configurar un dominio de email. Podés hacerlo desde la configuración del proyecto.
+## Recomendacion de orden
+Arrancar con las rapidas de alto impacto (2, 3, 7), luego las de impacto alto (1, 4, 10), y despues las de medio impacto (5, 6).
 
-## Recomendación de orden
-Arrancar con las de alta prioridad y baja complejidad (1, 2), luego las de alto impacto (4, 8, 10), y después las de medio impacto.
-
-¿Cuáles te gustaría implementar?
+¿Cuales te gustaria implementar?
 
