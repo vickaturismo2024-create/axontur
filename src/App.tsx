@@ -18,6 +18,7 @@ import PublicPDF from "./pages/PublicPDF";
 import Agency from "./pages/Agency";
 import Clients from "./pages/Clients";
 import Suppliers from "./pages/Suppliers";
+import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 // Create QueryClient outside component to prevent recreation on re-renders
