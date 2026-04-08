@@ -1,96 +1,55 @@
 
 
-# Plan: Nuevas funcionalidades avanzadas
+# Plan: Fichas de clientes expandidas con importación Excel y grupos
 
-## Ya implementado (referencia)
-Autenticación, Dashboard con métricas ARS/USD, filtros avanzados, editor de 13 pasos, plantillas personalizables, CRM clientes, perfil agencia, proveedores, pagos, recordatorios, historial de versiones, exportar Excel, compartir PDF con vencimiento, importar URL, parsear PNR, generar itinerario con IA, tutoriales.
+## Mapeo de columnas del Excel
 
----
+| Columna Excel | Campo en BD |
+|---|---|
+| APELLIDO + NOMBRE | `name` (concatenar: "APELLIDO NOMBRE") |
+| DIRECCIÓN | `address` (nuevo) |
+| TEL_PAR | `phone` (existente) |
+| TEL_COM | `phone_work` (nuevo) |
+| CELULAR | `phone_mobile` (nuevo) |
+| NACIONALIDAD | `nationality` (nuevo) |
+| FECHA DE NACIMIENTO | `birth_date` (nuevo) |
+| DNI | `dni` (nuevo) |
+| VTO_DOC | `dni_expiry` (nuevo) |
+| PASAPORTE | `passport` (nuevo) |
+| EMISIÓN PASAPORTE | `passport_issue` (nuevo) |
+| VENCIMIENTO PASAPORTE | `passport_expiry` (nuevo) |
+| EMAIL | `email` (existente) |
+| LOCALIDAD | `locality` (nuevo) |
+| CUIL/CUIT | `cuil_cuit` (nuevo) |
+| SEXO | `sex` (nuevo) |
 
-## Nuevas funcionalidades propuestas
+Nota: valores como `01/01/00` en fechas de pasaporte/DNI se tratan como "sin dato" y se guardan vacíos.
 
-### Prioridad Alta
+## Cambios
 
-#### 1. Firma digital del cliente
-El cliente puede aprobar el presupuesto desde el link publico con un boton "Aprobar presupuesto". Se registra fecha, IP y nombre. El estado cambia automaticamente a "Aprobado" y el agente recibe notificacion visual en el dashboard.
-- Seccion de aprobacion en `PublicPDF.tsx` con campo nombre y boton
-- Edge function `approve-quote` (sin JWT, acceso publico)
-- Badge "Aprobado por el cliente" en QuoteCard
+### 1. Migración SQL
+- Agregar columnas a `clients`: `address`, `phone_work`, `phone_mobile`, `nationality`, `birth_date` (date), `dni`, `dni_expiry` (date), `passport`, `passport_issue` (date), `passport_expiry` (date), `locality`, `cuil_cuit`, `sex`
+- Crear tabla `client_groups` (id, user_id, name, created_at) con RLS
+- Crear tabla `client_group_members` (id, group_id FK, client_id FK) con RLS basada en dueño del grupo
 
-#### 2. Duplicar plantilla
-Boton rapido en la lista de plantillas para clonar una existente con nombre "Copia de [nombre]".
-- Boton en `Templates.tsx` junto a editar/eliminar
-- Reutilizar `addTemplate` con datos clonados
+### 2. Actualizar `src/pages/Clients.tsx`
+- Expandir formulario de creación/edición con secciones: Datos personales, Documentos, Contacto
+- Agregar botón "Importar Excel" que: lee archivo .xlsx, muestra preview con cantidad de registros detectados, y al confirmar inserta masivamente
+- Lógica de mapeo: concatenar APELLIDO+NOMBRE, parsear fechas (ignorar 01/01/00), limpiar teléfonos
+- Sección de gestión de grupos: crear grupo, asignar/quitar clientes
+- Tarjetas de cliente muestran DNI, teléfonos, grupo asignado
+- Exportar clientes incluye todos los campos nuevos
 
-#### 3. Notas internas por presupuesto
-Campo de texto libre visible solo para el agente (no aparece en el PDF). Para anotar "el cliente prefiere ventanilla", "confirmar hotel antes del 15", etc.
-- Ya existe `internalNotes` en el tipo Quote pero no tiene UI
-- Agregar campo en el wizard (paso General o como panel lateral)
-- Guardar en la columna quotes (agregar al schema si falta)
+### 3. Actualizar `src/components/quotes/ClientSelect.tsx`
+- Agregar pestaña/sección "Grupos" para seleccionar un grupo completo
+- Al seleccionar grupo, cargar primer miembro como cliente principal y mostrar cantidad de pasajeros
 
-#### 4. Dashboard de rentabilidad avanzado
-Nuevos graficos: top 5 clientes por facturacion, rentabilidad por destino (barras), evolucion de ingresos vs costos (linea doble), distribucion de estados (pie).
-- Expandir `DashboardCharts.tsx` con 4 graficos nuevos
-- Cruzar datos de quotes + payments
+### 4. Actualizar `src/components/quotes/steps/GeneralStep.tsx`
+- Integrar selección de grupo para cargar múltiples pasajeros
 
-### Prioridad Media
-
-#### 5. Calendario de viajes
-Vista mensual con grid CSS que muestre los viajes activos como barras de color. Click para ir al presupuesto.
-- Nueva pagina `/calendar` con navegacion mes anterior/siguiente
-- Sin dependencias externas, CSS grid puro
-- Agregar link en Header
-
-#### 6. Plantillas prediseñadas importables
-4 plantillas profesionales listas para usar: Elegante (oscura), Moderna (colores vivos), Minimalista (blanco), Tropical (tonos calidos).
-- Boton "Galeria de plantillas" en Templates
-- Dialog con preview de cada una y boton "Importar"
-- Datos hardcodeados en un archivo de constantes
-
-#### 7. Selector de proveedor en servicios
-Dropdown en cada seccion del wizard (vuelos, hoteles, transfers, actividades) para asociar un proveedor de la base de datos.
-- Componente `SupplierSelect` reutilizable
-- Integrar en FlightsStep, LodgingStep, TransportStep, ActivitiesStep
-- El proveedor se guarda en cada item del presupuesto
-
-#### 8. Exportar contactos de clientes
-Boton en `/clients` para descargar la lista de clientes como CSV o Excel.
-- Reutilizar libreria `xlsx` ya instalada
-- Boton "Exportar clientes" en Clients.tsx
-
-### Prioridad Baja
-
-#### 9. Modo oscuro
-Toggle en el header para cambiar entre tema claro y oscuro. Persistir preferencia en localStorage.
-- Agregar clase `dark` en `<html>` y usar variantes Tailwind `dark:`
-- Toggle en Header con icono sol/luna
-- Hook `useTheme` para gestionar estado
-
-#### 10. Estadisticas en link publico
-Trackear cuantas veces el cliente abrio el link publico. Mostrar "Visto X veces" en el QuoteCard.
-- Nueva tabla `quote_views` (quote_id, viewed_at, ip)
-- Registrar vista en PublicPDF al cargar
-- Mostrar contador en el dashboard
-
----
-
-## Resumen
-
-| # | Funcionalidad | Complejidad | Impacto |
-|---|--------------|-------------|---------|
-| 1 | Firma digital cliente | Media | Alto |
-| 2 | Duplicar plantilla | Baja | Medio |
-| 3 | Notas internas | Baja | Alto |
-| 4 | Dashboard rentabilidad | Media | Alto |
-| 5 | Calendario de viajes | Media | Medio |
-| 6 | Plantillas prediseñadas | Baja | Medio |
-| 7 | Selector proveedor en servicios | Baja | Alto |
-| 8 | Exportar clientes | Baja | Bajo |
-| 9 | Modo oscuro | Media | Bajo |
-| 10 | Estadisticas link publico | Media | Alto |
-
-## Recomendacion de orden
-Arrancar con las rapidas de alto impacto (2, 3, 7), luego las de impacto alto (1, 4, 10), y despues las de medio impacto (5, 6).
-
-¿Cuales te gustaria implementar?
+## Archivos a modificar/crear
+1. **Migración SQL** — expandir `clients`, crear `client_groups` y `client_group_members`
+2. `src/pages/Clients.tsx` — formulario expandido + importador Excel + grupos
+3. `src/components/quotes/ClientSelect.tsx` — soporte de grupos
+4. `src/components/quotes/steps/GeneralStep.tsx` — selección de grupo
 
