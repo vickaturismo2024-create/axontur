@@ -186,14 +186,35 @@ const QuoteEditor = () => {
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <QuoteWizard
-            initialQuote={existingQuote || importedQuote}
-            templates={templates}
-            defaultTemplate={getDefaultTemplate()}
-            onSave={handleSave}
-            onCancel={handleCancel}
-          />
+        <div className="flex flex-1 gap-6 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <QuoteWizard
+              initialQuote={existingQuote || importedQuote}
+              templates={templates}
+              defaultTemplate={getDefaultTemplate()}
+              onSave={handleSave}
+              onCancel={handleCancel}
+            />
+          </div>
+
+          {/* Sidebar: versions + payments */}
+          {existingQuote && (
+            <div className="hidden w-72 flex-shrink-0 space-y-4 overflow-y-auto lg:block">
+              <VersionHistory
+                quoteId={existingQuote.id}
+                onRestore={(data) => {
+                  toast.info('Versión restaurada. Guardá para aplicar los cambios.');
+                  // Navigate to editor with restored data via state
+                  window.location.reload();
+                }}
+              />
+              <PaymentsSection
+                quoteId={existingQuote.id}
+                quoteCurrency={existingQuote.trip.currency || 'USD'}
+                totalPrice={existingQuote.pricing.totalPrice || 0}
+              />
+            </div>
+          )}
         </div>
       </main>
     </div>
