@@ -1,55 +1,66 @@
 
 
-# Plan: Fichas de clientes expandidas con importación Excel y grupos
+# Plan: Import sin límite + deduplicación + vinculación cliente-presupuesto
 
-## Mapeo de columnas del Excel
+## Problema 1: Límite de 1000 clientes en importación
+Supabase tiene un límite de 1000 filas por request. La importación actual hace un solo `insert` con todos los registros.
 
-| Columna Excel | Campo en BD |
-|---|---|
-| APELLIDO + NOMBRE | `name` (concatenar: "APELLIDO NOMBRE") |
-| DIRECCIÓN | `address` (nuevo) |
-| TEL_PAR | `phone` (existente) |
-| TEL_COM | `phone_work` (nuevo) |
-| CELULAR | `phone_mobile` (nuevo) |
-| NACIONALIDAD | `nationality` (nuevo) |
-| FECHA DE NACIMIENTO | `birth_date` (nuevo) |
-| DNI | `dni` (nuevo) |
-| VTO_DOC | `dni_expiry` (nuevo) |
-| PASAPORTE | `passport` (nuevo) |
-| EMISIÓN PASAPORTE | `passport_issue` (nuevo) |
-| VENCIMIENTO PASAPORTE | `passport_expiry` (nuevo) |
-| EMAIL | `email` (existente) |
-| LOCALIDAD | `locality` (nuevo) |
-| CUIL/CUIT | `cuil_cuit` (nuevo) |
-| SEXO | `sex` (nuevo) |
+**Solución**: Procesar en lotes de 500 con progreso visual.
 
-Nota: valores como `01/01/00` en fechas de pasaporte/DNI se tratan como "sin dato" y se guardan vacíos.
+## Problema 2: Clientes duplicados al reimportar
+No hay detección de duplicados. Al reimportar el mismo Excel se crean copias.
 
-## Cambios
+**Solución**: Antes de insertar, consultar clientes existentes del usuario y comparar por DNI (campo más confiable como identificador único). Si el DNI ya existe, saltar ese registro. Mostrar en el preview cuántos son nuevos vs existentes.
 
-### 1. Migración SQL
-- Agregar columnas a `clients`: `address`, `phone_work`, `phone_mobile`, `nationality`, `birth_date` (date), `dni`, `dni_expiry` (date), `passport`, `passport_issue` (date), `passport_expiry` (date), `locality`, `cuil_cuit`, `sex`
-- Crear tabla `client_groups` (id, user_id, name, created_at) con RLS
-- Crear tabla `client_group_members` (id, group_id FK, client_id FK) con RLS basada en dueño del grupo
+## Problema 3: Ver presupuestos de un cliente y viceversa
+Actualmente el card del cliente solo muestra "X presupuesto(s)" como texto. No hay link ni detalle. En el dashboard de presupuestos no hay forma de filtrar por cliente.
 
-### 2. Actualizar `src/pages/Clients.tsx`
-- Expandir formulario de creación/edición con secciones: Datos personales, Documentos, Contacto
-- Agregar botón "Importar Excel" que: lee archivo .xlsx, muestra preview con cantidad de registros detectados, y al confirmar inserta masivamente
-- Lógica de mapeo: concatenar APELLIDO+NOMBRE, parsear fechas (ignorar 01/01/00), limpiar teléfonos
-- Sección de gestión de grupos: crear grupo, asignar/quitar clientes
-- Tarjetas de cliente muestran DNI, teléfonos, grupo asignado
-- Exportar clientes incluye todos los campos nuevos
+**Solución**:
+- En la tarjeta del cliente: hacer clickeable el contador de presupuestos → abrir un dialog/panel con la lista de presupuestos asociados (matched por nombre o email del cliente). Cada item es clickeable y navega al editor.
+- En el Dashboard: agregar un filtro de cliente en `DashboardFilters` para filtrar presupuestos por nombre de cliente.
 
-### 3. Actualizar `src/components/quotes/ClientSelect.tsx`
-- Agregar pestaña/sección "Grupos" para seleccionar un grupo completo
-- Al seleccionar grupo, cargar primer miembro como cliente principal y mostrar cantidad de pasajeros
+## Cambios por archivo
 
-### 4. Actualizar `src/components/quotes/steps/GeneralStep.tsx`
-- Integrar selección de grupo para cargar múltiples pasajeros
+### 1. `src/pages/Clients.tsx`
+- Modificar `handleBulkImport` para procesar en lotes de 500 con deduplicación por DNI
+- Agregar estado de progreso durante importación
+- Al clickear presupuestos de un cliente → abrir dialog con lista de quotes asociados
+- Usar `fetchClients` con paginación (múltiples requests de 1000 usando `.range()`) para no perder clientes existentes
 
-## Archivos a modificar/crear
-1. **Migración SQL** — expandir `clients`, crear `client_groups` y `client_group_members`
-2. `src/pages/Clients.tsx` — formulario expandido + importador Excel + grupos
-3. `src/components/quotes/ClientSelect.tsx` — soporte de grupos
-4. `src/components/quotes/steps/GeneralStep.tsx` — selección de grupo
+### 2. `src/components/clients/ImportExcelDialog.tsx`
+- Mostrar en el preview cuántos clientes son nuevos vs ya existentes (comparando DNI contra BD)
+- Barra de progreso durante importación por lotes
+
+### 3. `src/components/dashboard/DashboardFilters.tsx`
+- Agregar filtro por nombre de cliente
+
+### 4. `src/pages/Dashboard.tsx`
+- Aplicar filtro de cliente al listado de presupuestos
+
+## Detalle técnico
+
+### Fetch sin límite de 1000
+```typescript
+// Paginar el SELECT de clientes existentes
+let allClients = [];
+let from = 0;
+const PAGE = 1000;
+while (true) {
+  const { data } = await supabase.from('clients').select('*').range(from, from + PAGE - 1);
+  allClients.push(...(data || []));
+  if (!data || data.length < PAGE) break;
+  from += PAGE;
+}
+```
+
+### Import por lotes con deduplicación
+```typescript
+// 1. Obtener DNIs existentes del usuario
+// 2. Filtrar rows del Excel: solo los que no tienen DNI coincidente
+// 3. Insertar en lotes de 500
+// 4. Mostrar: "X nuevos importados, Y ya existían"
+```
+
+### Vinculación cliente ↔ presupuesto
+Match por `quote.client.name === client.name` o `quote.client.email === client.email` (ya existe en `getQuoteCount`, se expande para mostrar la lista completa).
 
