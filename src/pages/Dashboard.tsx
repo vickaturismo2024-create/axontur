@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { RemindersPanel } from '@/components/reminders/RemindersPanel';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
