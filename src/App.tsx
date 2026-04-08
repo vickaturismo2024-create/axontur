@@ -50,6 +50,7 @@ const App = () => (
                 <Route path="/export/:id" element={<ProtectedRoute><ExportPDF /></ProtectedRoute>} />
                 <Route path="/agency" element={<ProtectedRoute><Agency /></ProtectedRoute>} />
                 <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+                <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
                 <Route path="/tutoriales" element={<ProtectedRoute><Tutorials /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
