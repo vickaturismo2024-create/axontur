@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 const navItems = [
   { label: 'Dashboard', href: '/' },
   { label: 'Plantillas', href: '/templates' },
+  { label: 'Clientes', href: '/clients' },
+  { label: 'Mi Agencia', href: '/agency' },
   { label: 'Tutoriales', href: '/tutoriales' },
 ];
 

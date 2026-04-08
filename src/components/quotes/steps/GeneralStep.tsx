@@ -13,7 +13,10 @@ export function GeneralStep({ quote, onUpdate }: GeneralStepProps) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-4">
-        <h4 className="font-medium">Datos del Cliente</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium">Datos del Cliente</h4>
+          <ClientSelect onSelect={(c) => onUpdate({ client: { ...quote.client, ...c } })} />
+        </div>
         <div>
           <Label htmlFor="clientName">Nombre completo</Label>
           <Input
