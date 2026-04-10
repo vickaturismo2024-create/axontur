@@ -2,9 +2,12 @@ import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { useSupplierAnalytics } from '@/hooks/useSupplierAnalytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { BarChart3, Download } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
+import { exportReportsToExcel } from '@/lib/exportReports';
+import { toast } from 'sonner';
 
 const CHART_COLORS = [
   'hsl(var(--primary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d', '#ffc658',
