@@ -197,14 +197,13 @@ const QuoteEditor = () => {
             />
           </div>
 
-          {/* Sidebar: versions + payments */}
+          {/* Sidebar: versions + payments (desktop) */}
           {existingQuote && (
             <div className="hidden w-72 flex-shrink-0 space-y-4 overflow-y-auto lg:block">
               <VersionHistory
                 quoteId={existingQuote.id}
                 onRestore={(data) => {
                   toast.info('Versión restaurada. Guardá para aplicar los cambios.');
-                  // Navigate to editor with restored data via state
                   window.location.reload();
                 }}
               />
@@ -215,6 +214,18 @@ const QuoteEditor = () => {
               />
             </div>
           )}
+        </div>
+
+        {/* Payments mobile */}
+        {existingQuote && (
+          <div className="mt-6 lg:hidden">
+            <PaymentsSection
+              quoteId={existingQuote.id}
+              quoteCurrency={existingQuote.trip.currency || 'USD'}
+              totalPrice={existingQuote.pricing.totalPrice || 0}
+            />
+          </div>
+        )}
         </div>
       </main>
     </div>

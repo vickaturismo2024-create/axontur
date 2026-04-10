@@ -28,7 +28,9 @@ export function InsuranceStep({ quote, onUpdate }: InsuranceStepProps) {
         <Label>Notas</Label>
         <Textarea value={quote.insurance.notes} onChange={(e) => onUpdate({ insurance: { ...quote.insurance, notes: e.target.value } })} placeholder="Cobertura COVID-19 incluida..." rows={2} />
       </div>
-      <SupplierSelect value={quote.insurance.supplier} onChange={(val) => onUpdate({ insurance: { ...quote.insurance, supplier: val } })} />
+      <div className="md:col-span-2">
+        <SupplierSelect value={quote.insurance.supplier} onChange={(val) => onUpdate({ insurance: { ...quote.insurance, supplier: val } })} />
+      </div>
       <div>
         <Label>Costo neto ({quote.trip.currency})</Label>
         <Input type="number" min={0} step="0.01" value={quote.insurance.cost || ''} onChange={(e) => onUpdate({ insurance: { ...quote.insurance, cost: parseFloat(e.target.value) || undefined } })} placeholder="0.00" />

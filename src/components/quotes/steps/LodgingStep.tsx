@@ -113,7 +113,9 @@ export function LodgingStep({ quote, onUpdate }: LodgingStepProps) {
                   <Label>Notas</Label>
                   <Input value={lodging.notes} onChange={(e) => updateLodging(lodging.id!, { notes: e.target.value })} placeholder="Vista al mar..." />
                 </div>
-                <SupplierSelect value={lodging.supplier} onChange={(val) => updateLodging(lodging.id!, { supplier: val })} />
+                <div className="md:col-span-2">
+                  <SupplierSelect value={lodging.supplier} onChange={(val) => updateLodging(lodging.id!, { supplier: val })} />
+                </div>
 
                 {/* Pricing Mode */}
                 <div className="md:col-span-2 space-y-3">

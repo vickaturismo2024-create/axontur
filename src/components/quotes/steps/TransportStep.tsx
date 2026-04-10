@@ -102,7 +102,9 @@ export function TransportStep({ quote, onUpdate }: TransportStepProps) {
                       Incluido en el paquete
                     </label>
                   </div>
-                  <SupplierSelect value={transfer.supplier} onChange={(val) => updateTransfer(transfer.id, { supplier: val })} />
+                  <div className="md:col-span-3">
+                    <SupplierSelect value={transfer.supplier} onChange={(val) => updateTransfer(transfer.id, { supplier: val })} />
+                  </div>
                   <div>
                     <Label>Costo neto ({quote.trip.currency})</Label>
                     <Input type="number" min={0} step="0.01" value={transfer.cost || ''} onChange={(e) => updateTransfer(transfer.id, { cost: parseFloat(e.target.value) || undefined })} placeholder="0.00" />
