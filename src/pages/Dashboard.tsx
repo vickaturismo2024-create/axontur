@@ -68,11 +68,14 @@ const Dashboard = () => {
       const d = new Date(q.createdAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const totalsByCurrency: Record<string, number> = {};
-    activeQuotes.forEach(q => {
-      const currency = (q.trip as any).currency || 'USD';
-      totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + (q.pricing.totalPrice || 0);
-    });
+    const marginByCurrency: Record<string, number> = {};
+    activeQuotes
+      .filter(q => q.status === 'approved' && (q.pricing.totalCost || 0) > 0 && (q.pricing.totalPrice || 0) > 0)
+      .forEach(q => {
+        const currency = (q.trip as any).currency || 'USD';
+        const margin = (q.pricing.totalPrice || 0) - (q.pricing.totalCost || 0);
+        marginByCurrency[currency] = (marginByCurrency[currency] || 0) + margin;
+      });
     const quotesWithMargin = activeQuotes.filter(q => (q.pricing.totalCost || 0) > 0 && (q.pricing.totalPrice || 0) > 0);
     const avgMargin = quotesWithMargin.length > 0
       ? quotesWithMargin.reduce((sum, q) => {
@@ -83,7 +86,7 @@ const Dashboard = () => {
       : 0;
     const approved = activeQuotes.filter(q => q.status === 'approved').length;
     const approvalRate = activeQuotes.length > 0 ? (approved / activeQuotes.length) * 100 : 0;
-    return { total: activeQuotes.length, totalsByCurrency, avgMargin, thisMonth: thisMonth.length, approvalRate };
+    return { total: activeQuotes.length, marginByCurrency, avgMargin, thisMonth: thisMonth.length, approvalRate };
   }, [activeQuotes]);
 
   const filteredQuotes = useMemo(() => {
@@ -225,18 +228,18 @@ const Dashboard = () => {
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-gold" />
                 <div className="flex flex-col">
-                  {Object.entries(metrics.totalsByCurrency).length > 0 ? (
-                    Object.entries(metrics.totalsByCurrency).map(([currency, value]) => (
+                  {Object.entries(metrics.marginByCurrency).length > 0 ? (
+                    Object.entries(metrics.marginByCurrency).map(([currency, value]) => (
                       <span key={currency} className="text-lg font-bold leading-tight">
                         {currency} ${value.toLocaleString()}
                       </span>
                     ))
                   ) : (
-                    <span className="text-lg font-bold">USD $0</span>
+                    <span className="text-lg font-bold">-</span>
                   )}
                 </div>
               </div>
-              <p className="mt-1 text-sm text-primary-foreground/70">Valor total</p>
+              <p className="mt-1 text-sm text-primary-foreground/70">Ganancia aprobados</p>
             </div>
             <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2">
