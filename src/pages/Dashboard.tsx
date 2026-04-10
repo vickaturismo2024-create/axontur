@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteComparator } from '@/components/quotes/QuoteComparator';
+import { DuplicateForClientDialog } from '@/components/quotes/DuplicateForClientDialog';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,6 +26,12 @@ import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
 import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
 
 import { defaultTemplate } from '@/data/demoData';
+
+interface QuoteTag {
+  id: string;
+  name: string;
+  color: string;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
