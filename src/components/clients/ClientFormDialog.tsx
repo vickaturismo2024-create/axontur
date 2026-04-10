@@ -1,3 +1,4 @@
+import { ClientNotes } from '@/components/clients/ClientNotes';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,10 +53,11 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
           <DialogTitle>{client.id ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="personal" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="personal">Datos Personales</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="personal">Personal</TabsTrigger>
             <TabsTrigger value="documents">Documentos</TabsTrigger>
             <TabsTrigger value="contact">Contacto</TabsTrigger>
+            <TabsTrigger value="notes" disabled={!client.id}>Notas</TabsTrigger>
           </TabsList>
 
           <TabsContent value="personal" className="space-y-4 mt-4">
