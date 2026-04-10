@@ -227,6 +227,7 @@ const Dashboard = () => {
       navigate(`/quote/${nq.id}`);
     } catch (e) { console.error(e); }
   };
+  const getTemplate = (templateId: string) => templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
 
   const handleToggleCompare = (id: string) => {
     setSelectedForCompare(prev => 
