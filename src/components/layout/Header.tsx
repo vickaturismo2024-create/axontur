@@ -1,5 +1,7 @@
-import { Plane, Menu, LogOut, User, Moon, Sun } from 'lucide-react';
+import { useState } from 'react';
+import { Plane, Menu, LogOut, User, Moon, Sun, Search } from 'lucide-react';
 import { RemindersBadge } from '@/components/reminders/RemindersBadge';
+import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
@@ -33,6 +35,7 @@ export function Header() {
   const { user, signOut } = useAuth();
   const quotesContext = useQuotesSafe();
   const { theme, toggleTheme } = useTheme();
+  const [searchOpen, setSearchOpen] = useState(false);
   const defaultTemplate = quotesContext?.getDefaultTemplate();
   const agencyName = defaultTemplate?.agencyName || 'Generador de Presupuestos';
 
@@ -67,6 +70,10 @@ export function Header() {
               </Button>
             </Link>
           ))}
+
+          <Button variant="ghost" size="icon" className="ml-1" onClick={() => setSearchOpen(true)} title="Buscar (Ctrl+K)">
+            <Search className="h-5 w-5" />
+          </Button>
 
           <Link to="/">
             <Button variant="ghost" size="icon" className="ml-1 relative">
@@ -145,6 +152,7 @@ export function Header() {
           </SheetContent>
         </Sheet>
       </div>
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   );
 }

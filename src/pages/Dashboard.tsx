@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteComparator } from '@/components/quotes/QuoteComparator';
+import { DuplicateForClientDialog } from '@/components/quotes/DuplicateForClientDialog';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +27,12 @@ import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/compo
 
 import { defaultTemplate } from '@/data/demoData';
 
+interface QuoteTag {
+  id: string;
+  name: string;
+  color: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -41,6 +48,30 @@ const Dashboard = () => {
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
   const [showComparator, setShowComparator] = useState(false);
+  const [duplicateForClientId, setDuplicateForClientId] = useState<string | null>(null);
+  const [allTags, setAllTags] = useState<QuoteTag[]>([]);
+  const [tagAssignments, setTagAssignments] = useState<Record<string, QuoteTag[]>>({});
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+
+  const fetchTags = useCallback(async () => {
+    if (!user) return;
+    const { data: tags } = await supabase.from('quote_tags' as any).select('*').order('name');
+    const fetchedTags = (tags || []) as any as QuoteTag[];
+    setAllTags(fetchedTags);
+
+    const { data: assignments } = await supabase.from('quote_tag_assignments' as any).select('quote_id, tag_id');
+    const map: Record<string, QuoteTag[]> = {};
+    ((assignments || []) as any[]).forEach((a: any) => {
+      const tag = fetchedTags.find(t => t.id === a.tag_id);
+      if (tag) {
+        if (!map[a.quote_id]) map[a.quote_id] = [];
+        map[a.quote_id].push(tag);
+      }
+    });
+    setTagAssignments(map);
+  }, [user]);
+
+  useEffect(() => { fetchTags(); }, [fetchTags]);
 
   const fetchDocAlerts = useCallback(async () => {
     if (!user) return;
@@ -143,6 +174,11 @@ const Dashboard = () => {
       result = result.filter(q => q.client.name.toLowerCase().includes(cn));
     }
 
+    // Tag filter
+    if (tagFilter) {
+      result = result.filter(q => tagAssignments[q.id]?.some(t => t.id === tagFilter));
+    }
+
     // Sort
     result = [...result].sort((a, b) => {
       const dir = filters.sortOrder === 'asc' ? 1 : -1;
@@ -155,7 +191,7 @@ const Dashboard = () => {
     });
 
     return result;
-  }, [quotes, searchQuery, statusFilter, viewFilter, filters]);
+  }, [quotes, searchQuery, statusFilter, viewFilter, filters, tagFilter, tagAssignments]);
 
   const handleEdit = (quote: Quote) => navigate(`/quote/${quote.id}`);
   const handleDuplicate = async (id: string) => {
@@ -182,6 +218,15 @@ const Dashboard = () => {
   };
   const handlePreview = (quote: Quote) => setPreviewQuote(quote);
   const handleExport = (quote: Quote) => navigate(`/export/${quote.id}`);
+  const handleDuplicateForClient = (id: string) => setDuplicateForClientId(id);
+  const handleConfirmDuplicateForClient = async (client: { name: string; email: string; phone: string }) => {
+    if (!duplicateForClientId) return;
+    try {
+      const nq = await duplicateQuote(duplicateForClientId);
+      await updateQuote({ ...nq, client });
+      navigate(`/quote/${nq.id}`);
+    } catch (e) { console.error(e); }
+  };
   const getTemplate = (templateId: string) => templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
 
   const handleToggleCompare = (id: string) => {
@@ -346,6 +391,23 @@ const Dashboard = () => {
             </div>
           </div>
           <DashboardFilters filters={filters} onChange={setFilters} />
+          {allTags.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap items-center">
+              <span className="text-xs text-muted-foreground">Etiquetas:</span>
+              <button
+                onClick={() => setTagFilter(null)}
+                className={`text-xs px-2 py-0.5 rounded-full transition-colors ${!tagFilter ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}
+              >Todas</button>
+              {allTags.map(tag => (
+                <button
+                  key={tag.id}
+                  onClick={() => setTagFilter(tagFilter === tag.id ? null : tag.id)}
+                  className={`text-xs px-2 py-0.5 rounded-full text-white transition-opacity ${tagFilter === tag.id ? 'opacity-100 ring-2 ring-offset-1 ring-foreground/20' : 'opacity-70 hover:opacity-100'}`}
+                  style={{ backgroundColor: tag.color }}
+                >{tag.name}</button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Quotes Grid */}
@@ -355,8 +417,12 @@ const Dashboard = () => {
               <QuoteCard key={quote.id} quote={quote} onEdit={handleEdit} onDuplicate={handleDuplicate}
                 onDelete={handleDelete} onPreview={handlePreview} onExport={handleExport} onStatusChange={handleStatusChange}
                 onToggleArchive={handleToggleArchive} onToggleFavorite={handleToggleFavorite}
+                onDuplicateForClient={handleDuplicateForClient}
                 compareMode={compareMode} isSelectedForCompare={selectedForCompare.includes(quote.id)}
-                onToggleCompare={handleToggleCompare} />
+                onToggleCompare={handleToggleCompare}
+                assignedTags={tagAssignments[quote.id] || []}
+                allTags={allTags}
+                onTagsChanged={fetchTags} />
             ))}
           </div>
         ) : (
@@ -410,6 +476,13 @@ const Dashboard = () => {
           if (!open) { setCompareMode(false); setSelectedForCompare([]); }
         }} />
       )}
+
+      {/* Duplicate For Client Dialog */}
+      <DuplicateForClientDialog
+        open={!!duplicateForClientId}
+        onOpenChange={(open) => { if (!open) setDuplicateForClientId(null); }}
+        onConfirm={handleConfirmDuplicateForClient}
+      />
     </div>
   );
 };
