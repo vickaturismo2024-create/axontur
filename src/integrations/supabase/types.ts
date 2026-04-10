@@ -262,6 +262,48 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_tag_assignments: {
+        Row: {
+          id: string
+          quote_id: string
+          tag_id: string
+        }
+        Insert: {
+          id?: string
+          quote_id: string
+          tag_id: string
+        }
+        Update: {
+          id?: string
+          quote_id?: string
+          tag_id?: string
+        }
+        Relationships: []
+      }
+      quote_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       quote_versions: {
         Row: {
           created_at: string
@@ -540,6 +582,10 @@ export type Database = {
     Functions: {
       owns_client_group: {
         Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      owns_quote_tag: {
+        Args: { _tag_id: string; _user_id: string }
         Returns: boolean
       }
     }
