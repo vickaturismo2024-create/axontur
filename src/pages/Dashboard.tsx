@@ -3,6 +3,7 @@ import { RemindersPanel } from '@/components/reminders/RemindersPanel';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
+import { QuoteComparator } from '@/components/quotes/QuoteComparator';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +11,7 @@ import { Quote, QuoteStatus } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle, ShieldAlert
+  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle, ShieldAlert, GitCompare
 } from 'lucide-react';
 import { getDocStatus } from '@/components/clients/DocumentAlertBadge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -37,6 +38,9 @@ const Dashboard = () => {
   const [viewFilter, setViewFilter] = useState<'active' | 'archived' | 'favorites'>('active');
   const [filters, setFilters] = useState<DashboardFilterValues>(defaultFilters);
   const [docAlertCount, setDocAlertCount] = useState(0);
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+  const [showComparator, setShowComparator] = useState(false);
 
   const fetchDocAlerts = useCallback(async () => {
     if (!user) return;
@@ -180,6 +184,20 @@ const Dashboard = () => {
   const handleExport = (quote: Quote) => navigate(`/export/${quote.id}`);
   const getTemplate = (templateId: string) => templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
 
+  const handleToggleCompare = (id: string) => {
+    setSelectedForCompare(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 2 ? [...prev, id] : prev
+    );
+  };
+
+  const compareQuotes = useMemo(() => {
+    if (selectedForCompare.length !== 2) return null;
+    const q1 = quotes.find(q => q.id === selectedForCompare[0]);
+    const q2 = quotes.find(q => q.id === selectedForCompare[1]);
+    if (!q1 || !q2) return null;
+    return [q1, q2] as [Quote, Quote];
+  }, [selectedForCompare, quotes]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -303,9 +321,28 @@ const Dashboard = () => {
                 </TabsList>
               </Tabs>
             </div>
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar por cliente o destino..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+            <div className="flex gap-2 items-center">
+              {compareMode ? (
+                <>
+                  <span className="text-sm text-muted-foreground">{selectedForCompare.length}/2 seleccionados</span>
+                  {compareQuotes && (
+                    <Button size="sm" onClick={() => setShowComparator(true)}>
+                      <GitCompare className="mr-1.5 h-4 w-4" />Ver comparación
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => { setCompareMode(false); setSelectedForCompare([]); }}>
+                    Cancelar
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setCompareMode(true)}>
+                  <GitCompare className="mr-1.5 h-4 w-4" />Comparar
+                </Button>
+              )}
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Buscar por cliente o destino..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+              </div>
             </div>
           </div>
           <DashboardFilters filters={filters} onChange={setFilters} />
@@ -317,7 +354,9 @@ const Dashboard = () => {
             {filteredQuotes.map((quote) => (
               <QuoteCard key={quote.id} quote={quote} onEdit={handleEdit} onDuplicate={handleDuplicate}
                 onDelete={handleDelete} onPreview={handlePreview} onExport={handleExport} onStatusChange={handleStatusChange}
-                onToggleArchive={handleToggleArchive} onToggleFavorite={handleToggleFavorite} />
+                onToggleArchive={handleToggleArchive} onToggleFavorite={handleToggleFavorite}
+                compareMode={compareMode} isSelectedForCompare={selectedForCompare.includes(quote.id)}
+                onToggleCompare={handleToggleCompare} />
             ))}
           </div>
         ) : (
@@ -363,6 +402,14 @@ const Dashboard = () => {
       {/* Import URL Dialog */}
       <ImportURLDialog open={importDialogOpen} onOpenChange={setImportDialogOpen}
         onImport={(data) => navigate('/quote/new', { state: { importedData: data } })} />
+
+      {/* Quote Comparator */}
+      {compareQuotes && (
+        <QuoteComparator quotes={compareQuotes} open={showComparator} onOpenChange={(open) => {
+          setShowComparator(open);
+          if (!open) { setCompareMode(false); setSelectedForCompare([]); }
+        }} />
+      )}
     </div>
   );
 };

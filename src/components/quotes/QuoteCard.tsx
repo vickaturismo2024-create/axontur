@@ -2,6 +2,7 @@ import { Quote, QuoteStatus } from '@/types/quote';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   MapPin, Calendar, Users, Copy, Pencil, FileDown, Trash2, Eye, Send, CheckCircle,
   Archive, Star, ArchiveRestore
@@ -19,6 +20,9 @@ interface QuoteCardProps {
   onStatusChange?: (id: string, status: QuoteStatus) => void;
   onToggleArchive?: (quote: Quote) => void;
   onToggleFavorite?: (quote: Quote) => void;
+  compareMode?: boolean;
+  isSelectedForCompare?: boolean;
+  onToggleCompare?: (id: string) => void;
 }
 
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> = {
@@ -28,7 +32,7 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> =
   expired: { label: 'Vencido', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
-export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange, onToggleArchive, onToggleFavorite }: QuoteCardProps) {
+export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange, onToggleArchive, onToggleFavorite, compareMode, isSelectedForCompare, onToggleCompare }: QuoteCardProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
@@ -43,8 +47,16 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
   const nextStatus: QuoteStatus | null = status === 'draft' ? 'sent' : status === 'sent' ? 'approved' : null;
 
   return (
-    <Card className="group overflow-hidden transition-all duration-300 hover:shadow-premium">
+    <Card
+      className={`group overflow-hidden transition-all duration-300 hover:shadow-premium ${compareMode ? 'cursor-pointer' : ''} ${isSelectedForCompare ? 'ring-2 ring-primary' : ''}`}
+      onClick={compareMode && onToggleCompare ? () => onToggleCompare(quote.id) : undefined}
+    >
       <CardHeader className="relative bg-gradient-to-br from-primary/5 to-secondary/30 pb-4">
+        {compareMode && (
+          <div className="absolute top-3 right-3 z-10">
+            <Checkbox checked={isSelectedForCompare} className="h-5 w-5" />
+          </div>
+        )}
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
