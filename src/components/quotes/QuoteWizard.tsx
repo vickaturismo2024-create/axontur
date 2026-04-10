@@ -1,14 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Quote, Template } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Eye, User, Image, Plane, Building2, Car, Shield, DollarSign, Calendar, Anchor, Compass, Palette, StickyNote } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, User, Image, Plane, Building2, Car, Shield, DollarSign, Calendar, Anchor, Compass, Palette, StickyNote, Check, Loader2 } from 'lucide-react';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { PricingSection } from '@/components/quotes/PricingSection';
 import { useOccupancyPricingCalculator, applyOccupancyPricing } from '@/hooks/useOccupancyPricingCalculator';
+import { useQuotes } from '@/contexts/QuotesContext';
 
 import { TemplateStep } from './steps/TemplateStep';
 import { GeneralStep } from './steps/GeneralStep';
@@ -69,6 +70,10 @@ const createEmptyQuote = (defaultTemplateId?: string): Quote => ({
 });
 
 export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, onCancel }: QuoteWizardProps) {
+  const { autoSaveQuote } = useQuotes();
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
@@ -124,6 +129,33 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   const updateQuote = (updates: Partial<Quote>) => {
     setQuote(prev => ({ ...prev, ...updates, updatedAt: new Date().toISOString() }));
   };
+
+  // Auto-save with 3s debounce
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setSaveStatus('saving');
+      try {
+        const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
+        const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
+        let quoteToSave = quote;
+        if (quote.flights.length > 0 || hasOccupancies) {
+          const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
+          quoteToSave = { ...quote, pricing: { ...quote.pricing, ...pricingUpdates } };
+        }
+        await autoSaveQuote(quoteToSave);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch {
+        setSaveStatus('idle');
+      }
+    }, 3000);
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [quote]);
 
   const handleSave = () => {
     const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
@@ -233,7 +265,17 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             <ChevronLeft className="mr-2 h-4 w-4" />
             {currentStep === 0 ? 'Cancelar' : 'Anterior'}
           </Button>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            {saveStatus === 'saving' && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Guardando...
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                <Check className="h-3 w-3" /> Guardado
+              </span>
+            )}
             <Button variant="outline" onClick={() => setShowPreviewPanel(!showPreviewPanel)} className="hidden lg:flex">
               <Eye className="mr-2 h-4 w-4" />
               {showPreviewPanel ? 'Ocultar' : 'Vista previa'}

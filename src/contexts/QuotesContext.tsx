@@ -22,6 +22,7 @@ interface QuotesContextType {
   deleteTemplate: (id: string) => Promise<void>;
   setDefaultTemplate: (id: string) => Promise<void>;
   getDefaultTemplate: () => Template | null;
+  autoSaveQuote: (quote: Quote) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -205,6 +206,31 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
   const refreshData = useCallback(async () => {
     await fetchData();
   }, [fetchData]);
+
+  const autoSaveQuote = useCallback(async (quote: Quote) => {
+    if (!user) return;
+    try {
+      const validatedQuote = validateQuote(quote);
+      const dbQuote = quoteToDb(validatedQuote as Quote, user.id);
+      const existing = quotes.find(q => q.id === quote.id);
+      if (existing) {
+        const { error } = await supabase
+          .from('quotes')
+          .update(dbQuote as any)
+          .eq('id', quote.id);
+        if (error) throw error;
+        setQuotes((prev) => prev.map((q) => (q.id === quote.id ? validatedQuote as Quote : q)));
+      } else {
+        const { error } = await supabase
+          .from('quotes')
+          .insert([dbQuote] as any);
+        if (error) throw error;
+        setQuotes((prev) => [validatedQuote as Quote, ...prev]);
+      }
+    } catch (error) {
+      logError('autoSaveQuote', error);
+    }
+  }, [user, quotes]);
 
   const addQuote = async (quote: Quote) => {
     if (!user) {
@@ -418,6 +444,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
         deleteTemplate,
         setDefaultTemplate,
         getDefaultTemplate,
+        autoSaveQuote,
         refreshData,
       }}
     >
