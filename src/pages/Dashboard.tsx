@@ -22,7 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
 import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
-import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
+
 import { defaultTemplate } from '@/data/demoData';
 
 const Dashboard = () => {
@@ -274,14 +274,9 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Charts + Reminders */}
-        <div className="mb-8 grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <DashboardCharts quotes={activeQuotes} />
-          </div>
-          <div>
-            <RemindersPanel />
-          </div>
+        {/* Reminders */}
+        <div className="mb-8">
+          <RemindersPanel />
         </div>
 
         {/* View Tabs (Active/Archived/Favorites) + Status Tabs + Search + Filters */}

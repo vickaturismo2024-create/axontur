@@ -4,6 +4,7 @@ import { useSupplierAnalytics } from '@/hooks/useSupplierAnalytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3 } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
 
 const CHART_COLORS = [
   'hsl(var(--primary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d', '#ffc658',
@@ -24,6 +25,12 @@ const Reports = () => {
         <div className="mb-8">
           <h1 className="font-serif text-3xl font-bold text-foreground">Reportes</h1>
           <p className="mt-1 text-muted-foreground">Análisis de rentabilidad y métricas de tu negocio</p>
+        </div>
+
+        {/* General analytics charts */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-foreground">Análisis general</h2>
+          <DashboardCharts quotes={quotes} />
         </div>
 
         {supplierStats.length === 0 ? (
