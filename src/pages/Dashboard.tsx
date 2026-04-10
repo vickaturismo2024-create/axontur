@@ -27,6 +27,7 @@ import { defaultTemplate } from '@/data/demoData';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { quotes, templates, duplicateQuote, deleteQuote, updateQuote, isLoading, getDefaultTemplate } = useQuotes();
   const [searchQuery, setSearchQuery] = useState('');
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
@@ -35,6 +36,28 @@ const Dashboard = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewFilter, setViewFilter] = useState<'active' | 'archived' | 'favorites'>('active');
   const [filters, setFilters] = useState<DashboardFilterValues>(defaultFilters);
+  const [docAlertCount, setDocAlertCount] = useState(0);
+
+  const fetchDocAlerts = useCallback(async () => {
+    if (!user) return;
+    let count = 0;
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data } = await supabase.from('clients').select('dni_expiry,passport_expiry').range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      data.forEach((c: any) => {
+        const d = getDocStatus(c.dni_expiry);
+        const p = getDocStatus(c.passport_expiry);
+        if (d === 'expired' || d === 'expiring' || p === 'expired' || p === 'expiring') count++;
+      });
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    setDocAlertCount(count);
+  }, [user]);
+
+  useEffect(() => { fetchDocAlerts(); }, [fetchDocAlerts]);
 
   // Metrics (exclude archived)
   const activeQuotes = useMemo(() => quotes.filter(q => !q.archived), [quotes]);
