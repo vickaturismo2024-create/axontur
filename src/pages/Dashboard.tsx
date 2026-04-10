@@ -1,15 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { RemindersPanel } from '@/components/reminders/RemindersPanel';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { useQuotes } from '@/contexts/QuotesContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Quote, QuoteStatus } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle
+  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle, ShieldAlert
 } from 'lucide-react';
+import { getDocStatus } from '@/components/clients/DocumentAlertBadge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -24,6 +27,7 @@ import { defaultTemplate } from '@/data/demoData';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { quotes, templates, duplicateQuote, deleteQuote, updateQuote, isLoading, getDefaultTemplate } = useQuotes();
   const [searchQuery, setSearchQuery] = useState('');
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
@@ -32,6 +36,28 @@ const Dashboard = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewFilter, setViewFilter] = useState<'active' | 'archived' | 'favorites'>('active');
   const [filters, setFilters] = useState<DashboardFilterValues>(defaultFilters);
+  const [docAlertCount, setDocAlertCount] = useState(0);
+
+  const fetchDocAlerts = useCallback(async () => {
+    if (!user) return;
+    let count = 0;
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data } = await supabase.from('clients').select('dni_expiry,passport_expiry').range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      data.forEach((c: any) => {
+        const d = getDocStatus(c.dni_expiry);
+        const p = getDocStatus(c.passport_expiry);
+        if (d === 'expired' || d === 'expiring' || p === 'expired' || p === 'expiring') count++;
+      });
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    setDocAlertCount(count);
+  }, [user]);
+
+  useEffect(() => { fetchDocAlerts(); }, [fetchDocAlerts]);
 
   // Metrics (exclude archived)
   const activeQuotes = useMemo(() => quotes.filter(q => !q.archived), [quotes]);
@@ -187,7 +213,7 @@ const Dashboard = () => {
           </div>
 
           {/* Metrics */}
-          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-5">
+          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-6">
             <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-gold" />
@@ -233,6 +259,18 @@ const Dashboard = () => {
               </div>
               <p className="mt-1 text-sm text-primary-foreground/70">Aprobados</p>
             </div>
+            {docAlertCount > 0 && (
+              <button
+                onClick={() => navigate('/clients?docs=1')}
+                className="rounded-lg bg-white/10 p-4 backdrop-blur-sm text-left hover:bg-white/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-yellow-400" />
+                  <span className="text-2xl font-bold">{docAlertCount}</span>
+                </div>
+                <p className="mt-1 text-sm text-primary-foreground/70">Docs por vencer</p>
+              </button>
+            )}
           </div>
         </div>
 

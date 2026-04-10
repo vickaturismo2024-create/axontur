@@ -1,0 +1,115 @@
+import { useMemo } from 'react';
+import { Quote } from '@/types/quote';
+
+export interface SupplierStat {
+  name: string;
+  services: number;
+  totalCost: number;
+  totalPrice: number;
+  margin: number;
+  marginPct: number;
+}
+
+function extractServices(quote: Quote): { supplier: string; cost: number; price: number }[] {
+  const results: { supplier: string; cost: number; price: number }[] = [];
+
+  const processItems = (items: any[] | null | undefined) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item: any) => {
+      if (item?.supplier) {
+        results.push({
+          supplier: item.supplier,
+          cost: Number(item.cost) || Number(item.totalCost) || 0,
+          price: Number(item.price) || Number(item.totalPrice) || 0,
+        });
+      }
+    });
+  };
+
+  processItems(quote.flights as any);
+  processItems(quote.transfers as any);
+  processItems((quote as any).trains);
+  processItems((quote as any).ferries);
+  processItems((quote as any).rental_cars);
+  processItems((quote as any).activities);
+  
+  // Lodgings array
+  processItems((quote as any).lodgings);
+  
+  // Single lodging
+  const lodging = quote.lodging as any;
+  if (lodging?.supplier) {
+    results.push({
+      supplier: lodging.supplier,
+      cost: Number(lodging.cost) || Number(lodging.totalCost) || 0,
+      price: Number(lodging.price) || Number(lodging.totalPrice) || 0,
+    });
+  }
+
+  // Cruise
+  const cruise = (quote as any).cruise;
+  if (cruise?.supplier) {
+    results.push({
+      supplier: cruise.supplier,
+      cost: Number(cruise.cost) || Number(cruise.totalCost) || 0,
+      price: Number(cruise.price) || Number(cruise.totalPrice) || 0,
+    });
+  }
+
+  // Insurance
+  const insurance = quote.insurance as any;
+  if (insurance?.supplier) {
+    results.push({
+      supplier: insurance.supplier,
+      cost: Number(insurance.cost) || Number(insurance.totalCost) || 0,
+      price: Number(insurance.price) || Number(insurance.totalPrice) || 0,
+    });
+  }
+
+  return results;
+}
+
+export function useSupplierAnalytics(quotes: Quote[]) {
+  return useMemo(() => {
+    const map = new Map<string, { services: number; totalCost: number; totalPrice: number }>();
+
+    quotes.forEach(quote => {
+      const services = extractServices(quote);
+      services.forEach(({ supplier, cost, price }) => {
+        const key = supplier.trim().toLowerCase();
+        if (!key) return;
+        const existing = map.get(key) || { services: 0, totalCost: 0, totalPrice: 0 };
+        existing.services += 1;
+        existing.totalCost += cost;
+        existing.totalPrice += price;
+        map.set(key, existing);
+      });
+    });
+
+    // Capitalize first occurrence
+    const nameMap = new Map<string, string>();
+    quotes.forEach(quote => {
+      extractServices(quote).forEach(({ supplier }) => {
+        const key = supplier.trim().toLowerCase();
+        if (key && !nameMap.has(key)) nameMap.set(key, supplier.trim());
+      });
+    });
+
+    const stats: SupplierStat[] = [];
+    map.forEach((val, key) => {
+      const margin = val.totalPrice - val.totalCost;
+      const marginPct = val.totalCost > 0 ? (margin / val.totalCost) * 100 : 0;
+      stats.push({
+        name: nameMap.get(key) || key,
+        services: val.services,
+        totalCost: val.totalCost,
+        totalPrice: val.totalPrice,
+        margin,
+        marginPct,
+      });
+    });
+
+    stats.sort((a, b) => b.totalCost - a.totalCost);
+    return stats;
+  }, [quotes]);
+}

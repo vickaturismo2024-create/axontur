@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { DocumentAlertBadge, getDocStatus, getWorstStatus, DocStatus } from '@/components/clients/DocumentAlertBadge';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +57,8 @@ const Clients = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [quotesDialogClient, setQuotesDialogClient] = useState<ClientRecord | null>(null);
+  const [searchParams] = useSearchParams();
+  const [docFilter, setDocFilter] = useState<boolean>(() => searchParams.get('docs') === '1');
 
   const fetchClients = async () => {
     if (!user) return;
@@ -72,14 +75,32 @@ const Clients = () => {
     return set;
   }, [clients]);
 
+  const docAlerts = useMemo(() => {
+    let expired = 0, expiring = 0;
+    clients.forEach(c => {
+      const dniS = getDocStatus(c.dni_expiry);
+      const pasS = getDocStatus(c.passport_expiry);
+      if (dniS === 'expired' || pasS === 'expired') expired++;
+      else if (dniS === 'expiring' || pasS === 'expiring') expiring++;
+    });
+    return { expired, expiring, total: expired + expiring };
+  }, [clients]);
+
   const filtered = useMemo(() => {
-    if (!search) return clients;
+    let list = clients;
+    if (docFilter) {
+      list = list.filter(c => {
+        const worst = getWorstStatus([getDocStatus(c.dni_expiry), getDocStatus(c.passport_expiry)]);
+        return worst === 'expired' || worst === 'expiring';
+      });
+    }
+    if (!search) return list;
     const q = search.toLowerCase();
-    return clients.filter(c =>
+    return list.filter(c =>
       c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) ||
       c.phone.includes(q) || c.dni.includes(q)
     );
-  }, [clients, search]);
+  }, [clients, search, docFilter]);
 
   const getClientQuotes = (client: ClientRecord): Quote[] =>
     quotes.filter(q => q.client.name === client.name || (client.email && q.client.email === client.email));
@@ -175,6 +196,27 @@ const Clients = () => {
           </TabsList>
 
           <TabsContent value="clients" className="mt-6">
+            {/* Document expiry banner */}
+            {docAlerts.total > 0 && (
+              <div className="mb-4 flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                <p className="text-sm">
+                  {docAlerts.expired > 0 && <span className="font-semibold text-destructive">{docAlerts.expired} vencido(s)</span>}
+                  {docAlerts.expired > 0 && docAlerts.expiring > 0 && ' · '}
+                  {docAlerts.expiring > 0 && <span className="font-semibold text-yellow-700 dark:text-yellow-400">{docAlerts.expiring} por vencer</span>}
+                </p>
+                <Button
+                  variant={docFilter ? 'default' : 'outline'}
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setDocFilter(!docFilter)}
+                >
+                  <ShieldAlert className="mr-1 h-3.5 w-3.5" />
+                  {docFilter ? 'Mostrar todos' : 'Filtrar alertas'}
+                </Button>
+              </div>
+            )}
+
             <div className="mb-6 max-w-md">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -201,6 +243,10 @@ const Clients = () => {
                     <Card key={client.id} className="group">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg">{client.name}</CardTitle>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <DocumentAlertBadge label="DNI" dateStr={client.dni_expiry} compact />
+                          <DocumentAlertBadge label="Pasaporte" dateStr={client.passport_expiry} compact />
+                        </div>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-1 text-sm text-muted-foreground">
