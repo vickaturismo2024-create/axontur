@@ -25,9 +25,14 @@ const Reports = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="font-serif text-3xl font-bold text-foreground">Reportes</h1>
-          <p className="mt-1 text-muted-foreground">Análisis de rentabilidad y métricas de tu negocio</p>
+        <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="font-serif text-3xl font-bold text-foreground">Reportes</h1>
+            <p className="mt-1 text-muted-foreground">Análisis de rentabilidad y métricas de tu negocio</p>
+          </div>
+          <Button onClick={() => { exportReportsToExcel(quotes, supplierStats); toast.success('Reporte exportado'); }}>
+            <Download className="mr-2 h-4 w-4" /> Exportar a Excel
+          </Button>
         </div>
 
         {/* General analytics charts */}
