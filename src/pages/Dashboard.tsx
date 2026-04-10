@@ -213,7 +213,7 @@ const Dashboard = () => {
           </div>
 
           {/* Metrics */}
-          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-5">
+          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-6">
             <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-gold" />
@@ -259,6 +259,18 @@ const Dashboard = () => {
               </div>
               <p className="mt-1 text-sm text-primary-foreground/70">Aprobados</p>
             </div>
+            {docAlertCount > 0 && (
+              <button
+                onClick={() => navigate('/clients?docs=1')}
+                className="rounded-lg bg-white/10 p-4 backdrop-blur-sm text-left hover:bg-white/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-yellow-400" />
+                  <span className="text-2xl font-bold">{docAlertCount}</span>
+                </div>
+                <p className="mt-1 text-sm text-primary-foreground/70">Docs por vencer</p>
+              </button>
+            )}
           </div>
         </div>
 
