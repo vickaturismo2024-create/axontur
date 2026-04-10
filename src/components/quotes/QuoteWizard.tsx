@@ -271,7 +271,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
               </span>
             )}
             {saveStatus === 'saved' && (
-              <span className="flex items-center gap-1 text-xs text-green-600">
+              <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                 <Check className="h-3 w-3" /> Guardado
               </span>
             )}
