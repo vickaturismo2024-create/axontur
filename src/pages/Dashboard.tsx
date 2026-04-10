@@ -228,18 +228,18 @@ const Dashboard = () => {
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-gold" />
                 <div className="flex flex-col">
-                  {Object.entries(metrics.totalsByCurrency).length > 0 ? (
-                    Object.entries(metrics.totalsByCurrency).map(([currency, value]) => (
+                  {Object.entries(metrics.marginByCurrency).length > 0 ? (
+                    Object.entries(metrics.marginByCurrency).map(([currency, value]) => (
                       <span key={currency} className="text-lg font-bold leading-tight">
                         {currency} ${value.toLocaleString()}
                       </span>
                     ))
                   ) : (
-                    <span className="text-lg font-bold">USD $0</span>
+                    <span className="text-lg font-bold">-</span>
                   )}
                 </div>
               </div>
-              <p className="mt-1 text-sm text-primary-foreground/70">Valor total</p>
+              <p className="mt-1 text-sm text-primary-foreground/70">Ganancia aprobados</p>
             </div>
             <div className="rounded-lg bg-white/10 p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2">
