@@ -18,6 +18,7 @@ import PublicPDF from "./pages/PublicPDF";
 import Agency from "./pages/Agency";
 import Clients from "./pages/Clients";
 import Suppliers from "./pages/Suppliers";
+import Reports from "./pages/Reports";
 import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
@@ -52,6 +53,7 @@ const App = () => (
                 <Route path="/agency" element={<ProtectedRoute><Agency /></ProtectedRoute>} />
                 <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
                 <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
+                <Route path="/reportes" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                 <Route path="/tutoriales" element={<ProtectedRoute><Tutorials /></ProtectedRoute>} />
                 <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
