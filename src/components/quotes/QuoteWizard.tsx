@@ -157,6 +157,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [quote]);
 
+  const handleSave = () => {
     const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
     const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
     if (quote.flights.length > 0 || hasOccupancies) {
