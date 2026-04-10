@@ -226,7 +226,6 @@ const QuoteEditor = () => {
             />
           </div>
         )}
-        </div>
       </main>
     </div>
   );
