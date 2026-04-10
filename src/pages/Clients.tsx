@@ -75,14 +75,32 @@ const Clients = () => {
     return set;
   }, [clients]);
 
+  const docAlerts = useMemo(() => {
+    let expired = 0, expiring = 0;
+    clients.forEach(c => {
+      const dniS = getDocStatus(c.dni_expiry);
+      const pasS = getDocStatus(c.passport_expiry);
+      if (dniS === 'expired' || pasS === 'expired') expired++;
+      else if (dniS === 'expiring' || pasS === 'expiring') expiring++;
+    });
+    return { expired, expiring, total: expired + expiring };
+  }, [clients]);
+
   const filtered = useMemo(() => {
-    if (!search) return clients;
+    let list = clients;
+    if (docFilter) {
+      list = list.filter(c => {
+        const worst = getWorstStatus([getDocStatus(c.dni_expiry), getDocStatus(c.passport_expiry)]);
+        return worst === 'expired' || worst === 'expiring';
+      });
+    }
+    if (!search) return list;
     const q = search.toLowerCase();
-    return clients.filter(c =>
+    return list.filter(c =>
       c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) ||
       c.phone.includes(q) || c.dni.includes(q)
     );
-  }, [clients, search]);
+  }, [clients, search, docFilter]);
 
   const getClientQuotes = (client: ClientRecord): Quote[] =>
     quotes.filter(q => q.client.name === client.name || (client.email && q.client.email === client.email));
