@@ -1,51 +1,33 @@
 
 
-# Plan: Mejorar Pagos + Arreglar Reportes de Proveedores
+# Plan: Auto-guardado y diagnóstico de proveedores
 
-## Problema identificado con proveedores
+## Problema real
 
-Revisé los datos en la base de datos y **ningún presupuesto tiene el campo `supplier` cargado** dentro de los servicios (vuelos, alojamientos, transfers, etc.). Aunque tenés proveedores creados en la tabla `suppliers`, el campo `supplier` dentro de cada servicio del presupuesto está vacío. El selector de proveedor existe en el formulario de cada servicio, pero si no se selecciona uno al cargar el servicio, queda vacío y los reportes no muestran nada.
+El código está bien — el selector de proveedor actualiza el vuelo correctamente. Pero el sistema **no tiene auto-guardado**: los cambios solo se persisten cuando hacés click en "Guardar" al final del wizard. Si seleccionaste el proveedor pero no guardaste al final, el dato se perdió.
 
-**Solución**: No es un bug de código, sino que los datos no tienen el campo `supplier` completado. Para que los reportes funcionen, hay que asignar un proveedor a cada servicio desde el editor del presupuesto (en vuelos, alojamientos, transfers, etc., hay un selector "Operador"). Además, voy a hacer el campo más visible para que no pase desapercibido.
+Revisé la base de datos y **ninguno de los 4 vuelos del presupuesto de Sandra tiene el campo `supplier`**. Esto confirma que el dato no se guardó.
 
----
+## Solución: Agregar auto-guardado
 
-## Cambios a implementar
+Para evitar perder cambios, voy a implementar **auto-guardado** que persista el presupuesto automáticamente cada vez que se modifica algo (con un debounce de 2-3 segundos para no saturar la base de datos).
 
-### 1. Hacer el selector de proveedor más visible en los steps
-
-**Archivos**: `FlightsStep.tsx`, `LodgingStep.tsx`, `TransportStep.tsx`, `ActivitiesStep.tsx`, `CruiseStep.tsx`, `InsuranceStep.tsx`
-
-- Mover el `SupplierSelect` a una posición más prominente (arriba, junto a los campos principales)
-- Agregar un indicador visual cuando no hay proveedor asignado (borde amber/warning)
-
-### 2. Mejorar la sección de Pagos
-
-**Archivo**: `src/components/quotes/PaymentsSection.tsx`
-
-Mejoras:
-- Agregar campo de **notas** al formulario de nuevo pago
-- Agregar **barra de progreso visual** del porcentaje pagado
-- Métodos de pago predefinidos con select (Transferencia, Tarjeta de Crédito, Efectivo, Cheque, Otro) en lugar de texto libre
-- Mostrar las **notas** en cada pago registrado
-- Hacer responsive el formulario (2 columnas en mobile en vez de 3)
-- Agregar confirmación antes de eliminar un pago
-- Hacerlo visible también en mobile (actualmente está en un sidebar `lg:block` oculto en mobile)
-
-### 3. Hacer PaymentsSection accesible en mobile
-
-**Archivo**: `src/pages/QuoteEditor.tsx`
-
-- Mover PaymentsSection para que también sea visible en pantallas chicas (actualmente solo se ve en `lg:block`)
-
----
-
-## Archivos
+### Cambios
 
 | Archivo | Acción |
 |---|---|
-| `src/components/quotes/PaymentsSection.tsx` | Mejorar UX: progreso, notas, métodos, confirmación |
-| `src/pages/QuoteEditor.tsx` | Hacer pagos visible en mobile |
-| `src/components/quotes/SupplierSelect.tsx` | Estilo warning cuando vacío |
-| Steps de servicios (6 archivos) | Hacer proveedor más prominente |
+| `src/components/quotes/QuoteWizard.tsx` | Agregar auto-save con debounce cada 3 segundos cuando el quote cambia. Mostrar indicador "Guardado" / "Guardando..." |
+| `src/contexts/QuotesContext.tsx` | Agregar función `autoSaveQuote` que haga upsert silencioso (sin navegar ni mostrar toast) |
+
+### Detalle técnico
+- `useEffect` en QuoteWizard que detecta cambios en `quote` y dispara un `setTimeout` de 3 segundos
+- Si el quote ya existe en DB (modo edición), hace un update silencioso
+- Si es nuevo, lo crea en DB con status draft
+- Indicador visual pequeño en la esquina: "Guardando..." → "Guardado ✓"
+- El botón "Guardar" sigue funcionando igual para el guardado final
+
+### Resultado
+- Nunca más se pierde un dato por no clickear "Guardar"
+- Los proveedores y cualquier otro campo se persisten automáticamente
+- Los reportes van a mostrar los datos correctamente una vez que los presupuestos tengan proveedores asignados
 
