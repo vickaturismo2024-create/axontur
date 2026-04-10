@@ -1,14 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Quote, Template } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Eye, User, Image, Plane, Building2, Car, Shield, DollarSign, Calendar, Anchor, Compass, Palette, StickyNote } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, User, Image, Plane, Building2, Car, Shield, DollarSign, Calendar, Anchor, Compass, Palette, StickyNote, Check, Loader2 } from 'lucide-react';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { PricingSection } from '@/components/quotes/PricingSection';
 import { useOccupancyPricingCalculator, applyOccupancyPricing } from '@/hooks/useOccupancyPricingCalculator';
+import { useQuotes } from '@/contexts/QuotesContext';
 
 import { TemplateStep } from './steps/TemplateStep';
 import { GeneralStep } from './steps/GeneralStep';
@@ -69,6 +70,10 @@ const createEmptyQuote = (defaultTemplateId?: string): Quote => ({
 });
 
 export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, onCancel }: QuoteWizardProps) {
+  const { autoSaveQuote } = useQuotes();
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
