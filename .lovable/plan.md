@@ -1,38 +1,84 @@
 
 
-# Plan: Fase 2 — Comparador de presupuestos
+# Plan: Paquete de mejoras — Duplicar, Tags, Búsqueda global, Notificaciones
 
-## Resumen
-Agregar la posibilidad de seleccionar 2 presupuestos desde el Dashboard y compararlos lado a lado en un dialog fullscreen.
+Implementación en orden de complejidad creciente.
 
-## Cambios
+---
 
-### 1. Crear `src/components/quotes/QuoteComparator.tsx`
-- Dialog fullscreen que recibe dos `Quote` objects
-- Layout en dos columnas mostrando:
-  - **Datos del viaje**: destino, fechas, viajeros, moneda
-  - **Desglose por categoría**: vuelos, alojamiento, traslados, trenes, ferrys, autos, actividades, crucero, seguro (costo y precio de cada uno)
-  - **Totales**: precio total, costo total, margen, margen %
-- Diferencias resaltadas: verde cuando un valor es menor (más barato), rojo cuando es mayor
-- Botón para cerrar el comparador
+## 1. Duplicar presupuesto para otro cliente
 
-### 2. Modificar `src/pages/Dashboard.tsx`
-- Agregar estado `compareMode: boolean` y `selectedForCompare: string[]` (máx 2 IDs)
-- Agregar botón "Comparar" en la barra de acciones (al lado de búsqueda)
-- En modo comparación:
-  - Mostrar checkboxes en cada `QuoteCard` para seleccionar
-  - Cuando hay 2 seleccionados, mostrar botón "Ver comparación"
-  - Botón "Cancelar" para salir del modo
-- Al confirmar, abrir `QuoteComparator` con los 2 quotes seleccionados
+### Cambios
+- **`src/pages/Dashboard.tsx`**: Agregar opción "Duplicar para otro cliente" en el menú de acciones de cada QuoteCard. Abre un dialog para seleccionar el nuevo cliente.
+- **`src/components/quotes/DuplicateForClientDialog.tsx`** (nuevo): Dialog con selector de cliente existente. Al confirmar, llama a `duplicateQuote` y actualiza los datos del cliente en el quote duplicado.
+- La función `duplicateQuote` ya existe en QuotesContext — solo necesitamos post-procesar el resultado para cambiar el cliente.
 
-### 3. Modificar `src/components/quotes/QuoteCard.tsx`
-- Agregar props opcionales: `compareMode?: boolean`, `isSelectedForCompare?: boolean`, `onToggleCompare?: (id: string) => void`
-- En modo comparación, mostrar checkbox overlay en la card
+---
+
+## 2. Etiquetas/Tags en presupuestos
+
+### Base de datos
+- Crear tabla `quote_tags` con columnas: `id`, `user_id`, `name`, `color`, `created_at`
+- Crear tabla `quote_tag_assignments` con columnas: `id`, `quote_id`, `tag_id`
+- RLS: usuario solo ve/gestiona sus propios tags
+
+### Cambios en código
+- **`src/types/quote.ts`**: No requiere cambios (los tags se manejan aparte)
+- **`src/components/quotes/TagManager.tsx`** (nuevo): Componente para crear, editar y eliminar tags con selector de color
+- **`src/components/quotes/QuoteCard.tsx`**: Mostrar badges de tags asignados en cada card
+- **`src/pages/Dashboard.tsx`**: Agregar filtro por tags en los filtros existentes
+- **`src/components/quotes/TagSelect.tsx`** (nuevo): Popover para asignar/desasignar tags a un quote
+
+---
+
+## 3. Búsqueda global
+
+### Cambios
+- **`src/components/layout/GlobalSearch.tsx`** (nuevo): Componente Command (CMD+K) que busca en:
+  - Presupuestos (por destino, cliente)
+  - Clientes (por nombre, email, teléfono)
+  - Proveedores (por nombre)
+- Usa datos del contexto de quotes + fetch de clientes y proveedores
+- Resultados agrupados por categoría con navegación directa al hacer click
+- **`src/components/layout/Header.tsx`**: Agregar botón de búsqueda que abre el GlobalSearch + atajo CMD+K
+
+---
+
+## 4. Notificaciones por email
+
+### Prerequisitos
+- Configurar dominio de email (se mostrará el dialog de setup)
+- Configurar infraestructura de email
+
+### Notificaciones a implementar
+- **Presupuesto aprobado**: Cuando un cliente aprueba un presupuesto desde el enlace público, enviar email al agente notificando la aprobación
+- **Documento por vencer**: Alerta cuando un DNI/pasaporte de cliente está a 30 días de vencer
+
+### Cambios
+- **Edge function `approve-quote`**: Agregar llamada a `send-transactional-email` después de la aprobación, enviando al email del agente (del perfil)
+- **Edge function `check-document-expiry`** (nuevo): Cron job que revisa documentos por vencer y envía emails
+- **Templates de email**: Templates React Email para cada tipo de notificación
+
+---
 
 ## Archivos
+
 | Archivo | Acción |
 |---|---|
-| `src/components/quotes/QuoteComparator.tsx` | **Nuevo** |
-| `src/pages/Dashboard.tsx` | Agregar modo comparación + estado |
-| `src/components/quotes/QuoteCard.tsx` | Agregar checkbox para selección |
+| `src/components/quotes/DuplicateForClientDialog.tsx` | **Nuevo** |
+| `src/components/quotes/TagManager.tsx` | **Nuevo** |
+| `src/components/quotes/TagSelect.tsx` | **Nuevo** |
+| `src/components/layout/GlobalSearch.tsx` | **Nuevo** |
+| `src/pages/Dashboard.tsx` | Duplicar + tags + filtros |
+| `src/components/quotes/QuoteCard.tsx` | Tags + duplicar |
+| `src/components/layout/Header.tsx` | Búsqueda global |
+| Migración DB | Tablas `quote_tags`, `quote_tag_assignments` |
+| Edge functions | Notificaciones email |
+| Templates email | Aprobación + documentos |
+
+## Orden de implementación
+1. Duplicar presupuesto (rápido, sin DB)
+2. Tags (requiere migración DB)
+3. Búsqueda global (solo frontend)
+4. Notificaciones por email (requiere setup de dominio)
 
