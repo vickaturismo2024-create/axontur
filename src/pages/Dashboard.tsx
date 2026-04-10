@@ -48,6 +48,30 @@ const Dashboard = () => {
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
   const [showComparator, setShowComparator] = useState(false);
+  const [duplicateForClientId, setDuplicateForClientId] = useState<string | null>(null);
+  const [allTags, setAllTags] = useState<QuoteTag[]>([]);
+  const [tagAssignments, setTagAssignments] = useState<Record<string, QuoteTag[]>>({});
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+
+  const fetchTags = useCallback(async () => {
+    if (!user) return;
+    const { data: tags } = await supabase.from('quote_tags' as any).select('*').order('name');
+    const fetchedTags = (tags || []) as any as QuoteTag[];
+    setAllTags(fetchedTags);
+
+    const { data: assignments } = await supabase.from('quote_tag_assignments' as any).select('quote_id, tag_id');
+    const map: Record<string, QuoteTag[]> = {};
+    ((assignments || []) as any[]).forEach((a: any) => {
+      const tag = fetchedTags.find(t => t.id === a.tag_id);
+      if (tag) {
+        if (!map[a.quote_id]) map[a.quote_id] = [];
+        map[a.quote_id].push(tag);
+      }
+    });
+    setTagAssignments(map);
+  }, [user]);
+
+  useEffect(() => { fetchTags(); }, [fetchTags]);
 
   const fetchDocAlerts = useCallback(async () => {
     if (!user) return;
