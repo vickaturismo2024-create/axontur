@@ -196,6 +196,27 @@ const Clients = () => {
           </TabsList>
 
           <TabsContent value="clients" className="mt-6">
+            {/* Document expiry banner */}
+            {docAlerts.total > 0 && (
+              <div className="mb-4 flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                <p className="text-sm">
+                  {docAlerts.expired > 0 && <span className="font-semibold text-destructive">{docAlerts.expired} vencido(s)</span>}
+                  {docAlerts.expired > 0 && docAlerts.expiring > 0 && ' · '}
+                  {docAlerts.expiring > 0 && <span className="font-semibold text-yellow-700 dark:text-yellow-400">{docAlerts.expiring} por vencer</span>}
+                </p>
+                <Button
+                  variant={docFilter ? 'default' : 'outline'}
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setDocFilter(!docFilter)}
+                >
+                  <ShieldAlert className="mr-1 h-3.5 w-3.5" />
+                  {docFilter ? 'Mostrar todos' : 'Filtrar alertas'}
+                </Button>
+              </div>
+            )}
+
             <div className="mb-6 max-w-md">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
