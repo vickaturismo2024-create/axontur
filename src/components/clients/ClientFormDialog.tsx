@@ -155,6 +155,11 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
               </div>
             </div>
           </TabsContent>
+          {client.id && (
+            <TabsContent value="notes" className="mt-4">
+              <ClientNotes clientId={client.id} />
+            </TabsContent>
+          )}
         </Tabs>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
