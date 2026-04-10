@@ -86,7 +86,7 @@ const Dashboard = () => {
       : 0;
     const approved = activeQuotes.filter(q => q.status === 'approved').length;
     const approvalRate = activeQuotes.length > 0 ? (approved / activeQuotes.length) * 100 : 0;
-    return { total: activeQuotes.length, totalsByCurrency, avgMargin, thisMonth: thisMonth.length, approvalRate };
+    return { total: activeQuotes.length, marginByCurrency, avgMargin, thisMonth: thisMonth.length, approvalRate };
   }, [activeQuotes]);
 
   const filteredQuotes = useMemo(() => {
