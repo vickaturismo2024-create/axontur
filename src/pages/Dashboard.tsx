@@ -402,6 +402,14 @@ const Dashboard = () => {
       {/* Import URL Dialog */}
       <ImportURLDialog open={importDialogOpen} onOpenChange={setImportDialogOpen}
         onImport={(data) => navigate('/quote/new', { state: { importedData: data } })} />
+
+      {/* Quote Comparator */}
+      {compareQuotes && (
+        <QuoteComparator quotes={compareQuotes} open={showComparator} onOpenChange={(open) => {
+          setShowComparator(open);
+          if (!open) { setCompareMode(false); setSelectedForCompare([]); }
+        }} />
+      )}
     </div>
   );
 };
