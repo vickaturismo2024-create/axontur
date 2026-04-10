@@ -5,6 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Plus, Trash2, CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +29,17 @@ interface PaymentsSectionProps {
   totalPrice: number;
 }
 
+const PAYMENT_METHODS = [
+  { value: 'transfer', label: 'Transferencia' },
+  { value: 'credit_card', label: 'Tarjeta de Crédito' },
+  { value: 'debit_card', label: 'Tarjeta de Débito' },
+  { value: 'cash', label: 'Efectivo' },
+  { value: 'check', label: 'Cheque' },
+  { value: 'other', label: 'Otro' },
+];
+
+const getMethodLabel = (value: string) => PAYMENT_METHODS.find(m => m.value === value)?.label || value || '—';
+
 export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: PaymentsSectionProps) {
   const { user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -35,7 +49,7 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
     amount: 0,
     currency: quoteCurrency || 'USD',
     payment_date: new Date().toISOString().split('T')[0],
-    method: '',
+    method: 'transfer',
     status: 'pending',
     notes: '',
   });
@@ -59,6 +73,7 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
 
   const totalPaid = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0);
   const pending = totalPrice - totalPaid;
+  const progressPercent = totalPrice > 0 ? Math.min(100, Math.round((totalPaid / totalPrice) * 100)) : 0;
 
   const handleAdd = async () => {
     if (!user || !quoteId) return;
@@ -71,7 +86,7 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
       if (error) throw error;
       toast.success('Pago registrado');
       setAdding(false);
-      setNewPayment({ amount: 0, currency: quoteCurrency, payment_date: new Date().toISOString().split('T')[0], method: '', status: 'pending', notes: '' });
+      setNewPayment({ amount: 0, currency: quoteCurrency, payment_date: new Date().toISOString().split('T')[0], method: 'transfer', status: 'pending', notes: '' });
       fetchPayments();
     } catch (e) {
       console.error(e);
@@ -110,8 +125,19 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Progress bar */}
+        {totalPrice > 0 && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{progressPercent}% cobrado</span>
+              <span>{quoteCurrency} {totalPaid.toLocaleString()} / {totalPrice.toLocaleString()}</span>
+            </div>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+        )}
+
         {/* Summary */}
-        <div className="flex gap-4 text-sm">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <div>
             <span className="text-muted-foreground">Total: </span>
             <span className="font-medium">{quoteCurrency} {totalPrice.toLocaleString()}</span>
@@ -131,7 +157,7 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
         {/* Add form */}
         {adding && (
           <div className="rounded-md border p-3 space-y-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               <div>
                 <Label className="text-xs">Monto</Label>
                 <Input type="number" value={newPayment.amount || ''} onChange={(e) => setNewPayment({ ...newPayment, amount: parseFloat(e.target.value) || 0 })} />
@@ -142,8 +168,27 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
               </div>
               <div>
                 <Label className="text-xs">Método</Label>
-                <Input value={newPayment.method} onChange={(e) => setNewPayment({ ...newPayment, method: e.target.value })} placeholder="Transferencia, Tarjeta..." />
+                <Select value={newPayment.method} onValueChange={(v) => setNewPayment({ ...newPayment, method: v })}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(m => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+            <div>
+              <Label className="text-xs">Notas</Label>
+              <Textarea
+                value={newPayment.notes}
+                onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
+                placeholder="Referencia, detalle del pago..."
+                rows={2}
+                className="text-sm"
+              />
             </div>
             <div className="flex gap-2">
               <Select value={newPayment.status} onValueChange={(v) => setNewPayment({ ...newPayment, status: v })}>
@@ -169,22 +214,43 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
         ) : (
           <div className="space-y-2">
             {payments.map(p => (
-              <div key={p.id} className="flex items-center justify-between rounded-md border px-3 py-2">
-                <div className="flex items-center gap-3">
-                  <Badge
-                    variant={p.status === 'confirmed' ? 'default' : 'secondary'}
-                    className="cursor-pointer"
-                    onClick={() => handleStatusToggle(p)}
-                  >
-                    {p.status === 'confirmed' ? 'Confirmado' : 'Pendiente'}
-                  </Badge>
-                  <span className="font-medium text-sm">{p.currency} {p.amount.toLocaleString()}</span>
-                  <span className="text-xs text-muted-foreground">{p.payment_date}</span>
-                  {p.method && <span className="text-xs text-muted-foreground">· {p.method}</span>}
+              <div key={p.id} className="rounded-md border px-3 py-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={p.status === 'confirmed' ? 'default' : 'secondary'}
+                      className="cursor-pointer"
+                      onClick={() => handleStatusToggle(p)}
+                    >
+                      {p.status === 'confirmed' ? 'Confirmado' : 'Pendiente'}
+                    </Badge>
+                    <span className="font-medium text-sm">{p.currency} {p.amount.toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground">{p.payment_date}</span>
+                    <span className="text-xs text-muted-foreground">· {getMethodLabel(p.method)}</span>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar este pago?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Se eliminará el pago de {p.currency} {p.amount.toLocaleString()} del {p.payment_date}. Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(p.id)}>Eliminar</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(p.id)}>
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </Button>
+                {p.notes && (
+                  <p className="text-xs text-muted-foreground pl-1">{p.notes}</p>
+                )}
               </div>
             ))}
           </div>

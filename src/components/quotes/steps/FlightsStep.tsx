@@ -174,7 +174,9 @@ export function FlightsStep({ quote, onUpdate }: FlightsStepProps) {
                 <Label>Notas</Label>
                 <Textarea value={flight.notes} onChange={(e) => updateFlight(flight.id, { notes: e.target.value })} placeholder="Escala, observaciones..." rows={2} />
               </div>
-              <SupplierSelect value={flight.supplier} onChange={(val) => updateFlight(flight.id, { supplier: val })} />
+              <div className="md:col-span-2">
+                <SupplierSelect value={flight.supplier} onChange={(val) => updateFlight(flight.id, { supplier: val })} />
+              </div>
               <div className="grid grid-cols-2 gap-2 md:col-span-2">
                 <div>
                   <Label>Costo neto ({quote.trip.currency})</Label>

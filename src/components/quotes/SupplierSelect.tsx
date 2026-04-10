@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, ChevronsUpDown, Plus, Store, X } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, Store, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -16,7 +16,7 @@ interface SupplierSelectProps {
 
 let cachedSuppliers: string[] | null = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 30000; // 30s
+const CACHE_TTL = 30000;
 
 export function SupplierSelect({ value, onChange, label = 'Operador' }: SupplierSelectProps) {
   const { user } = useAuth();
@@ -59,7 +59,7 @@ export function SupplierSelect({ value, onChange, label = 'Operador' }: Supplier
       .from('suppliers')
       .insert({ name: trimmed, user_id: user.id });
     if (!error) {
-      cachedSuppliers = null; // invalidate cache
+      cachedSuppliers = null;
       const updated = [...suppliers, trimmed].sort();
       setSuppliers(updated);
       cachedSuppliers = updated;
@@ -78,6 +78,12 @@ export function SupplierSelect({ value, onChange, label = 'Operador' }: Supplier
       <Label className="text-xs flex items-center gap-1 text-muted-foreground mb-1">
         <Store className="h-3 w-3" />
         {label}
+        {!value && (
+          <span className="text-amber-500 flex items-center gap-0.5 ml-1">
+            <AlertTriangle className="h-3 w-3" />
+            <span className="text-[10px]">Sin asignar</span>
+          </span>
+        )}
       </Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -85,7 +91,10 @@ export function SupplierSelect({ value, onChange, label = 'Operador' }: Supplier
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between h-9 text-sm font-normal"
+            className={cn(
+              "w-full justify-between h-9 text-sm font-normal",
+              !value && "border-amber-400/60 hover:border-amber-500"
+            )}
           >
             {value ? (
               <span className="truncate">{value}</span>
