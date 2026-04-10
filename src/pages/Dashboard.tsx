@@ -174,6 +174,11 @@ const Dashboard = () => {
       result = result.filter(q => q.client.name.toLowerCase().includes(cn));
     }
 
+    // Tag filter
+    if (tagFilter) {
+      result = result.filter(q => tagAssignments[q.id]?.some(t => t.id === tagFilter));
+    }
+
     // Sort
     result = [...result].sort((a, b) => {
       const dir = filters.sortOrder === 'asc' ? 1 : -1;
@@ -186,7 +191,7 @@ const Dashboard = () => {
     });
 
     return result;
-  }, [quotes, searchQuery, statusFilter, viewFilter, filters]);
+  }, [quotes, searchQuery, statusFilter, viewFilter, filters, tagFilter, tagAssignments]);
 
   const handleEdit = (quote: Quote) => navigate(`/quote/${quote.id}`);
   const handleDuplicate = async (id: string) => {
