@@ -1,15 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { RemindersPanel } from '@/components/reminders/RemindersPanel';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { useQuotes } from '@/contexts/QuotesContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Quote, QuoteStatus } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle
+  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle, ShieldAlert
 } from 'lucide-react';
+import { getDocStatus } from '@/components/clients/DocumentAlertBadge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,

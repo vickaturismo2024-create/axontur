@@ -243,6 +243,10 @@ const Clients = () => {
                     <Card key={client.id} className="group">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg">{client.name}</CardTitle>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <DocumentAlertBadge label="DNI" dateStr={client.dni_expiry} compact />
+                          <DocumentAlertBadge label="Pasaporte" dateStr={client.passport_expiry} compact />
+                        </div>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-1 text-sm text-muted-foreground">
