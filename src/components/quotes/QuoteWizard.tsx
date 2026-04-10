@@ -130,7 +130,33 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     setQuote(prev => ({ ...prev, ...updates, updatedAt: new Date().toISOString() }));
   };
 
-  const handleSave = () => {
+  // Auto-save with 3s debounce
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setSaveStatus('saving');
+      try {
+        const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
+        const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
+        let quoteToSave = quote;
+        if (quote.flights.length > 0 || hasOccupancies) {
+          const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
+          quoteToSave = { ...quote, pricing: { ...quote.pricing, ...pricingUpdates } };
+        }
+        await autoSaveQuote(quoteToSave);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } catch {
+        setSaveStatus('idle');
+      }
+    }, 3000);
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [quote]);
+
     const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
     const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
     if (quote.flights.length > 0 || hasOccupancies) {
