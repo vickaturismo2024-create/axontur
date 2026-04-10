@@ -218,7 +218,15 @@ const Dashboard = () => {
   };
   const handlePreview = (quote: Quote) => setPreviewQuote(quote);
   const handleExport = (quote: Quote) => navigate(`/export/${quote.id}`);
-  const getTemplate = (templateId: string) => templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
+  const handleDuplicateForClient = (id: string) => setDuplicateForClientId(id);
+  const handleConfirmDuplicateForClient = async (client: { name: string; email: string; phone: string }) => {
+    if (!duplicateForClientId) return;
+    try {
+      const nq = await duplicateQuote(duplicateForClientId);
+      await updateQuote({ ...nq, client });
+      navigate(`/quote/${nq.id}`);
+    } catch (e) { console.error(e); }
+  };
 
   const handleToggleCompare = (id: string) => {
     setSelectedForCompare(prev => 
