@@ -1,27 +1,50 @@
 
 
-# Plan: Mover gráficos del Dashboard a Reportes
+# Plan: Corregir métrica de valor + brainstorm de mejoras
 
-## Resumen
-Eliminar los gráficos (`DashboardCharts`) del Dashboard y moverlos a la página de Reportes, donde ya están los gráficos de proveedores. El Dashboard queda más limpio, solo con las métricas y el panel de recordatorios.
+## 1. Corregir la métrica "Valor total" en el Dashboard
 
-## Cambios
+### Cambio en `src/pages/Dashboard.tsx`
+- Reemplazar el cálculo de `totalsByCurrency` para que:
+  - Solo considere presupuestos con `status === 'approved'`
+  - En lugar de sumar `totalPrice`, sume el **margen de ganancia** (`totalPrice - totalCost`)
+  - Solo incluya quotes donde tanto `totalCost` como `totalPrice` sean > 0
+- Cambiar el label de "Valor total" a "Ganancia aprobados"
+- Cambiar el ícono si es necesario (o mantener DollarSign que tiene sentido)
 
-### 1. `src/pages/Reports.tsx`
-- Importar `DashboardCharts` y pasarle los quotes del contexto
-- Agregar una sección "Análisis general" arriba de la sección de proveedores, con los 7 gráficos existentes (presupuestos por mes, destinos, margen, ingresos vs costos, estados, top clientes, margen por destino)
+### Lógica actual (líneas 71-75):
+```typescript
+// ANTES: suma totalPrice de todos los activos
+activeQuotes.forEach(q => {
+  totalsByCurrency[currency] += q.pricing.totalPrice;
+});
+```
 
-### 2. `src/pages/Dashboard.tsx`
-- Eliminar import de `DashboardCharts`
-- Eliminar el bloque grid de Charts + Reminders (líneas 277-285)
-- Mantener `RemindersPanel` pero reubicarlo (por ejemplo arriba de los tabs de filtros, o como sidebar)
+### Lógica nueva:
+```typescript
+// DESPUÉS: suma margen solo de aprobados
+activeQuotes
+  .filter(q => q.status === 'approved' && q.pricing.totalCost > 0 && q.pricing.totalPrice > 0)
+  .forEach(q => {
+    const margin = q.pricing.totalPrice - q.pricing.totalCost;
+    marginByCurrency[currency] += margin;
+  });
+```
 
-### 3. Reorganización del layout en Dashboard
-- El `RemindersPanel` que estaba al lado de los gráficos pasa a ocupar un ancho completo o se coloca en otro lugar lógico (arriba de los quotes, ancho completo)
-
-## Archivos
+## Archivos a modificar
 | Archivo | Cambio |
 |---|---|
-| `src/pages/Reports.tsx` | Agregar sección con `DashboardCharts` |
-| `src/pages/Dashboard.tsx` | Eliminar gráficos, reubicar RemindersPanel |
+| `src/pages/Dashboard.tsx` | Cambiar cálculo de la métrica de valor total → ganancia de aprobados |
+
+---
+
+## Ideas de mejoras futuras para discutir
+
+Además de este fix, acá van algunas ideas de funcionalidades nuevas:
+
+1. **Exportación de reportes a Excel/PDF** — Descargar los datos de la página de Reportes como archivo
+2. **Notas internas por cliente** — Mini CRM con historial de interacciones dentro de cada ficha de cliente
+3. **Notificaciones por email** — Alertas automáticas cuando un presupuesto es aprobado o un documento está por vencer
+4. **Comparador de presupuestos** — Poner dos presupuestos lado a lado para comparar precios y servicios
+5. **Dashboard personalizable** — Que el usuario elija qué métricas ver en el hero del dashboard
 
