@@ -321,9 +321,28 @@ const Dashboard = () => {
                 </TabsList>
               </Tabs>
             </div>
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar por cliente o destino..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+            <div className="flex gap-2 items-center">
+              {compareMode ? (
+                <>
+                  <span className="text-sm text-muted-foreground">{selectedForCompare.length}/2 seleccionados</span>
+                  {compareQuotes && (
+                    <Button size="sm" onClick={() => setShowComparator(true)}>
+                      <GitCompare className="mr-1.5 h-4 w-4" />Ver comparación
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => { setCompareMode(false); setSelectedForCompare([]); }}>
+                    Cancelar
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setCompareMode(true)}>
+                  <GitCompare className="mr-1.5 h-4 w-4" />Comparar
+                </Button>
+              )}
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Buscar por cliente o destino..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+              </div>
             </div>
           </div>
           <DashboardFilters filters={filters} onChange={setFilters} />
@@ -335,7 +354,9 @@ const Dashboard = () => {
             {filteredQuotes.map((quote) => (
               <QuoteCard key={quote.id} quote={quote} onEdit={handleEdit} onDuplicate={handleDuplicate}
                 onDelete={handleDelete} onPreview={handlePreview} onExport={handleExport} onStatusChange={handleStatusChange}
-                onToggleArchive={handleToggleArchive} onToggleFavorite={handleToggleFavorite} />
+                onToggleArchive={handleToggleArchive} onToggleFavorite={handleToggleFavorite}
+                compareMode={compareMode} isSelectedForCompare={selectedForCompare.includes(quote.id)}
+                onToggleCompare={handleToggleCompare} />
             ))}
           </div>
         ) : (
