@@ -264,7 +264,17 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             <ChevronLeft className="mr-2 h-4 w-4" />
             {currentStep === 0 ? 'Cancelar' : 'Anterior'}
           </Button>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            {saveStatus === 'saving' && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Guardando...
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="flex items-center gap-1 text-xs text-green-600">
+                <Check className="h-3 w-3" /> Guardado
+              </span>
+            )}
             <Button variant="outline" onClick={() => setShowPreviewPanel(!showPreviewPanel)} className="hidden lg:flex">
               <Eye className="mr-2 h-4 w-4" />
               {showPreviewPanel ? 'Ocultar' : 'Vista previa'}
