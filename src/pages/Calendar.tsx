@@ -22,7 +22,7 @@ const Calendar = () => {
   const { quotes } = useQuotes();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const activeQuotes = useMemo(() => quotes.filter(q => !q.archived && q.trip.startDate && q.trip.endDate), [quotes]);
+  const activeQuotes = useMemo(() => quotes.filter(q => !q.archived && q.status === 'approved' && q.trip.startDate && q.trip.endDate), [quotes]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -50,7 +50,7 @@ const Calendar = () => {
             <h1 className="font-serif text-3xl font-bold text-foreground flex items-center gap-3">
               <CalendarDays className="h-8 w-8" /> Calendario de Viajes
             </h1>
-            <p className="mt-1 text-muted-foreground">Vista mensual de todos los viajes programados</p>
+            <p className="mt-1 text-muted-foreground">Vista mensual de los viajes aprobados</p>
           </div>
         </div>
 
