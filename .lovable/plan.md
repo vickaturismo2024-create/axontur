@@ -1,34 +1,27 @@
 
 
-# Plan: Página separada de Reportes
+# Plan: Mover gráficos del Dashboard a Reportes
 
 ## Resumen
-Mover los gráficos de proveedores a una nueva página `/reportes` y limpiar la página de Proveedores para que solo tenga el directorio. La nueva página queda preparada para agregar más análisis en el futuro.
+Eliminar los gráficos (`DashboardCharts`) del Dashboard y moverlos a la página de Reportes, donde ya están los gráficos de proveedores. El Dashboard queda más limpio, solo con las métricas y el panel de recordatorios.
 
 ## Cambios
 
-### 1. Crear `src/pages/Reports.tsx`
-- Nueva página con Header y título "Reportes"
-- Mover toda la sección de análisis de rentabilidad (bar chart, pie chart, tabla resumen) desde `Suppliers.tsx`
-- Usar el hook `useSupplierAnalytics` existente
-- Estructura con secciones para futura expansión (ej: análisis de clientes, destinos)
+### 1. `src/pages/Reports.tsx`
+- Importar `DashboardCharts` y pasarle los quotes del contexto
+- Agregar una sección "Análisis general" arriba de la sección de proveedores, con los 7 gráficos existentes (presupuestos por mes, destinos, margen, ingresos vs costos, estados, top clientes, margen por destino)
 
-### 2. Limpiar `src/pages/Suppliers.tsx`
-- Eliminar el Collapsible de analytics, los imports de Recharts, y el estado `analyticsOpen`
-- Mantener los mini-stats (badges) en las tarjetas de proveedores ya que son informativos y no molestos
-- Agregar un botón/link "Ver reportes" que lleve a `/reportes`
+### 2. `src/pages/Dashboard.tsx`
+- Eliminar import de `DashboardCharts`
+- Eliminar el bloque grid de Charts + Reminders (líneas 277-285)
+- Mantener `RemindersPanel` pero reubicarlo (por ejemplo arriba de los tabs de filtros, o como sidebar)
 
-### 3. Agregar ruta en `src/App.tsx`
-- Nueva ruta protegida `/reportes` → `<Reports />`
-
-### 4. Agregar al menú en `src/components/layout/Header.tsx`
-- Agregar "Reportes" al array `navItems` con href `/reportes`
+### 3. Reorganización del layout en Dashboard
+- El `RemindersPanel` que estaba al lado de los gráficos pasa a ocupar un ancho completo o se coloca en otro lugar lógico (arriba de los quotes, ancho completo)
 
 ## Archivos
-| Archivo | Acción |
+| Archivo | Cambio |
 |---|---|
-| `src/pages/Reports.tsx` | **Nuevo** |
-| `src/pages/Suppliers.tsx` | Eliminar sección de gráficos |
-| `src/App.tsx` | Agregar ruta `/reportes` |
-| `src/components/layout/Header.tsx` | Agregar link "Reportes" al nav |
+| `src/pages/Reports.tsx` | Agregar sección con `DashboardCharts` |
+| `src/pages/Dashboard.tsx` | Eliminar gráficos, reubicar RemindersPanel |
 
