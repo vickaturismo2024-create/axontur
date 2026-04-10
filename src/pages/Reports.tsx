@@ -2,9 +2,12 @@ import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { useSupplierAnalytics } from '@/hooks/useSupplierAnalytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { BarChart3, Download } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
+import { exportReportsToExcel } from '@/lib/exportReports';
+import { toast } from 'sonner';
 
 const CHART_COLORS = [
   'hsl(var(--primary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d', '#ffc658',
@@ -22,9 +25,14 @@ const Reports = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="font-serif text-3xl font-bold text-foreground">Reportes</h1>
-          <p className="mt-1 text-muted-foreground">Análisis de rentabilidad y métricas de tu negocio</p>
+        <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="font-serif text-3xl font-bold text-foreground">Reportes</h1>
+            <p className="mt-1 text-muted-foreground">Análisis de rentabilidad y métricas de tu negocio</p>
+          </div>
+          <Button onClick={() => { exportReportsToExcel(quotes, supplierStats); toast.success('Reporte exportado'); }}>
+            <Download className="mr-2 h-4 w-4" /> Exportar a Excel
+          </Button>
         </div>
 
         {/* General analytics charts */}
