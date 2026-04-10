@@ -5,10 +5,17 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   MapPin, Calendar, Users, Copy, Pencil, FileDown, Trash2, Eye, Send, CheckCircle,
-  Archive, Star, ArchiveRestore
+  Archive, Star, ArchiveRestore, UserPlus
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { TagSelect } from './TagSelect';
+
+interface QuoteTag {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface QuoteCardProps {
   quote: Quote;
@@ -20,9 +27,13 @@ interface QuoteCardProps {
   onStatusChange?: (id: string, status: QuoteStatus) => void;
   onToggleArchive?: (quote: Quote) => void;
   onToggleFavorite?: (quote: Quote) => void;
+  onDuplicateForClient?: (id: string) => void;
   compareMode?: boolean;
   isSelectedForCompare?: boolean;
   onToggleCompare?: (id: string) => void;
+  assignedTags?: QuoteTag[];
+  allTags?: QuoteTag[];
+  onTagsChanged?: () => void;
 }
 
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> = {
@@ -32,7 +43,7 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> =
   expired: { label: 'Vencido', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
-export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange, onToggleArchive, onToggleFavorite, compareMode, isSelectedForCompare, onToggleCompare }: QuoteCardProps) {
+export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange, onToggleArchive, onToggleFavorite, onDuplicateForClient, compareMode, isSelectedForCompare, onToggleCompare, assignedTags, allTags, onTagsChanged }: QuoteCardProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
@@ -71,6 +82,11 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
                   👁 {(quote as any).viewCount} vista{(quote as any).viewCount > 1 ? 's' : ''}
                 </Badge>
               )}
+              {assignedTags && assignedTags.length > 0 && assignedTags.map(tag => (
+                <Badge key={tag.id} className="text-[10px] px-1.5 py-0 text-white" style={{ backgroundColor: tag.color }}>
+                  {tag.name}
+                </Badge>
+              ))}
             </div>
             <p className="text-sm font-medium text-muted-foreground">{quote.client.name}</p>
             <h3 className="mt-1 font-serif text-xl font-semibold text-foreground">{quote.trip.destination}</h3>
@@ -109,6 +125,14 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
           <Button variant="ghost" size="sm" onClick={() => onDuplicate(quote.id)} className="text-muted-foreground hover:text-foreground">
             <Copy className="mr-1.5 h-4 w-4" />Duplicar
           </Button>
+          {onDuplicateForClient && (
+            <Button variant="ghost" size="sm" onClick={() => onDuplicateForClient(quote.id)} className="text-muted-foreground hover:text-foreground">
+              <UserPlus className="mr-1.5 h-4 w-4" />Otro cliente
+            </Button>
+          )}
+          {allTags && onTagsChanged && (
+            <TagSelect quoteId={quote.id} assignedTags={assignedTags || []} allTags={allTags} onTagsChanged={onTagsChanged} />
+          )}
           {nextStatus && onStatusChange && (
             <Button variant="ghost" size="sm" onClick={() => onStatusChange(quote.id, nextStatus)} className="text-muted-foreground hover:text-foreground">
               {nextStatus === 'sent' ? <Send className="mr-1.5 h-4 w-4" /> : <CheckCircle className="mr-1.5 h-4 w-4" />}
