@@ -391,6 +391,23 @@ const Dashboard = () => {
             </div>
           </div>
           <DashboardFilters filters={filters} onChange={setFilters} />
+          {allTags.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap items-center">
+              <span className="text-xs text-muted-foreground">Etiquetas:</span>
+              <button
+                onClick={() => setTagFilter(null)}
+                className={`text-xs px-2 py-0.5 rounded-full transition-colors ${!tagFilter ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}
+              >Todas</button>
+              {allTags.map(tag => (
+                <button
+                  key={tag.id}
+                  onClick={() => setTagFilter(tagFilter === tag.id ? null : tag.id)}
+                  className={`text-xs px-2 py-0.5 rounded-full text-white transition-opacity ${tagFilter === tag.id ? 'opacity-100 ring-2 ring-offset-1 ring-foreground/20' : 'opacity-70 hover:opacity-100'}`}
+                  style={{ backgroundColor: tag.color }}
+                >{tag.name}</button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Quotes Grid */}
@@ -400,8 +417,12 @@ const Dashboard = () => {
               <QuoteCard key={quote.id} quote={quote} onEdit={handleEdit} onDuplicate={handleDuplicate}
                 onDelete={handleDelete} onPreview={handlePreview} onExport={handleExport} onStatusChange={handleStatusChange}
                 onToggleArchive={handleToggleArchive} onToggleFavorite={handleToggleFavorite}
+                onDuplicateForClient={handleDuplicateForClient}
                 compareMode={compareMode} isSelectedForCompare={selectedForCompare.includes(quote.id)}
-                onToggleCompare={handleToggleCompare} />
+                onToggleCompare={handleToggleCompare}
+                assignedTags={tagAssignments[quote.id] || []}
+                allTags={allTags}
+                onTagsChanged={fetchTags} />
             ))}
           </div>
         ) : (
@@ -455,6 +476,13 @@ const Dashboard = () => {
           if (!open) { setCompareMode(false); setSelectedForCompare([]); }
         }} />
       )}
+
+      {/* Duplicate For Client Dialog */}
+      <DuplicateForClientDialog
+        open={!!duplicateForClientId}
+        onOpenChange={(open) => { if (!open) setDuplicateForClientId(null); }}
+        onConfirm={handleConfirmDuplicateForClient}
+      />
     </div>
   );
 };
