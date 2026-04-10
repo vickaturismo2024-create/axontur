@@ -3,6 +3,7 @@ import { RemindersPanel } from '@/components/reminders/RemindersPanel';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
+import { QuoteComparator } from '@/components/quotes/QuoteComparator';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +11,7 @@ import { Quote, QuoteStatus } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle, ShieldAlert
+  Plus, Search, Plane, FileText, Users, Link, DollarSign, TrendingUp, CalendarDays, CheckCircle, ShieldAlert, GitCompare
 } from 'lucide-react';
 import { getDocStatus } from '@/components/clients/DocumentAlertBadge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -37,6 +38,9 @@ const Dashboard = () => {
   const [viewFilter, setViewFilter] = useState<'active' | 'archived' | 'favorites'>('active');
   const [filters, setFilters] = useState<DashboardFilterValues>(defaultFilters);
   const [docAlertCount, setDocAlertCount] = useState(0);
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+  const [showComparator, setShowComparator] = useState(false);
 
   const fetchDocAlerts = useCallback(async () => {
     if (!user) return;
@@ -179,6 +183,20 @@ const Dashboard = () => {
   const handlePreview = (quote: Quote) => setPreviewQuote(quote);
   const handleExport = (quote: Quote) => navigate(`/export/${quote.id}`);
   const getTemplate = (templateId: string) => templates.find(t => t.id === templateId) || getDefaultTemplate() || defaultTemplate;
+
+  const handleToggleCompare = (id: string) => {
+    setSelectedForCompare(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 2 ? [...prev, id] : prev
+    );
+  };
+
+  const compareQuotes = useMemo(() => {
+    if (selectedForCompare.length !== 2) return null;
+    const q1 = quotes.find(q => q.id === selectedForCompare[0]);
+    const q2 = quotes.find(q => q.id === selectedForCompare[1]);
+    if (!q1 || !q2) return null;
+    return [q1, q2] as [Quote, Quote];
+  }, [selectedForCompare, quotes]);
 
   if (isLoading) {
     return (
