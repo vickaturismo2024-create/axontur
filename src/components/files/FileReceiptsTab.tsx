@@ -34,7 +34,7 @@ const METHODS = [
   { value: 'other', label: 'Otro' },
 ];
 
-interface Props { fileId: string; clientName: string; currency: string; }
+interface Props { fileId: string; clientName: string; currency: string; clientId?: string | null; }
 
 export function FileReceiptsTab({ fileId, clientName, currency }: Props) {
   const { user } = useAuth();

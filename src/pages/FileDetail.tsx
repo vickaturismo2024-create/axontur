@@ -161,7 +161,7 @@ const FileDetail = () => {
             <FilePassengersTab fileId={file.id} />
           </TabsContent>
           <TabsContent value="receipts">
-            <FileReceiptsTab fileId={file.id} clientName={file.client_name} currency={file.currency} />
+            <FileReceiptsTab fileId={file.id} clientName={file.client_name} currency={file.currency} clientId={file.client_id} />
           </TabsContent>
         </Tabs>
       </main>
