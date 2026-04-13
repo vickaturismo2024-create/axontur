@@ -141,9 +141,6 @@ const Suppliers = () => {
                     {stat && (
                       <div className="flex gap-2 flex-wrap mb-2">
                         <Badge variant="secondary" className="text-[10px]">{stat.services} servicio(s)</Badge>
-                        <Badge variant={stat.marginPct >= 0 ? 'outline' : 'destructive'} className="text-[10px]">
-                          Margen: {stat.marginPct.toFixed(1)}%
-                        </Badge>
                       </div>
                     )}
                     <div className="flex gap-2">

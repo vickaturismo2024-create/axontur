@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { Quote } from '@/types/quote';
-import { getQuoteCurrency, hasCompleteCosts } from '@/lib/quoteFilters';
+import { getQuoteCurrency } from '@/lib/quoteFilters';
 
 export interface SupplierStat {
   name: string;
   services: number;
+  pricedServices: number;
   totalCost: number;
   totalPrice: number;
   margin: number;
@@ -68,21 +69,23 @@ function extractServices(quote: Quote): { supplier: string; cost: number; price:
 export function useSupplierAnalytics(quotes: Quote[], currency?: string) {
   return useMemo(() => {
     // Filter by currency if provided
-    let filtered = currency ? quotes.filter(q => getQuoteCurrency(q) === currency) : quotes;
-    // Only include quotes with complete costs for margin calculations
-    filtered = filtered.filter(hasCompleteCosts);
+    const filtered = currency ? quotes.filter(q => getQuoteCurrency(q) === currency) : quotes;
 
-    const map = new Map<string, { services: number; totalCost: number; totalPrice: number }>();
+    const map = new Map<string, { services: number; pricedServices: number; totalCost: number; totalPrice: number }>();
 
     filtered.forEach(quote => {
       const services = extractServices(quote);
       services.forEach(({ supplier, cost, price }) => {
         const key = supplier.trim().toLowerCase();
         if (!key) return;
-        const existing = map.get(key) || { services: 0, totalCost: 0, totalPrice: 0 };
+        const existing = map.get(key) || { services: 0, pricedServices: 0, totalCost: 0, totalPrice: 0 };
         existing.services += 1;
-        existing.totalCost += cost;
-        existing.totalPrice += price;
+        // Only count towards financials if both cost and price are > 0
+        if (cost > 0 && price > 0) {
+          existing.pricedServices += 1;
+          existing.totalCost += cost;
+          existing.totalPrice += price;
+        }
         map.set(key, existing);
       });
     });
@@ -102,6 +105,7 @@ export function useSupplierAnalytics(quotes: Quote[], currency?: string) {
       stats.push({
         name: nameMap.get(key) || key,
         services: val.services,
+        pricedServices: val.pricedServices,
         totalCost: val.totalCost,
         totalPrice: val.totalPrice,
         margin,
@@ -109,7 +113,7 @@ export function useSupplierAnalytics(quotes: Quote[], currency?: string) {
       });
     });
 
-    stats.sort((a, b) => b.totalCost - a.totalCost);
+    stats.sort((a, b) => b.services - a.services);
     return stats;
   }, [quotes, currency]);
 }
