@@ -36,7 +36,7 @@ const METHODS = [
 
 interface Props { fileId: string; clientName: string; currency: string; clientId?: string | null; }
 
-export function FileReceiptsTab({ fileId, clientName, currency }: Props) {
+export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Props) {
   const { user } = useAuth();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,8 +65,25 @@ export function FileReceiptsTab({ fileId, clientName, currency }: Props) {
     if (form.amount <= 0) { toast.error('El monto debe ser mayor a 0'); return; }
     if (!form.concept.trim()) { toast.error('Ingresá un concepto'); return; }
     const { error } = await supabase.from('file_receipts').insert({ ...form, file_id: fileId, user_id: user.id });
-    if (error) toast.error('Error al crear recibo');
-    else toast.success('Recibo generado');
+    if (error) { toast.error('Error al crear recibo'); return; }
+
+    // Auto-insert credit movement in client account
+    if (clientId) {
+      await supabase.from('account_movements' as any).insert({
+        user_id: user.id,
+        account_type: 'client',
+        account_id: clientId,
+        file_id: fileId,
+        movement_type: 'credit',
+        amount: form.amount,
+        currency: form.currency,
+        concept: `Recibo: ${form.concept}`,
+        reference: null,
+        movement_date: form.payment_date,
+      } as any);
+    }
+
+    toast.success('Recibo generado');
     setDialogOpen(false);
     load();
   };
