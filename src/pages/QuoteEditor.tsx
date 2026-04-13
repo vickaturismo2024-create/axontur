@@ -7,6 +7,7 @@ import { Quote, Flight, Lodging, Transfer, Activity } from '@/types/quote';
 import { useQuoteVersions } from '@/hooks/useQuoteVersions';
 import { VersionHistory } from '@/components/quotes/VersionHistory';
 import { PaymentsSection } from '@/components/quotes/PaymentsSection';
+import { CreateFileFromQuote } from '@/components/files/CreateFileFromQuote';
 import { toast } from 'sonner';
 
 function buildQuoteFromImport(data: any): Partial<Quote> {
@@ -173,17 +174,22 @@ const QuoteEditor = () => {
       <Header />
       
       <main className="container mx-auto flex flex-1 flex-col overflow-hidden px-4 py-8">
-        <div className="mb-6">
-          <h1 className="font-serif text-2xl font-bold text-foreground md:text-3xl">
-            {existingQuote ? 'Editar Presupuesto' : importedQuote ? 'Presupuesto Importado' : 'Nuevo Presupuesto'}
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            {existingQuote 
-              ? `Editando presupuesto para ${existingQuote.client.name}`
-              : importedQuote
-                ? `Paquete importado: ${importedQuote.trip.destination}. Revisá los datos y completá lo que falte.`
-                : 'Completa los datos para crear un nuevo presupuesto'}
-          </p>
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="font-serif text-2xl font-bold text-foreground md:text-3xl">
+              {existingQuote ? 'Editar Presupuesto' : importedQuote ? 'Presupuesto Importado' : 'Nuevo Presupuesto'}
+            </h1>
+            <p className="mt-1 text-muted-foreground">
+              {existingQuote 
+                ? `Editando presupuesto para ${existingQuote.client.name}`
+                : importedQuote
+                  ? `Paquete importado: ${importedQuote.trip.destination}. Revisá los datos y completá lo que falte.`
+                  : 'Completa los datos para crear un nuevo presupuesto'}
+            </p>
+          </div>
+          {existingQuote && existingQuote.status === 'approved' && (
+            <CreateFileFromQuote quote={existingQuote} />
+          )}
         </div>
 
         <div className="flex flex-1 gap-6 overflow-hidden">

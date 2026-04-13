@@ -1,0 +1,197 @@
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Pencil, Trash2, User, UserPlus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+
+interface Passenger {
+  id: string;
+  client_id: string | null;
+  name: string;
+  dni: string;
+  passport: string;
+  passport_expiry: string | null;
+  birth_date: string | null;
+  nationality: string;
+  notes: string;
+}
+
+interface ClientOption { id: string; name: string; dni: string; passport: string; passport_expiry: string | null; birth_date: string | null; nationality: string; }
+
+const emptyPassenger: Omit<Passenger, 'id'> = {
+  client_id: null, name: '', dni: '', passport: '', passport_expiry: null, birth_date: null, nationality: '', notes: '',
+};
+
+interface Props { fileId: string; }
+
+export function FilePassengersTab({ fileId }: Props) {
+  const { user } = useAuth();
+  const [passengers, setPassengers] = useState<Passenger[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Passenger | null>(null);
+  const [form, setForm] = useState({ ...emptyPassenger });
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [importMode, setImportMode] = useState(false);
+
+  const load = async () => {
+    const { data } = await supabase.from('file_passengers').select('*').eq('file_id', fileId).order('name');
+    setPassengers((data as any[]) || []);
+    setLoading(false);
+  };
+
+  const loadClients = async () => {
+    if (!user) return;
+    const { data } = await supabase.from('clients').select('id,name,dni,passport,passport_expiry,birth_date,nationality').order('name');
+    setClients((data as ClientOption[]) || []);
+  };
+
+  useEffect(() => { load(); loadClients(); }, [fileId]);
+
+  const openNew = () => { setEditing(null); setForm({ ...emptyPassenger }); setImportMode(false); setDialogOpen(true); };
+
+  const openEdit = (p: Passenger) => { setEditing(p); setForm({ ...p }); setImportMode(false); setDialogOpen(true); };
+
+  const importClient = (c: ClientOption) => {
+    setForm({ client_id: c.id, name: c.name, dni: c.dni || '', passport: c.passport || '', passport_expiry: c.passport_expiry, birth_date: c.birth_date, nationality: c.nationality || '', notes: '' });
+    setImportMode(false);
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    if (!form.name.trim()) { toast.error('Ingresá el nombre'); return; }
+    if (editing) {
+      const { error } = await supabase.from('file_passengers').update({ ...form }).eq('id', editing.id);
+      if (error) toast.error('Error al actualizar'); else toast.success('Pasajero actualizado');
+    } else {
+      const { error } = await supabase.from('file_passengers').insert({ ...form, file_id: fileId, user_id: user.id });
+      if (error) toast.error('Error al agregar'); else toast.success('Pasajero agregado');
+    }
+    setDialogOpen(false);
+    load();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    await supabase.from('file_passengers').delete().eq('id', deleteId);
+    setDeleteId(null);
+    toast.success('Pasajero eliminado');
+    load();
+  };
+
+  if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando pasajeros...</div>;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold">Pasajeros ({passengers.length})</h3>
+        <Button size="sm" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Agregar pasajero</Button>
+      </div>
+
+      {passengers.length === 0 ? (
+        <Card><CardContent className="py-8 text-center text-muted-foreground">No hay pasajeros cargados</CardContent></Card>
+      ) : (
+        <div className="space-y-2">
+          {passengers.map(p => (
+            <Card key={p.id}>
+              <CardContent className="flex items-center gap-4 p-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <User className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{p.name}</p>
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {p.dni && <span>DNI: {p.dni}</span>}
+                    {p.passport && <span>Pasaporte: {p.passport}</span>}
+                    {p.nationality && <span>{p.nationality}</span>}
+                    {p.birth_date && <span>Nac: {new Date(p.birth_date).toLocaleDateString('es-AR')}</span>}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader><DialogTitle>{editing ? 'Editar pasajero' : 'Nuevo pasajero'}</DialogTitle></DialogHeader>
+
+          {!editing && !importMode && (
+            <Button variant="outline" className="mb-4" onClick={() => setImportMode(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />Importar desde CRM
+            </Button>
+          )}
+
+          {importMode && (
+            <div className="mb-4 max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+              {clients.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay clientes en el CRM</p>
+              ) : clients.map(c => (
+                <Button key={c.id} variant="ghost" className="w-full justify-start text-sm" onClick={() => importClient(c)}>
+                  {c.name} {c.dni ? `(DNI: ${c.dni})` : ''}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          <div className="grid gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nombre completo *</label>
+              <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium">DNI</label>
+                <Input value={form.dni} onChange={e => setForm({ ...form, dni: e.target.value })} />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Pasaporte</label>
+                <Input value={form.passport} onChange={e => setForm({ ...form, passport: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Venc. Pasaporte</label>
+                <Input type="date" value={form.passport_expiry || ''} onChange={e => setForm({ ...form, passport_expiry: e.target.value || null })} />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Fecha nacimiento</label>
+                <Input type="date" value={form.birth_date || ''} onChange={e => setForm({ ...form, birth_date: e.target.value || null })} />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nacionalidad</label>
+              <Input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} />
+            </div>
+            <Button onClick={handleSave}>{editing ? 'Actualizar' : 'Agregar'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar pasajero?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
