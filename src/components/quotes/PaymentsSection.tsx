@@ -50,7 +50,7 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
     currency: quoteCurrency || 'USD',
     payment_date: new Date().toISOString().split('T')[0],
     method: 'transfer',
-    status: 'pending',
+    status: 'confirmed',
     notes: '',
   });
 

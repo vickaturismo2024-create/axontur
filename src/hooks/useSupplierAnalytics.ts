@@ -30,7 +30,7 @@ function extractServices(quote: Quote): { supplier: string; cost: number; price:
   processItems(quote.transfers as any);
   processItems((quote as any).trains);
   processItems((quote as any).ferries);
-  processItems((quote as any).rental_cars);
+  processItems((quote as any).rentalCars);
   processItems((quote as any).activities);
   
   // Lodgings array

@@ -212,25 +212,19 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
     try {
       const validatedQuote = validateQuote(quote);
       const dbQuote = quoteToDb(validatedQuote as Quote, user.id);
-      const existing = quotes.find(q => q.id === quote.id);
-      if (existing) {
-        const { error } = await supabase
-          .from('quotes')
-          .update(dbQuote as any)
-          .eq('id', quote.id);
-        if (error) throw error;
-        setQuotes((prev) => prev.map((q) => (q.id === quote.id ? validatedQuote as Quote : q)));
-      } else {
-        const { error } = await supabase
-          .from('quotes')
-          .insert([dbQuote] as any);
-        if (error) throw error;
-        setQuotes((prev) => [validatedQuote as Quote, ...prev]);
-      }
+      const { error } = await supabase
+        .from('quotes')
+        .upsert([dbQuote] as any);
+      if (error) throw error;
+      setQuotes((prev) => {
+        const exists = prev.some(q => q.id === quote.id);
+        if (exists) return prev.map(q => q.id === quote.id ? validatedQuote as Quote : q);
+        return [validatedQuote as Quote, ...prev];
+      });
     } catch (error) {
       logError('autoSaveQuote', error);
     }
-  }, [user, quotes]);
+  }, [user]);
 
   const addQuote = async (quote: Quote) => {
     if (!user) {
