@@ -361,7 +361,7 @@ export interface FlightOptionPricing {
   segments?: FlightSegment[];
 }
 
-export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'expired';
+export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'expired' | 'cancelled';
 
 export interface Pricing {
   totalPrice: number;

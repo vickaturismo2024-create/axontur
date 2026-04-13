@@ -9,6 +9,8 @@ import { useQuotes } from '@/contexts/QuotesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Quote, QuoteStatus } from '@/types/quote';
+import { createFileFromQuote } from '@/lib/fileFromQuote';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -207,7 +209,18 @@ const Dashboard = () => {
   const handleStatusChange = async (id: string, status: QuoteStatus) => {
     const quote = quotes.find(q => q.id === id);
     if (quote) {
-      try { await updateQuote({ ...quote, status }); } catch (e) { console.error(e); }
+      try {
+        await updateQuote({ ...quote, status });
+        // Auto-create file when approving
+        if (status === 'approved' && user) {
+          const result = await createFileFromQuote(quote, user.id);
+          if (result) {
+            toast.success(`Expediente FILE-${String(result.fileNumber).padStart(3, '0')} creado`, {
+              action: { label: 'Ver expediente', onClick: () => navigate(`/files/${result.fileId}`) },
+            });
+          }
+        }
+      } catch (e) { console.error(e); }
     }
   };
   const handleToggleArchive = async (quote: Quote) => {
@@ -362,6 +375,7 @@ const Dashboard = () => {
                   <TabsTrigger value="draft">Borrador</TabsTrigger>
                   <TabsTrigger value="sent">Enviados</TabsTrigger>
                   <TabsTrigger value="approved">Aprobados</TabsTrigger>
+                  <TabsTrigger value="cancelled">Cancelados</TabsTrigger>
                   <TabsTrigger value="expired">Vencidos</TabsTrigger>
                 </TabsList>
               </Tabs>
