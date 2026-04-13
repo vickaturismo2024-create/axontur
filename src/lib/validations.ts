@@ -47,6 +47,7 @@ export const flightSchema = z.object({
   flightType: z.enum(['direct', 'stopover', 'charter']).optional(),
   // Vinculación de tramos (escalas)
   connectionGroupId: z.string().optional(),
+  supplier: z.string().optional(),
 });
 
 // Flight group validation
@@ -95,6 +96,7 @@ export const lodgingSchema = z.object({
   groupId: z.string().optional(),
   occupancies: z.array(roomOccupancySchema).optional(),
   useOccupancies: z.boolean().optional(),
+  supplier: z.string().optional(),
 }).partial();
 
 // Lodging group validation
@@ -116,7 +118,11 @@ export const transferSchema = z.object({
   included: z.boolean().default(false),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
+  supplier: z.string().optional(),
 });
+
+// Train validation - no length restrictions
+export const trainSchema = z.object({
 
 // Train validation - no length restrictions
 export const trainSchema = z.object({
