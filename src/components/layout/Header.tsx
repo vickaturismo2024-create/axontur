@@ -56,7 +56,6 @@ export function Header() {
           </div>
           <div className="flex flex-col">
             <span className="font-serif text-lg font-semibold text-foreground">{agencyName}</span>
-            <span className="text-xs text-muted-foreground">Gestión de viajes</span>
           </div>
         </Link>
 
