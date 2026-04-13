@@ -9,6 +9,8 @@ import { useQuotes } from '@/contexts/QuotesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Quote, QuoteStatus } from '@/types/quote';
+import { createFileFromQuote } from '@/lib/fileFromQuote';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
