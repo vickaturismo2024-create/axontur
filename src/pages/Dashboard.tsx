@@ -375,6 +375,7 @@ const Dashboard = () => {
                   <TabsTrigger value="draft">Borrador</TabsTrigger>
                   <TabsTrigger value="sent">Enviados</TabsTrigger>
                   <TabsTrigger value="approved">Aprobados</TabsTrigger>
+                  <TabsTrigger value="cancelled">Cancelados</TabsTrigger>
                   <TabsTrigger value="expired">Vencidos</TabsTrigger>
                 </TabsList>
               </Tabs>
