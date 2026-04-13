@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_movements: {
+        Row: {
+          account_id: string
+          account_type: string
+          amount: number
+          concept: string
+          created_at: string
+          currency: string
+          file_id: string | null
+          id: string
+          movement_date: string
+          movement_type: string
+          notes: string | null
+          reference: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          account_type: string
+          amount?: number
+          concept?: string
+          created_at?: string
+          currency?: string
+          file_id?: string | null
+          id?: string
+          movement_date?: string
+          movement_type: string
+          notes?: string | null
+          reference?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          account_type?: string
+          amount?: number
+          concept?: string
+          created_at?: string
+          currency?: string
+          file_id?: string | null
+          id?: string
+          movement_date?: string
+          movement_type?: string
+          notes?: string | null
+          reference?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       client_group_members: {
         Row: {
           client_id: string
