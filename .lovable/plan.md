@@ -1,22 +1,45 @@
 
 
-# Fix: Error al guardar presupuesto (clave duplicada)
+# Plan: Separar métricas por moneda y excluir presupuestos sin costos completos
 
-## Problema encontrado
+## Problemas actuales
 
-Al crear un presupuesto nuevo, el **auto-save** (que usa `upsert`) ya inserta el registro en la base de datos después de 3 segundos. Cuando el usuario hace click en **"Guardar presupuesto"**, la función `addQuote` intenta hacer un `INSERT` con el mismo ID, causando el error **"duplicate key value violates unique constraint"**.
+1. **Mezcla de monedas**: Los gráficos suman USD y ARS indistintamente. Un presupuesto de $5.000 USD y otro de $5.000.000 ARS se suman como si fueran lo mismo.
+2. **Márgenes inflados**: Presupuestos sin costos netos (o con costos parciales) muestran márgenes artificialmente altos del 100% y distorsionan todas las métricas de rentabilidad.
 
-El error en la base de datos confirma: `duplicate key value violates unique constraint "quotes_pkey"`.
+Cada presupuesto tiene `q.trip.currency` (generalmente `"USD"` o `"ARS"`).
 
 ## Solución
 
-Cambiar `addQuote` en `QuotesContext.tsx` para usar `.upsert()` en lugar de `.insert()`. Así, si el auto-save ya creó el registro, el guardado final simplemente lo actualiza en vez de fallar.
+### 1. Filtro de moneda en Reportes y DashboardCharts
 
-## Cambios
+Agregar un selector de moneda (USD / ARS) en la página de Reportes y en DashboardCharts. Solo se muestran los presupuestos de la moneda seleccionada. Por defecto se selecciona la moneda más usada.
+
+### 2. Excluir presupuestos sin costos completos de métricas de rentabilidad
+
+Crear una función helper `hasCompleteCosts(quote)` que verifica:
+- Que `totalCost > 0` y `totalPrice > 0`
+- Que el margen no sea mayor al 95% (indicador de que faltan costos netos)
+- Que al menos el 50% de los servicios tengan costo asignado
+
+Esta función se usa como filtro en:
+- Gráficos de margen y rentabilidad (evolución del margen, margen por destino, ingresos vs costos)
+- Supplier analytics (margen $ y margen %)
+- Export Excel (columnas de margen)
+
+Los gráficos de **volumen** (presupuestos por mes, destinos populares, estados) siguen mostrando todos los presupuestos de la moneda seleccionada.
+
+## Cambios por archivo
 
 | Archivo | Cambio |
 |---|---|
-| `src/contexts/QuotesContext.tsx` | Línea 241: cambiar `.insert([dbQuote])` → `.upsert([dbQuote])` |
+| `src/lib/quoteFilters.ts` | **Nuevo**: helper `hasCompleteCosts(quote)` y `getQuoteCurrency(quote)` |
+| `src/components/dashboard/DashboardCharts.tsx` | Recibir prop `currency`, filtrar quotes por moneda, usar `hasCompleteCosts` en métricas de rentabilidad |
+| `src/pages/Reports.tsx` | Agregar selector de moneda, pasar moneda a DashboardCharts y supplier analytics, filtrar quotes |
+| `src/hooks/useSupplierAnalytics.ts` | Recibir moneda como parámetro, filtrar quotes por moneda, excluir servicios sin costo del cálculo de margen |
+| `src/lib/exportReports.ts` | Filtrar por moneda seleccionada, indicar moneda en headers de columnas |
 
-Un cambio de una sola palabra que resuelve el conflicto entre auto-save y guardado manual.
+## Detalle de la UI
+
+El selector de moneda será un toggle simple (USD | ARS) al lado del título "Reportes", similar a los filtros existentes. Si solo hay presupuestos en una moneda, no se muestra el toggle.
 
