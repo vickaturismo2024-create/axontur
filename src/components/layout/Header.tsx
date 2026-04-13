@@ -39,7 +39,7 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
   const defaultTemplate = quotesContext?.getDefaultTemplate();
-  const agencyName = defaultTemplate?.agencyName || 'Generador de Presupuestos';
+  const agencyName = defaultTemplate?.agencyName || 'AxonTur';
 
   const handleSignOut = async () => {
     await signOut();
@@ -56,7 +56,7 @@ export function Header() {
           </div>
           <div className="flex flex-col">
             <span className="font-serif text-lg font-semibold text-foreground">{agencyName}</span>
-            <span className="text-xs text-muted-foreground">Generador de Presupuestos</span>
+            <span className="text-xs text-muted-foreground">Gestión de viajes</span>
           </div>
         </Link>
 
