@@ -238,7 +238,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       const dbQuote = quoteToDb(validatedQuote as Quote, user.id);
       const { error } = await supabase
         .from('quotes')
-        .insert([dbQuote] as any);
+        .upsert([dbQuote] as any);
 
       if (error) throw error;
 
