@@ -101,7 +101,7 @@ export function useSupplierAnalytics(quotes: Quote[], currency?: string) {
     const stats: SupplierStat[] = [];
     map.forEach((val, key) => {
       const margin = val.totalPrice - val.totalCost;
-      const marginPct = val.totalCost > 0 ? (margin / val.totalCost) * 100 : 0;
+      const marginPct = val.totalPrice > 0 ? (margin / val.totalPrice) * 100 : 0;
       stats.push({
         name: nameMap.get(key) || key,
         services: val.services,
