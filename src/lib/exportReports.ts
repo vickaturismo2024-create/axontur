@@ -71,12 +71,12 @@ export function exportReportsToExcel(quotes: Quote[], supplierStats: SupplierSta
 
   // Sheet 4: Rentabilidad por proveedor
   if (supplierStats.length > 0) {
-    const supplierRows = [['Proveedor', 'Servicios', `Costo total (${sym})`, `Venta total (${sym})`, `Margen (${sym})`, 'Margen %']];
+    const supplierRows = [['Proveedor', 'Servicios', 'Valorizados', `Costo total (${sym})`, `Venta total (${sym})`, `Margen (${sym})`, 'Margen %']];
     supplierStats.forEach(s => {
-      supplierRows.push([s.name, s.services, s.totalCost, s.totalPrice, s.margin, Math.round(s.marginPct * 10) / 10] as any);
+      supplierRows.push([s.name, s.services, s.pricedServices, s.totalCost, s.totalPrice, s.margin, Math.round(s.marginPct * 10) / 10] as any);
     });
     const wsSupplier = XLSX.utils.aoa_to_sheet(supplierRows);
-    wsSupplier['!cols'] = [{ wch: 25 }, { wch: 10 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
+    wsSupplier['!cols'] = [{ wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, wsSupplier, 'Por proveedor');
   }
 

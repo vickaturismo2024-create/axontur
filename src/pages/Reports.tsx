@@ -126,8 +126,9 @@ const Reports = () => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left text-muted-foreground">
-                        <th className="py-2 pr-4">Proveedor</th>
+                         <th className="py-2 pr-4">Proveedor</th>
                         <th className="py-2 pr-4 text-right">Servicios</th>
+                        <th className="py-2 pr-4 text-right">Valorizados</th>
                         <th className="py-2 pr-4 text-right">Costo total ({activeCurrency})</th>
                         <th className="py-2 pr-4 text-right">Venta total ({activeCurrency})</th>
                         <th className="py-2 pr-4 text-right">Margen {activeCurrency}</th>
@@ -139,6 +140,7 @@ const Reports = () => {
                         <tr key={s.name} className="border-b last:border-0">
                           <td className="py-2 pr-4 font-medium">{s.name}</td>
                           <td className="py-2 pr-4 text-right">{s.services}</td>
+                          <td className="py-2 pr-4 text-right">{s.pricedServices}</td>
                           <td className="py-2 pr-4 text-right">{currencySymbol}{s.totalCost.toLocaleString()}</td>
                           <td className="py-2 pr-4 text-right">{currencySymbol}{s.totalPrice.toLocaleString()}</td>
                           <td className={`py-2 pr-4 text-right ${s.margin >= 0 ? 'text-green-600' : 'text-destructive'}`}>
