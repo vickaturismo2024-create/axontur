@@ -23,6 +23,7 @@ const navItems = [
   { label: 'Plantillas', href: '/templates' },
   { label: 'Clientes', href: '/clients' },
   { label: 'Proveedores', href: '/suppliers' },
+  { label: 'Expedientes', href: '/files' },
   { label: 'Reportes', href: '/reportes' },
   { label: 'Mi Agencia', href: '/agency' },
   { label: 'Calendario', href: '/calendar' },
