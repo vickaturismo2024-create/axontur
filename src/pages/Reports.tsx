@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { useSupplierAnalytics } from '@/hooks/useSupplierAnalytics';
@@ -8,6 +9,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
 import { exportReportsToExcel } from '@/lib/exportReports';
 import { toast } from 'sonner';
+import { getAvailableCurrencies, getDefaultCurrency } from '@/lib/quoteFilters';
 
 const CHART_COLORS = [
   'hsl(var(--primary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d', '#ffc658',
@@ -16,7 +18,13 @@ const CHART_COLORS = [
 
 const Reports = () => {
   const { quotes } = useQuotes();
-  const supplierStats = useSupplierAnalytics(quotes);
+  const availableCurrencies = useMemo(() => getAvailableCurrencies(quotes), [quotes]);
+  const defaultCurrency = useMemo(() => getDefaultCurrency(quotes), [quotes]);
+  const [currency, setCurrency] = useState<string | null>(null);
+
+  const activeCurrency = currency || defaultCurrency;
+  const supplierStats = useSupplierAnalytics(quotes, activeCurrency);
+  const currencySymbol = activeCurrency === 'ARS' ? 'ARS ' : 'US$';
 
   const top10 = supplierStats.slice(0, 10);
   const pieData = supplierStats.slice(0, 8).map(s => ({ name: s.name, value: s.services }));
@@ -26,32 +34,50 @@ const Reports = () => {
       <Header />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="font-serif text-3xl font-bold text-foreground">Reportes</h1>
-            <p className="mt-1 text-muted-foreground">Análisis de rentabilidad y métricas de tu negocio</p>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div>
+              <h1 className="font-serif text-3xl font-bold text-foreground">Reportes</h1>
+              <p className="mt-1 text-muted-foreground">Análisis de rentabilidad y métricas de tu negocio</p>
+            </div>
+            {availableCurrencies.length > 1 && (
+              <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
+                {availableCurrencies.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setCurrency(c)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      activeCurrency === c
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <Button onClick={() => { exportReportsToExcel(quotes, supplierStats); toast.success('Reporte exportado'); }}>
+          <Button onClick={() => { exportReportsToExcel(quotes, supplierStats, activeCurrency); toast.success('Reporte exportado'); }}>
             <Download className="mr-2 h-4 w-4" /> Exportar a Excel
           </Button>
         </div>
 
-        {/* General analytics charts */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-foreground">Análisis general</h2>
-          <DashboardCharts quotes={quotes} />
+          <DashboardCharts quotes={quotes} currency={activeCurrency} />
         </div>
 
         {supplierStats.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
               <BarChart3 className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p>No hay datos de proveedores en tus presupuestos aún.</p>
-              <p className="text-sm mt-1">Cargá servicios con proveedor en tus presupuestos para ver el análisis.</p>
+              <p>No hay datos de proveedores con costos completos en {activeCurrency}.</p>
+              <p className="text-sm mt-1">Cargá servicios con proveedor y costos netos en tus presupuestos para ver el análisis.</p>
             </CardContent>
           </Card>
         ) : (
           <>
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Rentabilidad por proveedor</h2>
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Rentabilidad por proveedor ({activeCurrency})</h2>
             <div className="grid gap-6 lg:grid-cols-2 mb-6">
               <Card>
                 <CardHeader className="pb-2">
@@ -61,9 +87,9 @@ const Reports = () => {
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={top10} layout="vertical" margin={{ left: 80 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                      <XAxis type="number" tickFormatter={v => `${currencySymbol}${(v / 1000).toFixed(0)}k`} />
                       <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
+                      <Tooltip formatter={(v: number) => `${currencySymbol}${v.toLocaleString()}`} />
                       <Bar dataKey="totalCost" name="Costo" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                       <Bar dataKey="totalPrice" name="Venta" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
                       <Legend />
@@ -102,9 +128,9 @@ const Reports = () => {
                       <tr className="border-b text-left text-muted-foreground">
                         <th className="py-2 pr-4">Proveedor</th>
                         <th className="py-2 pr-4 text-right">Servicios</th>
-                        <th className="py-2 pr-4 text-right">Costo total</th>
-                        <th className="py-2 pr-4 text-right">Venta total</th>
-                        <th className="py-2 pr-4 text-right">Margen $</th>
+                        <th className="py-2 pr-4 text-right">Costo total ({activeCurrency})</th>
+                        <th className="py-2 pr-4 text-right">Venta total ({activeCurrency})</th>
+                        <th className="py-2 pr-4 text-right">Margen {activeCurrency}</th>
                         <th className="py-2 text-right">Margen %</th>
                       </tr>
                     </thead>
@@ -113,10 +139,10 @@ const Reports = () => {
                         <tr key={s.name} className="border-b last:border-0">
                           <td className="py-2 pr-4 font-medium">{s.name}</td>
                           <td className="py-2 pr-4 text-right">{s.services}</td>
-                          <td className="py-2 pr-4 text-right">${s.totalCost.toLocaleString()}</td>
-                          <td className="py-2 pr-4 text-right">${s.totalPrice.toLocaleString()}</td>
+                          <td className="py-2 pr-4 text-right">{currencySymbol}{s.totalCost.toLocaleString()}</td>
+                          <td className="py-2 pr-4 text-right">{currencySymbol}{s.totalPrice.toLocaleString()}</td>
                           <td className={`py-2 pr-4 text-right ${s.margin >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                            ${s.margin.toLocaleString()}
+                            {currencySymbol}{s.margin.toLocaleString()}
                           </td>
                           <td className={`py-2 text-right ${s.marginPct >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                             {s.marginPct.toFixed(1)}%

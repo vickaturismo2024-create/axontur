@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Quote } from '@/types/quote';
+import { getQuoteCurrency, hasCompleteCosts } from '@/lib/quoteFilters';
 
 export interface SupplierStat {
   name: string;
@@ -32,11 +33,8 @@ function extractServices(quote: Quote): { supplier: string; cost: number; price:
   processItems((quote as any).ferries);
   processItems((quote as any).rentalCars);
   processItems((quote as any).activities);
-  
-  // Lodgings array
   processItems((quote as any).lodgings);
-  
-  // Single lodging
+
   const lodging = quote.lodging as any;
   if (lodging?.supplier) {
     results.push({
@@ -46,7 +44,6 @@ function extractServices(quote: Quote): { supplier: string; cost: number; price:
     });
   }
 
-  // Cruise
   const cruise = (quote as any).cruise;
   if (cruise?.supplier) {
     results.push({
@@ -56,7 +53,6 @@ function extractServices(quote: Quote): { supplier: string; cost: number; price:
     });
   }
 
-  // Insurance
   const insurance = quote.insurance as any;
   if (insurance?.supplier) {
     results.push({
@@ -69,11 +65,16 @@ function extractServices(quote: Quote): { supplier: string; cost: number; price:
   return results;
 }
 
-export function useSupplierAnalytics(quotes: Quote[]) {
+export function useSupplierAnalytics(quotes: Quote[], currency?: string) {
   return useMemo(() => {
+    // Filter by currency if provided
+    let filtered = currency ? quotes.filter(q => getQuoteCurrency(q) === currency) : quotes;
+    // Only include quotes with complete costs for margin calculations
+    filtered = filtered.filter(hasCompleteCosts);
+
     const map = new Map<string, { services: number; totalCost: number; totalPrice: number }>();
 
-    quotes.forEach(quote => {
+    filtered.forEach(quote => {
       const services = extractServices(quote);
       services.forEach(({ supplier, cost, price }) => {
         const key = supplier.trim().toLowerCase();
@@ -86,9 +87,8 @@ export function useSupplierAnalytics(quotes: Quote[]) {
       });
     });
 
-    // Capitalize first occurrence
     const nameMap = new Map<string, string>();
-    quotes.forEach(quote => {
+    filtered.forEach(quote => {
       extractServices(quote).forEach(({ supplier }) => {
         const key = supplier.trim().toLowerCase();
         if (key && !nameMap.has(key)) nameMap.set(key, supplier.trim());
@@ -111,5 +111,5 @@ export function useSupplierAnalytics(quotes: Quote[]) {
 
     stats.sort((a, b) => b.totalCost - a.totalCost);
     return stats;
-  }, [quotes]);
+  }, [quotes, currency]);
 }

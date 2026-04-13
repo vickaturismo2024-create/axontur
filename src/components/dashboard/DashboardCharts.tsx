@@ -2,31 +2,51 @@ import { useMemo } from 'react';
 import { Quote } from '@/types/quote';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { hasCompleteCosts, getQuoteCurrency } from '@/lib/quoteFilters';
 
 interface DashboardChartsProps {
   quotes: Quote[];
+  currency?: string;
 }
 
 const COLORS = ['hsl(215, 50%, 23%)', 'hsl(38, 70%, 55%)', 'hsl(38, 45%, 85%)', 'hsl(215, 40%, 35%)', 'hsl(0, 72%, 51%)', 'hsl(150, 50%, 40%)'];
 
-export function DashboardCharts({ quotes }: DashboardChartsProps) {
+export function DashboardCharts({ quotes, currency }: DashboardChartsProps) {
+  // Filter by currency if provided
+  const filteredQuotes = useMemo(() => {
+    if (!currency) return quotes;
+    return quotes.filter(q => getQuoteCurrency(q) === currency);
+  }, [quotes, currency]);
+
+  // Quotes with complete costs for profitability metrics
+  const profitableQuotes = useMemo(() => filteredQuotes.filter(hasCompleteCosts), [filteredQuotes]);
+
+  const currencySymbol = currency === 'ARS' ? 'ARS ' : 'US$';
+
   const monthlyData = useMemo(() => {
     const months: Record<string, { month: string; count: number; revenue: number; cost: number }> = {};
-    quotes.forEach(q => {
+    filteredQuotes.forEach(q => {
       const d = new Date(q.createdAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = d.toLocaleDateString('es', { month: 'short', year: '2-digit' });
       if (!months[key]) months[key] = { month: label, count: 0, revenue: 0, cost: 0 };
       months[key].count++;
-      months[key].revenue += q.pricing.totalPrice || 0;
-      months[key].cost += q.pricing.totalCost || 0;
+    });
+    // Revenue/cost only from profitable quotes
+    profitableQuotes.forEach(q => {
+      const d = new Date(q.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (months[key]) {
+        months[key].revenue += q.pricing.totalPrice || 0;
+        months[key].cost += q.pricing.totalCost || 0;
+      }
     });
     return Object.entries(months).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v).slice(-6);
-  }, [quotes]);
+  }, [filteredQuotes, profitableQuotes]);
 
   const destinationData = useMemo(() => {
     const dests: Record<string, number> = {};
-    quotes.forEach(q => {
+    filteredQuotes.forEach(q => {
       const dest = q.trip.destination || 'Sin destino';
       dests[dest] = (dests[dest] || 0) + 1;
     });
@@ -34,14 +54,13 @@ export function DashboardCharts({ quotes }: DashboardChartsProps) {
       .sort(([, a], [, b]) => b - a)
       .slice(0, 6)
       .map(([name, value]) => ({ name, value }));
-  }, [quotes]);
+  }, [filteredQuotes]);
 
   const marginData = useMemo(() => {
     const months: Record<string, { month: string; margin: number; count: number }> = {};
-    quotes.forEach(q => {
+    profitableQuotes.forEach(q => {
       const cost = q.pricing.totalCost || 0;
       const price = q.pricing.totalPrice || 0;
-      if (cost <= 0 || price <= 0) return;
       const d = new Date(q.createdAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = d.toLocaleDateString('es', { month: 'short', year: '2-digit' });
@@ -53,23 +72,21 @@ export function DashboardCharts({ quotes }: DashboardChartsProps) {
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-6)
       .map(([, v]) => ({ month: v.month, margin: Math.round(v.margin / v.count) }));
-  }, [quotes]);
+  }, [profitableQuotes]);
 
-  // Status distribution
   const statusData = useMemo(() => {
     const statuses: Record<string, number> = {};
-    quotes.forEach(q => {
+    filteredQuotes.forEach(q => {
       const s = q.status || 'draft';
       const labels: Record<string, string> = { draft: 'Borrador', sent: 'Enviado', approved: 'Aprobado', expired: 'Vencido' };
       statuses[labels[s] || s] = (statuses[labels[s] || s] || 0) + 1;
     });
     return Object.entries(statuses).map(([name, value]) => ({ name, value }));
-  }, [quotes]);
+  }, [filteredQuotes]);
 
-  // Top clients by revenue
   const topClients = useMemo(() => {
     const clients: Record<string, number> = {};
-    quotes.forEach(q => {
+    profitableQuotes.forEach(q => {
       const name = q.client.name || 'Sin nombre';
       clients[name] = (clients[name] || 0) + (q.pricing.totalPrice || 0);
     });
@@ -77,12 +94,11 @@ export function DashboardCharts({ quotes }: DashboardChartsProps) {
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([name, value]) => ({ name: name.length > 15 ? name.substring(0, 15) + '…' : name, value }));
-  }, [quotes]);
+  }, [profitableQuotes]);
 
-  // Profitability by destination
   const destProfitData = useMemo(() => {
     const dests: Record<string, { revenue: number; cost: number }> = {};
-    quotes.forEach(q => {
+    profitableQuotes.forEach(q => {
       const dest = q.trip.destination || 'Sin destino';
       if (!dests[dest]) dests[dest] = { revenue: 0, cost: 0 };
       dests[dest].revenue += q.pricing.totalPrice || 0;
@@ -96,13 +112,12 @@ export function DashboardCharts({ quotes }: DashboardChartsProps) {
         name: name.length > 12 ? name.substring(0, 12) + '…' : name,
         margin: v.cost > 0 ? Math.round(((v.revenue - v.cost) / v.cost) * 100) : 0,
       }));
-  }, [quotes]);
+  }, [profitableQuotes]);
 
-  if (quotes.length < 2) return null;
+  if (filteredQuotes.length < 2) return null;
 
   return (
     <div className="space-y-6">
-      {/* Row 1: Original 3 charts */}
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
@@ -155,7 +170,6 @@ export function DashboardCharts({ quotes }: DashboardChartsProps) {
         </Card>
       </div>
 
-      {/* Row 2: New advanced charts */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -166,8 +180,8 @@ export function DashboardCharts({ quotes }: DashboardChartsProps) {
               <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
+                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${currencySymbol}${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v: number) => `${currencySymbol}${v.toLocaleString()}`} />
                 <Line type="monotone" dataKey="revenue" stroke="hsl(150, 50%, 40%)" strokeWidth={2} name="Ingresos" />
                 <Line type="monotone" dataKey="cost" stroke="hsl(0, 72%, 51%)" strokeWidth={2} name="Costos" />
               </LineChart>
@@ -193,15 +207,15 @@ export function DashboardCharts({ quotes }: DashboardChartsProps) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Top clientes</CardTitle>
+            <CardTitle className="text-sm font-medium">Top clientes ({currencySymbol})</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={topClients} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis type="number" tick={{ fontSize: 10 }} />
+                <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={80} />
-                <Tooltip />
+                <Tooltip formatter={(v: number) => `${currencySymbol}${v.toLocaleString()}`} />
                 <Bar dataKey="value" fill="hsl(215, 50%, 23%)" radius={[0, 4, 4, 0]} name="Facturación" />
               </BarChart>
             </ResponsiveContainer>
