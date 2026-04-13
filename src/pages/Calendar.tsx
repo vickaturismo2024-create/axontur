@@ -5,7 +5,7 @@ import { useQuotes } from '@/contexts/QuotesContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isWithinInterval, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isWithinInterval, parseISO, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const COLORS = [
@@ -22,7 +22,7 @@ const Calendar = () => {
   const { quotes } = useQuotes();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const activeQuotes = useMemo(() => quotes.filter(q => !q.archived && q.status === 'approved' && q.trip.startDate && q.trip.endDate), [quotes]);
+  const activeQuotes = useMemo(() => quotes.filter(q => !q.archived && q.status === 'approved' && q.trip.startDate && q.trip.endDate && parseISO(q.trip.endDate) >= startOfToday()), [quotes]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
