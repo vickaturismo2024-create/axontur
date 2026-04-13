@@ -1,77 +1,50 @@
 
 
-# Plan: Entrega 2 — Cuentas Corrientes
-
-## Resumen
-
-Sistema de cuentas corrientes para clientes y proveedores con movimientos automáticos (al registrar pagos/recibos en files) y manuales, vista de saldos y detalle de movimientos.
-
----
-
-## Base de datos
-
-### Nueva tabla: `account_movements`
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| id | uuid PK | |
-| user_id | uuid NOT NULL | Owner (RLS) |
-| account_type | text NOT NULL | 'client' o 'supplier' |
-| account_id | uuid NOT NULL | ID del cliente o proveedor |
-| file_id | uuid NULL | Referencia opcional al file |
-| movement_type | text NOT NULL | 'credit' o 'debit' |
-| amount | numeric NOT NULL DEFAULT 0 | |
-| currency | text NOT NULL DEFAULT 'USD' | |
-| concept | text NOT NULL DEFAULT '' | |
-| reference | text NULL | Número de recibo, etc. |
-| movement_date | date NOT NULL DEFAULT CURRENT_DATE | |
-| notes | text NULL | |
-| created_at | timestamptz DEFAULT now() | |
-
-RLS: owner-based (user_id = auth.uid()) para SELECT, INSERT, UPDATE, DELETE.
-
----
-
-## Páginas y componentes nuevos
-
-| Archivo | Descripción |
-|---------|-------------|
-| `src/pages/Accounts.tsx` | Listado de cuentas (clientes y proveedores) con saldo calculado, filtros por tipo y búsqueda |
-| `src/components/accounts/AccountDetail.tsx` | Dialog/panel con historial de movimientos de una cuenta, saldo progresivo |
-| `src/components/accounts/NewMovementDialog.tsx` | Formulario para agregar movimientos manuales (adelantos, ajustes, notas de crédito) |
-
----
-
-## Movimientos automáticos
-
-| Archivo | Cambio |
-|---------|--------|
-| `src/components/files/FileReceiptsTab.tsx` | Al crear un recibo, insertar automáticamente un movimiento de crédito en la cuenta del cliente del file |
-| `src/components/quotes/PaymentsSection.tsx` | Al registrar un pago confirmado, generar movimiento en cuenta del cliente del quote |
-
----
-
-## Navegación
-
-| Archivo | Cambio |
-|---------|--------|
-| `src/components/layout/Header.tsx` | Agregar "Cuentas Ctes." al menú después de "Expedientes" |
-| `src/App.tsx` | Agregar ruta `/accounts` |
-
----
-
-## Vista de cuentas
-
-La página `/accounts` mostrará:
-- Tabs: Clientes / Proveedores
-- Lista de todos los clientes/proveedores con su saldo actual (suma de créditos - débitos)
-- Búsqueda por nombre
-- Click en una cuenta abre el detalle con movimientos ordenados por fecha y saldo progresivo
-- Botón para agregar movimiento manual
-
----
+# Plan: Cuentas Corrientes + Revertir presupuesto aprobado + File automático
 
 ## Scope
 
-Solo Cuentas Corrientes. Caja Diaria y Comisiones quedan para la siguiente entrega.
+Implementar todo lo del plan aprobado de Cuentas Corrientes, más:
+1. **Automatizar creación de file** al aprobar un presupuesto desde Dashboard
+2. **Agregar estado "cancelled"** a QuoteStatus para poder cancelar/revertir presupuestos aprobados
+3. **Botón "Crear Expediente"** en QuoteCard para presupuestos aprobados sin file existente
+
+## Cambios
+
+### 1. Base de datos
+- Crear tabla `account_movements` con RLS owner-based (ya definida en el plan)
+- No se necesita migración para el estado "cancelled" porque `quotes.status` es tipo `text`
+
+### 2. Revertir presupuesto aprobado
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/types/quote.ts` | Agregar `'cancelled'` a `QuoteStatus` |
+| `src/components/quotes/QuoteCard.tsx` | Agregar config para estado `cancelled`, mostrar botón "Cancelar" en quotes aprobados que cambia estado a `cancelled`, y botón "Reactivar" en quotes cancelados que vuelve a `draft`. Agregar botón "Crear Expediente" para aprobados sin file. |
+| `src/pages/Dashboard.tsx` | En `handleStatusChange`, cuando status pasa a `approved`, crear file automáticamente con toast y link |
+
+### 3. Función utilitaria para crear file
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/lib/fileFromQuote.ts` (nuevo) | Extraer lógica de `CreateFileFromQuote` a función reutilizable `createFileFromQuote(quote, userId)` |
+| `src/components/files/CreateFileFromQuote.tsx` | Refactorizar para usar la función utilitaria |
+
+### 4. Cuentas Corrientes (plan aprobado)
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/pages/Accounts.tsx` | Reescribir con lógica real: tabs Clientes/Proveedores, saldos calculados, búsqueda |
+| `src/components/accounts/AccountDetail.tsx` | Reescribir con lógica real: historial de movimientos con saldo progresivo |
+| `src/components/accounts/NewMovementDialog.tsx` | Reescribir con formulario funcional |
+| `src/components/files/FileReceiptsTab.tsx` | Al crear recibo, insertar movimiento de crédito automático en cuenta del cliente |
+| `src/App.tsx` | Verificar ruta `/accounts` (ya existe) |
+| `src/components/layout/Header.tsx` | Verificar "Cuentas Ctes." en menú (ya existe) |
+
+### 5. Flujo de cancelación
+
+- Quote aprobado muestra botón "Cancelar" (con confirmación AlertDialog)
+- Al cancelar: estado pasa a `cancelled`, se muestra badge rojo "Cancelado"
+- Quote cancelado muestra botón "Reactivar" que lo vuelve a `draft`
+- El file asociado NO se elimina automáticamente (queda como registro)
 
