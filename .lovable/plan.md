@@ -1,22 +1,67 @@
 
+Diagnóstico confirmado
 
-# Plan: Agregar campo `supplier` a todos los schemas de validación
+- El problema ya no está en el guardado del proveedor.
+- La sección de proveedores en `/reportes` queda vacía porque `Reports.tsx` solo renderiza datos si `supplierStats.length > 0`.
+- Hoy `useSupplierAnalytics()` filtra por moneda y después elimina el presupuesto entero con `hasCompleteCosts()`.
+- Esa regla es válida para rentabilidad global, pero es demasiado estricta para proveedores.
 
-## Problema raíz
+Evidencia
 
-El campo `supplier` se **elimina silenciosamente** cada vez que se guarda un presupuesto. Esto pasa porque Zod (la librería de validación) **descarta los campos que no están definidos en el schema**. Ninguno de los schemas de servicios (vuelos, transfers, trenes, ferries, autos, actividades, cruceros, seguros, alojamientos) tiene el campo `supplier` declarado.
+- Revisé los datos actuales y hay al menos un presupuesto con proveedores cargados.
+- Ese presupuesto tiene 8 servicios con `supplier`, pero solo 3 con valores económicos cargados.
+- Por eso no pasa la regla de “al menos 50% de servicios con costo” y desaparece completo del análisis, aunque sí tenga operadores asignados.
 
-Entonces: el usuario asigna un proveedor → el auto-save o guardado manual ejecuta `validateQuote()` → Zod elimina `supplier` del objeto → se guarda sin proveedor → los reportes no muestran nada.
+Plan
 
-## Solución
+1. Separar “presencia del proveedor” de “rentabilidad”
+- Archivo: `src/hooks/useSupplierAnalytics.ts`
+- Mantener el filtro por moneda.
+- Quitar `hasCompleteCosts()` como filtro global del reporte de proveedores.
+- Contar todos los servicios que tengan `supplier`.
+- Calcular dinero y margen solo para servicios con datos completos (`cost`/`totalCost` y `price`/`totalPrice` > 0).
 
-Agregar `supplier: z.string().optional()` a cada schema de servicio en `src/lib/validations.ts`.
+2. Hacer el dato más honesto
+- Extender `SupplierStat` con un contador tipo `pricedServices`.
+- `services` = servicios asignados al proveedor.
+- `pricedServices` = servicios que sí entran en costo/venta/margen.
+- `margin` y `marginPct` se calculan solo sobre `pricedServices`, para no inflar rentabilidad con faltantes.
 
-## Cambios
+3. Corregir la UI de Reportes
+- Archivo: `src/pages/Reports.tsx`
+- Mostrar estado vacío solo si no existe ningún servicio con proveedor en la moneda seleccionada.
+- Si hay proveedores cargados pero faltan netos en parte de los servicios, mostrar una aclaración en vez de dejar la pantalla en blanco.
+- Mantener la separación USD/ARS exactamente como está.
 
-| Archivo | Cambio |
-|---|---|
-| `src/lib/validations.ts` | Agregar `supplier: z.string().optional()` a: `flightSchema`, `transferSchema`, `trainSchema`, `ferrySchema`, `rentalCarSchema`, `activitySchema`, `cruiseSchema`, `insuranceSchema`, `lodgingSchema` (9 schemas) |
+4. Ajustar la exportación
+- Archivo: `src/lib/exportReports.ts`
+- Exportar la nueva lógica.
+- Agregar una columna tipo `Servicios valorizados` para que el Excel distinga uso de rentabilidad.
 
-Es un cambio de una sola línea en 9 lugares del mismo archivo. Después de esto, el proveedor se va a guardar correctamente y los reportes van a funcionar.
+5. Evitar métricas mezcladas fuera de Reportes
+- Archivo: `src/pages/Suppliers.tsx`
+- Como esa pantalla no tiene selector de moneda, limitar sus chips a métricas no monetarias o esconder el margen allí, dejando la rentabilidad monetaria solo en `/reportes`.
 
+Sin cambios de base de datos
+
+- No hace falta migración ni cambios de permisos.
+- El ajuste es 100% de lógica frontend.
+
+Resultado esperado
+
+- Los proveedores vuelven a aparecer en Reportes.
+- No se mezclan USD y ARS.
+- Los presupuestos incompletos ya no desaparecen completos del análisis.
+- La rentabilidad sigue protegida contra netos faltantes.
+
+Detalle técnico
+
+```text
+Métricas globales de negocio:
+- siguen usando hasCompleteCosts()
+
+Métricas de proveedores:
+- visibilidad = servicio con supplier
+- montos/margen = solo servicios con cost + price válidos
+- moneda = siempre filtrada antes de agregar
+```
