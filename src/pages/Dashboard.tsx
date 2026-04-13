@@ -278,8 +278,7 @@ const Dashboard = () => {
         <div className="mb-8 rounded-2xl bg-gradient-to-br from-primary via-navy-light to-primary p-8 text-primary-foreground shadow-xl">
           <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div>
-              <h1 className="font-serif text-3xl font-bold md:text-4xl">Generador de Presupuestos</h1>
-              <p className="mt-2 text-primary-foreground/80">Crea presupuestos de viaje profesionales en minutos</p>
+              <h1 className="font-serif text-3xl font-bold md:text-4xl">AxonTur</h1>
             </div>
             <div className="flex gap-3">
               <Button onClick={() => setImportDialogOpen(true)} variant="outline" size="lg" className="border-primary-foreground/30 text-primary-foreground hover:bg-white/10">
