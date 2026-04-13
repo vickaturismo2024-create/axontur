@@ -40,7 +40,7 @@ export function CreateFileFromQuote({ quote }: Props) {
     (quote.transfers || []).forEach(t => addService('transfer', t.description || t.type || 'Traslado', t.cost || 0, t.price || 0, t.dateTime, t.supplier));
     (quote.activities || []).forEach(a => addService('activity', a.name || 'Actividad', a.cost || 0, a.price || 0, a.date, a.supplier));
     if (quote.insurance?.company) addService('insurance', `${quote.insurance.company} - ${quote.insurance.plan || ''}`, quote.insurance.cost || 0, quote.insurance.price || 0);
-    if (quote.cruise?.shipName) addService('cruise', `${quote.cruise.shipName} ${quote.cruise.cabin || ''}`, quote.cruise.cost || 0, quote.cruise.price || 0, quote.cruise.embarkDate);
+    if (quote.cruise?.shipName) addService('cruise', `${quote.cruise.shipName} ${quote.cruise.cabinType || ''}`, quote.cruise.cost || 0, quote.cruise.price || 0, quote.cruise.embarkationDate);
 
     const { data: fileData, error } = await supabase.from('files').insert({
       user_id: user.id,
