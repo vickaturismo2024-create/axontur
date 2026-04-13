@@ -27,6 +27,7 @@ interface PaymentsSectionProps {
   quoteId: string;
   quoteCurrency: string;
   totalPrice: number;
+  clientId?: string | null;
 }
 
 const PAYMENT_METHODS = [
@@ -40,7 +41,7 @@ const PAYMENT_METHODS = [
 
 const getMethodLabel = (value: string) => PAYMENT_METHODS.find(m => m.value === value)?.label || value || '—';
 
-export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: PaymentsSectionProps) {
+export function PaymentsSection({ quoteId, quoteCurrency, totalPrice, clientId }: PaymentsSectionProps) {
   const { user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +85,22 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice }: Payments
         user_id: user.id,
       }] as any);
       if (error) throw error;
+
+      // Auto-insert movement if confirmed and client linked
+      if (newPayment.status === 'confirmed' && clientId) {
+        await supabase.from('account_movements' as any).insert({
+          user_id: user.id,
+          account_type: 'client',
+          account_id: clientId,
+          movement_type: 'credit',
+          amount: newPayment.amount,
+          currency: newPayment.currency || quoteCurrency,
+          concept: `Pago presupuesto`,
+          movement_date: newPayment.payment_date,
+          notes: newPayment.notes || null,
+        } as any);
+      }
+
       toast.success('Pago registrado');
       setAdding(false);
       setNewPayment({ amount: 0, currency: quoteCurrency, payment_date: new Date().toISOString().split('T')[0], method: 'transfer', status: 'pending', notes: '' });
