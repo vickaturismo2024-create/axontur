@@ -178,6 +178,269 @@ export type Database = {
         }
         Relationships: []
       }
+      file_passengers: {
+        Row: {
+          birth_date: string | null
+          client_id: string | null
+          created_at: string
+          dni: string | null
+          file_id: string
+          id: string
+          name: string
+          nationality: string | null
+          notes: string | null
+          passport: string | null
+          passport_expiry: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          birth_date?: string | null
+          client_id?: string | null
+          created_at?: string
+          dni?: string | null
+          file_id: string
+          id?: string
+          name?: string
+          nationality?: string | null
+          notes?: string | null
+          passport?: string | null
+          passport_expiry?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          birth_date?: string | null
+          client_id?: string | null
+          created_at?: string
+          dni?: string | null
+          file_id?: string
+          id?: string
+          name?: string
+          nationality?: string | null
+          notes?: string | null
+          passport?: string | null
+          passport_expiry?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_passengers_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_passengers_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_receipts: {
+        Row: {
+          amount: number
+          client_name: string
+          concept: string
+          created_at: string
+          currency: string
+          file_id: string
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+          receipt_number: number
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          client_name?: string
+          concept?: string
+          created_at?: string
+          currency?: string
+          file_id: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          receipt_number?: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          client_name?: string
+          concept?: string
+          created_at?: string
+          currency?: string
+          file_id?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          receipt_number?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_receipts_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_services: {
+        Row: {
+          confirmation_number: string | null
+          cost: number
+          created_at: string
+          currency: string
+          description: string
+          file_id: string
+          id: string
+          notes: string | null
+          price: number
+          service_date: string | null
+          service_type: string
+          status: string
+          supplier_id: string | null
+          supplier_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confirmation_number?: string | null
+          cost?: number
+          created_at?: string
+          currency?: string
+          description?: string
+          file_id: string
+          id?: string
+          notes?: string | null
+          price?: number
+          service_date?: string | null
+          service_type?: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confirmation_number?: string | null
+          cost?: number
+          created_at?: string
+          currency?: string
+          description?: string
+          file_id?: string
+          id?: string
+          notes?: string | null
+          price?: number
+          service_date?: string | null
+          service_type?: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_services_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_services_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          client_id: string | null
+          client_name: string
+          created_at: string
+          currency: string
+          destination: string
+          end_date: string | null
+          file_number: number
+          id: string
+          internal_notes: string | null
+          quote_id: string | null
+          start_date: string | null
+          status: string
+          total_cost: number
+          total_price: number
+          travelers: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          client_name?: string
+          created_at?: string
+          currency?: string
+          destination?: string
+          end_date?: string | null
+          file_number?: number
+          id?: string
+          internal_notes?: string | null
+          quote_id?: string | null
+          start_date?: string | null
+          status?: string
+          total_cost?: number
+          total_price?: number
+          travelers?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string
+          created_at?: string
+          currency?: string
+          destination?: string
+          end_date?: string | null
+          file_number?: number
+          id?: string
+          internal_notes?: string | null
+          quote_id?: string | null
+          start_date?: string | null
+          status?: string
+          total_cost?: number
+          total_price?: number
+          travelers?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "files_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
