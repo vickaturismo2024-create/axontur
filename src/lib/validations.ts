@@ -123,9 +123,6 @@ export const transferSchema = z.object({
 
 // Train validation - no length restrictions
 export const trainSchema = z.object({
-
-// Train validation - no length restrictions
-export const trainSchema = z.object({
   id: z.string(),
   origin: z.string().default(''),
   destination: z.string().default(''),
@@ -140,6 +137,7 @@ export const trainSchema = z.object({
   included: z.boolean().default(true),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
+  supplier: z.string().optional(),
 });
 
 // Ferry validation - no length restrictions
@@ -157,6 +155,7 @@ export const ferrySchema = z.object({
   included: z.boolean().default(true),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
+  supplier: z.string().optional(),
 });
 
 // Rental Car validation - no length restrictions
@@ -175,6 +174,7 @@ export const rentalCarSchema = z.object({
   included: z.boolean().default(true),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
+  supplier: z.string().optional(),
 });
 
 // Activity validation - no length restrictions
@@ -190,6 +190,7 @@ export const activitySchema = z.object({
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
   notes: z.string().default(''),
+  supplier: z.string().optional(),
 });
 
 // Cruise Port validation - no length restrictions
@@ -233,6 +234,7 @@ export const cruiseSchema = z.object({
   notes: z.string().default(''),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
+  supplier: z.string().optional(),
 });
 
 // Insurance validation - no length restrictions
@@ -243,6 +245,7 @@ export const insuranceSchema = z.object({
   notes: z.string().default(''),
   cost: z.number().min(0).optional(),
   price: z.number().min(0).optional(),
+  supplier: z.string().optional(),
 }).partial();
 
 // Lodging option pricing schema
