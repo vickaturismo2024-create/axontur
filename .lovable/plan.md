@@ -1,56 +1,33 @@
 
 
-# Plan: Navegación directa al cliente + filtros por estado en ficha expandible
+# Plan: Notificación pop-up de cumpleaños de clientes
 
-## Problemas detectados
+## Resumen
 
-1. **FileDetail → Cliente**: Navega a `/clients?highlight=clientName` pero `Clients.tsx` no usa ese parámetro para auto-expandir la tarjeta del cliente correspondiente.
-2. **Ficha de cliente**: Muestra presupuestos y expedientes en una lista plana sin filtros por estado.
+Crear un componente que al cargar la app consulte los clientes cuya fecha de nacimiento coincida con el día actual (mismo día y mes) y muestre un toast de sonner por cada uno.
 
 ## Cambios
 
-### 1. `src/pages/Clients.tsx` — Auto-expandir cliente desde highlight param
+### 1. Nuevo componente `src/components/notifications/BirthdayNotifier.tsx`
 
-- Leer `searchParams.get('highlight')` y cuando coincide con el nombre de un cliente, setear esa tarjeta como `open` automáticamente + scroll into view con `useRef`.
-- Pasar `defaultOpen` como prop a `ExpandableClientCard`.
+- Componente sin UI visible (solo lógica)
+- En un `useEffect` al montar (cuando hay `user`):
+  - Fetch todos los clientes con `birth_date` no nulo (con paginación para superar el límite de 1000)
+  - Filtrar en JS los que tengan mismo día y mes que `new Date()`
+  - Por cada coincidencia, mostrar `toast('🎂 Hoy cumple años [nombre]!', { duration: 10000 })` con sonner
+- Usar `sessionStorage` con key `birthday_notified_[fecha]` para no repetir los toasts si el usuario navega entre páginas
+- Retorna `null`
 
-### 2. `src/pages/Clients.tsx` — Tabs y filtros dentro de la ficha expandida
+### 2. `src/App.tsx` — Montar el notificador
 
-Reemplazar las secciones planas de presupuestos y expedientes por:
-
-```text
-┌─ Datos personales ─────────────────────────┐
-│ ...campos...                                │
-└─────────────────────────────────────────────┘
-
-┌─ [Presupuestos] [Expedientes] ─── tabs ────┐
-│                                             │
-│  Tab Presupuestos:                          │
-│  [Pendientes] [Enviados] [Aprobados] [Canc.]│
-│  - lista filtrada de quotes                 │
-│                                             │
-│  Tab Expedientes:                           │
-│  [Abiertos] [Cerrados]                      │
-│  Abiertos = confirmed, in_progress          │
-│  Cerrados = completed, cancelled            │
-│  - lista filtrada de files                  │
-└─────────────────────────────────────────────┘
-```
-
-- Usar `Tabs` + badges con conteo por categoría
-- Abiertos: `confirmed`, `in_progress` (y `pending` si existiera)
-- Cerrados: `completed`, `cancelled`
-- Presupuestos: `draft` (Pendientes), `sent` (Enviados), `approved` (Aprobados), `cancelled`/`expired` (Cancelados)
-
-### 3. `src/pages/FileDetail.tsx` — Navegación directa al cliente
-
-- Si `file.client_id` existe, navegar a `/clients?highlight=clientName` (ya lo hace) — el fix real está en Clients.tsx para que lo reciba y auto-expanda.
+- Importar `BirthdayNotifier` y renderizarlo dentro del `AuthProvider` / `BrowserRouter`, al lado del `TourOverlay`
 
 ## Archivos afectados
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/pages/Clients.tsx` | Auto-expand con highlight param, tabs presupuestos/expedientes con filtros por estado |
+| `src/components/notifications/BirthdayNotifier.tsx` | Nuevo componente |
+| `src/App.tsx` | Montar `BirthdayNotifier` |
 
 No requiere cambios de BD.
 
