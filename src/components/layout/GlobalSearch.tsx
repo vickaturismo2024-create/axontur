@@ -28,7 +28,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   useEffect(() => {
     if (open) {
       setQuery('');
-      const fetchAll = async (table: string, fields: string) => {
+      const fetchAll = async (table: 'clients' | 'suppliers', fields: string) => {
         const PAGE = 1000;
         let from = 0;
         const all: any[] = [];

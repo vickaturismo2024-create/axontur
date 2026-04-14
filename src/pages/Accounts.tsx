@@ -26,7 +26,7 @@ export default function Accounts() {
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string; type: 'client' | 'supplier' } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchAllPaged = async (table: string, fields: string, userId: string) => {
+  const fetchAllPaged = async (table: 'clients' | 'suppliers', fields: string, userId: string) => {
     const PAGE = 1000;
     let from = 0;
     const all: any[] = [];
