@@ -316,4 +316,146 @@ const Clients = () => {
   );
 };
 
+// ── Expandable Client Card ──
+
+const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  draft: 'secondary', sent: 'default', approved: 'default', expired: 'destructive', cancelled: 'destructive',
+  confirmed: 'default', in_progress: 'secondary', completed: 'outline',
+};
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Borrador', sent: 'Enviado', approved: 'Aprobado', expired: 'Vencido', cancelled: 'Cancelado',
+  confirmed: 'Confirmado', in_progress: 'En curso', completed: 'Completado',
+};
+
+interface FileRecord { id: string; file_number: number; destination: string; status: string; start_date: string | null; }
+
+function ExpandableClientCard({ client, quotes, onEdit, onDelete, navigate }: {
+  client: ClientRecord;
+  quotes: Quote[];
+  onEdit: () => void;
+  onDelete: () => void;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [files, setFiles] = useState<FileRecord[]>([]);
+  const [filesLoaded, setFilesLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!open || filesLoaded || !user) return;
+    supabase.from('files').select('id, file_number, destination, status, start_date')
+      .or(`client_id.eq.${client.id},client_name.eq.${client.name}`)
+      .then(({ data }) => { setFiles((data || []) as FileRecord[]); setFilesLoaded(true); });
+  }, [open, filesLoaded, user, client.id, client.name]);
+
+  const detail = (label: string, value: string | undefined | null) =>
+    value ? <span className="text-xs"><span className="font-medium text-foreground">{label}:</span> {value}</span> : null;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer pb-2 hover:bg-muted/50 transition-colors">
+            <div className="flex items-center gap-3">
+              {open ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-lg">{client.name}</CardTitle>
+                <div className="flex flex-wrap gap-2 mt-1 text-sm text-muted-foreground">
+                  {client.dni && <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />DNI: {client.dni}</span>}
+                  {client.email && <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{client.email}</span>}
+                  {(client.phone || client.phone_mobile) && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{client.phone_mobile || client.phone}</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <DocumentAlertBadge label="DNI" dateStr={client.dni_expiry} compact />
+                <DocumentAlertBadge label="Pasaporte" dateStr={client.passport_expiry} compact />
+                {quotes.length > 0 && <Badge variant="secondary" className="text-xs">{quotes.length} ppto(s)</Badge>}
+              </div>
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <CardContent className="pt-0 pb-4 space-y-4">
+            {/* Personal data */}
+            <div className="rounded-md border p-3 space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Datos personales</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1">
+                {detail('Dirección', client.address)}
+                {detail('Localidad', client.locality)}
+                {detail('Nacionalidad', client.nationality)}
+                {detail('Fecha Nac.', client.birth_date)}
+                {detail('Sexo', client.sex)}
+                {detail('CUIL/CUIT', client.cuil_cuit)}
+                {detail('DNI', client.dni)}
+                {detail('Vto. DNI', client.dni_expiry)}
+                {detail('Pasaporte', client.passport)}
+                {detail('Emisión Pas.', client.passport_issue)}
+                {detail('Vto. Pasaporte', client.passport_expiry)}
+                {detail('Tel. Particular', client.phone)}
+                {detail('Tel. Comercial', client.phone_work)}
+                {detail('Celular', client.phone_mobile)}
+              </div>
+              {client.notes && <p className="text-xs text-muted-foreground mt-2">📝 {client.notes}</p>}
+            </div>
+
+            {/* Quotes */}
+            {quotes.length > 0 && (
+              <div className="rounded-md border p-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Presupuestos ({quotes.length})</p>
+                <div className="space-y-1.5">
+                  {quotes.map(q => (
+                    <button
+                      key={q.id}
+                      onClick={() => navigate(`/quote/${q.id}`)}
+                      className="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{q.trip.destination || 'Sin destino'}</span>
+                        <Badge variant={STATUS_COLORS[q.status || 'draft'] || 'secondary'} className="text-[10px]">{STATUS_LABELS[q.status || 'draft'] || q.status}</Badge>
+                      </div>
+                      <span className="text-xs font-medium">{(q.trip as any).currency || 'USD'} {(q.pricing.totalPrice || 0).toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Files */}
+            {filesLoaded && files.length > 0 && (
+              <div className="rounded-md border p-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Expedientes ({files.length})</p>
+                <div className="space-y-1.5">
+                  {files.map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => navigate(`/files/${f.id}`)}
+                      className="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>FILE-{String(f.file_number).padStart(3, '0')}</span>
+                        <span className="text-muted-foreground">{f.destination}</span>
+                        <Badge variant={STATUS_COLORS[f.status] || 'secondary'} className="text-[10px]">{STATUS_LABELS[f.status] || f.status}</Badge>
+                      </div>
+                      {f.start_date && <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(f.start_date).toLocaleDateString('es-AR')}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={onEdit}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
+              <Button variant="ghost" size="sm" onClick={onDelete} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
 export default Clients;
