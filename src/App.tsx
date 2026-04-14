@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { QuotesProvider } from "@/contexts/QuotesContext";
 import { TourProvider } from "@/contexts/TourContext";
 import { TourOverlay } from "@/components/tour/TourOverlay";
+import { BirthdayNotifier } from "@/components/notifications/BirthdayNotifier";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import QuoteEditor from "./pages/QuoteEditor";
