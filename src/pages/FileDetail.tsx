@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
@@ -174,7 +174,21 @@ const FileDetail = () => {
               <Badge variant={STATUS_COLORS[status]}>{statusInfo?.label}</Badge>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{file.client_name || 'Sin cliente'}</span>
+              <button
+                onClick={() => navigate(`/clients?highlight=${encodeURIComponent(file.client_name)}`)}
+                className="font-medium text-foreground hover:text-primary hover:underline flex items-center gap-1"
+              >
+                {file.client_name || 'Sin cliente'}
+                <ExternalLink className="h-3 w-3" />
+              </button>
+              {file.quote_id && (
+                <button
+                  onClick={() => navigate(`/quote/${file.quote_id}`)}
+                  className="flex items-center gap-1 text-primary hover:underline"
+                >
+                  <FileText className="h-3.5 w-3.5" />Ver presupuesto
+                </button>
+              )}
               {file.destination && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{file.destination}</span>}
               {file.start_date && <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(file.start_date).toLocaleDateString('es-AR')}{file.end_date ? ` - ${new Date(file.end_date).toLocaleDateString('es-AR')}` : ''}</span>}
               <span className="flex items-center gap-1"><Users className="h-4 w-4" />{file.travelers} pax</span>
