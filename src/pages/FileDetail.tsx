@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users } from 'lucide-react';
+import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
 import { FileReceiptsTab } from '@/components/files/FileReceiptsTab';
@@ -56,6 +57,7 @@ const FileDetail = () => {
   const [file, setFile] = useState<FileRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('confirmed');
 
@@ -82,6 +84,41 @@ const FileDetail = () => {
     setSaving(false);
   };
 
+  const handleDelete = async () => {
+    if (!file) return;
+    setDeleting(true);
+    try {
+      // Cascade delete related records
+      const fileId = file.id;
+
+      // Get receipt IDs to delete receipt items
+      const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fileId);
+      if (receipts && receipts.length > 0) {
+        const receiptIds = receipts.map(r => r.id);
+        await supabase.from('file_receipt_items').delete().in('receipt_id', receiptIds);
+      }
+
+      // Delete related tables
+      await Promise.all([
+        supabase.from('file_services').delete().eq('file_id', fileId),
+        supabase.from('file_passengers').delete().eq('file_id', fileId),
+        supabase.from('file_receipts').delete().eq('file_id', fileId),
+        supabase.from('file_supplier_payments').delete().eq('file_id', fileId),
+      ]);
+
+      // Delete the file itself
+      const { error } = await supabase.from('files').delete().eq('id', fileId);
+      if (error) throw error;
+
+      toast.success('Expediente eliminado');
+      navigate('/files');
+    } catch (e) {
+      console.error(e);
+      toast.error('Error al eliminar expediente');
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -102,9 +139,32 @@ const FileDetail = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => navigate('/files')} className="mb-4">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Expedientes
-        </Button>
+        <div className="mb-4 flex items-center justify-between">
+          <Button variant="ghost" onClick={() => navigate('/files')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Expedientes
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={deleting}>
+                <Trash2 className="mr-2 h-4 w-4" />{deleting ? 'Eliminando...' : 'Eliminar'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Eliminar expediente {fileLabel}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acción eliminará el expediente y todos sus datos asociados (servicios, pasajeros, recibos y pagos a operadores). No se puede deshacer.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Eliminar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
 
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
