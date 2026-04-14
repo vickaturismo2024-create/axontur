@@ -52,11 +52,18 @@ export function FileFinancialSummary({ fileId }: Props) {
       const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fileId);
       if (receipts && receipts.length > 0) {
         const receiptIds = receipts.map((r: any) => r.id);
-        const { data: items } = await supabase.from('file_receipt_items').select('amount, currency').in('receipt_id', receiptIds);
+        const { data: items } = await supabase.from('file_receipt_items').select('amount, currency, service_currency, exchange_rate').in('receipt_id', receiptIds);
         if (items) {
           items.forEach((i: any) => {
-            const d = ensure(i.currency || 'USD');
-            d.collected += Number(i.amount) || 0;
+            const amt = Number(i.amount) || 0;
+            const rate = Number(i.exchange_rate) || 0;
+            if (i.service_currency && rate > 0) {
+              const d = ensure(i.service_currency);
+              d.collected += amt / rate;
+            } else {
+              const d = ensure(i.currency || 'USD');
+              d.collected += amt;
+            }
           });
         }
       }
