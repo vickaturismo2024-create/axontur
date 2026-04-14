@@ -1,31 +1,43 @@
 
 
-# Plan: Agrupar servicios por tipo + proveedor
+# Plan: Mejorar generación de expedientes + eliminar expedientes
 
-## Resumen
+## Problema
 
-Modificar `FileServicesTab.tsx` para que los servicios se muestren agrupados por la combinación de `service_type` + `supplier_name`. Cada grupo tendrá una cabecera colapsable con el icono del tipo, nombre del proveedor, cantidad de servicios y subtotales de costo/precio.
+1. `createFileFromQuote` no mapea todos los tipos de servicio (faltan trenes, ferrys, autos de alquiler)
+2. Los precios de alojamiento no contemplan modo "total" (`pricingMode: 'total'`) ni ocupaciones
+3. No hay opción de eliminar expedientes
 
-## Cambio en `src/components/files/FileServicesTab.tsx`
+## Cambios
 
-1. **Agrupar con `useMemo`**: Crear un Map con clave `${service_type}::${supplier_name}` que agrupe los servicios. Ordenar los grupos por tipo y luego por proveedor.
+### 1. `src/lib/fileFromQuote.ts` — Mapeo completo de servicios
 
-2. **UI con Collapsible**: Cada grupo se renderiza como una Card con cabecera colapsable que muestra:
-   - Icono del tipo de servicio
-   - Label del tipo + nombre del proveedor (ej: "Alojamiento — TicketYa")
-   - Cantidad de servicios en el grupo
-   - Subtotal de precio y costo del grupo (por moneda si hay mezcla)
-   - Chevron para expandir/colapsar
+Agregar mapeo para todos los tipos de servicio faltantes:
 
-3. **Contenido expandido**: Dentro de cada grupo, los servicios individuales se listan como están ahora (con sus badges de estado, vencimiento, botones editar/eliminar).
+- **Trenes** (`quote.trains`): tipo `train`, descripción con company + trainNumber + origin-destination
+- **Ferrys** (`quote.ferries`): tipo `ferry`, descripción con company + vessel + origin-destination
+- **Autos de alquiler** (`quote.rentalCars`): tipo `rental_car`, descripción con company + carType + pickup-dropoff
+- **Alojamiento**: corregir cálculo de precio/costo para soportar `pricingMode: 'total'` (usar `totalCost`/`totalPrice` cuando aplique) y ocupaciones (`useOccupancies` con `occupancies[]`)
+- **Actividades/Transfers/Insurance/Cruise**: verificar que el `supplier` se mapee correctamente con `supplier_name`
+- Usar la moneda individual de cada servicio si existiera, o fallback a `quote.trip.currency`
 
-4. **Estado colapsable**: Todos los grupos arrancan expandidos por defecto.
+### 2. `src/pages/FileDetail.tsx` — Botón eliminar expediente
+
+- Agregar botón "Eliminar" con ícono Trash2 en el header del expediente
+- Confirmar con AlertDialog antes de eliminar
+- Al confirmar: eliminar servicios, pasajeros, recibos, receipt_items, supplier_payments y finalmente el file
+- Redirigir a `/files` tras eliminar
+
+### 3. `src/pages/Files.tsx` — Eliminar desde listado (opcional)
+
+- Agregar opción de eliminar desde la tarjeta del listado con la misma lógica de confirmación
 
 ## Archivos afectados
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/components/files/FileServicesTab.tsx` | Agregar lógica de agrupación y UI colapsable por tipo+proveedor |
+| `src/lib/fileFromQuote.ts` | Mapeo completo: trenes, ferrys, rental cars, fix precios alojamiento |
+| `src/pages/FileDetail.tsx` | Botón eliminar con AlertDialog + cascade delete |
 
-No requiere cambios de BD.
+No requiere cambios de BD — las tablas ya permiten DELETE con RLS.
 
