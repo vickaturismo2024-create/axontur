@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight, MapPin, Calendar, FolderOpen } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -58,9 +57,9 @@ const Clients = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [quotesDialogClient, setQuotesDialogClient] = useState<ClientRecord | null>(null);
   const [searchParams] = useSearchParams();
   const [docFilter, setDocFilter] = useState<boolean>(() => searchParams.get('docs') === '1');
+  const highlightName = searchParams.get('highlight');
 
   const fetchClients = async () => {
     if (!user) return;
@@ -146,7 +145,6 @@ const Clients = () => {
   };
 
   const handleBulkImportDone = async () => {
-    // Called after import finishes, just refresh
     await fetchClients();
   };
 
@@ -164,8 +162,6 @@ const Clients = () => {
     XLSX.writeFile(wb, 'clientes.xlsx');
     toast.success('Clientes exportados');
   };
-
-  const clientQuotes = quotesDialogClient ? getClientQuotes(quotesDialogClient) : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -198,7 +194,6 @@ const Clients = () => {
           </TabsList>
 
           <TabsContent value="clients" className="mt-6">
-            {/* Document expiry banner */}
             {docAlerts.total > 0 && (
               <div className="mb-4 flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950">
                 <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0" />
@@ -207,12 +202,7 @@ const Clients = () => {
                   {docAlerts.expired > 0 && docAlerts.expiring > 0 && ' · '}
                   {docAlerts.expiring > 0 && <span className="font-semibold text-yellow-700 dark:text-yellow-400">{docAlerts.expiring} por vencer</span>}
                 </p>
-                <Button
-                  variant={docFilter ? 'default' : 'outline'}
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => setDocFilter(!docFilter)}
-                >
+                <Button variant={docFilter ? 'default' : 'outline'} size="sm" className="ml-auto" onClick={() => setDocFilter(!docFilter)}>
                   <ShieldAlert className="mr-1 h-3.5 w-3.5" />
                   {docFilter ? 'Mostrar todos' : 'Filtrar alertas'}
                 </Button>
@@ -247,6 +237,7 @@ const Clients = () => {
                     onEdit={() => handleEdit(client)}
                     onDelete={() => setDeleteTargetId(client.id)}
                     navigate={navigate}
+                    defaultOpen={!!highlightName && client.name === highlightName}
                   />
                 ))}
               </div>
@@ -274,32 +265,6 @@ const Clients = () => {
         existingDnis={existingDnis}
       />
 
-      {/* Client Quotes Dialog */}
-      <Dialog open={!!quotesDialogClient} onOpenChange={() => setQuotesDialogClient(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Presupuestos de {quotesDialogClient?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-80 overflow-y-auto space-y-2">
-            {clientQuotes.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sin presupuestos asociados</p>
-            ) : clientQuotes.map(q => (
-              <button
-                key={q.id}
-                onClick={() => { setQuotesDialogClient(null); navigate(`/quote/${q.id}`); }}
-                className="w-full rounded-md border p-3 text-left hover:bg-muted transition-colors"
-              >
-                <p className="font-medium text-sm">{q.trip.destination || 'Sin destino'}</p>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-muted-foreground">{new Date(q.createdAt).toLocaleDateString()}</span>
-                  <span className="text-xs font-medium">{(q.trip as any).currency || 'USD'} ${(q.pricing.totalPrice || 0).toLocaleString()}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <AlertDialog open={!!deleteTargetId} onOpenChange={() => setDeleteTargetId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -316,7 +281,7 @@ const Clients = () => {
   );
 };
 
-// ── Expandable Client Card ──
+// ── Status helpers ──
 
 const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   draft: 'secondary', sent: 'default', approved: 'default', expired: 'destructive', cancelled: 'destructive',
@@ -327,19 +292,48 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Confirmado', in_progress: 'En curso', completed: 'Completado',
 };
 
+// ── Quote status filters ──
+const QUOTE_FILTERS = [
+  { key: 'all', label: 'Todos', statuses: null },
+  { key: 'pending', label: 'Pendientes', statuses: ['draft'] },
+  { key: 'sent', label: 'Enviados', statuses: ['sent'] },
+  { key: 'approved', label: 'Aprobados', statuses: ['approved'] },
+  { key: 'cancelled', label: 'Cancelados', statuses: ['cancelled', 'expired'] },
+];
+
+// ── File status filters ──
+const FILE_FILTERS = [
+  { key: 'all', label: 'Todos', statuses: null },
+  { key: 'open', label: 'Abiertos', statuses: ['confirmed', 'in_progress'] },
+  { key: 'closed', label: 'Cerrados', statuses: ['completed', 'cancelled'] },
+];
+
 interface FileRecord { id: string; file_number: number; destination: string; status: string; start_date: string | null; }
 
-function ExpandableClientCard({ client, quotes, onEdit, onDelete, navigate }: {
+function ExpandableClientCard({ client, quotes, onEdit, onDelete, navigate, defaultOpen }: {
   client: ClientRecord;
   quotes: Quote[];
   onEdit: () => void;
   onDelete: () => void;
   navigate: ReturnType<typeof useNavigate>;
+  defaultOpen?: boolean;
 }) {
   const { user } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen || false);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
+  const [quoteFilter, setQuoteFilter] = useState('all');
+  const [fileFilter, setFileFilter] = useState('all');
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll when defaultOpen
+  useEffect(() => {
+    if (defaultOpen && cardRef.current) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, [defaultOpen]);
 
   useEffect(() => {
     if (!open || filesLoaded || !user) return;
@@ -348,12 +342,36 @@ function ExpandableClientCard({ client, quotes, onEdit, onDelete, navigate }: {
       .then(({ data }) => { setFiles((data || []) as FileRecord[]); setFilesLoaded(true); });
   }, [open, filesLoaded, user, client.id, client.name]);
 
+  const filteredQuotes = useMemo(() => {
+    const filter = QUOTE_FILTERS.find(f => f.key === quoteFilter);
+    if (!filter?.statuses) return quotes;
+    return quotes.filter(q => filter.statuses!.includes(q.status || 'draft'));
+  }, [quotes, quoteFilter]);
+
+  const filteredFiles = useMemo(() => {
+    const filter = FILE_FILTERS.find(f => f.key === fileFilter);
+    if (!filter?.statuses) return files;
+    return files.filter(f => filter.statuses!.includes(f.status));
+  }, [files, fileFilter]);
+
+  const quoteCountByFilter = useCallback((key: string) => {
+    const filter = QUOTE_FILTERS.find(f => f.key === key);
+    if (!filter?.statuses) return quotes.length;
+    return quotes.filter(q => filter.statuses!.includes(q.status || 'draft')).length;
+  }, [quotes]);
+
+  const fileCountByFilter = useCallback((key: string) => {
+    const filter = FILE_FILTERS.find(f => f.key === key);
+    if (!filter?.statuses) return files.length;
+    return files.filter(f => filter.statuses!.includes(f.status)).length;
+  }, [files]);
+
   const detail = (label: string, value: string | undefined | null) =>
     value ? <span className="text-xs"><span className="font-medium text-foreground">{label}:</span> {value}</span> : null;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <Card>
+      <Card ref={cardRef} className={defaultOpen ? 'ring-2 ring-primary' : ''}>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer pb-2 hover:bg-muted/50 transition-colors">
             <div className="flex items-center gap-3">
@@ -399,51 +417,95 @@ function ExpandableClientCard({ client, quotes, onEdit, onDelete, navigate }: {
               {client.notes && <p className="text-xs text-muted-foreground mt-2">📝 {client.notes}</p>}
             </div>
 
-            {/* Quotes */}
-            {quotes.length > 0 && (
-              <div className="rounded-md border p-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Presupuestos ({quotes.length})</p>
-                <div className="space-y-1.5">
-                  {quotes.map(q => (
-                    <button
-                      key={q.id}
-                      onClick={() => navigate(`/quote/${q.id}`)}
-                      className="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{q.trip.destination || 'Sin destino'}</span>
-                        <Badge variant={STATUS_COLORS[q.status || 'draft'] || 'secondary'} className="text-[10px]">{STATUS_LABELS[q.status || 'draft'] || q.status}</Badge>
-                      </div>
-                      <span className="text-xs font-medium">{(q.trip as any).currency || 'USD'} {(q.pricing.totalPrice || 0).toLocaleString()}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Presupuestos & Expedientes tabs */}
+            {(quotes.length > 0 || (filesLoaded && files.length > 0)) && (
+              <Tabs defaultValue="quotes" className="rounded-md border p-3">
+                <TabsList className="mb-2">
+                  <TabsTrigger value="quotes">Presupuestos ({quotes.length})</TabsTrigger>
+                  <TabsTrigger value="files">Expedientes ({files.length})</TabsTrigger>
+                </TabsList>
 
-            {/* Files */}
-            {filesLoaded && files.length > 0 && (
-              <div className="rounded-md border p-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Expedientes ({files.length})</p>
-                <div className="space-y-1.5">
-                  {files.map(f => (
-                    <button
-                      key={f.id}
-                      onClick={() => navigate(`/files/${f.id}`)}
-                      className="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>FILE-{String(f.file_number).padStart(3, '0')}</span>
-                        <span className="text-muted-foreground">{f.destination}</span>
-                        <Badge variant={STATUS_COLORS[f.status] || 'secondary'} className="text-[10px]">{STATUS_LABELS[f.status] || f.status}</Badge>
-                      </div>
-                      {f.start_date && <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(f.start_date).toLocaleDateString('es-AR')}</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                <TabsContent value="quotes">
+                  {/* Sub-filters */}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {QUOTE_FILTERS.map(f => {
+                      const count = quoteCountByFilter(f.key);
+                      return (
+                        <Button
+                          key={f.key}
+                          variant={quoteFilter === f.key ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setQuoteFilter(f.key)}
+                        >
+                          {f.label} {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  {filteredQuotes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2 text-center">Sin presupuestos en esta categoría</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                      {filteredQuotes.map(q => (
+                        <button
+                          key={q.id}
+                          onClick={() => navigate(`/quote/${q.id}`)}
+                          className="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{q.trip.destination || 'Sin destino'}</span>
+                            <Badge variant={STATUS_COLORS[q.status || 'draft'] || 'secondary'} className="text-[10px]">{STATUS_LABELS[q.status || 'draft'] || q.status}</Badge>
+                          </div>
+                          <span className="text-xs font-medium">{(q.trip as any).currency || 'USD'} {(q.pricing.totalPrice || 0).toLocaleString()}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="files">
+                  {/* Sub-filters */}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {FILE_FILTERS.map(f => {
+                      const count = fileCountByFilter(f.key);
+                      return (
+                        <Button
+                          key={f.key}
+                          variant={fileFilter === f.key ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setFileFilter(f.key)}
+                        >
+                          {f.label} {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  {filteredFiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2 text-center">Sin expedientes en esta categoría</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                      {filteredFiles.map(f => (
+                        <button
+                          key={f.id}
+                          onClick={() => navigate(`/files/${f.id}`)}
+                          className="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>FILE-{String(f.file_number).padStart(3, '0')}</span>
+                            <span className="text-muted-foreground">{f.destination}</span>
+                            <Badge variant={STATUS_COLORS[f.status] || 'secondary'} className="text-[10px]">{STATUS_LABELS[f.status] || f.status}</Badge>
+                          </div>
+                          {f.start_date && <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(f.start_date).toLocaleDateString('es-AR')}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             )}
 
             {/* Actions */}
