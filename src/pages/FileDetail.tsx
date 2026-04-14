@@ -12,6 +12,7 @@ import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
 import { FileReceiptsTab } from '@/components/files/FileReceiptsTab';
 import { FileSuppliersTab } from '@/components/files/FileSuppliersTab';
+import { FileFinancialSummary } from '@/components/files/FileFinancialSummary';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -148,14 +149,18 @@ const FileDetail = () => {
         </Card>
 
         {/* Tabs */}
-        <Tabs defaultValue="services">
+        <Tabs defaultValue="summary">
           <TabsList className="mb-4">
+            <TabsTrigger value="summary">Resumen</TabsTrigger>
             <TabsTrigger value="services">Servicios</TabsTrigger>
             <TabsTrigger value="passengers">Pasajeros</TabsTrigger>
             <TabsTrigger value="suppliers">Operadores</TabsTrigger>
             <TabsTrigger value="receipts">Recibos</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="summary">
+            <FileFinancialSummary fileId={file.id} />
+          </TabsContent>
           <TabsContent value="services">
             <FileServicesTab fileId={file.id} currency={file.currency} />
           </TabsContent>
