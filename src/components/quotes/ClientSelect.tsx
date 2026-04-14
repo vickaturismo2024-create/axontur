@@ -36,8 +36,17 @@ export function ClientSelect({ onSelect, onSelectGroup }: ClientSelectProps) {
   useEffect(() => {
     if (!user || !open) return;
     (async () => {
-      const { data } = await supabase.from('clients').select('id, name, email, phone, dni').order('name');
-      const mapped = (data || []).map((c: any) => ({ id: c.id, name: c.name, email: c.email || '', phone: c.phone || '', dni: c.dni || '' }));
+      const PAGE = 1000;
+      let from = 0;
+      const all: any[] = [];
+      while (true) {
+        const { data } = await supabase.from('clients').select('id, name, email, phone, dni').order('name').range(from, from + PAGE - 1);
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      const mapped = all.map((c: any) => ({ id: c.id, name: c.name, email: c.email || '', phone: c.phone || '', dni: c.dni || '' }));
       setClients(mapped);
 
       const { data: gData } = await supabase.from('client_groups').select('id, name');

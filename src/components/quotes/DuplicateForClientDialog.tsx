@@ -31,14 +31,20 @@ export function DuplicateForClientDialog({ open, onOpenChange, onConfirm }: Dupl
   useEffect(() => {
     if (open && user) {
       setLoading(true);
-      supabase
-        .from('clients')
-        .select('id, name, email, phone')
-        .order('name')
-        .then(({ data }) => {
-          setClients((data || []) as ClientOption[]);
-          setLoading(false);
-        });
+      (async () => {
+        const PAGE = 1000;
+        let from = 0;
+        const all: any[] = [];
+        while (true) {
+          const { data } = await supabase.from('clients').select('id, name, email, phone').order('name').range(from, from + PAGE - 1);
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < PAGE) break;
+          from += PAGE;
+        }
+        setClients(all as ClientOption[]);
+        setLoading(false);
+      })();
     }
     if (!open) {
       setSearch('');
