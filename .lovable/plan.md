@@ -1,28 +1,31 @@
 
 
-# Plan: Conversión de moneda en recibos dentro del expediente
+# Plan: Agrupar servicios por tipo + proveedor
 
-## Problema
+## Resumen
 
-Cuando se registra un pago en ARS para un servicio en USD con cotización, el resumen financiero del expediente muestra el cobro en ARS en lugar de convertirlo a USD. La cuenta corriente correctamente refleja ARS (moneda real), pero el expediente debe mostrar el equivalente en la moneda del servicio.
+Modificar `FileServicesTab.tsx` para que los servicios se muestren agrupados por la combinación de `service_type` + `supplier_name`. Cada grupo tendrá una cabecera colapsable con el icono del tipo, nombre del proveedor, cantidad de servicios y subtotales de costo/precio.
 
-## Cambio
+## Cambio en `src/components/files/FileServicesTab.tsx`
 
-### `src/components/files/FileFinancialSummary.tsx`
+1. **Agrupar con `useMemo`**: Crear un Map con clave `${service_type}::${supplier_name}` que agrupe los servicios. Ordenar los grupos por tipo y luego por proveedor.
 
-Modificar la sección de agregación de receipt items (líneas 55-61) para que, cuando un item tenga `service_currency` y `exchange_rate`, se convierta el monto a la moneda del servicio:
+2. **UI con Collapsible**: Cada grupo se renderiza como una Card con cabecera colapsable que muestra:
+   - Icono del tipo de servicio
+   - Label del tipo + nombre del proveedor (ej: "Alojamiento — TicketYa")
+   - Cantidad de servicios en el grupo
+   - Subtotal de precio y costo del grupo (por moneda si hay mezcla)
+   - Chevron para expandir/colapsar
 
-- Traer los campos `service_currency` y `exchange_rate` además de `amount` y `currency` en el SELECT
-- Si `service_currency` existe y `exchange_rate > 0`: agregar `amount / exchange_rate` en la moneda `service_currency`
-- Si no hay conversión: mantener el comportamiento actual (sumar en la moneda de pago)
+3. **Contenido expandido**: Dentro de cada grupo, los servicios individuales se listan como están ahora (con sus badges de estado, vencimiento, botones editar/eliminar).
 
-Esto hace que un pago de ARS 1.200.000 con cotización 1200 se refleje como USD 1.000 cobrados en el resumen del expediente.
+4. **Estado colapsable**: Todos los grupos arrancan expandidos por defecto.
 
 ## Archivos afectados
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/components/files/FileFinancialSummary.tsx` | Convertir montos de receipt items a moneda de servicio cuando hay exchange_rate |
+| `src/components/files/FileServicesTab.tsx` | Agregar lógica de agrupación y UI colapsable por tipo+proveedor |
 
-No requiere cambios de BD — los campos `service_currency` y `exchange_rate` ya existen en `file_receipt_items`.
+No requiere cambios de BD.
 
