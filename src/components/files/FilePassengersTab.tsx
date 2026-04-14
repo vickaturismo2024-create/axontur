@@ -4,8 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, User, UserPlus } from 'lucide-react';
+import { Plus, Pencil, Trash2, User, UserPlus, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -40,6 +39,7 @@ export function FilePassengersTab({ fileId }: Props) {
   const [form, setForm] = useState({ ...emptyPassenger });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importMode, setImportMode] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
 
   const load = async () => {
     const { data } = await supabase.from('file_passengers').select('*').eq('file_id', fileId).order('name');
@@ -55,7 +55,7 @@ export function FilePassengersTab({ fileId }: Props) {
 
   useEffect(() => { load(); loadClients(); }, [fileId]);
 
-  const openNew = () => { setEditing(null); setForm({ ...emptyPassenger }); setImportMode(false); setDialogOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ ...emptyPassenger }); setImportMode(false); setClientSearch(''); setDialogOpen(true); };
 
   const openEdit = (p: Passenger) => { setEditing(p); setForm({ ...p }); setImportMode(false); setDialogOpen(true); };
 
@@ -85,6 +85,11 @@ export function FilePassengersTab({ fileId }: Props) {
     toast.success('Pasajero eliminado');
     load();
   };
+
+  const filteredClients = clients.filter(c =>
+    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    (c.dni && c.dni.includes(clientSearch))
+  );
 
   if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando pasajeros...</div>;
 
@@ -135,14 +140,28 @@ export function FilePassengersTab({ fileId }: Props) {
           )}
 
           {importMode && (
-            <div className="mb-4 max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
-              {clients.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No hay clientes en el CRM</p>
-              ) : clients.map(c => (
-                <Button key={c.id} variant="ghost" className="w-full justify-start text-sm" onClick={() => importClient(c)}>
-                  {c.name} {c.dni ? `(DNI: ${c.dni})` : ''}
-                </Button>
-              ))}
+            <div className="mb-4 space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar cliente por nombre o DNI..."
+                  value={clientSearch}
+                  onChange={e => setClientSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="max-h-72 space-y-1 overflow-y-auto rounded-md border p-2">
+                {filteredClients.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2 text-center">
+                    {clientSearch ? 'Sin resultados' : 'No hay clientes en el CRM'}
+                  </p>
+                ) : filteredClients.map(c => (
+                  <Button key={c.id} variant="ghost" className="w-full justify-start text-sm" onClick={() => importClient(c)}>
+                    {c.name} {c.dni ? `(DNI: ${c.dni})` : ''}
+                  </Button>
+                ))}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setImportMode(false)}>Cancelar</Button>
             </div>
           )}
 

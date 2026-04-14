@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Trash2, FileText, Download } from 'lucide-react';
+import { Plus, Trash2, FileText, Download, PlusCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -25,6 +25,16 @@ interface Receipt {
   created_at: string;
 }
 
+interface ReceiptItem {
+  id?: string;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  exchange_rate: number | null;
+  service_currency: string | null;
+  notes: string;
+}
+
 const METHODS = [
   { value: 'transfer', label: 'Transferencia' },
   { value: 'credit_card', label: 'Tarjeta de Crédito' },
@@ -33,6 +43,12 @@ const METHODS = [
   { value: 'check', label: 'Cheque' },
   { value: 'other', label: 'Otro' },
 ];
+
+const CURRENCIES = ['USD', 'ARS', 'EUR', 'BRL'];
+
+const emptyItem = (): ReceiptItem => ({
+  amount: 0, currency: 'USD', payment_method: 'transfer', exchange_rate: null, service_currency: null, notes: '',
+});
 
 interface Props { fileId: string; clientName: string; currency: string; clientId?: string | null; }
 
@@ -43,9 +59,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({
-    client_name: clientName, amount: 0, currency, payment_method: 'transfer',
-    payment_date: new Date().toISOString().split('T')[0], concept: '', notes: '',
+    client_name: clientName, payment_date: new Date().toISOString().split('T')[0], concept: '', notes: '',
   });
+  const [items, setItems] = useState<ReceiptItem[]>([{ ...emptyItem(), currency }]);
 
   const load = async () => {
     const { data } = await supabase.from('file_receipts').select('*').eq('file_id', fileId).order('receipt_number', { ascending: false });
@@ -56,31 +72,62 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   useEffect(() => { load(); }, [fileId]);
 
   const openNew = () => {
-    setForm({ client_name: clientName, amount: 0, currency, payment_method: 'transfer', payment_date: new Date().toISOString().split('T')[0], concept: '', notes: '' });
+    setForm({ client_name: clientName, payment_date: new Date().toISOString().split('T')[0], concept: '', notes: '' });
+    setItems([{ ...emptyItem(), currency }]);
     setDialogOpen(true);
   };
 
+  const updateItem = (idx: number, patch: Partial<ReceiptItem>) => {
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  };
+
+  const removeItem = (idx: number) => {
+    if (items.length <= 1) return;
+    setItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const totalAmount = items.reduce((sum, it) => sum + it.amount, 0);
+
   const handleSave = async () => {
     if (!user) return;
-    if (form.amount <= 0) { toast.error('El monto debe ser mayor a 0'); return; }
+    if (items.every(it => it.amount <= 0)) { toast.error('Al menos una línea debe tener monto > 0'); return; }
     if (!form.concept.trim()) { toast.error('Ingresá un concepto'); return; }
-    const { error } = await supabase.from('file_receipts').insert({ ...form, file_id: fileId, user_id: user.id });
-    if (error) { toast.error('Error al crear recibo'); return; }
 
-    // Auto-insert credit movement in client account
+    // Use first item's currency as the receipt main currency, total as sum
+    const mainCurrency = items[0].currency;
+    const mainMethod = items[0].payment_method;
+
+    const { data: receiptData, error } = await supabase.from('file_receipts').insert({
+      file_id: fileId, user_id: user.id,
+      client_name: form.client_name, amount: totalAmount, currency: mainCurrency,
+      payment_method: mainMethod, payment_date: form.payment_date,
+      concept: form.concept, notes: form.notes,
+    } as any).select().single();
+
+    if (error || !receiptData) { toast.error('Error al crear recibo'); return; }
+
+    // Insert receipt items
+    const receiptId = (receiptData as any).id;
+    const itemsToInsert = items.filter(it => it.amount > 0).map(it => ({
+      receipt_id: receiptId, user_id: user.id,
+      amount: it.amount, currency: it.currency, payment_method: it.payment_method,
+      exchange_rate: it.exchange_rate, service_currency: it.service_currency, notes: it.notes,
+    }));
+
+    if (itemsToInsert.length > 0) {
+      await supabase.from('file_receipt_items' as any).insert(itemsToInsert as any);
+    }
+
+    // Auto-insert credit movements in client account for each item
     if (clientId) {
-      await supabase.from('account_movements' as any).insert({
-        user_id: user.id,
-        account_type: 'client',
-        account_id: clientId,
-        file_id: fileId,
-        movement_type: 'credit',
-        amount: form.amount,
-        currency: form.currency,
-        concept: `Recibo: ${form.concept}`,
-        reference: null,
-        movement_date: form.payment_date,
-      } as any);
+      for (const it of items.filter(i => i.amount > 0)) {
+        await supabase.from('account_movements' as any).insert({
+          user_id: user.id, account_type: 'client', account_id: clientId,
+          file_id: fileId, movement_type: 'credit', amount: it.amount,
+          currency: it.currency, concept: `Recibo: ${form.concept}`,
+          reference: null, movement_date: form.payment_date,
+        } as any);
+      }
     }
 
     toast.success('Recibo generado');
@@ -90,6 +137,8 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
   const handleDelete = async () => {
     if (!deleteId) return;
+    // Delete receipt items first
+    await supabase.from('file_receipt_items' as any).delete().eq('receipt_id', deleteId);
     await supabase.from('file_receipts').delete().eq('id', deleteId);
     setDeleteId(null);
     toast.success('Recibo eliminado');
@@ -97,7 +146,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   };
 
   const downloadReceipt = async (r: Receipt) => {
-    // Fetch agency profile for receipt header
     let agency = { name: '', phone: '', address: '', cuit: '', email: '' };
     if (user) {
       const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
@@ -149,38 +197,13 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader><DialogTitle>Nuevo recibo</DialogTitle></DialogHeader>
           <div className="grid gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Cliente</label>
-              <Input value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} />
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-sm font-medium">Monto *</label>
-                <Input type="number" min={0} step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Moneda</label>
-                <Select value={form.currency} onValueChange={v => setForm({ ...form, currency: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="ARS">ARS</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="BRL">BRL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Método de pago</label>
-                <Select value={form.payment_method} onValueChange={v => setForm({ ...form, payment_method: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
-                </Select>
+                <label className="mb-1 block text-sm font-medium">Cliente</label>
+                <Input value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Fecha de pago</label>
@@ -191,6 +214,66 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
               <label className="mb-1 block text-sm font-medium">Concepto *</label>
               <Input value={form.concept} onChange={e => setForm({ ...form, concept: e.target.value })} placeholder="Ej: Seña paquete Caribe" />
             </div>
+
+            {/* Payment lines */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Líneas de pago</label>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setItems([...items, { ...emptyItem(), currency }])}>
+                  <PlusCircle className="mr-1 h-4 w-4" />Agregar línea
+                </Button>
+              </div>
+              {items.map((item, idx) => (
+                <Card key={idx} className="p-3">
+                  <div className="grid gap-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Monto *</label>
+                        <Input type="number" min={0} step="0.01" value={item.amount} onChange={e => updateItem(idx, { amount: Number(e.target.value) })} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Moneda pago</label>
+                        <Select value={item.currency} onValueChange={v => updateItem(idx, { currency: v })}>
+                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Método</label>
+                        <Select value={item.payment_method} onValueChange={v => updateItem(idx, { payment_method: v })}>
+                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>{METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Moneda servicio</label>
+                        <Select value={item.service_currency || ''} onValueChange={v => updateItem(idx, { service_currency: v || null })}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— Sin conversión</SelectItem>
+                            {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Cotización</label>
+                        <Input type="number" min={0} step="0.01" placeholder="Ej: 1200" value={item.exchange_rate ?? ''} onChange={e => updateItem(idx, { exchange_rate: e.target.value ? Number(e.target.value) : null })} />
+                      </div>
+                      <div className="flex items-end">
+                        {items.length > 1 && (
+                          <Button type="button" variant="ghost" size="sm" className="h-9 text-destructive" onClick={() => removeItem(idx)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium">Notas</label>
               <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
