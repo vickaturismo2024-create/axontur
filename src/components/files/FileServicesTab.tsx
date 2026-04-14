@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity, AlertTriangle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity, AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -106,6 +107,7 @@ export function FileServicesTab({ fileId, currency }: Props) {
   };
 
   const getTypeLabel = (type: string) => SERVICE_TYPES.find(t => t.value === type)?.label || type;
+
   const getStatusBadge = (s: string) => {
     if (s === 'confirmed') return <Badge variant="default">Confirmado</Badge>;
     if (s === 'cancelled') return <Badge variant="destructive">Cancelado</Badge>;
@@ -126,6 +128,34 @@ export function FileServicesTab({ fileId, currency }: Props) {
     return null;
   };
 
+  // Group services by type + supplier
+  const groups = useMemo(() => {
+    const map = new Map<string, ServiceRecord[]>();
+    for (const s of services) {
+      const key = `${s.service_type}::${s.supplier_name || ''}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    }
+    // Sort by type label then supplier
+    return Array.from(map.entries()).sort((a, b) => {
+      const [aType, aSupplier] = a[0].split('::');
+      const [bType, bSupplier] = b[0].split('::');
+      const typeCompare = getTypeLabel(aType).localeCompare(getTypeLabel(bType));
+      if (typeCompare !== 0) return typeCompare;
+      return (aSupplier || '').localeCompare(bSupplier || '');
+    });
+  }, [services]);
+
+  const getGroupSubtotals = (items: ServiceRecord[]) => {
+    const byCurrency: Record<string, { cost: number; price: number }> = {};
+    for (const s of items) {
+      if (!byCurrency[s.currency]) byCurrency[s.currency] = { cost: 0, price: 0 };
+      byCurrency[s.currency].cost += s.cost;
+      byCurrency[s.currency].price += s.price;
+    }
+    return byCurrency;
+  };
+
   if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando servicios...</div>;
 
   return (
@@ -138,37 +168,26 @@ export function FileServicesTab({ fileId, currency }: Props) {
       {services.length === 0 ? (
         <Card><CardContent className="py-8 text-center text-muted-foreground">No hay servicios cargados</CardContent></Card>
       ) : (
-        <div className="space-y-2">
-          {services.map(s => (
-            <Card key={s.id}>
-              <CardContent className="flex items-center gap-4 p-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  {getIcon(s.service_type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-muted-foreground">{getTypeLabel(s.service_type)}</span>
-                    {getStatusBadge(s.status)}
-                    {getDueBadge(s.payment_due_date, s.status)}
-                    {s.confirmation_number && <span className="font-mono text-xs text-muted-foreground">#{s.confirmation_number}</span>}
-                  </div>
-                  <p className="truncate font-medium">{s.description}</p>
-                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    {s.supplier_name && <span>Proveedor: {s.supplier_name}</span>}
-                    {s.payment_due_date && <span>Venc. pago: {new Date(s.payment_due_date).toLocaleDateString('es-AR')}</span>}
-                  </div>
-                </div>
-                <div className="hidden text-right sm:block">
-                  <p className="font-semibold">{s.currency} {s.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-muted-foreground">Costo: {s.currency} {s.cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
-                </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => setDeleteId(s.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-3">
+          {groups.map(([key, items]) => {
+            const [type, supplier] = key.split('::');
+            const subtotals = getGroupSubtotals(items);
+            return (
+              <ServiceGroup
+                key={key}
+                type={type}
+                supplier={supplier}
+                items={items}
+                subtotals={subtotals}
+                getIcon={getIcon}
+                getTypeLabel={getTypeLabel}
+                getStatusBadge={getStatusBadge}
+                getDueBadge={getDueBadge}
+                onEdit={openEdit}
+                onDelete={setDeleteId}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -255,5 +274,80 @@ export function FileServicesTab({ fileId, currency }: Props) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// Grouped service card component
+interface ServiceGroupProps {
+  type: string;
+  supplier: string;
+  items: ServiceRecord[];
+  subtotals: Record<string, { cost: number; price: number }>;
+  getIcon: (type: string) => React.ReactNode;
+  getTypeLabel: (type: string) => string;
+  getStatusBadge: (s: string) => React.ReactNode;
+  getDueBadge: (dueDate: string | null, status: string) => React.ReactNode;
+  onEdit: (s: ServiceRecord) => void;
+  onDelete: (id: string) => void;
+}
+
+function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel, getStatusBadge, getDueBadge, onEdit, onDelete }: ServiceGroupProps) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <button className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors rounded-t-lg">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              {getIcon(type)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">
+                {getTypeLabel(type)}{supplier ? ` — ${supplier}` : ''}
+              </p>
+              <p className="text-xs text-muted-foreground">{items.length} servicio{items.length > 1 ? 's' : ''}</p>
+            </div>
+            <div className="hidden gap-3 text-right sm:flex sm:flex-col">
+              {Object.entries(subtotals).map(([cur, { cost, price }]) => (
+                <div key={cur} className="text-xs">
+                  <span className="font-semibold">{cur} {price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-muted-foreground ml-2">Costo: {cur} {cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              ))}
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="border-t">
+            {items.map(s => (
+              <div key={s.id} className="flex items-center gap-4 p-3 border-b last:border-b-0">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {getStatusBadge(s.status)}
+                    {getDueBadge(s.payment_due_date, s.status)}
+                    {s.confirmation_number && <span className="font-mono text-xs text-muted-foreground">#{s.confirmation_number}</span>}
+                  </div>
+                  <p className="truncate font-medium text-sm">{s.description}</p>
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {s.service_date && <span>Fecha: {new Date(s.service_date).toLocaleDateString('es-AR')}</span>}
+                    {s.payment_due_date && <span>Venc. pago: {new Date(s.payment_due_date).toLocaleDateString('es-AR')}</span>}
+                  </div>
+                </div>
+                <div className="hidden text-right sm:block">
+                  <p className="font-semibold text-sm">{s.currency} {s.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-muted-foreground">Costo: {s.currency} {s.cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => onEdit(s)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => onDelete(s.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
