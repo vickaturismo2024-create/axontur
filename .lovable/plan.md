@@ -1,40 +1,28 @@
 
-# Plan: Resumen Financiero Consolidado por Expediente
 
-## Resumen
+# Plan: Conversión de moneda en recibos dentro del expediente
 
-Agregar una nueva pestaña "Resumen" en cada expediente que muestre un balance financiero completo: ingresos (recibos de clientes), egresos (pagos a operadores), saldos pendientes y margen real, todo segregado por moneda.
+## Problema
 
-## Cambios
+Cuando se registra un pago en ARS para un servicio en USD con cotización, el resumen financiero del expediente muestra el cobro en ARS en lugar de convertirlo a USD. La cuenta corriente correctamente refleja ARS (moneda real), pero el expediente debe mostrar el equivalente en la moneda del servicio.
 
-### 1. Nuevo componente `src/components/files/FileFinancialSummary.tsx`
+## Cambio
 
-Card con 4 secciones, agrupadas por moneda (USD, ARS, EUR, etc.):
+### `src/components/files/FileFinancialSummary.tsx`
 
-| Concepto | Fuente de datos |
-|----------|----------------|
-| **Precio de venta total** | `file_services` → suma de `price` por moneda |
-| **Costo total** | `file_services` → suma de `cost` por moneda |
-| **Cobrado al cliente** | `file_receipts` + `file_receipt_items` → suma de `amount` por moneda |
-| **Pagado a operadores** | `file_supplier_payments` → suma de `amount` por moneda |
-| **Pendiente de cobro** | Precio venta - Cobrado |
-| **Pendiente de pago** | Costo - Pagado a operadores |
-| **Margen bruto** | Precio venta - Costo (monto y %) |
-| **Resultado neto actual** | Cobrado - Pagado |
+Modificar la sección de agregación de receipt items (líneas 55-61) para que, cuando un item tenga `service_currency` y `exchange_rate`, se convierta el monto a la moneda del servicio:
 
-- Indicadores visuales: verde para saldos positivos, rojo para pendientes
-- Badges de alerta si hay montos vencidos sin pagar (cruzando con `payment_due_date`)
+- Traer los campos `service_currency` y `exchange_rate` además de `amount` y `currency` en el SELECT
+- Si `service_currency` existe y `exchange_rate > 0`: agregar `amount / exchange_rate` en la moneda `service_currency`
+- Si no hay conversión: mantener el comportamiento actual (sumar en la moneda de pago)
 
-### 2. `src/pages/FileDetail.tsx`
-
-- Agregar tab "Resumen" como primera pestaña (defaultValue)
-- Importar `FileFinancialSummary`
+Esto hace que un pago de ARS 1.200.000 con cotización 1200 se refleje como USD 1.000 cobrados en el resumen del expediente.
 
 ## Archivos afectados
 
-| Archivo | Acción |
+| Archivo | Cambio |
 |---------|--------|
-| `src/components/files/FileFinancialSummary.tsx` | Crear: resumen financiero consolidado |
-| `src/pages/FileDetail.tsx` | Agregar pestaña "Resumen" |
+| `src/components/files/FileFinancialSummary.tsx` | Convertir montos de receipt items a moneda de servicio cuando hay exchange_rate |
 
-No requiere cambios de BD — usa las tablas existentes con consultas de agregación.
+No requiere cambios de BD — los campos `service_currency` y `exchange_rate` ya existen en `file_receipt_items`.
+
