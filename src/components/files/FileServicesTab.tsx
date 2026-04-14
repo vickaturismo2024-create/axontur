@@ -121,7 +121,7 @@ export function FileServicesTab({ fileId, currency }: Props) {
       return <Badge variant="destructive" className="text-xs"><AlertTriangle className="mr-1 h-3 w-3" />Vencido</Badge>;
     }
     if (daysLeft <= 3) {
-      return <Badge variant="secondary" className="text-xs bg-yellow-500/20 text-yellow-700"><AlertTriangle className="mr-1 h-3 w-3" />Vence pronto</Badge>;
+      return <Badge variant="secondary" className="text-xs"><AlertTriangle className="mr-1 h-3 w-3" />Vence pronto</Badge>;
     }
     return null;
   };
