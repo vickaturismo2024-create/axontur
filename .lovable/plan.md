@@ -1,45 +1,55 @@
 
 
-# Plan: Navegacion cruzada + fichas expandibles de clientes
+# Plan: Eliminar límite de 1000 registros en todos los listados de clientes
 
-## Resumen
+## Problema
 
-Agregar links de navegacion cruzada entre presupuestos, clientes y expedientes, y convertir las tarjetas de clientes en fichas expandibles con toda la informacion del cliente, presupuestos y expedientes asociados.
+Supabase tiene un límite por defecto de 1000 filas por query. Varios componentes cargan clientes sin paginación, lo que causa que no se muestren todos los clientes cuando hay más de 1000.
 
-## Cambios
+## Componentes afectados
 
-### 1. `src/components/quotes/QuoteCard.tsx` — Links a cliente y expediente
+Los siguientes archivos hacen un solo `select` sin paginación ni loop:
 
-- Buscar si existe un expediente asociado al quote (query a `files` donde `quote_id = quote.id`) usando un `useEffect` al montar
-- Mostrar link "Ver cliente" al lado del nombre del cliente (navegar a `/clients?highlight=clientName`)
-- Si existe expediente, mostrar boton "Ver expediente" que navega a `/files/{fileId}` (reemplazar el boton "Expediente" actual que crea uno nuevo, mostrando "Ver expediente" si ya existe o "Crear expediente" si no)
+| Archivo | Uso |
+|---------|-----|
+| `src/components/quotes/ClientSelect.tsx` | Selector de clientes en presupuestos |
+| `src/components/quotes/DuplicateForClientDialog.tsx` | Duplicar presupuesto para otro cliente |
+| `src/components/layout/GlobalSearch.tsx` | Búsqueda global (CMD+K) |
+| `src/pages/Accounts.tsx` | Selector de cuentas contables |
 
-### 2. `src/pages/FileDetail.tsx` — Links a cliente y presupuesto
+Los que YA paginan correctamente (no se tocan): `Clients.tsx`, `FilePassengersTab.tsx`, `Dashboard.tsx`.
 
-- En el header, hacer que `client_name` sea un link clickeable que navegue a `/clients?highlight=clientName`
-- Si `file.quote_id` existe, agregar boton/link "Ver presupuesto" que navegue a `/quote/{quote_id}`
+## Solución
 
-### 3. `src/pages/Clients.tsx` — Fichas expandibles con datos completos
+Aplicar el mismo patrón de paginación que ya usa `Clients.tsx` en todos los componentes afectados:
 
-Reemplazar el grid de Cards por tarjetas expandibles (usando Collapsible):
+```typescript
+const PAGE = 1000;
+let from = 0;
+let all = [];
+while (true) {
+  const { data } = await supabase
+    .from('clients')
+    .select('...')
+    .order('name')
+    .range(from, from + PAGE - 1);
+  if (!data || data.length === 0) break;
+  all.push(...data);
+  if (data.length < PAGE) break;
+  from += PAGE;
+}
+```
 
-**Vista colapsada** (lo que se ve ahora resumido): nombre, DNI, email, telefono, badges de documentos
+Esto se aplica a cada uno de los 4 archivos, manteniendo los campos que cada uno ya selecciona.
 
-**Vista expandida** (al clickear la tarjeta):
-- **Datos personales**: todos los campos (direccion, localidad, nacionalidad, fecha nacimiento, sexo, CUIL/CUIT, pasaporte con emisión y vencimiento, DNI con vencimiento)
-- **Presupuestos asociados**: lista de quotes vinculados con destino, fecha, estado, precio — cada uno clickeable para navegar a `/quote/{id}`
-- **Expedientes asociados**: query a `files` por `client_name` o `client_id`, mostrar lista con file_number, destino, estado (badge de color), fecha — cada uno clickeable para navegar a `/files/{id}`
-- Botones Editar y Eliminar se mantienen
-
-Para obtener expedientes del cliente: hacer una query a `files` filtrando por `client_name` o `client_id` cuando se expande la tarjeta (lazy load).
-
-## Archivos afectados
+## Archivos a modificar
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/components/quotes/QuoteCard.tsx` | Detectar expediente existente, link a cliente, link a expediente |
-| `src/pages/FileDetail.tsx` | Link a cliente y a presupuesto en header |
-| `src/pages/Clients.tsx` | Fichas expandibles con todos los datos, presupuestos y expedientes |
+| `src/components/quotes/ClientSelect.tsx` | Loop de paginación en el fetch de clientes |
+| `src/components/quotes/DuplicateForClientDialog.tsx` | Loop de paginación en el fetch de clientes |
+| `src/components/layout/GlobalSearch.tsx` | Loop de paginación en el fetch de clientes (y suppliers) |
+| `src/pages/Accounts.tsx` | Loop de paginación en el fetch de clientes (y suppliers) |
 
 No requiere cambios de BD.
 
