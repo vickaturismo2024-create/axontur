@@ -26,15 +26,29 @@ export default function Accounts() {
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string; type: 'client' | 'supplier' } | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchAllPaged = async (table: 'clients' | 'suppliers', fields: string, userId: string) => {
+    const PAGE = 1000;
+    let from = 0;
+    const all: any[] = [];
+    while (true) {
+      const { data } = await supabase.from(table).select(fields).eq('user_id', userId).order('name').range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    return all;
+  };
+
   const load = async () => {
     if (!user) return;
     const [c, s, m] = await Promise.all([
-      supabase.from('clients').select('id, name').eq('user_id', user.id).order('name'),
-      supabase.from('suppliers').select('id, name').eq('user_id', user.id).order('name'),
+      fetchAllPaged('clients', 'id, name', user.id),
+      fetchAllPaged('suppliers', 'id, name', user.id),
       supabase.from('account_movements' as any).select('*').eq('user_id', user.id),
     ]);
-    setClients(c.data || []);
-    setSuppliers(s.data || []);
+    setClients(c);
+    setSuppliers(s);
     setMovements((m.data as any[]) || []);
     setLoading(false);
   };

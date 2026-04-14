@@ -28,9 +28,21 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   useEffect(() => {
     if (open) {
       setQuery('');
-      // Fetch clients and suppliers for search
-      supabase.from('clients').select('id, name, email, phone').then(({ data }) => setClients(data || []));
-      supabase.from('suppliers').select('id, name, type, email').then(({ data }) => setSuppliers(data || []));
+      const fetchAll = async (table: 'clients' | 'suppliers', fields: string) => {
+        const PAGE = 1000;
+        let from = 0;
+        const all: any[] = [];
+        while (true) {
+          const { data } = await supabase.from(table).select(fields).order('name').range(from, from + PAGE - 1);
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < PAGE) break;
+          from += PAGE;
+        }
+        return all;
+      };
+      fetchAll('clients', 'id, name, email, phone').then(setClients);
+      fetchAll('suppliers', 'id, name, type, email').then(setSuppliers);
     }
   }, [open]);
 
