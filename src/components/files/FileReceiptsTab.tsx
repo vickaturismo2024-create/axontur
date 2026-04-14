@@ -146,12 +146,12 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   };
 
   const downloadReceipt = async (r: Receipt) => {
-    let agency = { name: '', phone: '', address: '', cuit: '', email: '' };
+    let agency = { name: '', phone: '', address: '', cuit: '', email: '', logo_url: '' };
     if (user) {
       const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
-      if (data) agency = { name: (data as any).agency_name || '', phone: (data as any).phone || '', address: (data as any).address || '', cuit: (data as any).cuit || '', email: (data as any).email || '' };
+      if (data) agency = { name: (data as any).agency_name || '', phone: (data as any).phone || '', address: (data as any).address || '', cuit: (data as any).cuit || '', email: (data as any).email || '', logo_url: (data as any).logo_url || '' };
     }
-    generateReceiptPDF(r, agency);
+    await generateReceiptPDF(r, agency);
   };
 
   const getMethodLabel = (v: string) => METHODS.find(m => m.value === v)?.label || v;
