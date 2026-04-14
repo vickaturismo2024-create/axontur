@@ -1,55 +1,56 @@
 
 
-# Plan: Eliminar límite de 1000 registros en todos los listados de clientes
+# Plan: Navegación directa al cliente + filtros por estado en ficha expandible
 
-## Problema
+## Problemas detectados
 
-Supabase tiene un límite por defecto de 1000 filas por query. Varios componentes cargan clientes sin paginación, lo que causa que no se muestren todos los clientes cuando hay más de 1000.
+1. **FileDetail → Cliente**: Navega a `/clients?highlight=clientName` pero `Clients.tsx` no usa ese parámetro para auto-expandir la tarjeta del cliente correspondiente.
+2. **Ficha de cliente**: Muestra presupuestos y expedientes en una lista plana sin filtros por estado.
 
-## Componentes afectados
+## Cambios
 
-Los siguientes archivos hacen un solo `select` sin paginación ni loop:
+### 1. `src/pages/Clients.tsx` — Auto-expandir cliente desde highlight param
 
-| Archivo | Uso |
-|---------|-----|
-| `src/components/quotes/ClientSelect.tsx` | Selector de clientes en presupuestos |
-| `src/components/quotes/DuplicateForClientDialog.tsx` | Duplicar presupuesto para otro cliente |
-| `src/components/layout/GlobalSearch.tsx` | Búsqueda global (CMD+K) |
-| `src/pages/Accounts.tsx` | Selector de cuentas contables |
+- Leer `searchParams.get('highlight')` y cuando coincide con el nombre de un cliente, setear esa tarjeta como `open` automáticamente + scroll into view con `useRef`.
+- Pasar `defaultOpen` como prop a `ExpandableClientCard`.
 
-Los que YA paginan correctamente (no se tocan): `Clients.tsx`, `FilePassengersTab.tsx`, `Dashboard.tsx`.
+### 2. `src/pages/Clients.tsx` — Tabs y filtros dentro de la ficha expandida
 
-## Solución
+Reemplazar las secciones planas de presupuestos y expedientes por:
 
-Aplicar el mismo patrón de paginación que ya usa `Clients.tsx` en todos los componentes afectados:
+```text
+┌─ Datos personales ─────────────────────────┐
+│ ...campos...                                │
+└─────────────────────────────────────────────┘
 
-```typescript
-const PAGE = 1000;
-let from = 0;
-let all = [];
-while (true) {
-  const { data } = await supabase
-    .from('clients')
-    .select('...')
-    .order('name')
-    .range(from, from + PAGE - 1);
-  if (!data || data.length === 0) break;
-  all.push(...data);
-  if (data.length < PAGE) break;
-  from += PAGE;
-}
+┌─ [Presupuestos] [Expedientes] ─── tabs ────┐
+│                                             │
+│  Tab Presupuestos:                          │
+│  [Pendientes] [Enviados] [Aprobados] [Canc.]│
+│  - lista filtrada de quotes                 │
+│                                             │
+│  Tab Expedientes:                           │
+│  [Abiertos] [Cerrados]                      │
+│  Abiertos = confirmed, in_progress          │
+│  Cerrados = completed, cancelled            │
+│  - lista filtrada de files                  │
+└─────────────────────────────────────────────┘
 ```
 
-Esto se aplica a cada uno de los 4 archivos, manteniendo los campos que cada uno ya selecciona.
+- Usar `Tabs` + badges con conteo por categoría
+- Abiertos: `confirmed`, `in_progress` (y `pending` si existiera)
+- Cerrados: `completed`, `cancelled`
+- Presupuestos: `draft` (Pendientes), `sent` (Enviados), `approved` (Aprobados), `cancelled`/`expired` (Cancelados)
 
-## Archivos a modificar
+### 3. `src/pages/FileDetail.tsx` — Navegación directa al cliente
+
+- Si `file.client_id` existe, navegar a `/clients?highlight=clientName` (ya lo hace) — el fix real está en Clients.tsx para que lo reciba y auto-expanda.
+
+## Archivos afectados
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/components/quotes/ClientSelect.tsx` | Loop de paginación en el fetch de clientes |
-| `src/components/quotes/DuplicateForClientDialog.tsx` | Loop de paginación en el fetch de clientes |
-| `src/components/layout/GlobalSearch.tsx` | Loop de paginación en el fetch de clientes (y suppliers) |
-| `src/pages/Accounts.tsx` | Loop de paginación en el fetch de clientes (y suppliers) |
+| `src/pages/Clients.tsx` | Auto-expand con highlight param, tabs presupuestos/expedientes con filtros por estado |
 
 No requiere cambios de BD.
 
