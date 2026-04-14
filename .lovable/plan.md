@@ -1,43 +1,45 @@
 
 
-# Plan: Mejorar generación de expedientes + eliminar expedientes
+# Plan: Navegacion cruzada + fichas expandibles de clientes
 
-## Problema
+## Resumen
 
-1. `createFileFromQuote` no mapea todos los tipos de servicio (faltan trenes, ferrys, autos de alquiler)
-2. Los precios de alojamiento no contemplan modo "total" (`pricingMode: 'total'`) ni ocupaciones
-3. No hay opción de eliminar expedientes
+Agregar links de navegacion cruzada entre presupuestos, clientes y expedientes, y convertir las tarjetas de clientes en fichas expandibles con toda la informacion del cliente, presupuestos y expedientes asociados.
 
 ## Cambios
 
-### 1. `src/lib/fileFromQuote.ts` — Mapeo completo de servicios
+### 1. `src/components/quotes/QuoteCard.tsx` — Links a cliente y expediente
 
-Agregar mapeo para todos los tipos de servicio faltantes:
+- Buscar si existe un expediente asociado al quote (query a `files` donde `quote_id = quote.id`) usando un `useEffect` al montar
+- Mostrar link "Ver cliente" al lado del nombre del cliente (navegar a `/clients?highlight=clientName`)
+- Si existe expediente, mostrar boton "Ver expediente" que navega a `/files/{fileId}` (reemplazar el boton "Expediente" actual que crea uno nuevo, mostrando "Ver expediente" si ya existe o "Crear expediente" si no)
 
-- **Trenes** (`quote.trains`): tipo `train`, descripción con company + trainNumber + origin-destination
-- **Ferrys** (`quote.ferries`): tipo `ferry`, descripción con company + vessel + origin-destination
-- **Autos de alquiler** (`quote.rentalCars`): tipo `rental_car`, descripción con company + carType + pickup-dropoff
-- **Alojamiento**: corregir cálculo de precio/costo para soportar `pricingMode: 'total'` (usar `totalCost`/`totalPrice` cuando aplique) y ocupaciones (`useOccupancies` con `occupancies[]`)
-- **Actividades/Transfers/Insurance/Cruise**: verificar que el `supplier` se mapee correctamente con `supplier_name`
-- Usar la moneda individual de cada servicio si existiera, o fallback a `quote.trip.currency`
+### 2. `src/pages/FileDetail.tsx` — Links a cliente y presupuesto
 
-### 2. `src/pages/FileDetail.tsx` — Botón eliminar expediente
+- En el header, hacer que `client_name` sea un link clickeable que navegue a `/clients?highlight=clientName`
+- Si `file.quote_id` existe, agregar boton/link "Ver presupuesto" que navegue a `/quote/{quote_id}`
 
-- Agregar botón "Eliminar" con ícono Trash2 en el header del expediente
-- Confirmar con AlertDialog antes de eliminar
-- Al confirmar: eliminar servicios, pasajeros, recibos, receipt_items, supplier_payments y finalmente el file
-- Redirigir a `/files` tras eliminar
+### 3. `src/pages/Clients.tsx` — Fichas expandibles con datos completos
 
-### 3. `src/pages/Files.tsx` — Eliminar desde listado (opcional)
+Reemplazar el grid de Cards por tarjetas expandibles (usando Collapsible):
 
-- Agregar opción de eliminar desde la tarjeta del listado con la misma lógica de confirmación
+**Vista colapsada** (lo que se ve ahora resumido): nombre, DNI, email, telefono, badges de documentos
+
+**Vista expandida** (al clickear la tarjeta):
+- **Datos personales**: todos los campos (direccion, localidad, nacionalidad, fecha nacimiento, sexo, CUIL/CUIT, pasaporte con emisión y vencimiento, DNI con vencimiento)
+- **Presupuestos asociados**: lista de quotes vinculados con destino, fecha, estado, precio — cada uno clickeable para navegar a `/quote/{id}`
+- **Expedientes asociados**: query a `files` por `client_name` o `client_id`, mostrar lista con file_number, destino, estado (badge de color), fecha — cada uno clickeable para navegar a `/files/{id}`
+- Botones Editar y Eliminar se mantienen
+
+Para obtener expedientes del cliente: hacer una query a `files` filtrando por `client_name` o `client_id` cuando se expande la tarjeta (lazy load).
 
 ## Archivos afectados
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/lib/fileFromQuote.ts` | Mapeo completo: trenes, ferrys, rental cars, fix precios alojamiento |
-| `src/pages/FileDetail.tsx` | Botón eliminar con AlertDialog + cascade delete |
+| `src/components/quotes/QuoteCard.tsx` | Detectar expediente existente, link a cliente, link a expediente |
+| `src/pages/FileDetail.tsx` | Link a cliente y a presupuesto en header |
+| `src/pages/Clients.tsx` | Fichas expandibles con todos los datos, presupuestos y expedientes |
 
-No requiere cambios de BD — las tablas ya permiten DELETE con RLS.
+No requiere cambios de BD.
 
