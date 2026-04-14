@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,11 +21,35 @@ interface Passenger {
   notes: string;
 }
 
-interface ClientOption { id: string; name: string; dni: string; passport: string; passport_expiry: string | null; birth_date: string | null; nationality: string; }
+interface ClientOption {
+  id: string;
+  name: string;
+  dni: string;
+  passport: string;
+  passport_expiry: string | null;
+  birth_date: string | null;
+  nationality: string;
+}
 
 const emptyPassenger: Omit<Passenger, 'id'> = {
-  client_id: null, name: '', dni: '', passport: '', passport_expiry: null, birth_date: null, nationality: '', notes: '',
+  client_id: null,
+  name: '',
+  dni: '',
+  passport: '',
+  passport_expiry: null,
+  birth_date: null,
+  nationality: '',
+  notes: '',
 };
+
+const CLIENTS_PAGE_SIZE = 1000;
+
+const normalizeText = (value: string | null | undefined) =>
+  (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
 interface Props { fileId: string; }
 
@@ -34,6 +58,7 @@ export function FilePassengersTab({ fileId }: Props) {
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingClients, setLoadingClients] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Passenger | null>(null);
   const [form, setForm] = useState({ ...emptyPassenger });
@@ -42,25 +67,83 @@ export function FilePassengersTab({ fileId }: Props) {
   const [clientSearch, setClientSearch] = useState('');
 
   const load = async () => {
+    setLoading(true);
     const { data } = await supabase.from('file_passengers').select('*').eq('file_id', fileId).order('name');
-    setPassengers((data as any[]) || []);
+    setPassengers((data as Passenger[]) || []);
     setLoading(false);
   };
 
   const loadClients = async () => {
-    if (!user) return;
-    const { data } = await supabase.from('clients').select('id,name,dni,passport,passport_expiry,birth_date,nationality').order('name');
-    setClients((data as ClientOption[]) || []);
+    if (!user) {
+      setClients([]);
+      return;
+    }
+
+    setLoadingClients(true);
+
+    try {
+      const allClients: ClientOption[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('id,name,dni,passport,passport_expiry,birth_date,nationality')
+          .order('name')
+          .range(from, from + CLIENTS_PAGE_SIZE - 1);
+
+        if (error) throw error;
+
+        const batch = (data as ClientOption[]) || [];
+        allClients.push(...batch);
+        hasMore = batch.length === CLIENTS_PAGE_SIZE;
+        from += CLIENTS_PAGE_SIZE;
+      }
+
+      setClients(allClients);
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al cargar pasajeros del CRM');
+    } finally {
+      setLoadingClients(false);
+    }
   };
 
-  useEffect(() => { load(); loadClients(); }, [fileId]);
+  useEffect(() => {
+    void load();
+  }, [fileId]);
 
-  const openNew = () => { setEditing(null); setForm({ ...emptyPassenger }); setImportMode(false); setClientSearch(''); setDialogOpen(true); };
+  useEffect(() => {
+    void loadClients();
+  }, [user]);
 
-  const openEdit = (p: Passenger) => { setEditing(p); setForm({ ...p }); setImportMode(false); setDialogOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setForm({ ...emptyPassenger });
+    setImportMode(false);
+    setClientSearch('');
+    setDialogOpen(true);
+  };
+
+  const openEdit = (p: Passenger) => {
+    setEditing(p);
+    setForm({ ...p });
+    setImportMode(false);
+    setDialogOpen(true);
+  };
 
   const importClient = (c: ClientOption) => {
-    setForm({ client_id: c.id, name: c.name, dni: c.dni || '', passport: c.passport || '', passport_expiry: c.passport_expiry, birth_date: c.birth_date, nationality: c.nationality || '', notes: '' });
+    setForm({
+      client_id: c.id,
+      name: c.name,
+      dni: c.dni || '',
+      passport: c.passport || '',
+      passport_expiry: c.passport_expiry,
+      birth_date: c.birth_date,
+      nationality: c.nationality || '',
+      notes: '',
+    });
     setImportMode(false);
   };
 
@@ -75,7 +158,7 @@ export function FilePassengersTab({ fileId }: Props) {
       if (error) toast.error('Error al agregar'); else toast.success('Pasajero agregado');
     }
     setDialogOpen(false);
-    load();
+    void load();
   };
 
   const handleDelete = async () => {
@@ -83,13 +166,20 @@ export function FilePassengersTab({ fileId }: Props) {
     await supabase.from('file_passengers').delete().eq('id', deleteId);
     setDeleteId(null);
     toast.success('Pasajero eliminado');
-    load();
+    void load();
   };
 
-  const filteredClients = clients.filter(c =>
-    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    (c.dni && c.dni.includes(clientSearch))
-  );
+  const filteredClients = useMemo(() => {
+    const query = normalizeText(clientSearch);
+
+    if (!query) return clients;
+
+    return clients.filter((client) =>
+      normalizeText(client.name).includes(query) ||
+      normalizeText(client.dni).includes(query) ||
+      normalizeText(client.passport).includes(query)
+    );
+  }, [clientSearch, clients]);
 
   if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando pasajeros...</div>;
 
@@ -144,15 +234,29 @@ export function FilePassengersTab({ fileId }: Props) {
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar cliente por nombre o DNI..."
+                  placeholder="Buscar cliente por nombre, DNI o pasaporte..."
                   value={clientSearch}
                   onChange={e => setClientSearch(e.target.value)}
                   className="pl-9"
                 />
               </div>
-              <div className="max-h-72 space-y-1 overflow-y-auto rounded-md border p-2">
-                {filteredClients.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2 text-center">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {loadingClients
+                    ? 'Cargando todos los pasajeros del CRM...'
+                    : `${filteredClients.length} resultado(s) sobre ${clients.length} pasajero(s)`}
+                </span>
+                {!!clientSearch && !loadingClients && (
+                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" onClick={() => setClientSearch('')}>
+                    Limpiar
+                  </Button>
+                )}
+              </div>
+              <div className="max-h-[50vh] space-y-1 overflow-y-auto rounded-md border p-2">
+                {loadingClients ? (
+                  <p className="py-3 text-center text-sm text-muted-foreground">Cargando pasajeros...</p>
+                ) : filteredClients.length === 0 ? (
+                  <p className="py-3 text-center text-sm text-muted-foreground">
                     {clientSearch ? 'Sin resultados' : 'No hay clientes en el CRM'}
                   </p>
                 ) : filteredClients.map(c => (
