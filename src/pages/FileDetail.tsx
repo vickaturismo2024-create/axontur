@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users } from 'lucide-react';
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
 import { FileReceiptsTab } from '@/components/files/FileReceiptsTab';
+import { FileSuppliersTab } from '@/components/files/FileSuppliersTab';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -151,6 +152,7 @@ const FileDetail = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="services">Servicios</TabsTrigger>
             <TabsTrigger value="passengers">Pasajeros</TabsTrigger>
+            <TabsTrigger value="suppliers">Operadores</TabsTrigger>
             <TabsTrigger value="receipts">Recibos</TabsTrigger>
           </TabsList>
 
@@ -159,6 +161,9 @@ const FileDetail = () => {
           </TabsContent>
           <TabsContent value="passengers">
             <FilePassengersTab fileId={file.id} />
+          </TabsContent>
+          <TabsContent value="suppliers">
+            <FileSuppliersTab fileId={file.id} currency={file.currency} />
           </TabsContent>
           <TabsContent value="receipts">
             <FileReceiptsTab fileId={file.id} clientName={file.client_name} currency={file.currency} clientId={file.client_id} />

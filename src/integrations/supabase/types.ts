@@ -289,6 +289,45 @@ export type Database = {
           },
         ]
       }
+      file_receipt_items: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          exchange_rate: number | null
+          id: string
+          notes: string | null
+          payment_method: string | null
+          receipt_id: string
+          service_currency: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          exchange_rate?: number | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          receipt_id: string
+          service_currency?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          exchange_rate?: number | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          receipt_id?: string
+          service_currency?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       file_receipts: {
         Row: {
           amount: number
@@ -352,6 +391,7 @@ export type Database = {
           file_id: string
           id: string
           notes: string | null
+          payment_due_date: string | null
           price: number
           service_date: string | null
           service_type: string
@@ -370,6 +410,7 @@ export type Database = {
           file_id: string
           id?: string
           notes?: string | null
+          payment_due_date?: string | null
           price?: number
           service_date?: string | null
           service_type?: string
@@ -388,6 +429,7 @@ export type Database = {
           file_id?: string
           id?: string
           notes?: string | null
+          payment_due_date?: string | null
           price?: number
           service_date?: string | null
           service_type?: string
@@ -413,6 +455,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      file_supplier_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          file_id: string
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+          reference: string | null
+          supplier_id: string | null
+          supplier_name: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          file_id: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          reference?: string | null
+          supplier_id?: string | null
+          supplier_name?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          file_id?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          reference?: string | null
+          supplier_id?: string | null
+          supplier_name?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       files: {
         Row: {

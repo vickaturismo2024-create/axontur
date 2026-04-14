@@ -7,22 +7,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity } from 'lucide-react';
+import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { isPast, isToday, differenceInDays } from 'date-fns';
 
 interface ServiceRecord {
   id: string;
   service_type: string;
   description: string;
   supplier_name: string;
+  supplier_id: string | null;
   status: string;
   confirmation_number: string;
   cost: number;
   price: number;
   currency: string;
   service_date: string | null;
+  payment_due_date: string | null;
   notes: string;
 }
 
@@ -45,9 +48,11 @@ const SERVICE_STATUS = [
   { value: 'cancelled', label: 'Cancelado' },
 ];
 
+const CURRENCIES = ['USD', 'ARS', 'EUR', 'BRL'];
+
 const emptyService: Omit<ServiceRecord, 'id'> = {
-  service_type: 'flight', description: '', supplier_name: '', status: 'pending',
-  confirmation_number: '', cost: 0, price: 0, currency: 'USD', service_date: null, notes: '',
+  service_type: 'flight', description: '', supplier_name: '', supplier_id: null, status: 'pending',
+  confirmation_number: '', cost: 0, price: 0, currency: 'USD', service_date: null, payment_due_date: null, notes: '',
 };
 
 interface Props { fileId: string; currency: string; }
@@ -76,10 +81,10 @@ export function FileServicesTab({ fileId, currency }: Props) {
     if (!user) return;
     if (!form.description.trim()) { toast.error('Ingresá una descripción'); return; }
     if (editing) {
-      const { error } = await supabase.from('file_services').update({ ...form }).eq('id', editing.id);
+      const { error } = await supabase.from('file_services').update({ ...form } as any).eq('id', editing.id);
       if (error) toast.error('Error al actualizar'); else toast.success('Servicio actualizado');
     } else {
-      const { error } = await supabase.from('file_services').insert({ ...form, file_id: fileId, user_id: user.id });
+      const { error } = await supabase.from('file_services').insert({ ...form, file_id: fileId, user_id: user.id } as any);
       if (error) toast.error('Error al crear servicio'); else toast.success('Servicio agregado');
     }
     setDialogOpen(false);
@@ -107,6 +112,20 @@ export function FileServicesTab({ fileId, currency }: Props) {
     return <Badge variant="secondary">Pendiente</Badge>;
   };
 
+  const getDueBadge = (dueDate: string | null, status: string) => {
+    if (!dueDate || status === 'cancelled') return null;
+    const date = new Date(dueDate);
+    const today = new Date();
+    const daysLeft = differenceInDays(date, today);
+    if (isPast(date) && !isToday(date)) {
+      return <Badge variant="destructive" className="text-xs"><AlertTriangle className="mr-1 h-3 w-3" />Vencido</Badge>;
+    }
+    if (daysLeft <= 3) {
+      return <Badge variant="secondary" className="text-xs"><AlertTriangle className="mr-1 h-3 w-3" />Vence pronto</Badge>;
+    }
+    return null;
+  };
+
   if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando servicios...</div>;
 
   return (
@@ -130,10 +149,14 @@ export function FileServicesTab({ fileId, currency }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-medium text-muted-foreground">{getTypeLabel(s.service_type)}</span>
                     {getStatusBadge(s.status)}
+                    {getDueBadge(s.payment_due_date, s.status)}
                     {s.confirmation_number && <span className="font-mono text-xs text-muted-foreground">#{s.confirmation_number}</span>}
                   </div>
                   <p className="truncate font-medium">{s.description}</p>
-                  {s.supplier_name && <p className="text-xs text-muted-foreground">Proveedor: {s.supplier_name}</p>}
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {s.supplier_name && <span>Proveedor: {s.supplier_name}</span>}
+                    {s.payment_due_date && <span>Venc. pago: {new Date(s.payment_due_date).toLocaleDateString('es-AR')}</span>}
+                  </div>
                 </div>
                 <div className="hidden text-right sm:block">
                   <p className="font-semibold">{s.currency} {s.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
@@ -183,11 +206,24 @@ export function FileServicesTab({ fileId, currency }: Props) {
                 <Input value={form.confirmation_number} onChange={e => setForm({ ...form, confirmation_number: e.target.value })} placeholder="Código de confirmación" />
               </div>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Fecha del servicio</label>
-              <Input type="date" value={form.service_date || ''} onChange={e => setForm({ ...form, service_date: e.target.value || null })} />
-            </div>
             <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Fecha del servicio</label>
+                <Input type="date" value={form.service_date || ''} onChange={e => setForm({ ...form, service_date: e.target.value || null })} />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Venc. de pago</label>
+                <Input type="date" value={form.payment_due_date || ''} onChange={e => setForm({ ...form, payment_due_date: e.target.value || null })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Moneda</label>
+                <Select value={form.currency} onValueChange={v => setForm({ ...form, currency: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Costo</label>
                 <Input type="number" min={0} value={form.cost} onChange={e => setForm({ ...form, cost: Number(e.target.value) })} />
