@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Quote, QuoteStatus } from '@/types/quote';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   MapPin, Calendar, Users, Copy, Pencil, FileDown, Trash2, Eye, Send, CheckCircle,
-  Archive, Star, ArchiveRestore, UserPlus, FolderOpen, XCircle, RotateCcw
+  Archive, Star, ArchiveRestore, UserPlus, FolderOpen, XCircle, RotateCcw, ExternalLink
 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format, parseISO } from 'date-fns';
@@ -56,6 +56,13 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
   const navigate = useNavigate();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [creatingFile, setCreatingFile] = useState(false);
+  const [existingFileId, setExistingFileId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('files').select('id').eq('quote_id', quote.id).maybeSingle()
+      .then(({ data }) => { if (data) setExistingFileId(data.id); });
+  }, [quote.id, user]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -124,7 +131,13 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
                   </Badge>
                 ))}
               </div>
-              <p className="text-sm font-medium text-muted-foreground">{quote.client.name}</p>
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(`/clients?highlight=${encodeURIComponent(quote.client.name)}`); }}
+                className="text-sm font-medium text-muted-foreground hover:text-primary hover:underline flex items-center gap-1"
+              >
+                {quote.client.name}
+                <ExternalLink className="h-3 w-3" />
+              </button>
               <h3 className="mt-1 font-serif text-xl font-semibold text-foreground">{quote.trip.destination}</h3>
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -187,10 +200,14 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
                 <RotateCcw className="mr-1.5 h-4 w-4" />Reactivar
               </Button>
             )}
-            {/* Create file button for approved quotes */}
-            {status === 'approved' && (
+            {/* File button: view existing or create new */}
+            {existingFileId ? (
+              <Button variant="ghost" size="sm" onClick={() => navigate(`/files/${existingFileId}`)} className="text-primary hover:text-primary/80">
+                <FolderOpen className="mr-1.5 h-4 w-4" />Ver expediente
+              </Button>
+            ) : status === 'approved' && (
               <Button variant="ghost" size="sm" onClick={handleCreateFile} disabled={creatingFile} className="text-muted-foreground hover:text-foreground">
-                <FolderOpen className="mr-1.5 h-4 w-4" />{creatingFile ? 'Creando...' : 'Expediente'}
+                <FolderOpen className="mr-1.5 h-4 w-4" />{creatingFile ? 'Creando...' : 'Crear expediente'}
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => onExport(quote)} className="text-gold-dark hover:bg-gold/10 hover:text-gold-dark">

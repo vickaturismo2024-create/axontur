@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight, MapPin, Calendar, FolderOpen } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 import { DocumentAlertBadge, getDocStatus, getWorstStatus, DocStatus } from '@/components/clients/DocumentAlertBadge';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
@@ -236,41 +238,17 @@ const Clients = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filtered.map(client => {
-                  const qCount = getClientQuotes(client).length;
-                  return (
-                    <Card key={client.id} className="group">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{client.name}</CardTitle>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          <DocumentAlertBadge label="DNI" dateStr={client.dni_expiry} compact />
-                          <DocumentAlertBadge label="Pasaporte" dateStr={client.passport_expiry} compact />
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-1 text-sm text-muted-foreground">
-                          {client.dni && <p className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" />DNI: {client.dni}</p>}
-                          {client.email && <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{client.email}</p>}
-                          {(client.phone || client.phone_mobile) && (
-                            <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{client.phone_mobile || client.phone}</p>
-                          )}
-                          {client.nationality && <p className="text-xs">🌍 {client.nationality}</p>}
-                          <button
-                            onClick={() => qCount > 0 ? setQuotesDialogClient(client) : null}
-                            className={`text-xs ${qCount > 0 ? 'text-primary underline cursor-pointer hover:text-primary/80' : ''}`}
-                          >
-                            {qCount} presupuesto(s)
-                          </button>
-                        </div>
-                        <div className="mt-3 flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(client)}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeleteTargetId(client.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+              <div className="space-y-3">
+                {filtered.map(client => (
+                  <ExpandableClientCard
+                    key={client.id}
+                    client={client}
+                    quotes={getClientQuotes(client)}
+                    onEdit={() => handleEdit(client)}
+                    onDelete={() => setDeleteTargetId(client.id)}
+                    navigate={navigate}
+                  />
+                ))}
               </div>
             )}
           </TabsContent>
