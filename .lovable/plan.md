@@ -1,53 +1,40 @@
 
-
-# Plan: Recibo PDF doble con logo y diseño de marca
+# Plan: Resumen Financiero Consolidado por Expediente
 
 ## Resumen
 
-Rediseñar `generateReceiptPDF` para que genere dos copias idénticas del recibo en una sola hoja A4 (mitad superior e inferior), incluyendo el logo de la agencia y un diseño profesional con colores de marca.
+Agregar una nueva pestaña "Resumen" en cada expediente que muestre un balance financiero completo: ingresos (recibos de clientes), egresos (pagos a operadores), saldos pendientes y margen real, todo segregado por moneda.
 
 ## Cambios
 
-### 1. `src/components/files/receiptPdfUtils.ts` — Reescribir completo
+### 1. Nuevo componente `src/components/files/FileFinancialSummary.tsx`
 
-- Agregar `logo_url` al interface `Agency`
-- Crear función interna `drawReceipt(doc, receipt, agency, yOffset)` que dibuje un recibo en una posición Y dada dentro de la mitad de página (~148mm cada mitad)
-- Llamar `drawReceipt` dos veces: una con offset 0 (mitad superior) y otra con offset ~148mm (mitad inferior)
-- Dibujar línea de corte punteada en el medio de la hoja
-- **Logo**: Cargar la imagen con `fetch` + `FileReader` para convertir a base64, luego usar `doc.addImage()` en la esquina superior izquierda de cada copia
-- **Diseño de marca**: Usar franja de color en el header (azul oscuro por defecto), líneas decorativas con color acento, tipografía más profesional
+Card con 4 secciones, agrupadas por moneda (USD, ARS, EUR, etc.):
 
-### 2. `src/components/files/FileReceiptsTab.tsx` — Pasar logo_url
+| Concepto | Fuente de datos |
+|----------|----------------|
+| **Precio de venta total** | `file_services` → suma de `price` por moneda |
+| **Costo total** | `file_services` → suma de `cost` por moneda |
+| **Cobrado al cliente** | `file_receipts` + `file_receipt_items` → suma de `amount` por moneda |
+| **Pagado a operadores** | `file_supplier_payments` → suma de `amount` por moneda |
+| **Pendiente de cobro** | Precio venta - Cobrado |
+| **Pendiente de pago** | Costo - Pagado a operadores |
+| **Margen bruto** | Precio venta - Costo (monto y %) |
+| **Resultado neto actual** | Cobrado - Pagado |
 
-- En `downloadReceipt`, incluir `logo_url` del perfil al construir el objeto `agency`
-- Cambiar `generateReceiptPDF` a `async` ya que necesita cargar la imagen del logo
+- Indicadores visuales: verde para saldos positivos, rojo para pendientes
+- Badges de alerta si hay montos vencidos sin pagar (cruzando con `payment_due_date`)
 
-### Diseño del recibo (cada mitad ~148mm)
+### 2. `src/pages/FileDetail.tsx`
 
-```text
-┌─────────────────────────────────────┐
-│ [LOGO]   NOMBRE AGENCIA             │
-│          Dir | Tel | CUIT | Email    │
-│ ─────────────────────────────────── │
-│          RECIBO N° 0001              │
-│ Fecha:     xx/xx/xxxx                │
-│ Cliente:   Nombre                    │
-│ Concepto:  Texto                     │
-│ Método:    Transferencia             │
-│ ─────────────────────────────────── │
-│ TOTAL:              USD 1.500,00     │
-│ Observaciones: ...                   │
-│ ___________      ___________         │
-│ Firma Agencia    Firma Cliente       │
-├─ ─ ─ ─ ─ ─ ─ ─ CORTAR ─ ─ ─ ─ ─ ─ ┤
-│ [misma copia repetida abajo]         │
-└─────────────────────────────────────┘
-```
+- Agregar tab "Resumen" como primera pestaña (defaultValue)
+- Importar `FileFinancialSummary`
 
 ## Archivos afectados
 
-| Archivo | Cambio |
+| Archivo | Acción |
 |---------|--------|
-| `src/components/files/receiptPdfUtils.ts` | Reescribir: recibo doble, logo, diseño de marca |
-| `src/components/files/FileReceiptsTab.tsx` | Pasar `logo_url`, hacer `downloadReceipt` async |
+| `src/components/files/FileFinancialSummary.tsx` | Crear: resumen financiero consolidado |
+| `src/pages/FileDetail.tsx` | Agregar pestaña "Resumen" |
 
+No requiere cambios de BD — usa las tablas existentes con consultas de agregación.
