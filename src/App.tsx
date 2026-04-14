@@ -47,6 +47,7 @@ const App = () => (
           <BrowserRouter>
             <TourProvider>
               <TourOverlay />
+              <BirthdayNotifier />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/pdf/:id" element={<PublicPDF />} />
