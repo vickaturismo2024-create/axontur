@@ -61,6 +61,20 @@ export default function Reservations() {
     enabled: reservationIds.length > 0,
   });
 
+  const { data: allChanges } = useQuery({
+    queryKey: ['all-reservation-changes', reservationIds],
+    queryFn: async () => {
+      if (!reservationIds.length) return [];
+      const { data } = await supabase
+        .from('reservation_changes')
+        .select('*')
+        .in('reservation_id', reservationIds)
+        .eq('status', 'pending');
+      return (data || []) as unknown as ReservationChange[];
+    },
+    enabled: reservationIds.length > 0,
+  });
+
   const passengersByRes = new Map<string, ReservationPassenger[]>();
   (allPassengers || []).forEach(p => {
     if (!passengersByRes.has(p.reservation_id)) passengersByRes.set(p.reservation_id, []);
@@ -71,6 +85,11 @@ export default function Reservations() {
   (allSegments || []).forEach(s => {
     if (!segmentsByRes.has(s.reservation_id)) segmentsByRes.set(s.reservation_id, []);
     segmentsByRes.get(s.reservation_id)!.push(s);
+  });
+
+  const pendingChangesByRes = new Map<string, number>();
+  (allChanges || []).forEach(c => {
+    pendingChangesByRes.set(c.reservation_id, (pendingChangesByRes.get(c.reservation_id) || 0) + 1);
   });
 
   const filtered = (reservations || []).filter(r => {
