@@ -12,6 +12,7 @@ import {
   UpcomingFlight,
 } from '@/types/reservation';
 import { ParsedReservation, getStatusMeaning, toLocalISOString } from '@/lib/pnrParser';
+import { diffReservation, DiffChange } from '@/lib/pnrDiff';
 
 // Fetch all reservations
 export function useReservationsList() {
