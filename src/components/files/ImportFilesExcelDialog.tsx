@@ -291,13 +291,13 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         {!preview.length && !result && (
-          <div className="flex-1 flex items-center justify-center py-12">
-            <label className="cursor-pointer flex flex-col items-center gap-3 p-8 border-2 border-dashed border-border rounded-lg hover:border-primary transition-colors">
+          <div className="flex-1 flex flex-col items-center justify-center py-8 gap-4">
+            <label className="cursor-pointer flex flex-col items-center gap-3 p-8 border-2 border-dashed border-border rounded-lg hover:border-primary transition-colors w-full max-w-md">
               <Upload className="h-10 w-10 text-muted-foreground" />
               <div className="text-center">
                 <p className="font-medium">Seleccionar archivo .xlsx</p>
                 <p className="text-sm text-muted-foreground">
-                  {parsing ? 'Procesando...' : 'O arrastrá el archivo aquí'}
+                  {parsing ? 'Procesando...' : fileName || 'O arrastrá el archivo aquí'}
                 </p>
               </div>
               <input
@@ -311,6 +311,29 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
                 }}
               />
             </label>
+            {parseError && (
+              <div className="w-full max-w-md border border-destructive/50 rounded-lg p-3 bg-destructive/5 text-sm space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-destructive">{parseError.message}</p>
+                    {parseError.sheets.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Hojas detectadas: {parseError.sheets.join(', ')}
+                      </p>
+                    )}
+                    {parseError.headers && parseError.headers.length > 0 && (
+                      <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer">Headers vistos</summary>
+                        <p className="mt-1 break-words font-mono text-[10px] leading-relaxed">
+                          {parseError.headers.slice(0, 30).join(' | ')}
+                        </p>
+                      </details>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
