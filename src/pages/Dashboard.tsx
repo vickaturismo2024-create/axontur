@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
 import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
+import { CurrencyRatesWidget } from '@/components/dashboard/CurrencyRatesWidget';
 
 import { defaultTemplate } from '@/data/demoData';
 
@@ -350,6 +351,11 @@ const Dashboard = () => {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Currency Rates */}
+        <div className="mb-6">
+          <CurrencyRatesWidget />
         </div>
 
         {/* Reminders */}
