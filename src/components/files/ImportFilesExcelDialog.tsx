@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, Users, FolderOpen } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, Users, FolderOpen, Receipt, Wallet } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -38,14 +38,22 @@ interface PreviewRow extends ParsedLegacyReservation {
   isDuplicate?: boolean;
   matchedClientId?: string | null;
   matchedClientName?: string | null;
+  receiptsArs: number;
+  receiptsUsd: number;
+  paymentsArs: number;
+  paymentsUsd: number;
 }
 
 interface ImportResult {
   created: number;
   updated: number;
   servicesInserted: number;
+  receiptsCreated: number;
+  supplierPaymentsCreated: number;
   errors: { legacyId: string; message: string }[];
 }
+
+const LEGACY_NOTE_PREFIX = 'Importado del sistema antiguo';
 
 const norm = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
@@ -74,6 +82,13 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
     if (!v) reset();
     onOpenChange(v);
   };
+
+  const computeReservationTotals = (r: ParsedLegacyReservation) => ({
+    receiptsArs: r.services.reduce((a, s) => a + s.receivedArs, 0),
+    receiptsUsd: r.services.reduce((a, s) => a + s.receivedUsd, 0),
+    paymentsArs: r.services.reduce((a, s) => a + s.paymentsArs, 0),
+    paymentsUsd: r.services.reduce((a, s) => a + s.paymentsUsd, 0),
+  });
 
   const handleFile = async (file: File) => {
     setParsing(true);
@@ -107,7 +122,7 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
   const enrichPreview = async (
     reservations: ParsedLegacyReservation[]
   ): Promise<PreviewRow[]> => {
-    if (!user) return reservations;
+    if (!user) return reservations.map(r => ({ ...r, ...computeReservationTotals(r) }));
     const legacyIds = reservations.map(r => r.legacyId);
 
     const dupIds = new Set<string>();
@@ -157,6 +172,7 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
         isDuplicate: dupIds.has(r.legacyId),
         matchedClientId: match?.id || null,
         matchedClientName: match?.name || null,
+        ...computeReservationTotals(r),
       };
     });
   };
@@ -167,11 +183,49 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
     return 'USD';
   };
 
+  // Borra cobros/pagos previos importados (idempotencia para updates)
+  const deleteLegacyFinancials = async (fileId: string) => {
+    if (!user) return;
+    // Recibos importados (incluye sus items vía ON DELETE? no garantizado: borramos items por receipt_id)
+    const { data: oldReceipts } = await supabase
+      .from('file_receipts')
+      .select('id')
+      .eq('file_id', fileId)
+      .eq('user_id', user.id)
+      .like('notes', `${LEGACY_NOTE_PREFIX}%`);
+    const oldReceiptIds = (oldReceipts || []).map(r => r.id);
+    if (oldReceiptIds.length) {
+      await supabase.from('file_receipt_items').delete().in('receipt_id', oldReceiptIds).eq('user_id', user.id);
+      await supabase.from('file_receipts').delete().in('id', oldReceiptIds).eq('user_id', user.id);
+    }
+    // Pagos a operadores importados
+    await supabase
+      .from('file_supplier_payments')
+      .delete()
+      .eq('file_id', fileId)
+      .eq('user_id', user.id)
+      .like('notes', `${LEGACY_NOTE_PREFIX}%`);
+    // Movimientos en cuenta corriente importados
+    await supabase
+      .from('account_movements')
+      .delete()
+      .eq('file_id', fileId)
+      .eq('user_id', user.id)
+      .like('notes', `${LEGACY_NOTE_PREFIX}%`);
+  };
+
   const handleImport = async () => {
     if (!user || !preview.length) return;
     setImporting(true);
     setProgress({ current: 0, total: preview.length });
-    const res: ImportResult = { created: 0, updated: 0, servicesInserted: 0, errors: [] };
+    const res: ImportResult = {
+      created: 0,
+      updated: 0,
+      servicesInserted: 0,
+      receiptsCreated: 0,
+      supplierPaymentsCreated: 0,
+      errors: [],
+    };
 
     for (let i = 0; i < preview.length; i++) {
       const r = preview[i];
@@ -181,6 +235,7 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
         const totalCost = currency === 'USD' ? r.totals.costUsd : r.totals.costArs;
         const clientName = `${r.clientLastName} ${r.clientFirstName}`.trim() || 'Sin cliente';
         const notes = buildLegacyNotes(r);
+        const opDate = r.travelDate || r.openDate || new Date().toISOString().slice(0, 10);
 
         // Buscar duplicado
         const { data: existing } = await supabase
@@ -193,7 +248,6 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
         let fileId: string;
 
         if (existing?.id) {
-          // Update existente
           await supabase
             .from('files')
             .update({
@@ -209,8 +263,9 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
             })
             .eq('id', existing.id);
           fileId = existing.id;
-          // Reemplazar servicios: borrar previos
+          // Limpiar servicios y financieros previos para reemplazar
           await supabase.from('file_services').delete().eq('file_id', fileId).eq('user_id', user.id);
+          await deleteLegacyFinancials(fileId);
           res.updated++;
         } else {
           const { data: created, error } = await supabase
@@ -236,7 +291,7 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
           res.created++;
         }
 
-        // Insertar servicios
+        // Servicios
         const servicesToInsert = r.services
           .filter(s => s.operatorName || s.saleArs || s.costArs || s.saleUsd || s.costUsd)
           .map(s => {
@@ -261,6 +316,109 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
           if (svcErr) throw svcErr;
           res.servicesInserted += servicesToInsert.length;
         }
+
+        // ===== COBROS DEL PASAJERO → file_receipts + file_receipt_items =====
+        const items: { currency: 'ARS' | 'USD'; amount: number }[] = [];
+        if (r.receiptsArs > 0) items.push({ currency: 'ARS', amount: r.receiptsArs });
+        if (r.receiptsUsd > 0) items.push({ currency: 'USD', amount: r.receiptsUsd });
+
+        if (items.length) {
+          // Un único recibo agrupado, en moneda principal del expediente
+          const headerCurrency = items.find(it => it.currency === currency)?.currency || items[0].currency;
+          const headerAmount = items.find(it => it.currency === headerCurrency)!.amount;
+          const { data: receipt, error: rcptErr } = await supabase
+            .from('file_receipts')
+            .insert({
+              user_id: user.id,
+              file_id: fileId,
+              client_name: clientName,
+              concept: `${LEGACY_NOTE_PREFIX} (Nº ${r.legacyId})`,
+              payment_date: opDate,
+              payment_method: 'transfer',
+              currency: headerCurrency,
+              amount: headerAmount,
+              notes: `${LEGACY_NOTE_PREFIX} - cobros agrupados`,
+            })
+            .select('id')
+            .single();
+          if (rcptErr || !receipt) throw rcptErr || new Error('No se pudo crear el recibo');
+
+          const itemRows = items.map(it => ({
+            user_id: user.id,
+            receipt_id: receipt.id,
+            currency: it.currency,
+            amount: it.amount,
+            payment_method: 'transfer',
+            notes: `${LEGACY_NOTE_PREFIX} - ${it.currency}`,
+          }));
+          const { error: itemErr } = await supabase.from('file_receipt_items').insert(itemRows);
+          if (itemErr) throw itemErr;
+          res.receiptsCreated++;
+
+          // Movimiento en cuenta corriente del cliente vinculado
+          if (r.matchedClientId) {
+            const movRows = items.map(it => ({
+              user_id: user.id,
+              file_id: fileId,
+              account_id: r.matchedClientId!,
+              account_type: 'client',
+              movement_type: 'credit',
+              currency: it.currency,
+              amount: it.amount,
+              concept: `Cobro expediente Nº ${r.legacyId}`,
+              reference: `LEG-${r.legacyId}`,
+              movement_date: opDate,
+              notes: `${LEGACY_NOTE_PREFIX} - cobro pasajero`,
+            }));
+            await supabase.from('account_movements').insert(movRows);
+          }
+        }
+
+        // ===== PAGOS A OPERADORES → file_supplier_payments =====
+        const supplierPayments: Array<{
+          user_id: string;
+          file_id: string;
+          supplier_name: string;
+          currency: 'ARS' | 'USD';
+          amount: number;
+          payment_date: string;
+          payment_method: string;
+          reference: string;
+          notes: string;
+        }> = [];
+        for (const s of r.services) {
+          if (s.paymentsArs > 0) {
+            supplierPayments.push({
+              user_id: user.id,
+              file_id: fileId,
+              supplier_name: s.operatorName || 'Operador',
+              currency: 'ARS',
+              amount: s.paymentsArs,
+              payment_date: opDate,
+              payment_method: 'transfer',
+              reference: `LEG-${r.legacyId}`,
+              notes: `${LEGACY_NOTE_PREFIX} - pago a ${s.operatorName || 'operador'}`,
+            });
+          }
+          if (s.paymentsUsd > 0) {
+            supplierPayments.push({
+              user_id: user.id,
+              file_id: fileId,
+              supplier_name: s.operatorName || 'Operador',
+              currency: 'USD',
+              amount: s.paymentsUsd,
+              payment_date: opDate,
+              payment_method: 'transfer',
+              reference: `LEG-${r.legacyId}`,
+              notes: `${LEGACY_NOTE_PREFIX} - pago a ${s.operatorName || 'operador'}`,
+            });
+          }
+        }
+        if (supplierPayments.length) {
+          const { error: payErr } = await supabase.from('file_supplier_payments').insert(supplierPayments);
+          if (payErr) throw payErr;
+          res.supplierPaymentsCreated += supplierPayments.length;
+        }
       } catch (e) {
         res.errors.push({ legacyId: r.legacyId, message: e instanceof Error ? e.message : 'Error' });
       }
@@ -270,12 +428,25 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
     qc.invalidateQueries({ queryKey: ['files'] });
     setResult(res);
     setImporting(false);
-    toast.success(`Importación finalizada: ${res.created} nuevos, ${res.updated} actualizados`);
+    toast.success(
+      `Importación finalizada: ${res.created} nuevos, ${res.updated} actualizados, ${res.receiptsCreated} recibos, ${res.supplierPaymentsCreated} pagos`
+    );
   };
 
   const newCount = preview.filter(p => !p.isDuplicate).length;
   const dupCount = preview.filter(p => p.isDuplicate).length;
   const linkedCount = preview.filter(p => p.matchedClientId).length;
+  const previewTotals = preview.reduce(
+    (acc, p) => ({
+      receiptsArs: acc.receiptsArs + p.receiptsArs,
+      receiptsUsd: acc.receiptsUsd + p.receiptsUsd,
+      paymentsArs: acc.paymentsArs + p.paymentsArs,
+      paymentsUsd: acc.paymentsUsd + p.paymentsUsd,
+    }),
+    { receiptsArs: 0, receiptsUsd: 0, paymentsArs: 0, paymentsUsd: 0 }
+  );
+
+  const fmtMoney = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 2 });
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -286,7 +457,7 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
             Importar expedientes desde Excel
           </DialogTitle>
           <DialogDescription>
-            Importá expedientes del sistema antiguo. Las filas con el mismo número (ID_RES) se agrupan en un expediente con todos sus servicios.
+            Importá expedientes del sistema antiguo. Las filas con el mismo número (ID_RES) se agrupan en un expediente con todos sus servicios, cobros y pagos a operadores.
           </DialogDescription>
         </DialogHeader>
 
@@ -356,6 +527,18 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
                   {linkedCount} con cliente vinculado
                 </Badge>
               )}
+              {(previewTotals.receiptsArs + previewTotals.receiptsUsd) > 0 && (
+                <Badge variant="outline" className="gap-1">
+                  <Receipt className="h-3 w-3" />
+                  Cobros: ARS {fmtMoney(previewTotals.receiptsArs)} / USD {fmtMoney(previewTotals.receiptsUsd)}
+                </Badge>
+              )}
+              {(previewTotals.paymentsArs + previewTotals.paymentsUsd) > 0 && (
+                <Badge variant="outline" className="gap-1">
+                  <Wallet className="h-3 w-3" />
+                  Pagos: ARS {fmtMoney(previewTotals.paymentsArs)} / USD {fmtMoney(previewTotals.paymentsUsd)}
+                </Badge>
+              )}
             </div>
 
             <ScrollArea className="flex-1 max-h-[50vh] border rounded-md">
@@ -405,6 +588,30 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
                             ))}
                           </ul>
                         </div>
+                        {(r.receiptsArs > 0 || r.receiptsUsd > 0 || r.paymentsArs > 0 || r.paymentsUsd > 0) && (
+                          <div className="border-t pt-2 grid grid-cols-2 gap-2 text-xs">
+                            {(r.receiptsArs > 0 || r.receiptsUsd > 0) && (
+                              <div>
+                                <span className="text-muted-foreground inline-flex items-center gap-1">
+                                  <Receipt className="h-3 w-3" /> Cobros pasajero:
+                                </span>{' '}
+                                {r.receiptsArs > 0 && `ARS ${fmtMoney(r.receiptsArs)}`}
+                                {r.receiptsArs > 0 && r.receiptsUsd > 0 && ' · '}
+                                {r.receiptsUsd > 0 && `USD ${fmtMoney(r.receiptsUsd)}`}
+                              </div>
+                            )}
+                            {(r.paymentsArs > 0 || r.paymentsUsd > 0) && (
+                              <div>
+                                <span className="text-muted-foreground inline-flex items-center gap-1">
+                                  <Wallet className="h-3 w-3" /> Pagos a operadores:
+                                </span>{' '}
+                                {r.paymentsArs > 0 && `ARS ${fmtMoney(r.paymentsArs)}`}
+                                {r.paymentsArs > 0 && r.paymentsUsd > 0 && ' · '}
+                                {r.paymentsUsd > 0 && `USD ${fmtMoney(r.paymentsUsd)}`}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -438,7 +645,7 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
               <FolderOpen className="h-12 w-12 text-primary mx-auto" />
               <h3 className="text-lg font-semibold">Importación completada</h3>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
               <div className="border rounded-lg p-3">
                 <div className="text-2xl font-bold text-primary">{result.created}</div>
                 <div className="text-xs text-muted-foreground">Nuevos</div>
@@ -449,7 +656,15 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
               </div>
               <div className="border rounded-lg p-3">
                 <div className="text-2xl font-bold">{result.servicesInserted}</div>
-                <div className="text-xs text-muted-foreground">Servicios cargados</div>
+                <div className="text-xs text-muted-foreground">Servicios</div>
+              </div>
+              <div className="border rounded-lg p-3">
+                <div className="text-2xl font-bold">{result.receiptsCreated}</div>
+                <div className="text-xs text-muted-foreground">Recibos</div>
+              </div>
+              <div className="border rounded-lg p-3">
+                <div className="text-2xl font-bold">{result.supplierPaymentsCreated}</div>
+                <div className="text-xs text-muted-foreground">Pagos a operadores</div>
               </div>
             </div>
             {result.errors.length > 0 && (
