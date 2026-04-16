@@ -13,6 +13,7 @@ import {
 } from '@/types/reservation';
 import { ParsedReservation, getStatusMeaning, toLocalISOString } from '@/lib/pnrParser';
 import { diffReservation, DiffChange } from '@/lib/pnrDiff';
+import { ParsedLegacyReservation, buildLegacyNotes, normalizeName } from '@/lib/reservationExcelParser';
 
 // Fetch all reservations
 export function useReservationsList() {
@@ -568,6 +569,148 @@ export function useUpdateReservationFromPNR() {
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
       queryClient.invalidateQueries({ queryKey: ['upcoming-flights'] });
       queryClient.invalidateQueries({ queryKey: ['pending-changes-count'] });
+    },
+  });
+}
+
+// ============================================================================
+// Bulk import from legacy Excel
+// ============================================================================
+
+export interface BulkImportProgress {
+  current: number;
+  total: number;
+  created: number;
+  merged: number;
+  passengersLinked: number;
+}
+
+export interface BulkImportResult extends BulkImportProgress {
+  errors: { legacyId: string; message: string }[];
+}
+
+interface ClientMatchRow {
+  id: string;
+  name: string;
+  dni: string | null;
+}
+
+export function useBulkImportReservations() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      reservations,
+      onProgress,
+    }: {
+      reservations: ParsedLegacyReservation[];
+      onProgress?: (p: BulkImportProgress) => void;
+    }): Promise<BulkImportResult> => {
+      if (!user) throw new Error('No user');
+
+      // Pre-cargar clientes del usuario para matching (con paginación >1000)
+      const clients: ClientMatchRow[] = [];
+      let from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('id, name, dni')
+          .eq('user_id', user.id)
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const batch = (data || []) as ClientMatchRow[];
+        clients.push(...batch);
+        if (batch.length < PAGE) break;
+        from += PAGE;
+      }
+
+      const byDni = new Map<string, string>();
+      const byLastName = new Map<string, string>();
+      for (const c of clients) {
+        if (c.dni) byDni.set(c.dni.trim(), c.id);
+        const norm = normalizeName(c.name || '');
+        if (norm && !byLastName.has(norm)) byLastName.set(norm, c.id);
+        const firstToken = norm.split(' ')[0];
+        if (firstToken && !byLastName.has(firstToken)) byLastName.set(firstToken, c.id);
+      }
+
+      const result: BulkImportResult = {
+        current: 0,
+        total: reservations.length,
+        created: 0,
+        merged: 0,
+        passengersLinked: 0,
+        errors: [],
+      };
+
+      for (const r of reservations) {
+        try {
+          const { data: existing } = await supabase
+            .from('reservations')
+            .select('id, notes')
+            .eq('user_id', user.id)
+            .eq('legacy_id', r.legacyId)
+            .maybeSingle();
+
+          const notes = buildLegacyNotes(r);
+
+          const lastNameNorm = normalizeName(r.clientLastName);
+          const fullNameNorm = normalizeName(`${r.clientLastName} ${r.clientFirstName}`.trim());
+          const clientId =
+            byLastName.get(fullNameNorm) ||
+            byLastName.get(lastNameNorm) ||
+            null;
+
+          if (existing) {
+            await supabase
+              .from('reservations')
+              .update({ notes, source_type: 'excel_legacy' })
+              .eq('id', existing.id);
+            result.merged++;
+          } else {
+            const { data: created, error: createErr } = await supabase
+              .from('reservations')
+              .insert({
+                user_id: user.id,
+                legacy_id: r.legacyId,
+                source_type: 'excel_legacy',
+                notes,
+                locator: r.legacyId,
+              })
+              .select('id')
+              .single();
+            if (createErr) throw createErr;
+
+            const { error: paxErr } = await supabase
+              .from('reservation_passengers')
+              .insert({
+                reservation_id: created.id,
+                last_name: r.clientLastName || '(sin nombre)',
+                first_name: r.clientFirstName || null,
+                client_id: clientId,
+              });
+            if (paxErr) throw paxErr;
+
+            if (clientId) result.passengersLinked++;
+            result.created++;
+          }
+        } catch (err) {
+          result.errors.push({
+            legacyId: r.legacyId,
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+
+        result.current++;
+        onProgress?.({ ...result });
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
     },
   });
 }

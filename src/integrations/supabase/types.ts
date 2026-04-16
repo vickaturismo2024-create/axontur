@@ -1078,6 +1078,7 @@ export type Database = {
       }
       reservation_passengers: {
         Row: {
+          client_id: string | null
           created_at: string
           document: string | null
           first_name: string | null
@@ -1087,6 +1088,7 @@ export type Database = {
           title: string | null
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           document?: string | null
           first_name?: string | null
@@ -1096,6 +1098,7 @@ export type Database = {
           title?: string | null
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           document?: string | null
           first_name?: string | null
@@ -1105,6 +1108,13 @@ export type Database = {
           title?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "reservation_passengers_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reservation_passengers_reservation_id_fkey"
             columns: ["reservation_id"]
@@ -1120,6 +1130,7 @@ export type Database = {
           file_id: string | null
           gds: string | null
           id: string
+          legacy_id: string | null
           locator: string | null
           notes: string | null
           raw_text_latest: string | null
@@ -1132,6 +1143,7 @@ export type Database = {
           file_id?: string | null
           gds?: string | null
           id?: string
+          legacy_id?: string | null
           locator?: string | null
           notes?: string | null
           raw_text_latest?: string | null
@@ -1144,6 +1156,7 @@ export type Database = {
           file_id?: string | null
           gds?: string | null
           id?: string
+          legacy_id?: string | null
           locator?: string | null
           notes?: string | null
           raw_text_latest?: string | null

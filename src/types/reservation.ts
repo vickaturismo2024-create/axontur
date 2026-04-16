@@ -9,6 +9,7 @@ export interface Reservation {
   notes?: string | null;
   raw_text_latest?: string | null;
   file_id?: string | null;
+  legacy_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -20,6 +21,7 @@ export interface ReservationPassenger {
   first_name?: string | null;
   title?: string | null;
   document?: string | null;
+  client_id?: string | null;
   created_at: string;
 }
 
