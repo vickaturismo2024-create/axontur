@@ -123,7 +123,7 @@ export default function Reservations() {
             <p className="text-muted-foreground">Gestión de PNR, pasajeros y segmentos</p>
           </div>
           <Button asChild>
-            <Link to="/reservas/importar">
+            <Link to="/reservations/import">
               <Plus className="h-4 w-4 mr-2" />
               Importar Reserva
             </Link>
