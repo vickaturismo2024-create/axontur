@@ -59,11 +59,15 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [parseError, setParseError] = useState<{ message: string; sheets: string[]; headers?: string[] } | null>(null);
+  const [fileName, setFileName] = useState<string>('');
 
   const reset = () => {
     setPreview([]);
     setProgress(null);
     setResult(null);
+    setParseError(null);
+    setFileName('');
   };
 
   const handleClose = (v: boolean) => {
@@ -73,9 +77,16 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
 
   const handleFile = async (file: File) => {
     setParsing(true);
+    setParseError(null);
+    setFileName(file.name);
     try {
-      const { reservations, totalRows } = await parseReservationsExcel(file);
+      const { reservations, totalRows, diagnostics } = await parseReservationsExcel(file);
       if (!reservations.length) {
+        setParseError({
+          message: 'No se encontró la columna ID_RES en el archivo.',
+          sheets: diagnostics.sheetsDetected,
+          headers: diagnostics.headersDetected,
+        });
         toast.error('No se encontraron expedientes en el archivo');
         setParsing(false);
         return;
@@ -84,6 +95,8 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
       setPreview(enriched);
       toast.success(`${reservations.length} expedientes detectados (${totalRows} filas)`);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error desconocido';
+      setParseError({ message: `Error al leer el archivo: ${msg}`, sheets: [] });
       toast.error('Error al leer el archivo Excel');
       console.error(e);
     } finally {
