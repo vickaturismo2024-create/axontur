@@ -168,19 +168,19 @@ export default function Reservations() {
 
               return (
                 <Card key={r.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${hasChanges || pendingCount > 0 ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg shrink-0 ${hasChanges || pendingCount > 0 ? 'bg-destructive/10' : 'bg-primary/10'}`}>
                         <Plane className={`h-5 w-5 ${hasChanges || pendingCount > 0 ? 'text-destructive' : 'text-primary'}`} />
                       </div>
 
                       <Link to={`/reservations/${r.id}`} className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                           {r.locator && (
-                            <span className="font-mono font-semibold">{r.locator}</span>
+                            <span className="font-mono font-semibold text-sm sm:text-base">{r.locator}</span>
                           )}
                           {firstSeg && (
-                            <span className="text-muted-foreground">
+                            <span className="text-muted-foreground text-xs sm:text-sm">
                               {firstSeg.airline_code} {firstSeg.flight_number} {firstSeg.origin_iata}→{firstSeg.destination_iata}
                             </span>
                           )}
@@ -189,21 +189,21 @@ export default function Reservations() {
                           )}
                           {pendingCount > 0 && (
                             <Badge variant="destructive" className="text-xs">
-                              <AlertTriangle className="h-3 w-3 mr-1" />{pendingCount} cambio(s) pendiente(s)
+                              <AlertTriangle className="h-3 w-3 mr-1" />{pendingCount} cambio(s)
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                          <span>
+                        <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground mt-1 flex-wrap">
+                          <span className="truncate max-w-full">
                             {pax.length > 0
                               ? pax.map(p => `${p.last_name}/${p.first_name || ''}`).join(', ')
                               : 'Sin pasajeros'}
                           </span>
-                          <span>•</span>
-                          <span>{format(new Date(r.created_at), "d MMM yyyy", { locale: es })}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="whitespace-nowrap">{format(new Date(r.created_at), "d MMM yyyy", { locale: es })}</span>
                           {r.gds && (
                             <>
-                              <span>•</span>
+                              <span className="hidden sm:inline">•</span>
                               <span className="uppercase">{r.gds}</span>
                             </>
                           )}
@@ -212,7 +212,7 @@ export default function Reservations() {
 
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>

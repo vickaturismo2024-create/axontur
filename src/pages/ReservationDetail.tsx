@@ -177,45 +177,47 @@ export default function ReservationDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto p-4 md:p-8">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <main className="container mx-auto p-3 sm:p-4 md:p-8">
+        <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
           {/* Header */}
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
-            </Button>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">
-                  {reservation.locator ? `Reserva ${reservation.locator}` : 'Reserva'}
-                </h1>
-                {pendingChanges.length > 0 && (
-                  <Badge variant="outline" className="text-destructive border-destructive/30">
-                    <AlertTriangle className="h-3 w-3 mr-1" />{pendingChanges.length} cambio(s)
-                  </Badge>
-                )}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <Button variant="ghost" size="icon" asChild className="shrink-0">
+                <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
+              </Button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl font-bold truncate">
+                    {reservation.locator ? `Reserva ${reservation.locator}` : 'Reserva'}
+                  </h1>
+                  {pendingChanges.length > 0 && (
+                    <Badge variant="outline" className="text-destructive border-destructive/30">
+                      <AlertTriangle className="h-3 w-3 mr-1" />{pendingChanges.length} cambio(s)
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Importada el {format(new Date(reservation.created_at), "d 'de' MMMM, HH:mm", { locale: es })}
+                  {reservation.gds && ` • ${reservation.gds.toUpperCase()}`}
+                </p>
               </div>
-              <p className="text-muted-foreground">
-                Importada el {format(new Date(reservation.created_at), "d 'de' MMMM, HH:mm", { locale: es })}
-                {reservation.gds && ` • ${reservation.gds.toUpperCase()}`}
-              </p>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" size="sm" onClick={copyForWhatsApp}>
-                <Copy className="h-4 w-4 mr-2" />WhatsApp
+              <Button variant="outline" size="sm" onClick={copyForWhatsApp} className="flex-1 sm:flex-none">
+                <Copy className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">WhatsApp</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={exportICS}>
-                <Calendar className="h-4 w-4 mr-2" />ICS
+              <Button variant="outline" size="sm" onClick={exportICS} className="flex-1 sm:flex-none">
+                <Calendar className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">ICS</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setIsReimportOpen(true)}>
-                <AlertTriangle className="h-4 w-4 mr-2" />Re-importar PNR
+              <Button variant="outline" size="sm" onClick={() => setIsReimportOpen(true)} className="flex-1 sm:flex-none">
+                <AlertTriangle className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Re-importar PNR</span><span className="sm:hidden">Re-importar</span>
               </Button>
-              <Button size="sm" onClick={() => setIsEditModalOpen(true)}>
-                <Pencil className="h-4 w-4 mr-2" />Editar
+              <Button size="sm" onClick={() => setIsEditModalOpen(true)} className="flex-1 sm:flex-none">
+                <Pencil className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Editar</span>
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4 mr-2" />Eliminar</Button>
+                  <Button variant="destructive" size="sm" className="flex-1 sm:flex-none"><Trash2 className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Eliminar</span></Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>

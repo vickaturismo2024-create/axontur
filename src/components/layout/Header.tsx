@@ -50,15 +50,27 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-card/80 backdrop-blur-lg">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <Plane className="h-5 w-5 text-primary-foreground" />
+      <div className="container mx-auto flex h-16 items-center justify-between gap-2 px-3 sm:px-4">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 md:flex-none">
+          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary shrink-0">
+            <Plane className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
           </div>
-          <div className="flex flex-col">
-            <span className="font-serif text-lg font-semibold text-foreground">{agencyName}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="font-serif text-base sm:text-lg font-semibold text-foreground truncate">{agencyName}</span>
           </div>
         </Link>
+
+        {/* Mobile quick actions: search + reminders + theme always visible */}
+        <div className="flex items-center gap-1 md:hidden shrink-0">
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSearchOpen(true)} title="Buscar">
+            <Search className="h-5 w-5" />
+          </Button>
+          <Link to="/">
+            <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+              <RemindersBadge />
+            </Button>
+          </Link>
+        </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-1 md:flex">
