@@ -734,10 +734,21 @@ export type Database = {
           agency_name: string | null
           created_at: string
           cuit: string | null
+          date_format: string
+          default_currency: string
+          document_expiry_months: number
           email: string | null
+          file_prefix: string
           id: string
           logo_url: string | null
+          notify_birthdays: boolean
+          notify_document_expiry: boolean
+          notify_payment_due: boolean
+          payment_due_days: number
+          pdf_footer_legal: string
           phone: string | null
+          receipt_prefix: string
+          theme: string
           updated_at: string
           user_id: string
           website: string | null
@@ -747,10 +758,21 @@ export type Database = {
           agency_name?: string | null
           created_at?: string
           cuit?: string | null
+          date_format?: string
+          default_currency?: string
+          document_expiry_months?: number
           email?: string | null
+          file_prefix?: string
           id?: string
           logo_url?: string | null
+          notify_birthdays?: boolean
+          notify_document_expiry?: boolean
+          notify_payment_due?: boolean
+          payment_due_days?: number
+          pdf_footer_legal?: string
           phone?: string | null
+          receipt_prefix?: string
+          theme?: string
           updated_at?: string
           user_id: string
           website?: string | null
@@ -760,10 +782,21 @@ export type Database = {
           agency_name?: string | null
           created_at?: string
           cuit?: string | null
+          date_format?: string
+          default_currency?: string
+          document_expiry_months?: number
           email?: string | null
+          file_prefix?: string
           id?: string
           logo_url?: string | null
+          notify_birthdays?: boolean
+          notify_document_expiry?: boolean
+          notify_payment_due?: boolean
+          payment_due_days?: number
+          pdf_footer_legal?: string
           phone?: string | null
+          receipt_prefix?: string
+          theme?: string
           updated_at?: string
           user_id?: string
           website?: string | null
