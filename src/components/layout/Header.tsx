@@ -4,6 +4,7 @@ import { RemindersBadge } from '@/components/reminders/RemindersBadge';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,61 +49,98 @@ export function Header() {
     navigate('/auth');
   };
 
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-card/80 backdrop-blur-lg">
       <div className="container mx-auto flex h-16 items-center justify-between gap-2 px-3 sm:px-4">
-        <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 md:flex-none">
-          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary shrink-0">
-            <Plane className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-serif text-base sm:text-lg font-semibold text-foreground truncate">{agencyName}</span>
-          </div>
-        </Link>
+        {/* Menu trigger (always visible) + Logo */}
+        <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-none">
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" type="button" className="shrink-0" title="Menú">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0 flex flex-col">
+              <div className="px-4 pt-6 pb-4 border-b">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shrink-0">
+                    <Plane className="h-4 w-4 text-primary-foreground" />
+                  </div>
+                  <span className="font-serif text-base font-semibold text-foreground truncate">{agencyName}</span>
+                </div>
+              </div>
 
-        {/* Mobile quick actions: search + reminders + theme always visible */}
-        <div className="flex items-center gap-1 md:hidden shrink-0">
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSearchOpen(true)} title="Buscar">
-            <Search className="h-5 w-5" />
-          </Button>
-          <Link to="/">
-            <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-              <RemindersBadge />
-            </Button>
+              <ScrollArea className="flex-1">
+                <nav className="flex flex-col gap-1 p-3">
+                  {navItems.map((item) => (
+                    <Link key={item.href} to={item.href} onClick={() => setMenuOpen(false)}>
+                      <Button
+                        variant={location.pathname === item.href ? 'secondary' : 'ghost'}
+                        className="w-full justify-start"
+                      >
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+
+                  <div className="my-2 border-t" />
+
+                  <Button variant="ghost" className="w-full justify-start" onClick={toggleTheme}>
+                    {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                    {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+                  </Button>
+
+                  {user && (
+                    <>
+                      <div className="my-2 border-t" />
+                      <p className="px-4 py-2 text-xs text-muted-foreground truncate">{user.email}</p>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-destructive"
+                        onClick={handleSignOut}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Cerrar sesión
+                      </Button>
+                    </>
+                  )}
+                </nav>
+              </ScrollArea>
+            </SheetContent>
+          </Sheet>
+
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary shrink-0">
+              <Plane className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="font-serif text-base sm:text-lg font-semibold text-foreground truncate">{agencyName}</span>
+            </div>
           </Link>
         </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden items-center gap-1 md:flex">
-          {navItems.map((item) => (
-            <Link key={item.href} to={item.href}>
-              <Button
-                variant={location.pathname === item.href ? 'secondary' : 'ghost'}
-                className="text-sm"
-              >
-                {item.label}
-              </Button>
-            </Link>
-          ))}
-
-          <Button variant="ghost" size="icon" className="ml-1" onClick={() => setSearchOpen(true)} title="Buscar (Ctrl+K)">
+        {/* Right side actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSearchOpen(true)} title="Buscar (Ctrl+K)">
             <Search className="h-5 w-5" />
           </Button>
 
           <Link to="/">
-            <Button variant="ghost" size="icon" className="ml-1 relative">
+            <Button variant="ghost" size="icon" className="h-9 w-9 relative" title="Recordatorios">
               <RemindersBadge />
             </Button>
           </Link>
 
-          <Button variant="ghost" size="icon" onClick={toggleTheme} className="ml-1">
+          <Button variant="ghost" size="icon" className="h-9 w-9 hidden md:inline-flex" onClick={toggleTheme} title="Cambiar tema">
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
 
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="ml-2">
+                <Button variant="ghost" size="icon" className="h-9 w-9 hidden md:inline-flex" title="Mi cuenta">
                   <User className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -121,50 +159,7 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-        </nav>
-
-        {/* Mobile Navigation */}
-        <Sheet>
-          <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon" type="button">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-64">
-            <nav className="mt-8 flex flex-col gap-2">
-              {navItems.map((item) => (
-                <Link key={item.href} to={item.href}>
-                  <Button
-                    variant={location.pathname === item.href ? 'secondary' : 'ghost'}
-                    className="w-full justify-start"
-                  >
-                    {item.label}
-                  </Button>
-                </Link>
-              ))}
-
-              <Button variant="ghost" className="w-full justify-start" onClick={toggleTheme}>
-                {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
-                {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-              </Button>
-
-              {user && (
-                <>
-                  <div className="my-4 border-t" />
-                  <p className="px-4 text-xs text-muted-foreground">{user.email}</p>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-destructive"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Cerrar sesión
-                  </Button>
-                </>
-              )}
-            </nav>
-          </SheetContent>
-        </Sheet>
+        </div>
       </div>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
