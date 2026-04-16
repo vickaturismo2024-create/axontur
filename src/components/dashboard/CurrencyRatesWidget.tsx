@@ -21,7 +21,7 @@ const USD_LABELS: Record<string, string> = {
   tarjeta: 'USD Tarjeta',
 };
 
-const USD_KEYS = ['oficial', 'blue', 'bolsa', 'tarjeta'];
+const USD_KEYS = ['oficial', 'blue', 'bolsa'];
 
 async function fetchRates(): Promise<Rate[]> {
   const [dolaresRes, eurRes, brlRes] = await Promise.all([
