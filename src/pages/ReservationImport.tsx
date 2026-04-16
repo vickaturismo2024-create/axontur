@@ -1,7 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Upload,
   FileText,
   Trash2,
   Plus,
@@ -9,19 +8,33 @@ import {
   AlertCircle,
   Loader2,
   ArrowLeft,
+  RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Header } from '@/components/layout/Header';
 import { toast } from 'sonner';
 import { parsePNR, ParsedPassenger, ParsedSegment } from '@/lib/pnrParser';
-import { useCreateReservation } from '@/hooks/useFlightReservations';
+import {
+  useCreateReservation,
+  useFindReservationByLocator,
+  useUpdateReservationFromPNR,
+} from '@/hooks/useFlightReservations';
 import { Link } from 'react-router-dom';
 
 const formatDateValue = (date: Date | string | undefined): string => {
@@ -62,18 +75,20 @@ interface EditableSegment extends ParsedSegment {
 export default function ReservationImport() {
   const navigate = useNavigate();
   const createReservation = useCreateReservation();
+  const updateFromPNR = useUpdateReservationFromPNR();
+  const findByLocator = useFindReservationByLocator();
 
-  const [activeTab, setActiveTab] = useState('text');
   const [rawText, setRawText] = useState('');
   const [gds, setGds] = useState<string>('');
   const [isParsed, setIsParsed] = useState(false);
   const [locator, setLocator] = useState('');
   const [passengers, setPassengers] = useState<EditablePassenger[]>([]);
   const [segments, setSegments] = useState<EditableSegment[]>([]);
+  const [duplicateRes, setDuplicateRes] = useState<{ id: string; locator: string } | null>(null);
 
-  const handleParse = () => {
+  const handleParse = async () => {
     if (!rawText.trim()) {
-      toast.error('Pega el texto del PNR o itinerario');
+      toast.error('Pegá el texto del PNR o itinerario');
       return;
     }
     const parsed = parsePNR(rawText);
@@ -83,32 +98,61 @@ export default function ReservationImport() {
     setIsParsed(true);
 
     if (parsed.segments.length === 0) {
-      toast.info('No se detectaron segmentos de vuelo. Puedes agregarlos manualmente.');
+      toast.info('No se detectaron segmentos. Podés agregarlos manualmente.');
     } else {
       toast.success(`Se detectaron ${parsed.segments.length} vuelo(s) y ${parsed.passengers.length} pasajero(s)`);
     }
+
+    // Detectar duplicado por locator
+    if (parsed.locator) {
+      const existing = await findByLocator(parsed.locator);
+      if (existing) {
+        setDuplicateRes({ id: existing.id, locator: existing.locator || parsed.locator });
+      }
+    }
   };
 
-  const handleSave = async () => {
+  const buildParsedPayload = () => ({
+    locator: locator || undefined,
+    passengers: passengers.map(({ id, ...p }) => p),
+    segments: segments.map(({ id, ...s }) => s),
+    rawText,
+  });
+
+  const handleCreate = async () => {
     if (segments.length === 0) {
-      toast.error('Agrega al menos un segmento de vuelo');
+      toast.error('Agregá al menos un segmento de vuelo');
       return;
     }
     try {
       await createReservation.mutateAsync({
-        parsed: {
-          locator: locator || undefined,
-          passengers: passengers.map(({ id, ...p }) => p),
-          segments: segments.map(({ id, ...s }) => s),
-          rawText,
-        },
+        parsed: buildParsedPayload(),
         sourceType: 'text',
         gds: gds || undefined,
       });
       toast.success(`¡Reserva guardada! Se importaron ${segments.length} segmento(s)`);
-      navigate('/reservas');
+      navigate('/reservations');
     } catch {
       toast.error('Error al guardar la reserva');
+    }
+  };
+
+  const handleUpdateExisting = async () => {
+    if (!duplicateRes) return;
+    try {
+      const result = await updateFromPNR.mutateAsync({
+        reservationId: duplicateRes.id,
+        parsed: buildParsedPayload(),
+        gds: gds || undefined,
+      });
+      if (result.changesCount > 0) {
+        toast.success(`Reserva actualizada. Se detectaron ${result.changesCount} cambio(s)`);
+      } else {
+        toast.success('Reserva actualizada. Sin cambios.');
+      }
+      navigate(`/reservations/${duplicateRes.id}`);
+    } catch {
+      toast.error('Error al actualizar la reserva');
     }
   };
 
@@ -146,10 +190,23 @@ export default function ReservationImport() {
     setLocator('');
     setPassengers([]);
     setSegments([]);
+    setDuplicateRes(null);
   };
 
   const renderPreview = () => (
     <div className="space-y-6">
+      {duplicateRes && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <RefreshCw className="h-5 w-5 text-primary mt-0.5" />
+            <div className="flex-1">
+              <p className="font-medium">Ya existe una reserva con localizador <span className="font-mono">{duplicateRes.locator}</span></p>
+              <p className="text-sm text-muted-foreground">Podés actualizarla para detectar cambios (horarios, cancelaciones, vuelos nuevos) o crear una nueva.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle className="text-lg">Datos de la Reserva</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -174,7 +231,6 @@ export default function ReservationImport() {
         </CardContent>
       </Card>
 
-      {/* Passengers */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Pasajeros ({passengers.length})</CardTitle>
@@ -200,7 +256,6 @@ export default function ReservationImport() {
         </CardContent>
       </Card>
 
-      {/* Segments */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Segmentos de Vuelo ({segments.length})</CardTitle>
@@ -315,12 +370,47 @@ export default function ReservationImport() {
         </CardContent>
       </Card>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <Button variant="outline" onClick={resetForm}>Cancelar</Button>
-        <Button onClick={handleSave} disabled={createReservation.isPending || segments.length === 0} className="flex-1">
-          {createReservation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-          Guardar Reserva
-        </Button>
+        {duplicateRes ? (
+          <>
+            <AlertDialog>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Crear como nueva reserva</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Ya existe una reserva con localizador <span className="font-mono">{duplicateRes.locator}</span>.
+                    Si creás una nueva, vas a tener dos registros con el mismo PNR. ¿Continuar?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleCreate}>Crear nueva</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button
+              variant="outline"
+              onClick={handleCreate}
+              disabled={createReservation.isPending}
+            >
+              <Plus className="h-4 w-4 mr-2" />Crear nueva
+            </Button>
+            <Button
+              onClick={handleUpdateExisting}
+              disabled={updateFromPNR.isPending || segments.length === 0}
+              className="flex-1"
+            >
+              {updateFromPNR.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Actualizar reserva existente
+            </Button>
+          </>
+        ) : (
+          <Button onClick={handleCreate} disabled={createReservation.isPending || segments.length === 0} className="flex-1">
+            {createReservation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+            Guardar Reserva
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -332,11 +422,11 @@ export default function ReservationImport() {
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" asChild>
-              <Link to="/reservas"><ArrowLeft className="h-5 w-5" /></Link>
+              <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
             </Button>
             <div>
               <h1 className="text-2xl font-bold">Importar Reserva</h1>
-              <p className="text-muted-foreground">Pega el texto del PNR para extraer los vuelos</p>
+              <p className="text-muted-foreground">Pegá el texto del PNR para extraer los vuelos</p>
             </div>
           </div>
 
@@ -344,7 +434,7 @@ export default function ReservationImport() {
             <Card>
               <CardHeader>
                 <CardTitle>Pegar PNR / Itinerario</CardTitle>
-                <CardDescription>Copia y pega el texto completo desde Amadeus, Sabre u otro GDS</CardDescription>
+                <CardDescription>Copiá y pegá el texto completo desde Amadeus, Sabre u otro GDS. Si el localizador ya existe, te ofrecemos actualizar la reserva y detectar cambios.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
