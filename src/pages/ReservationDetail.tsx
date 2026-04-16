@@ -182,7 +182,7 @@ export default function ReservationDetail() {
           {/* Header */}
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" asChild>
-              <Link to="/reservas"><ArrowLeft className="h-5 w-5" /></Link>
+              <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
             </Button>
             <div className="flex-1">
               <div className="flex items-center gap-3">
@@ -206,6 +206,9 @@ export default function ReservationDetail() {
               </Button>
               <Button variant="outline" size="sm" onClick={exportICS}>
                 <Calendar className="h-4 w-4 mr-2" />ICS
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsReimportOpen(true)}>
+                <AlertTriangle className="h-4 w-4 mr-2" />Re-importar PNR
               </Button>
               <Button size="sm" onClick={() => setIsEditModalOpen(true)}>
                 <Pencil className="h-4 w-4 mr-2" />Editar
