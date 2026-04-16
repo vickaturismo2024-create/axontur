@@ -36,11 +36,11 @@ async function fetchRates(): Promise<Rate[]> {
   const extras: Rate[] = [];
   if (eurRes.ok) {
     const eur = await eurRes.json();
-    extras.push({ ...eur, nombre: 'EUR Oficial' });
+    extras.push({ ...eur, casa: 'eur', nombre: 'EUR Oficial' });
   }
   if (brlRes.ok) {
     const brl = await brlRes.json();
-    extras.push({ ...brl, nombre: 'BRL Oficial' });
+    extras.push({ ...brl, casa: 'brl', nombre: 'BRL Oficial' });
   }
   return [...usdRates, ...extras];
 }
