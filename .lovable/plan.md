@@ -1,43 +1,62 @@
 
 
-## Plan: Importar cobros (recibos) y pagos a operadores desde Excel
+## Plan: Pestaña de Configuración unificada (`/settings`)
 
-### Diagnóstico
-El parser ya extrae `paymentsArs/Usd` (PAGOS = pagados a operadores) y `receivedArs/Usd` (COBROS = recibido del pasajero) por servicio, pero el importador actual solo crea el `file` y los `file_services` — descarta esos montos. El nuevo Excel `lis_res_completa1.xlsx` trae esa información completa que hay que persistir.
+### Estructura
+Una sola página `/settings` con 4 sub-pestañas (shadcn `Tabs`). El item del menú principal pasa a llamarse **"Configuración"** y absorbe a "Mi Agencia" como sub-pestaña.
 
-### Mapeo
-| Columna Excel | Destino |
-|---|---|
-| COBROS / COBROSUS | `file_receipts` + `file_receipt_items` (cobros al pasajero) |
-| PAGOS / PAGOSUS | `file_supplier_payments` (pagos a operadores) |
+```text
+/settings
+ ├── Cuenta          (email, cambiar contraseña, cerrar sesión global)
+ ├── Agencia         (datos actuales de /agency, sin cambios funcionales)
+ ├── Preferencias    (tema, moneda por defecto, formato de fecha, idioma)
+ └── Notificaciones  (toggles + días de anticipación)
+ └── Documentos      (numeración + textos legales)
+```
+Total: 5 sub-pestañas (sumé Documentos porque elegiste "Numeración y formato de documentos" en el alcance).
 
-### Cambios
+### Cambios de base de datos
+Migración para extender `profiles` con columnas opcionales (todas con default sensato → cero impacto en datos existentes):
 
-**1. `ImportFilesExcelDialog.tsx`** — extender `handleImport`:
-- Tras insertar `file_services`, agrupar los cobros del pasajero por `file_id` y crear **un único `file_receipt`** por moneda (ARS/USD) con la suma total. Concepto: "Cobros importados del sistema antiguo". Fecha: `travelDate` o `openDate` o hoy.
-  - Si hay ARS y USD se crean **dos recibos** (uno por moneda) o un recibo con dos `file_receipt_items` (preferido: 1 recibo + N items, así queda agrupado como en la UI actual).
-- Para cada servicio con `paymentsArs > 0` o `paymentsUsd > 0`, insertar un registro en `file_supplier_payments` con `supplier_name = operatorName`, monto y moneda correspondientes, fecha = `travelDate || openDate || hoy`, concepto en `notes`.
-- Si el expediente es duplicado (update), borrar antes los recibos/pagos previos importados (los que tengan marca `notes LIKE 'Importado del sistema antiguo%'`) para evitar duplicarlos.
-- Al crear cuenta corriente del cliente vinculado: insertar `account_movements` (credit) por cada cobro, igual que hace el flujo manual.
+| Columna | Tipo | Default | Para qué |
+|---|---|---|---|
+| `default_currency` | text | `'USD'` | Moneda por defecto de presupuestos/expedientes nuevos |
+| `date_format` | text | `'dd/MM/yyyy'` | Formato visual en toda la app |
+| `theme` | text | `'system'` | Sincroniza tema entre dispositivos |
+| `notify_birthdays` | boolean | `true` | Toggle alerta de cumpleaños |
+| `notify_document_expiry` | boolean | `true` | Toggle alerta DNI/Pasaporte |
+| `notify_payment_due` | boolean | `true` | Toggle vencimiento de pagos a operadores |
+| `payment_due_days` | integer | `3` | Días de anticipación para alerta de pagos |
+| `document_expiry_months` | integer | `6` | Meses de anticipación para alerta de docs |
+| `file_prefix` | text | `'FILE'` | Reemplaza el `FILE-001` hardcodeado |
+| `receipt_prefix` | text | `'REC'` | Reemplaza el `REC-0001` hardcodeado |
+| `pdf_footer_legal` | text | `''` | Texto legal opcional al pie de PDFs |
 
-**2. Contadores en el resultado final**
-- Sumar `receiptsCreated` y `supplierPaymentsCreated` al objeto `ImportResult` y mostrarlos en la pantalla de resumen.
+No toco `auth.users`, ni triggers de numeración existentes (`set_file_number`, `set_receipt_number` siguen igual: solo cambia el prefijo de visualización).
 
-**3. Preview enriquecido**
-- En el accordion de cada expediente, agregar abajo de "Servicios" una línea: "Cobros: ARS X / USD Y · Pagos a operadores: ARS X / USD Y" para que el usuario vea qué se va a crear.
+### Cambios de código
 
-### Archivos a tocar
-| Archivo | Cambio |
-|---|---|
-| `src/components/files/ImportFilesExcelDialog.tsx` | Extender import: crear receipts + supplier_payments + movimientos de cuenta. Mostrar totales en preview y resultado |
+**Nuevos**
+- `src/pages/Settings.tsx` — contenedor con `Tabs` y las 5 secciones.
+- `src/components/settings/AccountTab.tsx` — email (readonly), cambio de contraseña vía `supabase.auth.updateUser({ password })`, botón "Cerrar sesión en todos los dispositivos" (`signOut({ scope: 'global' })`).
+- `src/components/settings/PreferencesTab.tsx` — tema (claro/oscuro/sistema), moneda, formato de fecha.
+- `src/components/settings/NotificationsTab.tsx` — switches + inputs numéricos.
+- `src/components/settings/DocumentsTab.tsx` — prefijos y texto legal.
+- `src/contexts/SettingsContext.tsx` — provider que lee `profiles` una vez y expone settings + `updateSettings()`. Cachea con react-query.
 
-### No se toca
-- Parser (`reservationExcelParser.ts`): ya devuelve los datos necesarios.
-- Schema DB: las tablas `file_receipts`, `file_receipt_items`, `file_supplier_payments` y `account_movements` ya existen con todas las columnas que necesitamos.
+**Editados**
+- `src/App.tsx` — registrar ruta `/settings` (protegida) y envolver con `SettingsProvider`. Mantengo `/agency` como redirect a `/settings?tab=agency` por compatibilidad.
+- `src/components/layout/Header.tsx` — reemplazar item "Mi Agencia" por "Configuración" → `/settings`.
+- `src/pages/Agency.tsx` — refactor: el form pasa a ser el componente `AgencyTab`, importado por `Settings.tsx`. La página queda como wrapper redirigiendo.
+- `src/hooks/useTheme.ts` — leer/escribir el tema desde el context si hay sesión, fallback a localStorage.
+- `src/components/notifications/BirthdayNotifier.tsx` y panel de recordatorios — respetar los toggles y días configurados.
+- `src/pages/Files.tsx`, `FileDetail.tsx`, `FileReceiptsTab.tsx`, `receiptPdfUtils.ts` — leer prefijos del context en lugar de strings hardcodeados.
 
-### Flujo end-to-end esperado
-1. Usuario abre /files → "Importar Excel" → sube `lis_res_completa1.xlsx`.
-2. Preview muestra cada expediente con sus servicios + totales de cobros/pagos.
-3. Importa: por cada expediente nuevo o actualizado se crean los servicios, un recibo agrupado de cobros, y los pagos a operadores correspondientes.
-4. Al abrir el detalle del expediente, las pestañas "Recibos" y "Operadores" muestran los movimientos importados.
+### Fuera de alcance (lo aclaro para no asumir)
+- Cambio de email del usuario: lo dejo deshabilitado con tooltip "Próximamente" (requiere flujo de verificación de email; lo agregamos si lo pedís).
+- Eliminación de cuenta: no lo incluyo salvo que lo pidas explícitamente.
+- Idioma: solo dejo el control visible pero por ahora es solo español (preparado para futuro i18n).
+
+### Primer paso al aprobar
+Crear migración `ALTER TABLE profiles ADD COLUMN ...` con todas las columnas nuevas y sus defaults.
 
