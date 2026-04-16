@@ -1,13 +1,17 @@
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettingsSafe } from '@/contexts/SettingsContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export function BirthdayNotifier() {
   const { user } = useAuth();
+  const settingsCtx = useSettingsSafe();
+  const enabled = settingsCtx?.settings.notify_birthdays ?? true;
 
   useEffect(() => {
     if (!user) return;
+    if (!enabled) return;
 
     const today = new Date();
     const key = `birthday_notified_${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
