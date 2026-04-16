@@ -13,6 +13,7 @@ import {
 } from '@/types/reservation';
 import { ParsedReservation, getStatusMeaning, toLocalISOString } from '@/lib/pnrParser';
 import { diffReservation, DiffChange } from '@/lib/pnrDiff';
+import { ParsedLegacyReservation, buildLegacyNotes, normalizeName } from '@/lib/reservationExcelParser';
 
 // Fetch all reservations
 export function useReservationsList() {
