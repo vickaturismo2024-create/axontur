@@ -46,19 +46,19 @@ const Files = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [importOpen, setImportOpen] = useState(false);
 
-  useEffect(() => {
+  const loadFiles = async () => {
     if (!user) return;
-    const load = async () => {
-      const { data, error } = await supabase
-        .from('files')
-        .select('*')
-        .order('file_number', { ascending: false });
-      if (error) { console.error(error); toast.error('Error al cargar expedientes'); }
-      setFiles((data as any[]) || []);
-      setLoading(false);
-    };
-    load();
-  }, [user]);
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('files')
+      .select('*')
+      .order('file_number', { ascending: false });
+    if (error) { console.error(error); toast.error('Error al cargar expedientes'); }
+    setFiles((data as any[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadFiles(); }, [user]);
 
   const filtered = useMemo(() => {
     return files.filter(f => {
@@ -86,7 +86,7 @@ const Files = () => {
           </Button>
         </div>
 
-        <ImportFilesExcelDialog open={importOpen} onOpenChange={setImportOpen} />
+        <ImportFilesExcelDialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) loadFiles(); }} />
 
         <div className="mb-6 flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
