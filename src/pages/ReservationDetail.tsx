@@ -34,8 +34,10 @@ import {
   useToggleCheckin,
   useDeleteFlightSegment,
   useDeleteReservation,
+  useResolveChange,
 } from '@/hooks/useFlightReservations';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
+import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
