@@ -24,6 +24,9 @@ import Calendar from "./pages/Calendar";
 import Files from "./pages/Files";
 import FileDetail from "./pages/FileDetail";
 import Accounts from "./pages/Accounts";
+import Reservations from "./pages/Reservations";
+import ReservationImport from "./pages/ReservationImport";
+import ReservationDetail from "./pages/ReservationDetail";
 import NotFound from "./pages/NotFound";
 
 // Create QueryClient outside component to prevent recreation on re-renders
@@ -64,6 +67,9 @@ const App = () => (
                 <Route path="/reportes" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                 <Route path="/tutoriales" element={<ProtectedRoute><Tutorials /></ProtectedRoute>} />
                 <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+                <Route path="/reservations" element={<ProtectedRoute><Reservations /></ProtectedRoute>} />
+                <Route path="/reservations/import" element={<ProtectedRoute><ReservationImport /></ProtectedRoute>} />
+                <Route path="/reservations/:id" element={<ProtectedRoute><ReservationDetail /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </TourProvider>
