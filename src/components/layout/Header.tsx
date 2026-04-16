@@ -28,7 +28,7 @@ const navItems = [
   { label: 'Reservas', href: '/reservations' },
   { label: 'Cuentas Ctes.', href: '/accounts' },
   { label: 'Reportes', href: '/reportes' },
-  { label: 'Mi Agencia', href: '/agency' },
+  { label: 'Configuración', href: '/settings' },
   { label: 'Calendario', href: '/calendar' },
   { label: 'Tutoriales', href: '/tutoriales' },
 ];

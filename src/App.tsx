@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QuotesProvider } from "@/contexts/QuotesContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 import { TourProvider } from "@/contexts/TourContext";
 import { TourOverlay } from "@/components/tour/TourOverlay";
 import { BirthdayNotifier } from "@/components/notifications/BirthdayNotifier";
@@ -17,6 +18,7 @@ import Tutorials from "./pages/Tutorials";
 import Auth from "./pages/Auth";
 import PublicPDF from "./pages/PublicPDF";
 import Agency from "./pages/Agency";
+import Settings from "./pages/Settings";
 import Clients from "./pages/Clients";
 import Suppliers from "./pages/Suppliers";
 import Reports from "./pages/Reports";
@@ -44,6 +46,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <QuotesProvider>
+        <SettingsProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -59,6 +62,7 @@ const App = () => (
                 <Route path="/templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
                 <Route path="/export/:id" element={<ProtectedRoute><ExportPDF /></ProtectedRoute>} />
                 <Route path="/agency" element={<ProtectedRoute><Agency /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
                 <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
                 <Route path="/files" element={<ProtectedRoute><Files /></ProtectedRoute>} />
@@ -75,6 +79,7 @@ const App = () => (
             </TourProvider>
           </BrowserRouter>
         </TooltipProvider>
+        </SettingsProvider>
       </QuotesProvider>
     </AuthProvider>
   </QueryClientProvider>
