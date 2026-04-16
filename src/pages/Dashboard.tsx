@@ -359,8 +359,8 @@ const Dashboard = () => {
 
         {/* View Tabs (Active/Archived/Favorites) + Status Tabs + Search + Filters */}
         <div className="mb-6 space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex gap-4 flex-wrap">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex gap-3 flex-wrap overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
               <Tabs value={viewFilter} onValueChange={(v) => setViewFilter(v as any)}>
                 <TabsList>
                   <TabsTrigger value="active">Activos</TabsTrigger>
@@ -379,7 +379,7 @@ const Dashboard = () => {
                 </TabsList>
               </Tabs>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-wrap">
               {compareMode ? (
                 <>
                   <span className="text-sm text-muted-foreground">{selectedForCompare.length}/2 seleccionados</span>
@@ -397,7 +397,7 @@ const Dashboard = () => {
                   <GitCompare className="mr-1.5 h-4 w-4" />Comparar
                 </Button>
               )}
-              <div className="relative max-w-md">
+              <div className="relative flex-1 min-w-[200px] sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input placeholder="Buscar por cliente o destino..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
               </div>
