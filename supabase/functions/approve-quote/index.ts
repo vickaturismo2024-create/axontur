@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     // Check quote exists and isn't already approved
     const { data: quote, error: fetchError } = await supabase
       .from("quotes")
-      .select("id, status, approved_at")
+      .select("id, status, approved_at, pricing")
       .eq("id", id)
       .single();
 
@@ -53,6 +53,13 @@ Deno.serve(async (req) => {
     if (quote.approved_at) {
       return new Response(JSON.stringify({ error: "Already approved", approved_at: quote.approved_at }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Reject approvals on expired public links
+    const publicLinkExpiry = (quote.pricing as { publicLinkExpiry?: string } | null)?.publicLinkExpiry;
+    if (publicLinkExpiry && new Date(publicLinkExpiry) < new Date()) {
+      return new Response(JSON.stringify({ error: "Este enlace ha expirado" }),
+        { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Update quote with approval
