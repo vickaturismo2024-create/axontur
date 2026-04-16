@@ -1,33 +1,54 @@
 
 
-# Plan: Notificación pop-up de cumpleaños de clientes
+## Plan: Importación masiva de reservas desde Excel legado
 
-## Resumen
+### Estado del análisis del archivo
+No pude inspeccionar `LISRESERVA3.xlsx` desde modo plan (las herramientas de copia a disco no están disponibles acá; el parser solo me devolvió el header `ID_RES`). En modo default voy a abrir el archivo con `pandas`/`openpyxl` y **detectar todas las columnas reales** antes de tocar el parser. Si el mapeo difiere de lo que asumo abajo, lo ajusto sin volver a preguntar.
 
-Crear un componente que al cargar la app consulte los clientes cuya fecha de nacimiento coincida con el día actual (mismo día y mes) y muestre un toast de sonner por cada uno.
+### Mapeo asumido (a confirmar al abrir el archivo)
+- `ID_RES` → `legacy_id` (agrupador, primera columna repetida = misma reserva)
+- Columnas típicas esperadas: pasajero/nombre, DNI, fecha servicio, tipo servicio (vuelo/hotel/traslado), proveedor, descripción, importe, moneda, status. Si hay códigos de aerolínea/IATA → segmentos de vuelo; resto → notas/servicios.
 
-## Cambios
+### Cambios
 
-### 1. Nuevo componente `src/components/notifications/BirthdayNotifier.tsx`
+**1. Migración SQL**
+- `reservations`: agregar `legacy_id text` + índice parcial `(user_id, legacy_id) WHERE legacy_id IS NOT NULL`.
+- `reservation_passengers`: agregar `client_id uuid` nullable (para guardar el match de CRM).
 
-- Componente sin UI visible (solo lógica)
-- En un `useEffect` al montar (cuando hay `user`):
-  - Fetch todos los clientes con `birth_date` no nulo (con paginación para superar el límite de 1000)
-  - Filtrar en JS los que tengan mismo día y mes que `new Date()`
-  - Por cada coincidencia, mostrar `toast('🎂 Hoy cumple años [nombre]!', { duration: 10000 })` con sonner
-- Usar `sessionStorage` con key `birthday_notified_[fecha]` para no repetir los toasts si el usuario navega entre páginas
-- Retorna `null`
+**2. Parser nuevo** — `src/lib/reservationExcelParser.ts`
+- Lee `.xlsx` con `xlsx` (ya en deps).
+- Normaliza headers (lower, sin acentos).
+- Agrupa filas por `ID_RES`.
+- Por grupo arma: `{ legacyId, passengers[], segments[], extraServices[], rawRows[] }`.
+- Detecta vuelos por presencia de campos tipo flight number / IATA; el resto va a `notes` concatenado.
 
-### 2. `src/App.tsx` — Montar el notificador
+**3. Hook nuevo** en `src/hooks/useFlightReservations.ts`
+- `useBulkImportReservations`: para cada grupo, busca por `(user_id, legacy_id)`. Si existe → mergea segmentos faltantes (clave `airline+flight+origin+destination`). Si no → crea reserva + pasajeros + segmentos.
+- Match de cliente: por DNI exacto, fallback por `name` normalizado contra `clients`. Guarda `client_id` en `reservation_passengers`.
+- Inserts en lotes de 50 con `Progress`.
 
-- Importar `BirthdayNotifier` y renderizarlo dentro del `AuthProvider` / `BrowserRouter`, al lado del `TourOverlay`
+**4. UI nueva** — `src/components/reservations/ImportReservationsExcelDialog.tsx`
+- Upload + preview en accordion (1 reserva = 1 acordeón con sus filas).
+- Badges: "Nuevo", "Duplicado → Merge", "Cliente vinculado: X".
+- Botón "Importar N reservas" con barra de progreso y resumen final (creadas / mergeadas / pasajeros vinculados).
 
-## Archivos afectados
+**5. Botón** en `src/pages/Reservations.tsx`
+- "Importar Excel" al lado del actual "Importar reserva" (PNR).
 
-| Archivo | Cambio |
-|---------|--------|
-| `src/components/notifications/BirthdayNotifier.tsx` | Nuevo componente |
-| `src/App.tsx` | Montar `BirthdayNotifier` |
+**6. Tipos** — `src/types/reservation.ts`
+- `legacy_id?: string | null` en `Reservation`.
+- `client_id?: string | null` en `ReservationPassenger`.
 
-No requiere cambios de BD.
+### Archivos afectados
+| Archivo | Tipo |
+|---|---|
+| Migración SQL | Nuevo |
+| `src/lib/reservationExcelParser.ts` | Nuevo |
+| `src/components/reservations/ImportReservationsExcelDialog.tsx` | Nuevo |
+| `src/hooks/useFlightReservations.ts` | Edita |
+| `src/pages/Reservations.tsx` | Edita |
+| `src/types/reservation.ts` | Edita |
+
+### Primer paso al aprobar
+Abrir `LISRESERVA3.xlsx` con pandas, listar columnas y 5 filas de ejemplo, y ajustar el parser al mapeo real antes de seguir.
 
