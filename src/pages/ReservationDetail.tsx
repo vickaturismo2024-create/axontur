@@ -71,7 +71,7 @@ export default function ReservationDetail() {
         <Header />
         <main className="flex flex-col items-center justify-center h-[60vh]">
           <p className="text-muted-foreground mb-4">Reserva no encontrada</p>
-          <Button asChild><Link to="/reservas">Volver</Link></Button>
+          <Button asChild><Link to="/reservations">Volver</Link></Button>
         </main>
       </div>
     );
@@ -99,9 +99,27 @@ export default function ReservationDetail() {
     try {
       await deleteReservation.mutateAsync(reservation.id);
       toast.success('Reserva eliminada');
-      navigate('/reservas');
+      navigate('/reservations');
     } catch {
       toast.error('No se pudo eliminar la reserva');
+    }
+  };
+
+  const handleResolveChange = async (changeId: string) => {
+    try {
+      await resolveChange.mutateAsync(changeId);
+      toast.success('Cambio marcado como resuelto');
+    } catch {
+      toast.error('No se pudo resolver el cambio');
+    }
+  };
+
+  const handleResolveAll = async () => {
+    try {
+      await Promise.all(pendingChanges.map(c => resolveChange.mutateAsync(c.id)));
+      toast.success('Todos los cambios resueltos');
+    } catch {
+      toast.error('Error al resolver cambios');
     }
   };
 
