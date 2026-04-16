@@ -576,6 +576,113 @@ export type Database = {
           },
         ]
       }
+      flight_checkins: {
+        Row: {
+          checked_in_at: string
+          flight_segment_id: string
+          id: string
+          notes: string | null
+          passenger_id: string | null
+        }
+        Insert: {
+          checked_in_at?: string
+          flight_segment_id: string
+          id?: string
+          notes?: string | null
+          passenger_id?: string | null
+        }
+        Update: {
+          checked_in_at?: string
+          flight_segment_id?: string
+          id?: string
+          notes?: string | null
+          passenger_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flight_checkins_flight_segment_id_fkey"
+            columns: ["flight_segment_id"]
+            isOneToOne: false
+            referencedRelation: "flight_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flight_checkins_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_passengers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flight_segments: {
+        Row: {
+          airline_code: string
+          airline_locator: string | null
+          arr_datetime_local: string | null
+          booking_class: string | null
+          created_at: string
+          dep_datetime_local: string | null
+          destination_iata: string
+          flight_number: string
+          has_changes: boolean
+          id: string
+          is_incomplete: boolean
+          origin_iata: string
+          raw_text: string | null
+          reservation_id: string
+          segment_status: string | null
+          seq: number
+          updated_at: string
+        }
+        Insert: {
+          airline_code?: string
+          airline_locator?: string | null
+          arr_datetime_local?: string | null
+          booking_class?: string | null
+          created_at?: string
+          dep_datetime_local?: string | null
+          destination_iata?: string
+          flight_number?: string
+          has_changes?: boolean
+          id?: string
+          is_incomplete?: boolean
+          origin_iata?: string
+          raw_text?: string | null
+          reservation_id: string
+          segment_status?: string | null
+          seq?: number
+          updated_at?: string
+        }
+        Update: {
+          airline_code?: string
+          airline_locator?: string | null
+          arr_datetime_local?: string | null
+          booking_class?: string | null
+          created_at?: string
+          dep_datetime_local?: string | null
+          destination_iata?: string
+          flight_number?: string
+          has_changes?: boolean
+          id?: string
+          is_incomplete?: boolean
+          origin_iata?: string
+          raw_text?: string | null
+          reservation_id?: string
+          segment_status?: string | null
+          seq?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flight_segments_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -886,6 +993,174 @@ export type Database = {
         }
         Relationships: []
       }
+      reservation_attachments: {
+        Row: {
+          created_at: string
+          file_url: string
+          filename: string
+          id: string
+          reservation_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_url?: string
+          filename?: string
+          id?: string
+          reservation_id: string
+        }
+        Update: {
+          created_at?: string
+          file_url?: string
+          filename?: string
+          id?: string
+          reservation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_attachments_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_changes: {
+        Row: {
+          after_value: string | null
+          before_value: string | null
+          change_type: string
+          detected_at: string
+          field_name: string
+          flight_segment_id: string | null
+          id: string
+          reservation_id: string
+          status: string
+        }
+        Insert: {
+          after_value?: string | null
+          before_value?: string | null
+          change_type?: string
+          detected_at?: string
+          field_name?: string
+          flight_segment_id?: string | null
+          id?: string
+          reservation_id: string
+          status?: string
+        }
+        Update: {
+          after_value?: string | null
+          before_value?: string | null
+          change_type?: string
+          detected_at?: string
+          field_name?: string
+          flight_segment_id?: string | null
+          id?: string
+          reservation_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_changes_flight_segment_id_fkey"
+            columns: ["flight_segment_id"]
+            isOneToOne: false
+            referencedRelation: "flight_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_changes_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_passengers: {
+        Row: {
+          created_at: string
+          document: string | null
+          first_name: string | null
+          id: string
+          last_name: string
+          reservation_id: string
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          document?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string
+          reservation_id: string
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          document?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string
+          reservation_id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_passengers_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservations: {
+        Row: {
+          created_at: string
+          file_id: string | null
+          gds: string | null
+          id: string
+          locator: string | null
+          notes: string | null
+          raw_text_latest: string | null
+          source_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_id?: string | null
+          gds?: string | null
+          id?: string
+          locator?: string | null
+          notes?: string | null
+          raw_text_latest?: string | null
+          source_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_id?: string | null
+          gds?: string | null
+          id?: string
+          locator?: string | null
+          notes?: string | null
+          raw_text_latest?: string | null
+          source_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           created_at: string
@@ -982,8 +1257,16 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      owns_flight_segment: {
+        Args: { _segment_id: string; _user_id: string }
+        Returns: boolean
+      }
       owns_quote_tag: {
         Args: { _tag_id: string; _user_id: string }
+        Returns: boolean
+      }
+      owns_reservation: {
+        Args: { _reservation_id: string; _user_id: string }
         Returns: boolean
       }
     }
