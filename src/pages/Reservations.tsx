@@ -32,6 +32,7 @@ export default function Reservations() {
   const { data: reservations, isLoading } = useReservationsList();
   const deleteReservation = useDeleteReservation();
   const [search, setSearch] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
 
   // Fetch passengers and segments for all reservations
   const reservationIds = reservations?.map(r => r.id) || [];
