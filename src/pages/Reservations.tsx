@@ -163,17 +163,18 @@ export default function Reservations() {
               const pax = passengersByRes.get(r.id) || [];
               const segs = segmentsByRes.get(r.id) || [];
               const hasChanges = segs.some(s => s.has_changes);
+              const pendingCount = pendingChangesByRes.get(r.id) || 0;
               const firstSeg = segs[0];
 
               return (
                 <Card key={r.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${hasChanges ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-                        <Plane className={`h-5 w-5 ${hasChanges ? 'text-destructive' : 'text-primary'}`} />
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${hasChanges || pendingCount > 0 ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                        <Plane className={`h-5 w-5 ${hasChanges || pendingCount > 0 ? 'text-destructive' : 'text-primary'}`} />
                       </div>
 
-                      <Link to={`/reservas/${r.id}`} className="flex-1 min-w-0">
+                      <Link to={`/reservations/${r.id}`} className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           {r.locator && (
                             <span className="font-mono font-semibold">{r.locator}</span>
@@ -186,9 +187,9 @@ export default function Reservations() {
                           {segs.length > 1 && (
                             <Badge variant="secondary" className="text-xs">+{segs.length - 1} vuelo(s)</Badge>
                           )}
-                          {hasChanges && (
-                            <Badge variant="outline" className="text-destructive border-destructive/30 text-xs">
-                              <AlertTriangle className="h-3 w-3 mr-1" />Cambios
+                          {pendingCount > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              <AlertTriangle className="h-3 w-3 mr-1" />{pendingCount} cambio(s) pendiente(s)
                             </Badge>
                           )}
                         </div>
