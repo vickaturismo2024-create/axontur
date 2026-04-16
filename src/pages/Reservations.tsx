@@ -24,7 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
-import type { ReservationPassenger, FlightSegment } from '@/types/reservation';
+import type { ReservationPassenger, FlightSegment, ReservationChange } from '@/types/reservation';
 
 export default function Reservations() {
   const { user } = useAuth();
@@ -61,6 +61,20 @@ export default function Reservations() {
     enabled: reservationIds.length > 0,
   });
 
+  const { data: allChanges } = useQuery({
+    queryKey: ['all-reservation-changes', reservationIds],
+    queryFn: async () => {
+      if (!reservationIds.length) return [];
+      const { data } = await supabase
+        .from('reservation_changes')
+        .select('*')
+        .in('reservation_id', reservationIds)
+        .eq('status', 'pending');
+      return (data || []) as unknown as ReservationChange[];
+    },
+    enabled: reservationIds.length > 0,
+  });
+
   const passengersByRes = new Map<string, ReservationPassenger[]>();
   (allPassengers || []).forEach(p => {
     if (!passengersByRes.has(p.reservation_id)) passengersByRes.set(p.reservation_id, []);
@@ -71,6 +85,11 @@ export default function Reservations() {
   (allSegments || []).forEach(s => {
     if (!segmentsByRes.has(s.reservation_id)) segmentsByRes.set(s.reservation_id, []);
     segmentsByRes.get(s.reservation_id)!.push(s);
+  });
+
+  const pendingChangesByRes = new Map<string, number>();
+  (allChanges || []).forEach(c => {
+    pendingChangesByRes.set(c.reservation_id, (pendingChangesByRes.get(c.reservation_id) || 0) + 1);
   });
 
   const filtered = (reservations || []).filter(r => {
@@ -104,7 +123,7 @@ export default function Reservations() {
             <p className="text-muted-foreground">Gestión de PNR, pasajeros y segmentos</p>
           </div>
           <Button asChild>
-            <Link to="/reservas/importar">
+            <Link to="/reservations/import">
               <Plus className="h-4 w-4 mr-2" />
               Importar Reserva
             </Link>
@@ -131,7 +150,7 @@ export default function Reservations() {
             </p>
             {!search && (
               <Button asChild>
-                <Link to="/reservas/importar">
+                <Link to="/reservations/import">
                   <Plus className="h-4 w-4 mr-2" />
                   Importar tu primera reserva
                 </Link>
@@ -144,17 +163,18 @@ export default function Reservations() {
               const pax = passengersByRes.get(r.id) || [];
               const segs = segmentsByRes.get(r.id) || [];
               const hasChanges = segs.some(s => s.has_changes);
+              const pendingCount = pendingChangesByRes.get(r.id) || 0;
               const firstSeg = segs[0];
 
               return (
                 <Card key={r.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${hasChanges ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-                        <Plane className={`h-5 w-5 ${hasChanges ? 'text-destructive' : 'text-primary'}`} />
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${hasChanges || pendingCount > 0 ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                        <Plane className={`h-5 w-5 ${hasChanges || pendingCount > 0 ? 'text-destructive' : 'text-primary'}`} />
                       </div>
 
-                      <Link to={`/reservas/${r.id}`} className="flex-1 min-w-0">
+                      <Link to={`/reservations/${r.id}`} className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           {r.locator && (
                             <span className="font-mono font-semibold">{r.locator}</span>
@@ -167,9 +187,9 @@ export default function Reservations() {
                           {segs.length > 1 && (
                             <Badge variant="secondary" className="text-xs">+{segs.length - 1} vuelo(s)</Badge>
                           )}
-                          {hasChanges && (
-                            <Badge variant="outline" className="text-destructive border-destructive/30 text-xs">
-                              <AlertTriangle className="h-3 w-3 mr-1" />Cambios
+                          {pendingCount > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              <AlertTriangle className="h-3 w-3 mr-1" />{pendingCount} cambio(s) pendiente(s)
                             </Badge>
                           )}
                         </div>

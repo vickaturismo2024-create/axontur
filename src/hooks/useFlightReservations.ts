@@ -12,6 +12,7 @@ import {
   UpcomingFlight,
 } from '@/types/reservation';
 import { ParsedReservation, getStatusMeaning, toLocalISOString } from '@/lib/pnrParser';
+import { diffReservation, DiffChange } from '@/lib/pnrDiff';
 
 // Fetch all reservations
 export function useReservationsList() {
@@ -400,6 +401,173 @@ export function useResolveChange() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reservation'] });
+    },
+  });
+}
+
+// Find reservation by locator (for re-import detection)
+export function useFindReservationByLocator() {
+  const { user } = useAuth();
+  return async (locator: string): Promise<Reservation | null> => {
+    if (!user || !locator) return null;
+    const { data } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('locator', locator.toUpperCase())
+      .maybeSingle();
+    return (data as unknown as Reservation) || null;
+  };
+}
+
+// Count of pending changes for the current user (for global badge)
+export function usePendingChangesCount() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['pending-changes-count', user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { data: reservations } = await supabase
+        .from('reservations')
+        .select('id')
+        .eq('user_id', user.id);
+      const ids = (reservations || []).map(r => r.id);
+      if (ids.length === 0) return 0;
+      const { count } = await supabase
+        .from('reservation_changes')
+        .select('id', { count: 'exact', head: true })
+        .in('reservation_id', ids)
+        .eq('status', 'pending');
+      return count || 0;
+    },
+    enabled: !!user,
+    refetchInterval: 60000,
+  });
+}
+
+// Re-import a PNR: diff against existing, apply changes, log them
+export function useUpdateReservationFromPNR() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      reservationId,
+      parsed,
+      gds,
+    }: {
+      reservationId: string;
+      parsed: ParsedReservation;
+      gds?: string;
+    }) => {
+      if (!user) throw new Error('No user');
+
+      // Load existing segments
+      const { data: existingSegmentsRaw, error: segLoadErr } = await supabase
+        .from('flight_segments')
+        .select('*')
+        .eq('reservation_id', reservationId)
+        .order('seq');
+      if (segLoadErr) throw segLoadErr;
+
+      const existingSegments = (existingSegmentsRaw || []) as unknown as FlightSegment[];
+
+      // Compute diff
+      const changes: DiffChange[] = diffReservation(existingSegments, parsed.segments);
+
+      // Update reservation raw_text and gds
+      await supabase
+        .from('reservations')
+        .update({
+          raw_text_latest: parsed.rawText,
+          gds: gds || null,
+          locator: parsed.locator?.toUpperCase() || null,
+        })
+        .eq('id', reservationId);
+
+      // Build map of existing by key for updates
+      const existingByKey = new Map<string, FlightSegment>();
+      existingSegments.forEach(s => {
+        existingByKey.set(
+          `${s.airline_code.toUpperCase()}${s.flight_number}-${s.origin_iata.toUpperCase()}-${s.destination_iata.toUpperCase()}`,
+          s
+        );
+      });
+
+      // Apply: upsert each parsed segment (by match) or insert new
+      for (let i = 0; i < parsed.segments.length; i++) {
+        const seg = parsed.segments[i];
+        const key = `${seg.airlineCode.toUpperCase()}${seg.flightNumber}-${seg.originIata.toUpperCase()}-${seg.destinationIata.toUpperCase()}`;
+        const matched = existingByKey.get(key);
+        const statusInfo = getStatusMeaning(seg.segmentStatus);
+        const hasChange = changes.some(
+          c => c.flightSegmentId === matched?.id || (c.matchKey === key && c.changeType === 'new_segment')
+        );
+
+        const payload = {
+          seq: i + 1,
+          airline_code: seg.airlineCode,
+          flight_number: seg.flightNumber,
+          origin_iata: seg.originIata,
+          destination_iata: seg.destinationIata,
+          dep_datetime_local: seg.depDatetime ? toLocalISOString(seg.depDatetime) : null,
+          arr_datetime_local: seg.arrDatetime ? toLocalISOString(seg.arrDatetime) : null,
+          booking_class: seg.bookingClass,
+          segment_status: seg.segmentStatus,
+          airline_locator: seg.airlineLocator,
+          raw_text: seg.rawText,
+          is_incomplete: seg.isIncomplete,
+          has_changes: hasChange || statusInfo.isCancelled || statusInfo.hasChanges,
+        };
+
+        if (matched) {
+          await supabase.from('flight_segments').update(payload).eq('id', matched.id);
+        } else {
+          await supabase.from('flight_segments').insert({ ...payload, reservation_id: reservationId });
+        }
+      }
+
+      // Log changes
+      for (const c of changes) {
+        // Resolve flight_segment_id for new_segment by re-querying
+        let segmentId: string | null = c.flightSegmentId || null;
+        if (!segmentId && c.matchKey) {
+          const parts = c.matchKey.split('-');
+          const flight = parts[0];
+          const origin = parts[1];
+          const destination = parts[2];
+          const airline = flight.replace(/[0-9]+$/, '');
+          const flightNumber = flight.replace(airline, '');
+          const { data: newSeg } = await supabase
+            .from('flight_segments')
+            .select('id')
+            .eq('reservation_id', reservationId)
+            .eq('airline_code', airline)
+            .eq('flight_number', flightNumber)
+            .eq('origin_iata', origin)
+            .eq('destination_iata', destination)
+            .maybeSingle();
+          segmentId = newSeg?.id || null;
+        }
+
+        await supabase.from('reservation_changes').insert({
+          reservation_id: reservationId,
+          flight_segment_id: segmentId,
+          change_type: c.changeType,
+          field_name: c.fieldName,
+          before_value: c.beforeValue,
+          after_value: c.afterValue,
+          status: 'pending',
+        });
+      }
+
+      return { reservationId, changesCount: changes.length };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservation'] });
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['upcoming-flights'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-changes-count'] });
     },
   });
 }
