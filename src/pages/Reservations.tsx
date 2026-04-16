@@ -124,13 +124,21 @@ export default function Reservations() {
             <h1 className="text-2xl font-bold">Reservas de Vuelo</h1>
             <p className="text-muted-foreground">Gestión de PNR, pasajeros y segmentos</p>
           </div>
-          <Button asChild>
-            <Link to="/reservations/import">
-              <Plus className="h-4 w-4 mr-2" />
-              Importar Reserva
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Importar Excel
+            </Button>
+            <Button asChild>
+              <Link to="/reservations/import">
+                <Plus className="h-4 w-4 mr-2" />
+                Importar Reserva
+              </Link>
+            </Button>
+          </div>
         </div>
+
+        <ImportReservationsExcelDialog open={importOpen} onOpenChange={setImportOpen} />
 
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
