@@ -512,6 +512,7 @@ export type Database = {
           file_number: number
           id: string
           internal_notes: string | null
+          legacy_id: string | null
           quote_id: string | null
           start_date: string | null
           status: string
@@ -531,6 +532,7 @@ export type Database = {
           file_number?: number
           id?: string
           internal_notes?: string | null
+          legacy_id?: string | null
           quote_id?: string | null
           start_date?: string | null
           status?: string
@@ -550,6 +552,7 @@ export type Database = {
           file_number?: number
           id?: string
           internal_notes?: string | null
+          legacy_id?: string | null
           quote_id?: string | null
           start_date?: string | null
           status?: string
