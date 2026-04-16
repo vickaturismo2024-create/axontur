@@ -50,7 +50,9 @@ export default function ReservationDetail() {
   const toggleCheckin = useToggleCheckin();
   const deleteFlightSegment = useDeleteFlightSegment();
   const deleteReservation = useDeleteReservation();
+  const resolveChange = useResolveChange();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isReimportOpen, setIsReimportOpen] = useState(false);
 
   if (isLoading) {
     return (
