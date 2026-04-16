@@ -21,7 +21,7 @@ const USD_LABELS: Record<string, string> = {
   tarjeta: 'USD Tarjeta',
 };
 
-const USD_KEYS = ['oficial', 'blue', 'bolsa', 'tarjeta'];
+const USD_KEYS = ['oficial', 'blue', 'bolsa'];
 
 async function fetchRates(): Promise<Rate[]> {
   const [dolaresRes, eurRes, brlRes] = await Promise.all([
@@ -93,13 +93,13 @@ export const CurrencyRatesWidget = () => {
           No se pudo obtener cotizaciones. Intentá nuevamente.
         </p>
       ) : isLoading ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-20 rounded-lg bg-muted/50 animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {data?.map((rate) => (
             <div
               key={rate.casa + rate.nombre}
