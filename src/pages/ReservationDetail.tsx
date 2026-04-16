@@ -363,9 +363,16 @@ export default function ReservationDetail() {
           {/* Changes */}
           {reservation.changes.length > 0 && (
             <Card>
-              <CardHeader className="flex flex-row items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                <CardTitle className="text-lg">Cambios Detectados ({reservation.changes.length})</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  <CardTitle className="text-lg">Cambios Detectados ({reservation.changes.length})</CardTitle>
+                </div>
+                {pendingChanges.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={handleResolveAll} disabled={resolveChange.isPending}>
+                    Resolver todos
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -374,24 +381,36 @@ export default function ReservationDetail() {
                       key={change.id}
                       className={cn(
                         'p-3 rounded-lg border',
-                        change.status === 'pending' ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-muted/50'
+                        change.status === 'pending' ? 'bg-destructive/5 border-destructive/20' : 'bg-muted/50'
                       )}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <div>
                           <span className="font-medium capitalize">{change.change_type.replace('_', ' ')}</span>
                           <span className="text-muted-foreground mx-2">•</span>
                           <span className="text-sm">{change.field_name}</span>
                         </div>
-                        <Badge variant={change.status === 'pending' ? 'outline' : 'secondary'}>
-                          {change.status === 'pending' ? 'Pendiente' : 'Resuelto'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={change.status === 'pending' ? 'destructive' : 'secondary'}>
+                            {change.status === 'pending' ? 'Pendiente' : 'Resuelto'}
+                          </Badge>
+                          {change.status === 'pending' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResolveChange(change.id)}
+                              disabled={resolveChange.isPending}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-1" />Resolver
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       {(change.before_value || change.after_value) && (
                         <div className="mt-2 text-sm text-muted-foreground">
-                          {change.before_value && <span>Antes: {change.before_value}</span>}
+                          {change.before_value && <span>Antes: <span className="font-mono">{change.before_value}</span></span>}
                           {change.before_value && change.after_value && <span className="mx-2">→</span>}
-                          {change.after_value && <span>Ahora: {change.after_value}</span>}
+                          {change.after_value && <span>Ahora: <span className="font-mono">{change.after_value}</span></span>}
                         </div>
                       )}
                     </div>
@@ -407,6 +426,13 @@ export default function ReservationDetail() {
         reservation={reservation}
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
+      />
+      <ReimportPNRDialog
+        reservationId={reservation.id}
+        currentLocator={reservation.locator}
+        currentGds={reservation.gds}
+        open={isReimportOpen}
+        onOpenChange={setIsReimportOpen}
       />
     </div>
   );
