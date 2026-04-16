@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, Users, FolderOpen } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -22,11 +24,8 @@ import { toast } from 'sonner';
 import {
   parseReservationsExcel,
   ParsedLegacyReservation,
+  buildLegacyNotes,
 } from '@/lib/reservationExcelParser';
-import {
-  useBulkImportReservations,
-  BulkImportResult,
-} from '@/hooks/useFlightReservations';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -37,16 +36,29 @@ interface Props {
 
 interface PreviewRow extends ParsedLegacyReservation {
   isDuplicate?: boolean;
-  matchedClient?: string | null;
+  matchedClientId?: string | null;
+  matchedClientName?: string | null;
 }
 
-export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
+interface ImportResult {
+  created: number;
+  updated: number;
+  servicesInserted: number;
+  errors: { legacyId: string; message: string }[];
+}
+
+const norm = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+
+export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const [parsing, setParsing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
-  const [result, setResult] = useState<BulkImportResult | null>(null);
-  const bulkImport = useBulkImportReservations();
+  const [result, setResult] = useState<ImportResult | null>(null);
 
   const reset = () => {
     setPreview([]);
@@ -64,15 +76,13 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
     try {
       const { reservations, totalRows } = await parseReservationsExcel(file);
       if (!reservations.length) {
-        toast.error('No se encontraron reservas en el archivo');
+        toast.error('No se encontraron expedientes en el archivo');
         setParsing(false);
         return;
       }
-
-      // Detectar duplicados y matches de cliente
       const enriched = await enrichPreview(reservations);
       setPreview(enriched);
-      toast.success(`${reservations.length} reservas detectadas (${totalRows} filas)`);
+      toast.success(`${reservations.length} expedientes detectados (${totalRows} filas)`);
     } catch (e) {
       toast.error('Error al leer el archivo Excel');
       console.error(e);
@@ -85,14 +95,12 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
     reservations: ParsedLegacyReservation[]
   ): Promise<PreviewRow[]> => {
     if (!user) return reservations;
-
     const legacyIds = reservations.map(r => r.legacyId);
 
-    // Duplicados existentes
     const dupIds = new Set<string>();
     if (legacyIds.length) {
       const { data } = await supabase
-        .from('reservations')
+        .from('files')
         .select('legacy_id')
         .eq('user_id', user.id)
         .in('legacy_id', legacyIds);
@@ -101,7 +109,7 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
       });
     }
 
-    // Cargar clientes para preview de match
+    // Cargar clientes (paginado)
     const clients: { id: string; name: string }[] = [];
     let from = 0;
     const PAGE = 1000;
@@ -117,46 +125,144 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
       from += PAGE;
     }
 
-    const norm = (s: string) =>
-      s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-    const byName = new Map<string, string>();
+    const byName = new Map<string, { id: string; name: string }>();
     for (const c of clients) {
       const n = norm(c.name || '');
-      if (n && !byName.has(n)) byName.set(n, c.name);
+      if (n && !byName.has(n)) byName.set(n, c);
       const first = n.split(' ')[0];
-      if (first && !byName.has(first)) byName.set(first, c.name);
+      if (first && !byName.has(first)) byName.set(first, c);
     }
 
-    return reservations.map(r => ({
-      ...r,
-      isDuplicate: dupIds.has(r.legacyId),
-      matchedClient:
-        byName.get(norm(`${r.clientLastName} ${r.clientFirstName}`.trim())) ||
+    return reservations.map(r => {
+      const fullName = `${r.clientLastName} ${r.clientFirstName}`.trim();
+      const match =
+        byName.get(norm(fullName)) ||
         byName.get(norm(r.clientLastName)) ||
-        null,
-    }));
+        null;
+      return {
+        ...r,
+        isDuplicate: dupIds.has(r.legacyId),
+        matchedClientId: match?.id || null,
+        matchedClientName: match?.name || null,
+      };
+    });
+  };
+
+  const detectCurrency = (r: ParsedLegacyReservation): string => {
+    if (r.totals.saleUsd > 0 || r.totals.costUsd > 0) return 'USD';
+    if (r.totals.saleArs > 0 || r.totals.costArs > 0) return 'ARS';
+    return 'USD';
   };
 
   const handleImport = async () => {
-    if (!preview.length) return;
+    if (!user || !preview.length) return;
+    setImporting(true);
     setProgress({ current: 0, total: preview.length });
-    try {
-      const res = await bulkImport.mutateAsync({
-        reservations: preview,
-        onProgress: p => setProgress({ current: p.current, total: p.total }),
-      });
-      setResult(res);
-      toast.success(`Importación finalizada: ${res.created} nuevas, ${res.merged} actualizadas`);
-    } catch (e) {
-      toast.error('Error durante la importación');
-      console.error(e);
+    const res: ImportResult = { created: 0, updated: 0, servicesInserted: 0, errors: [] };
+
+    for (let i = 0; i < preview.length; i++) {
+      const r = preview[i];
+      try {
+        const currency = detectCurrency(r);
+        const totalPrice = currency === 'USD' ? r.totals.saleUsd : r.totals.saleArs;
+        const totalCost = currency === 'USD' ? r.totals.costUsd : r.totals.costArs;
+        const clientName = `${r.clientLastName} ${r.clientFirstName}`.trim() || 'Sin cliente';
+        const notes = buildLegacyNotes(r);
+
+        // Buscar duplicado
+        const { data: existing } = await supabase
+          .from('files')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('legacy_id', r.legacyId)
+          .maybeSingle();
+
+        let fileId: string;
+
+        if (existing?.id) {
+          // Update existente
+          await supabase
+            .from('files')
+            .update({
+              client_name: clientName,
+              client_id: r.matchedClientId || null,
+              destination: r.destination || '',
+              start_date: r.travelDate,
+              travelers: r.numPax,
+              currency,
+              total_price: totalPrice,
+              total_cost: totalCost,
+              internal_notes: notes,
+            })
+            .eq('id', existing.id);
+          fileId = existing.id;
+          // Reemplazar servicios: borrar previos
+          await supabase.from('file_services').delete().eq('file_id', fileId).eq('user_id', user.id);
+          res.updated++;
+        } else {
+          const { data: created, error } = await supabase
+            .from('files')
+            .insert({
+              user_id: user.id,
+              legacy_id: r.legacyId,
+              client_name: clientName,
+              client_id: r.matchedClientId || null,
+              destination: r.destination || '',
+              start_date: r.travelDate,
+              travelers: r.numPax,
+              currency,
+              total_price: totalPrice,
+              total_cost: totalCost,
+              internal_notes: notes,
+              status: 'confirmed',
+            })
+            .select('id')
+            .single();
+          if (error || !created) throw error || new Error('No se pudo crear el expediente');
+          fileId = created.id;
+          res.created++;
+        }
+
+        // Insertar servicios
+        const servicesToInsert = r.services
+          .filter(s => s.operatorName || s.saleArs || s.costArs || s.saleUsd || s.costUsd)
+          .map(s => {
+            const svcCurrency = s.saleUsd > 0 || s.costUsd > 0 ? 'USD' : 'ARS';
+            const price = svcCurrency === 'USD' ? s.saleUsd : s.saleArs;
+            const cost = svcCurrency === 'USD' ? s.costUsd : s.costArs;
+            return {
+              user_id: user.id,
+              file_id: fileId,
+              service_type: 'other',
+              description: s.operatorName || 'Servicio',
+              supplier_name: s.operatorName || '',
+              currency: svcCurrency,
+              price,
+              cost,
+              status: 'confirmed' as const,
+            };
+          });
+
+        if (servicesToInsert.length) {
+          const { error: svcErr } = await supabase.from('file_services').insert(servicesToInsert);
+          if (svcErr) throw svcErr;
+          res.servicesInserted += servicesToInsert.length;
+        }
+      } catch (e) {
+        res.errors.push({ legacyId: r.legacyId, message: e instanceof Error ? e.message : 'Error' });
+      }
+      setProgress({ current: i + 1, total: preview.length });
     }
+
+    qc.invalidateQueries({ queryKey: ['files'] });
+    setResult(res);
+    setImporting(false);
+    toast.success(`Importación finalizada: ${res.created} nuevos, ${res.updated} actualizados`);
   };
 
-  const isImporting = bulkImport.isPending;
   const newCount = preview.filter(p => !p.isDuplicate).length;
   const dupCount = preview.filter(p => p.isDuplicate).length;
-  const linkedCount = preview.filter(p => p.matchedClient).length;
+  const linkedCount = preview.filter(p => p.matchedClientId).length;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -164,10 +270,10 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Importar reservas desde Excel
+            Importar expedientes desde Excel
           </DialogTitle>
           <DialogDescription>
-            Importá reservas del sistema antiguo. Las filas con el mismo número (ID_RES) se agrupan en una reserva.
+            Importá expedientes del sistema antiguo. Las filas con el mismo número (ID_RES) se agrupan en un expediente con todos sus servicios.
           </DialogDescription>
         </DialogHeader>
 
@@ -200,12 +306,12 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
             <div className="flex flex-wrap gap-2 text-sm">
               <Badge variant="default" className="gap-1">
                 <CheckCircle2 className="h-3 w-3" />
-                {newCount} nuevas
+                {newCount} nuevos
               </Badge>
               {dupCount > 0 && (
                 <Badge variant="secondary" className="gap-1">
                   <AlertTriangle className="h-3 w-3" />
-                  {dupCount} duplicadas (merge)
+                  {dupCount} duplicados (se actualizan)
                 </Badge>
               )}
               {linkedCount > 0 && (
@@ -228,15 +334,14 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
                         </span>
                         <span className="text-muted-foreground">·</span>
                         <span className="text-xs text-muted-foreground">{r.destination}</span>
-                        {r.isDuplicate && (
-                          <Badge variant="secondary" className="text-xs">Merge</Badge>
-                        )}
-                        {!r.isDuplicate && (
+                        {r.isDuplicate ? (
+                          <Badge variant="secondary" className="text-xs">Actualizar</Badge>
+                        ) : (
                           <Badge variant="default" className="text-xs">Nuevo</Badge>
                         )}
-                        {r.matchedClient && (
+                        {r.matchedClientName && (
                           <Badge variant="outline" className="text-xs gap-1">
-                            <Users className="h-3 w-3" /> {r.matchedClient}
+                            <Users className="h-3 w-3" /> {r.matchedClientName}
                           </Badge>
                         )}
                       </div>
@@ -281,11 +386,11 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
             )}
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => reset()} disabled={isImporting}>
+              <Button variant="outline" onClick={() => reset()} disabled={importing}>
                 Cambiar archivo
               </Button>
-              <Button onClick={handleImport} disabled={isImporting}>
-                {isImporting ? 'Importando...' : `Importar ${preview.length} reservas`}
+              <Button onClick={handleImport} disabled={importing}>
+                {importing ? 'Importando...' : `Importar ${preview.length} expedientes`}
               </Button>
             </DialogFooter>
           </>
@@ -294,21 +399,21 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
         {result && (
           <div className="space-y-4 py-4">
             <div className="text-center space-y-2">
-              <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
+              <FolderOpen className="h-12 w-12 text-primary mx-auto" />
               <h3 className="text-lg font-semibold">Importación completada</h3>
             </div>
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="border rounded-lg p-3">
                 <div className="text-2xl font-bold text-primary">{result.created}</div>
-                <div className="text-xs text-muted-foreground">Nuevas</div>
+                <div className="text-xs text-muted-foreground">Nuevos</div>
               </div>
               <div className="border rounded-lg p-3">
-                <div className="text-2xl font-bold">{result.merged}</div>
-                <div className="text-xs text-muted-foreground">Actualizadas</div>
+                <div className="text-2xl font-bold">{result.updated}</div>
+                <div className="text-xs text-muted-foreground">Actualizados</div>
               </div>
               <div className="border rounded-lg p-3">
-                <div className="text-2xl font-bold">{result.passengersLinked}</div>
-                <div className="text-xs text-muted-foreground">Pax vinculados</div>
+                <div className="text-2xl font-bold">{result.servicesInserted}</div>
+                <div className="text-xs text-muted-foreground">Servicios cargados</div>
               </div>
             </div>
             {result.errors.length > 0 && (
@@ -328,7 +433,12 @@ export function ImportReservationsExcelDialog({ open, onOpenChange }: Props) {
               </div>
             )}
             <DialogFooter>
-              <Button onClick={() => handleClose(false)}>Cerrar</Button>
+              <Button variant="outline" onClick={() => { reset(); }}>
+                Importar otro
+              </Button>
+              <Button onClick={() => { handleClose(false); navigate('/files'); }}>
+                Ver expedientes
+              </Button>
             </DialogFooter>
           </div>
         )}
