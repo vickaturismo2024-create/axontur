@@ -278,55 +278,57 @@ export default function ReservationDetail() {
                     return (
                       <div key={seg.id} className="relative">
                         {index > 0 && <Separator className="my-4" />}
-                        <div className="flex items-start gap-4">
-                          <div className={cn(
-                            'flex h-12 w-12 items-center justify-center rounded-xl',
-                            seg.has_changes ? 'bg-destructive/10' : isCheckedIn ? 'bg-green-500/10' : 'bg-primary/10'
-                          )}>
-                            <Plane className={cn(
-                              'h-6 w-6',
-                              seg.has_changes ? 'text-destructive' : isCheckedIn ? 'text-green-500' : 'text-primary'
-                            )} />
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-lg font-semibold">{seg.airline_code} {seg.flight_number}</span>
-                              <span className="text-muted-foreground">{seg.origin_iata} → {seg.destination_iata}</span>
-                              {seg.booking_class && <Badge variant="outline" className="text-xs">Clase {seg.booking_class}</Badge>}
-                              {seg.segment_status && <Badge variant="outline" className="text-xs">{seg.segment_status}</Badge>}
-                              {seg.is_incomplete && <Badge variant="outline" className="text-xs text-yellow-600">Incompleto</Badge>}
-                              {seg.has_changes && <Badge variant="outline" className="text-xs text-destructive border-destructive/30">Con cambios</Badge>}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className={cn(
+                              'flex h-12 w-12 items-center justify-center rounded-xl shrink-0',
+                              seg.has_changes ? 'bg-destructive/10' : isCheckedIn ? 'bg-green-500/10' : 'bg-primary/10'
+                            )}>
+                              <Plane className={cn(
+                                'h-6 w-6',
+                                seg.has_changes ? 'text-destructive' : isCheckedIn ? 'text-green-500' : 'text-primary'
+                              )} />
                             </div>
 
-                            {seg.airline_locator && (
-                              <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
-                                <Tag className="h-4 w-4 text-primary" />
-                                <span className="text-sm font-medium text-primary">Localizador {seg.airline_code}:</span>
-                                <span className="font-mono text-base font-bold text-primary">{seg.airline_locator}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-base sm:text-lg font-semibold">{seg.airline_code} {seg.flight_number}</span>
+                                <span className="text-muted-foreground text-sm sm:text-base">{seg.origin_iata} → {seg.destination_iata}</span>
+                                {seg.booking_class && <Badge variant="outline" className="text-xs">Clase {seg.booking_class}</Badge>}
+                                {seg.segment_status && <Badge variant="outline" className="text-xs">{seg.segment_status}</Badge>}
+                                {seg.is_incomplete && <Badge variant="outline" className="text-xs text-yellow-600">Incompleto</Badge>}
+                                {seg.has_changes && <Badge variant="outline" className="text-xs text-destructive border-destructive/30">Con cambios</Badge>}
                               </div>
-                            )}
 
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              {depDate ? (
-                                <>
-                                  <span className="font-medium text-foreground">{format(depDate, "EEEE d 'de' MMMM", { locale: es })}</span>
-                                  <span className="mx-2">•</span>
-                                  <span>Salida: {format(depDate, 'HH:mm')}{arrDate && ` → Llegada: ${format(arrDate, 'HH:mm')}`}</span>
-                                </>
-                              ) : (
-                                <span className="text-yellow-600">Sin fecha/hora definida</span>
+                              {seg.airline_locator && (
+                                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20 max-w-full flex-wrap">
+                                  <Tag className="h-4 w-4 text-primary shrink-0" />
+                                  <span className="text-xs sm:text-sm font-medium text-primary">Loc. {seg.airline_code}:</span>
+                                  <span className="font-mono text-sm sm:text-base font-bold text-primary break-all">{seg.airline_locator}</span>
+                                </div>
                               )}
+
+                              <div className="mt-2 text-xs sm:text-sm text-muted-foreground">
+                                {depDate ? (
+                                  <>
+                                    <span className="font-medium text-foreground">{format(depDate, "EEEE d 'de' MMMM", { locale: es })}</span>
+                                    <span className="mx-2">•</span>
+                                    <span>Salida: {format(depDate, 'HH:mm')}{arrDate && ` → Llegada: ${format(arrDate, 'HH:mm')}`}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-yellow-600">Sin fecha/hora definida</span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 sm:shrink-0 ml-15 sm:ml-0">
                             <Button
                               variant={isCheckedIn ? 'default' : 'outline'}
                               size="sm"
                               onClick={() => handleCheckin(seg.id, isCheckedIn)}
                               disabled={toggleCheckin.isPending}
-                              className={cn(isCheckedIn && 'bg-green-500 hover:bg-green-600')}
+                              className={cn('flex-1 sm:flex-none', isCheckedIn && 'bg-green-500 hover:bg-green-600')}
                             >
                               {isCheckedIn ? (
                                 <><CheckCircle2 className="h-4 w-4 mr-1" />Check-in</>
