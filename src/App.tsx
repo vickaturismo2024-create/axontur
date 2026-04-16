@@ -24,6 +24,9 @@ import Calendar from "./pages/Calendar";
 import Files from "./pages/Files";
 import FileDetail from "./pages/FileDetail";
 import Accounts from "./pages/Accounts";
+import Reservations from "./pages/Reservations";
+import ReservationImport from "./pages/ReservationImport";
+import ReservationDetail from "./pages/ReservationDetail";
 import NotFound from "./pages/NotFound";
 
 // Create QueryClient outside component to prevent recreation on re-renders
