@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plane, Plus, Search, Trash2, AlertTriangle } from 'lucide-react';
+import { Plane, Plus, Search, Trash2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { ImportReservationsExcelDialog } from '@/components/reservations/ImportReservationsExcelDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
