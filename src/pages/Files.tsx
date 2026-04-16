@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FolderOpen, Search, Plus, Calendar, MapPin, Users, ArrowRight } from 'lucide-react';
+import { FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { ImportFilesExcelDialog } from '@/components/files/ImportFilesExcelDialog';
 
 interface FileRecord {
   id: string;
@@ -43,20 +44,21 @@ const Files = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [importOpen, setImportOpen] = useState(false);
 
-  useEffect(() => {
+  const loadFiles = async () => {
     if (!user) return;
-    const load = async () => {
-      const { data, error } = await supabase
-        .from('files')
-        .select('*')
-        .order('file_number', { ascending: false });
-      if (error) { console.error(error); toast.error('Error al cargar expedientes'); }
-      setFiles((data as any[]) || []);
-      setLoading(false);
-    };
-    load();
-  }, [user]);
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('files')
+      .select('*')
+      .order('file_number', { ascending: false });
+    if (error) { console.error(error); toast.error('Error al cargar expedientes'); }
+    setFiles((data as any[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadFiles(); }, [user]);
 
   const filtered = useMemo(() => {
     return files.filter(f => {
@@ -78,7 +80,13 @@ const Files = () => {
             <h1 className="font-serif text-2xl font-bold text-foreground md:text-3xl">Expedientes</h1>
             <p className="text-muted-foreground">Gestión de reservas operativas</p>
           </div>
+          <Button variant="outline" onClick={() => setImportOpen(true)} className="w-full sm:w-auto">
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Importar Excel
+          </Button>
         </div>
+
+        <ImportFilesExcelDialog open={importOpen} onOpenChange={(v) => { setImportOpen(v); if (!v) loadFiles(); }} />
 
         <div className="mb-6 flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
