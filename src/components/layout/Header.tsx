@@ -25,7 +25,7 @@ const navItems = [
   { label: 'Clientes', href: '/clients' },
   { label: 'Proveedores', href: '/suppliers' },
   { label: 'Expedientes', href: '/files' },
-  { label: 'Reservas', href: '/reservations' },
+  { label: 'Vuelos', href: '/reservations' },
   { label: 'Cuentas Ctes.', href: '/accounts' },
   { label: 'Reportes', href: '/reportes' },
   { label: 'Configuración', href: '/settings' },
