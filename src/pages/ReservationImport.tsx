@@ -9,6 +9,7 @@ import {
   Loader2,
   ArrowLeft,
   RefreshCw,
+  FileUp,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +32,8 @@ import {
 import { Header } from '@/components/layout/Header';
 import { toast } from 'sonner';
 import { parsePNR, ParsedPassenger, ParsedSegment } from '@/lib/pnrParser';
+import { extractTextFromPDF } from '@/lib/pdfTextExtractor';
+import { supabase } from '@/integrations/supabase/client';
 import {
   useCreateReservation,
   useFindReservationByLocator,
@@ -85,6 +89,9 @@ export default function ReservationImport() {
   const [passengers, setPassengers] = useState<EditablePassenger[]>([]);
   const [segments, setSegments] = useState<EditableSegment[]>([]);
   const [duplicateRes, setDuplicateRes] = useState<{ id: string; locator: string } | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfProgress, setPdfProgress] = useState('');
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
 
   const handleParse = async () => {
     if (!rawText.trim()) {
