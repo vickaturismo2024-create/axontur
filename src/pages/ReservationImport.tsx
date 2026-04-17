@@ -137,10 +137,10 @@ export default function ReservationImport() {
         sourceType: 'text',
         gds: gds || undefined,
       });
-      toast.success(`¡Reserva guardada! Se importaron ${segments.length} segmento(s)`);
+      toast.success(`¡Vuelo guardado! Se importaron ${segments.length} segmento(s)`);
       navigate('/reservations');
     } catch {
-      toast.error('Error al guardar la reserva');
+      toast.error('Error al guardar el vuelo');
     }
   };
 
@@ -521,43 +521,91 @@ export default function ReservationImport() {
               <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Importar Reserva</h1>
-              <p className="text-muted-foreground">Pegá el texto del PNR para extraer los vuelos</p>
+              <h1 className="text-2xl font-bold">Importar Vuelo</h1>
+              <p className="text-muted-foreground">Pegá el texto del PNR o subí un PDF para extraer los vuelos</p>
             </div>
           </div>
 
           {!isParsed ? (
             <Card>
-              <CardHeader>
-                <CardTitle>Pegar PNR / Itinerario</CardTitle>
-                <CardDescription>Copiá y pegá el texto completo desde Amadeus, Sabre u otro GDS. Si el localizador ya existe, te ofrecemos actualizar la reserva y detectar cambios.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Fuente (opcional)</Label>
-                  <Select value={gds} onValueChange={setGds}>
-                    <SelectTrigger className="w-48"><SelectValue placeholder="Seleccionar GDS" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="amadeus">Amadeus</SelectItem>
-                      <SelectItem value="sabre">Sabre</SelectItem>
-                      <SelectItem value="travelport">Travelport</SelectItem>
-                      <SelectItem value="otro">Otro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Texto del PNR / Itinerario</Label>
-                  <Textarea
-                    value={rawText}
-                    onChange={(e) => setRawText(e.target.value)}
-                    placeholder={`Ejemplo:\nRP/MDQG12155/MDQG12155            BG/AS   4NOV25/1740Z   B9E9KL\n  1.ALVEZ DE VINER/ELSA BEATRIZ   2.VINER/RICARDO HORACIO\n  3  AR1328 I 17APR 5 EZEPUJ HK2  0830 1530  17APR  E  AR/JFRZXA\n  4  AR1329 I 01MAY 5 PUJEZE HK2  1935 0430  02MAY  E  AR/JFRZXA`}
-                    className="min-h-[300px] font-mono text-sm"
-                  />
-                </div>
-                <Button onClick={handleParse} className="w-full">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Analizar Texto
-                </Button>
+              <CardContent className="pt-6">
+                <Tabs defaultValue="text">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="text"><FileText className="h-4 w-4 mr-2" />Pegar texto</TabsTrigger>
+                    <TabsTrigger value="pdf"><FileUp className="h-4 w-4 mr-2" />Subir PDF</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="text" className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Copiá y pegá el texto completo desde Amadeus, Sabre u otro GDS. Si el localizador ya existe, te ofrecemos actualizar el vuelo y detectar cambios.
+                    </p>
+                    <div className="space-y-2">
+                      <Label>Fuente (opcional)</Label>
+                      <Select value={gds} onValueChange={setGds}>
+                        <SelectTrigger className="w-48"><SelectValue placeholder="Seleccionar GDS" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="amadeus">Amadeus</SelectItem>
+                          <SelectItem value="sabre">Sabre</SelectItem>
+                          <SelectItem value="travelport">Travelport</SelectItem>
+                          <SelectItem value="otro">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Texto del PNR / Itinerario</Label>
+                      <Textarea
+                        value={rawText}
+                        onChange={(e) => setRawText(e.target.value)}
+                        placeholder={`Ejemplo:\nRP/MDQG12155/MDQG12155            BG/AS   4NOV25/1740Z   B9E9KL\n  1.ALVEZ DE VINER/ELSA BEATRIZ   2.VINER/RICARDO HORACIO\n  3  AR1328 I 17APR 5 EZEPUJ HK2  0830 1530  17APR  E  AR/JFRZXA\n  4  AR1329 I 01MAY 5 PUJEZE HK2  1935 0430  02MAY  E  AR/JFRZXA`}
+                        className="min-h-[300px] font-mono text-sm"
+                      />
+                    </div>
+                    <Button onClick={handleParse} className="w-full">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Analizar Texto
+                    </Button>
+                  </TabsContent>
+
+                  <TabsContent value="pdf" className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Subí un e-ticket o itinerario en PDF (máx. 10MB). La IA extraerá automáticamente localizador, pasajeros y vuelos.
+                    </p>
+                    <div className="space-y-2">
+                      <Label>Archivo PDF</Label>
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                        disabled={isPdfLoading}
+                        className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-primary-foreground hover:file:bg-primary/90"
+                      />
+                      {pdfFile && (
+                        <p className="text-sm text-muted-foreground">📄 {pdfFile.name} ({(pdfFile.size / 1024).toFixed(1)} KB)</p>
+                      )}
+                    </div>
+                    {isPdfLoading && pdfProgress && (
+                      <div className="rounded-lg bg-muted p-3 text-sm flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />{pdfProgress}
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label>Fuente (opcional)</Label>
+                      <Select value={gds} onValueChange={setGds}>
+                        <SelectTrigger className="w-48"><SelectValue placeholder="Seleccionar GDS" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="amadeus">Amadeus</SelectItem>
+                          <SelectItem value="sabre">Sabre</SelectItem>
+                          <SelectItem value="travelport">Travelport</SelectItem>
+                          <SelectItem value="otro">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleParsePDF} disabled={isPdfLoading || !pdfFile} className="w-full">
+                      {isPdfLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileUp className="h-4 w-4 mr-2" />}
+                      Analizar PDF
+                    </Button>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           ) : (
