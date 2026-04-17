@@ -59,7 +59,7 @@ export default function ReservationDetail() {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="flex items-center justify-center h-[60vh]">
-          <p className="text-muted-foreground">Cargando reserva...</p>
+          <p className="text-muted-foreground">Cargando vuelo...</p>
         </main>
       </div>
     );
@@ -70,7 +70,7 @@ export default function ReservationDetail() {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="flex flex-col items-center justify-center h-[60vh]">
-          <p className="text-muted-foreground mb-4">Reserva no encontrada</p>
+          <p className="text-muted-foreground mb-4">Vuelo no encontrado</p>
           <Button asChild><Link to="/reservations">Volver</Link></Button>
         </main>
       </div>
@@ -98,10 +98,10 @@ export default function ReservationDetail() {
   const handleDeleteReservation = async () => {
     try {
       await deleteReservation.mutateAsync(reservation.id);
-      toast.success('Reserva eliminada');
+      toast.success('Vuelo eliminado');
       navigate('/reservations');
     } catch {
-      toast.error('No se pudo eliminar la reserva');
+      toast.error('No se pudo eliminar el vuelo');
     }
   };
 
@@ -188,7 +188,7 @@ export default function ReservationDetail() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl sm:text-2xl font-bold truncate">
-                    {reservation.locator ? `Reserva ${reservation.locator}` : 'Reserva'}
+                    {reservation.locator ? `Vuelo ${reservation.locator}` : 'Vuelo'}
                   </h1>
                   {pendingChanges.length > 0 && (
                     <Badge variant="outline" className="text-destructive border-destructive/30">
@@ -221,8 +221,8 @@ export default function ReservationDetail() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar reserva?</AlertDialogTitle>
-                    <AlertDialogDescription>Se eliminarán todos los vuelos, pasajeros y datos asociados.</AlertDialogDescription>
+                    <AlertDialogTitle>¿Eliminar vuelo?</AlertDialogTitle>
+                    <AlertDialogDescription>Se eliminarán todos los segmentos, pasajeros y datos asociados.</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
