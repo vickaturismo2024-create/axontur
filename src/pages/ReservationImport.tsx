@@ -498,13 +498,13 @@ export default function ReservationImport() {
               className="flex-1"
             >
               {updateFromPNR.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-              Actualizar reserva existente
+              Actualizar vuelo existente
             </Button>
           </>
         ) : (
           <Button onClick={handleCreate} disabled={createReservation.isPending || segments.length === 0} className="flex-1">
             {createReservation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-            Guardar Reserva
+            Guardar Vuelo
           </Button>
         )}
       </div>
