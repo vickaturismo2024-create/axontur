@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { SupplierSelect } from '@/components/quotes/SupplierSelect';
 import { PNRParserDialog } from '@/components/quotes/PNRParserDialog';
+import { PDFParserDialog } from '@/components/quotes/PDFParserDialog';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface FlightsStepProps {
@@ -199,6 +200,7 @@ export function FlightsStep({ quote, onUpdate }: FlightsStepProps) {
           <Plus className="mr-2 h-4 w-4" />Agregar opción de vuelo
         </Button>
         <div data-tour="pnr-parser"><PNRParserDialog onFlightsParsed={handleFlightsParsed} /></div>
+        <PDFParserDialog onFlightsParsed={handleFlightsParsed} />
       </div>
     </div>
   );

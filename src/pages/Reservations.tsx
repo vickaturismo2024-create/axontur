@@ -107,9 +107,9 @@ export default function Reservations() {
   const handleDelete = async (id: string) => {
     try {
       await deleteReservation.mutateAsync(id);
-      toast.success('Reserva eliminada');
+      toast.success('Vuelo eliminado');
     } catch {
-      toast.error('Error al eliminar la reserva');
+      toast.error('Error al eliminar el vuelo');
     }
   };
 
@@ -119,14 +119,14 @@ export default function Reservations() {
       <main className="container mx-auto p-4 md:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Reservas de Vuelo</h1>
-            <p className="text-muted-foreground">Gestión de PNR, pasajeros y segmentos</p>
+            <h1 className="text-2xl font-bold">Vuelos</h1>
+            <p className="text-muted-foreground">Gestión de PNR, pasajeros y segmentos de vuelo</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild>
               <Link to="/reservations/import">
                 <Plus className="h-4 w-4 mr-2" />
-                Importar Reserva
+                Importar Vuelo
               </Link>
             </Button>
           </div>
@@ -143,18 +143,18 @@ export default function Reservations() {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground">Cargando reservas...</div>
+          <div className="text-center py-12 text-muted-foreground">Cargando vuelos...</div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <Plane className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-muted-foreground text-lg mb-4">
-              {search ? 'No se encontraron reservas' : 'No hay reservas cargadas'}
+              {search ? 'No se encontraron vuelos' : 'No hay vuelos cargados'}
             </p>
             {!search && (
               <Button asChild>
                 <Link to="/reservations/import">
                   <Plus className="h-4 w-4 mr-2" />
-                  Importar tu primera reserva
+                  Importar tu primer vuelo
                 </Link>
               </Button>
             )}
@@ -220,7 +220,7 @@ export default function Reservations() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>¿Eliminar reserva?</AlertDialogTitle>
+                            <AlertDialogTitle>¿Eliminar vuelo?</AlertDialogTitle>
                             <AlertDialogDescription>
                               Se eliminarán todos los vuelos, pasajeros y datos asociados.
                             </AlertDialogDescription>
