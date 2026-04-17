@@ -198,6 +198,95 @@ export default function ReservationImport() {
     setPassengers([]);
     setSegments([]);
     setDuplicateRes(null);
+    setPdfFile(null);
+  };
+
+  const handleParsePDF = async () => {
+    if (!pdfFile) {
+      toast.error('Seleccioná un archivo PDF');
+      return;
+    }
+    if (pdfFile.size > 10 * 1024 * 1024) {
+      toast.error('El PDF no puede superar los 10MB');
+      return;
+    }
+    setIsPdfLoading(true);
+    try {
+      const text = await extractTextFromPDF(pdfFile, setPdfProgress);
+      if (!text || text.length < 20) {
+        toast.error('No se pudo extraer texto (¿es un PDF escaneado?)');
+        return;
+      }
+      setPdfProgress('Analizando con IA...');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Sesión expirada. Iniciá sesión nuevamente.');
+        return;
+      }
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pdf`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ text }),
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) toast.error('Límite excedido. Intentá más tarde.');
+        else if (response.status === 402) toast.error('Créditos insuficientes en tu workspace.');
+        else toast.error(errorData.error || 'Error al procesar el PDF');
+        return;
+      }
+      const data = await response.json();
+      // Map parsed flights to ParsedSegment format
+      const mappedSegments: EditableSegment[] = (data.flights || []).map((f: any, i: number) => {
+        const dep = f.date && f.departureTime ? new Date(`${f.date}T${f.departureTime}:00`) : undefined;
+        const arr = f.date && f.arrivalTime ? new Date(`${f.date}T${(f.arrivalTime || '').replace('+1', '')}:00`) : undefined;
+        const [airlineCode, ...rest] = (f.flightNumber || '').match(/^([A-Z0-9]{2})\s*(\d+)/) || [];
+        const code = (f.flightNumber || '').match(/^([A-Z]{2})/)?.[1] || '';
+        const num = (f.flightNumber || '').replace(/^[A-Z]{2}\s*/, '');
+        const originIata = (f.origin || '').match(/\(([A-Z]{3})\)/)?.[1] || (f.origin || '').slice(0, 3).toUpperCase();
+        const destIata = (f.destination || '').match(/\(([A-Z]{3})\)/)?.[1] || (f.destination || '').slice(0, 3).toUpperCase();
+        return {
+          id: `seg-${Date.now()}-${i}`,
+          airlineCode: code,
+          flightNumber: num,
+          originIata,
+          destinationIata: destIata,
+          depDatetime: dep,
+          arrDatetime: arr,
+          rawText: '',
+          isIncomplete: !dep,
+        };
+      });
+      const mappedPassengers: EditablePassenger[] = (data.passengers || []).map((p: any, i: number) => ({
+        id: `pax-${Date.now()}-${i}`,
+        lastName: p.lastName || '',
+        firstName: p.firstName || '',
+        title: p.title || '',
+      }));
+      setLocator(data.locator || '');
+      setPassengers(mappedPassengers);
+      setSegments(mappedSegments);
+      setRawText(text.substring(0, 10000));
+      setIsParsed(true);
+      toast.success(`PDF procesado: ${mappedSegments.length} vuelo(s), ${mappedPassengers.length} pasajero(s)`);
+
+      if (data.locator) {
+        const existing = await findByLocator(data.locator);
+        if (existing) setDuplicateRes({ id: existing.id, locator: existing.locator || data.locator });
+      }
+    } catch (error) {
+      console.error('Error parsing PDF:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al procesar el PDF');
+    } finally {
+      setIsPdfLoading(false);
+      setPdfProgress('');
+    }
   };
 
   const renderPreview = () => (
