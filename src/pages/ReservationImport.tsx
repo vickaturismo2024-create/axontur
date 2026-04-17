@@ -153,13 +153,13 @@ export default function ReservationImport() {
         gds: gds || undefined,
       });
       if (result.changesCount > 0) {
-        toast.success(`Reserva actualizada. Se detectaron ${result.changesCount} cambio(s)`);
+        toast.success(`Vuelo actualizado. Se detectaron ${result.changesCount} cambio(s)`);
       } else {
-        toast.success('Reserva actualizada. Sin cambios.');
+        toast.success('Vuelo actualizado. Sin cambios.');
       }
       navigate(`/reservations/${duplicateRes.id}`);
     } catch {
-      toast.error('Error al actualizar la reserva');
+      toast.error('Error al actualizar el vuelo');
     }
   };
 
