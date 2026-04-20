@@ -112,8 +112,8 @@ export function CruiseItineraryPasteDialog({ open, onOpenChange, onApply }: Crui
                 </Table>
               </div>
 
-              <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
-                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+              <div className="flex items-start gap-2 rounded-md border border-accent/30 bg-accent/5 p-3 text-xs">
+                <AlertCircle className="h-4 w-4 shrink-0 text-accent" />
                 <p>Revisá el resultado antes de aplicar. La columna "Fecha" se guarda como nota en cada puerto.</p>
               </div>
             </div>
