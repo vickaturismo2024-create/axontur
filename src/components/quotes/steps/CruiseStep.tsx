@@ -97,7 +97,12 @@ export function CruiseStep({ quote, onUpdate }: CruiseStepProps) {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-lg">Itinerario del crucero</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-lg">Itinerario del crucero</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => setPasteOpen(true)}>
+            <ClipboardPaste className="mr-2 h-4 w-4" />Pegar itinerario
+          </Button>
+        </CardHeader>
         <CardContent className="space-y-4">
           {quote.cruise.itinerary.map((port) => (
             <Card key={port.id} className="relative">
@@ -121,6 +126,18 @@ export function CruiseStep({ quote, onUpdate }: CruiseStepProps) {
           <Button variant="outline" onClick={addCruisePort} className="w-full"><Plus className="mr-2 h-4 w-4" />Agregar puerto</Button>
         </CardContent>
       </Card>
+
+      <CruiseItineraryPasteDialog
+        open={pasteOpen}
+        onOpenChange={setPasteOpen}
+        onApply={(ports, mode) => {
+          if (!quote.cruise) return;
+          const merged = mode === 'replace'
+            ? ports.map((p, idx) => ({ ...p, day: idx + 1 }))
+            : [...quote.cruise.itinerary, ...ports].map((p, idx) => ({ ...p, day: idx + 1 }));
+          onUpdate({ cruise: { ...quote.cruise, itinerary: merged } });
+        }}
+      />
 
       <Card>
         <CardHeader><CardTitle className="text-lg">Extras del crucero</CardTitle></CardHeader>
