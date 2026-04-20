@@ -17,6 +17,7 @@ interface CruiseItineraryPasteDialogProps {
 export function CruiseItineraryPasteDialog({ open, onOpenChange, onApply }: CruiseItineraryPasteDialogProps) {
   const [text, setText] = useState('');
   const [parsed, setParsed] = useState<{ cruiseName?: string; ports: CruisePort[] } | null>(null);
+  const [debugSample, setDebugSample] = useState<string | null>(null);
 
   const handleProcess = () => {
     if (!text.trim()) {
@@ -27,9 +28,11 @@ export function CruiseItineraryPasteDialog({ open, onOpenChange, onApply }: Crui
     if (result.ports.length === 0) {
       toast.error('No se detectaron puertos. Verificá el formato.');
       setParsed(null);
+      setDebugSample(result.normalizedSample || '(texto vacío)');
       return;
     }
     setParsed(result);
+    setDebugSample(null);
     toast.success(`${result.ports.length} puertos detectados`);
   };
 
@@ -45,6 +48,7 @@ export function CruiseItineraryPasteDialog({ open, onOpenChange, onApply }: Crui
     if (!val) {
       setText('');
       setParsed(null);
+      setDebugSample(null);
     }
     onOpenChange(val);
   };
@@ -72,9 +76,20 @@ export function CruiseItineraryPasteDialog({ open, onOpenChange, onApply }: Crui
           />
 
           {!parsed && (
-            <Button onClick={handleProcess} className="w-full">
-              Procesar itinerario
-            </Button>
+            <>
+              <Button onClick={handleProcess} className="w-full">
+                Procesar itinerario
+              </Button>
+              {debugSample && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs">
+                  <div className="mb-1 flex items-center gap-2 font-medium text-destructive">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    No se pudo parsear. Muestra normalizada (· = espacio):
+                  </div>
+                  <pre className="whitespace-pre-wrap break-all font-mono text-[11px] text-muted-foreground">{debugSample}</pre>
+                </div>
+              )}
+            </>
           )}
 
           {parsed && (
