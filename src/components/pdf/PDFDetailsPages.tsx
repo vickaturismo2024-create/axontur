@@ -1021,7 +1021,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                   className="rounded border"
                   style={{ padding: '8px', borderColor: secondaryColor, backgroundColor: index % 2 === 0 ? bgColor : cardBgColor }}
                 >
-                  <div className="grid grid-cols-2" style={{ gap: '8px', fontSize: '11px' }}>
+                  <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '8px', fontSize: '11px' }}>
                     <div>
                       <p className="font-semibold" style={{ color: primaryColor }}>
                         {car.company}
