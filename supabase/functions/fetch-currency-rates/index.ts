@@ -68,6 +68,20 @@ function parseBitcoinNumber(raw: string): number | null {
   return parseArsNumber(m[1]);
 }
 
+// Decodifica entidades HTML básicas y numéricas (&#xF3; -> ó, &amp; -> &, etc.)
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\u00A0/g, ' ');
+}
+
 function parseHtml(html: string): Rate[] {
   const rates: Rate[] = [];
 
@@ -84,7 +98,7 @@ function parseHtml(html: string): Rate[] {
     // Nombre de moneda: <div class="moneda"><p>NOMBRE</p>
     const monedaMatch = liHtml.match(/class=["']moneda["'][^>]*>\s*<p[^>]*>([^<]+)<\/p>/i);
     if (!monedaMatch) continue;
-    const monedaName = monedaMatch[1].trim();
+    const monedaName = decodeEntities(monedaMatch[1]).replace(/\s+/g, ' ').trim();
     const meta = RATE_MAP[monedaName];
     if (!meta) continue;
 
