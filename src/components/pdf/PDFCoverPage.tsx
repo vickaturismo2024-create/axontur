@@ -73,32 +73,32 @@ export function PDFCoverPage({ quote, template, isMobile = false }: PDFCoverPage
 
   // Content block (dates, destination, subtitle)
   const contentBlock = (
-    <div className="flex flex-1 flex-col justify-center" style={{ padding: '40px 0', textAlign: coverTextAlign, alignItems: textAlignItems }}>
-      <p className="uppercase tracking-[0.25em]" style={{ marginBottom: '16px', fontSize: '14px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+    <div className="flex flex-1 flex-col justify-center" style={{ padding: isMobile ? '24px 0' : '40px 0', textAlign: coverTextAlign, alignItems: textAlignItems }}>
+      <p className="uppercase tracking-[0.25em]" style={{ marginBottom: isMobile ? '10px' : '16px', fontSize: isMobile ? '12px' : '14px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
         {quote.cover.title || 'PRESUPUESTO DE VIAJE'}
       </p>
-      <h1 className="font-serif font-bold leading-tight text-white" style={{ marginBottom: '20px', fontSize: '42px' }}>
+      <h1 className="font-serif font-bold leading-tight text-white" style={{ marginBottom: isMobile ? '12px' : '20px', fontSize: isMobile ? '28px' : '42px' }}>
         {quote.trip.destination}
       </h1>
       {quote.cover.subtitle && (
-        <p className="text-white/80" style={{ marginBottom: '32px', maxWidth: '350px', fontSize: '14px', lineHeight: '1.5', ...(coverTextAlign === 'center' ? { margin: '0 auto 32px' } : {}) }}>
+        <p className="text-white/80" style={{ marginBottom: isMobile ? '20px' : '32px', maxWidth: '350px', fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5', ...(coverTextAlign === 'center' ? { margin: `0 auto ${isMobile ? '20px' : '32px'}` } : {}) }}>
           {quote.cover.subtitle}
         </p>
       )}
-      <div className="flex items-center text-white/90" style={{ gap: '24px', justifyContent: textAlignItems }}>
+      <div className={`flex items-center text-white/90 ${isMobile ? 'flex-wrap justify-center' : ''}`} style={{ gap: isMobile ? '12px' : '24px', justifyContent: isMobile ? 'center' : textAlignItems }}>
         <div className="text-center">
-          <p className="uppercase tracking-wider" style={{ fontSize: '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Desde</p>
-          <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: '14px' }}>{formatDate(quote.trip.startDate)}</p>
+          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Desde</p>
+          <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: isMobile ? '12px' : '14px' }}>{formatDate(quote.trip.startDate)}</p>
         </div>
         <div style={{ height: '24px', width: '1px', backgroundColor: `${accentColor}80`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
         <div className="text-center">
-          <p className="uppercase tracking-wider" style={{ fontSize: '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Hasta</p>
-          <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: '14px' }}>{formatDate(quote.trip.endDate)}</p>
+          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Hasta</p>
+          <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: isMobile ? '12px' : '14px' }}>{formatDate(quote.trip.endDate)}</p>
         </div>
         <div style={{ height: '24px', width: '1px', backgroundColor: `${accentColor}80`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
         <div className="text-center">
-          <p className="uppercase tracking-wider" style={{ fontSize: '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Pasajeros</p>
-          <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: '14px' }}>{quote.trip.travelers}</p>
+          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Pasajeros</p>
+          <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: isMobile ? '12px' : '14px' }}>{quote.trip.travelers}</p>
           {quote.pricing?.useOccupancyPricing && quote.pricing?.occupancyPricing && quote.pricing.occupancyPricing.length > 0 && (
             <p style={{ marginTop: '2px', fontSize: '9px', color: 'rgba(255,255,255,0.7)' }}>
               {quote.pricing.occupancyPricing.map((occ: OccupancyPricing) => {
