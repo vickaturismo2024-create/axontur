@@ -169,10 +169,10 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         component: (
           <SectionCard icon={Plane} title="Vuelos">
             <div 
-              className="overflow-hidden rounded border"
+              className={`${isMobile ? 'overflow-x-auto' : 'overflow-hidden'} rounded border`}
               style={{ borderColor: secondaryColor }}
             >
-              <table className="w-full" style={{ fontSize: '11px' }}>
+              <table className="w-full" style={{ fontSize: '11px', minWidth: isMobile ? '500px' : undefined }}>
                 <thead style={{ backgroundColor: cardBgColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                   <tr>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Ruta</th>
@@ -449,7 +449,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
               📍 {lodging.destination}
             </p>
           )}
-          <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+                      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px' }}>
             <div>
               <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
               <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
@@ -563,7 +563,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
               📍 {lodging.destination}
             </p>
           )}
-          <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+                      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px' }}>
             <div>
               <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>{lodging.name}</h4>
               <p style={{ fontSize: '11px', color: `${primaryColor}99` }}>{lodging.category}</p>
@@ -704,7 +704,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         height: HEIGHTS.CRUISE_BASE + (cruiseItineraryLength * HEIGHTS.CRUISE_ITINERARY_ROW),
         component: (
           <SectionCard icon={Anchor} title="Crucero">
-            <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px' }}>
               <div>
                 <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>
                   {quote.cruise.shipName}
