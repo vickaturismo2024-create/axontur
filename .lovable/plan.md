@@ -1,61 +1,49 @@
 
 
-## Plan: Renombrar "Reservas" → "Vuelos", import PDF y mostrar vuelos en el calendario
+## Plan: arreglar build + import de itinerario de crucero por copy/paste
 
-### 1. Renombrar "Reservas" a "Vuelos"
-Cambios solo de UI/copy, no toco rutas (`/reservations` queda igual para no romper enlaces existentes ni la base):
+### 1. Fix de build (CSS)
+El error de build viene de `src/index.css`: el `@import` de Google Fonts está **después** de los `@tailwind`, y la spec CSS exige que `@import` vaya antes de cualquier otra regla. El pipeline de Lovable falla por eso.
 
-- **`src/components/layout/Header.tsx`** (línea 28): `'Reservas'` → `'Vuelos'`.
-- **`src/pages/Reservations.tsx`**: título `"Reservas de Vuelo"` → `"Vuelos"`, subtítulo, mensajes vacíos ("No hay reservas cargadas" → "No hay vuelos cargados"), botón "Importar Reserva" → "Importar Vuelo", y el alert de eliminación.
-- **`src/pages/ReservationImport.tsx`** y **`src/pages/ReservationDetail.tsx`**: cambiar copy visible (títulos, toasts) de "reserva" → "vuelo" / "importar vuelo".
+**Cambio:** mover la línea 5 (`@import url('https://fonts.googleapis.com/...')`) arriba de todo, antes de `@tailwind base`. 1 sola edición.
 
-### 2. Import de PDF (en Vuelos y en Presupuestos)
-Replico la lógica de `vuelosvicka` (PDF.js + Edge Function con Gemini para extracción estructurada).
+### 2. Importar itinerario de crucero pegando texto
+En `CruiseStep.tsx`, agregar un botón **"Pegar itinerario"** al lado del título "Itinerario del crucero" que abre un Dialog con un Textarea. Al pegar el texto del formato que pasaste y darle "Procesar", parsea localmente (sin IA, sin costo) y llena `quote.cruise.itinerary` con un array de `CruisePort`.
 
-**Backend (nuevo edge function):**
-- `supabase/functions/parse-pdf/index.ts`: idéntico al de vuelosvicka. Recibe FormData con un PDF, valida header `%PDF-`, manda el PDF en base64 al gateway de Lovable AI (`google/gemini-2.5-flash`) con tool calling `extract_flight_data` y devuelve `{ locator, passengers[], flights[], text }`. Usa `LOVABLE_API_KEY` ya configurada.
-- `supabase/config.toml`: registrar la función con `verify_jwt = true` (estándar).
+**Parser** (en `src/lib/cruiseItineraryParser.ts`, nuevo archivo): regex tolerante al formato sin separadores que mostraste. Para cada renglón detecta:
+- Día de la semana (3 letras: `Lun|Mar|Mie|Jue|Vie|Sab|Dom`, con o sin tilde) — sólo como ancla.
+- Fecha `dd/mm/yyyy` justo después del día.
+- Puerto + país hasta el siguiente bloque `HH:MM` o `-`.
+- Arribo (`HH:MM` o `-`).
+- Partida (`HH:MM` o `-`).
 
-**Dependencia:**
-- Agregar `pdfjs-dist@^3.11.174` al `package.json` para extracción client-side rápida (con fallback a IA).
+Casos especiales:
+- "Navegación" → puerto = "Navegación", país = "", horas vacías.
+- Guión `-` → hora vacía (embarque/desembarque).
+- Si la línea trae más de 1 puerto pegado (como en tu ejemplo, todo viene en 1 sola línea), divide por la regex de día de semana y procesa cada bloque por separado.
 
-**UI – Sección Vuelos (`/reservations/import`):**
-- Convertir el form actual en `Tabs` con dos pestañas: **"Pegar texto"** (lo que ya hay) y **"Subir PDF"** (nuevo). En "Subir PDF":
-  - Input file `accept="application/pdf"`, máximo 10MB.
-  - Procesa con `pdfjs-dist` para texto → llama `parse-pdf` → puebla `locator`, `passengers`, `segments` reusando el mismo `renderPreview` y `handleCreate` que ya existen.
-  - Loader con `ocrProgress` ("Extrayendo texto…", "Analizando con IA…").
+Devuelve `CruisePort[]` con `day` autoincrementado desde 1, `port`, `country`, `arrivalTime`, `departureTime`, `notes: ''`, `id` nuevo.
 
-**UI – Presupuestos (editor de vuelos):**
-- Crear `src/components/quotes/PDFParserDialog.tsx` (gemelo de `PNRParserDialog`): botón "Importar PDF", input file, llama `parse-pdf`, mapea los `flights` extraídos al tipo `Flight` del presupuesto (airline, flightNumber, origin, destination, date YYYY-MM-DD, departureTime HH:mm, arrivalTime HH:mm) y los empuja vía `onFlightsParsed`.
-- En `src/components/quotes/steps/FlightsStep.tsx` agregar el nuevo botón al lado del `PNRParserDialog` existente, reutilizando `handleFlightsParsed`.
+**Vista previa antes de aplicar:** dentro del Dialog, después de procesar, mostrar una tablita con `Día | Fecha | Puerto | País | Llegada | Salida` para que el usuario confirme antes de pisar el itinerario actual. Botones: "Reemplazar" (pisa lo existente) y "Agregar al final" (concatena).
 
-### 3. Vuelos en el Calendario
-Modificar `src/pages/Calendar.tsx` para que además de presupuestos aprobados, muestre los segmentos de vuelo (`flight_segments`) sobre la fecha de `dep_datetime_local`.
+**Bonus pequeño:** además del itinerario, si la primera línea contiene "Crucero N : NOMBRE", se sugiere también poner ese nombre como `notes` o lo dejamos sólo informativo arriba. (Lo más prolijo: lo mostramos en la preview pero NO sobreescribimos campos del barco; el usuario ya los carga arriba.)
 
-- Nuevo `useQuery` (`['calendar-flight-segments', monthStart, monthEnd]`) que trae segmentos del usuario en el rango del mes (vía join `reservations.user_id = auth.uid()` que ya respeta RLS) usando `dep_datetime_local`.
-- Por cada día se listan también los vuelos como botones tipo chip: `AR1234 EZE→MIA` con color distintivo (azul de aviación) y, al hacer click, navega a `/reservations/{reservation_id}`.
-- Si el segmento tiene `has_changes`, se pinta en rojo y muestra ícono de alerta.
-- Leyenda inferior con conteo: "X viajes · Y vuelos este mes".
+### 3. Si el formato no parsea
+Si el regex no detecta nada (formato distinto), fallback opcional a la edge function `parse-pdf` reusando el mismo flujo pero con un nuevo `extract_cruise_itinerary` tool. Para no agrandar scope, **arrancamos sólo con el parser local** (que cubre tu formato exactamente) y dejamos el fallback IA como mejora futura si hace falta.
 
 ### Archivos afectados
 ````text
 modificados:
-  src/components/layout/Header.tsx          (label nav)
-  src/pages/Reservations.tsx                (copy)
-  src/pages/ReservationImport.tsx           (copy + Tabs PDF)
-  src/pages/ReservationDetail.tsx           (copy)
-  src/pages/Calendar.tsx                    (vuelos del mes)
-  src/components/quotes/steps/FlightsStep.tsx (botón nuevo)
-  package.json                              (pdfjs-dist)
-  supabase/config.toml                      (parse-pdf)
+  src/index.css                              (mover @import arriba — fix build)
+  src/components/quotes/steps/CruiseStep.tsx (botón "Pegar itinerario" + Dialog)
 
 nuevos:
-  supabase/functions/parse-pdf/index.ts
-  src/components/quotes/PDFParserDialog.tsx
+  src/lib/cruiseItineraryParser.ts           (parser regex local)
+  src/components/quotes/CruiseItineraryPasteDialog.tsx (UI del paste + preview)
 ````
 
-### Notas técnicas
-- No cambio rutas (`/reservations`) ni nombres de tabla (`reservations`, `flight_segments`) para no romper la migración recién hecha de los 70 PNRs ni los enlaces guardados.
-- La función `parse-pdf` usa `LOVABLE_API_KEY` (ya existe) y modelo gratuito hasta 13/oct: sin costo extra para el usuario.
-- En el calendario respeto RLS: la query de segmentos se filtra por las reservas del user vía la relación ya existente (`reservations.user_id`).
+### Verificación
+- El build vuelve a pasar.
+- Pegando exactamente el texto de tu mensaje, se generan 10 puertos: Buenos Aires, Navegación, Navegación, Río de Janeiro, Buzios, Ilhabela, Camboriu, Navegación, Punta Del Este, Buenos Aires — con sus fechas, llegadas y salidas correctas (incluyendo `-` donde corresponda).
+- El itinerario aparece directamente en las cards de la sección crucero, listo para editar manualmente cualquier ajuste.
 
