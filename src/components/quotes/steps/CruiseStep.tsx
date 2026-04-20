@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Quote, Cruise, CruisePort, CruiseExtras } from '@/types/quote';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SupplierSelect } from '@/components/quotes/SupplierSelect';
-import { Plus, Trash2, Ship } from 'lucide-react';
+import { CruiseItineraryPasteDialog } from '@/components/quotes/CruiseItineraryPasteDialog';
+import { Plus, Trash2, Ship, ClipboardPaste } from 'lucide-react';
 
 interface CruiseStepProps {
   quote: Quote;
