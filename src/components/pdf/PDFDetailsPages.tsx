@@ -733,8 +733,8 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
             {quote.cruise.itinerary && quote.cruise.itinerary.length > 0 && (
               <div style={{ marginTop: '10px' }}>
                 <p style={{ fontSize: '11px', fontWeight: 600, color: primaryColor, marginBottom: '6px' }}>Itinerario:</p>
-                <div className="overflow-hidden rounded border" style={{ borderColor: secondaryColor }}>
-                  <table className="w-full" style={{ fontSize: '10px' }}>
+                <div className={`${isMobile ? 'overflow-x-auto' : 'overflow-hidden'} rounded border`} style={{ borderColor: secondaryColor }}>
+                  <table className="w-full" style={{ fontSize: '10px', minWidth: isMobile ? '400px' : undefined }}>
                     <thead style={{ backgroundColor: cardBgColor }}>
                       <tr>
                         <th className="text-left font-medium" style={{ padding: '4px 6px', color: primaryColor }}>Día</th>
@@ -874,8 +874,8 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         height: HEIGHTS.SECTION_HEADER + (quote.trains.length * HEIGHTS.TRAIN_ROW) + 40,
         component: (
           <SectionCard icon={Train} title="Trenes">
-            <div className="overflow-hidden rounded border" style={{ borderColor: secondaryColor }}>
-              <table className="w-full" style={{ fontSize: '11px' }}>
+            <div className={`${isMobile ? 'overflow-x-auto' : 'overflow-hidden'} rounded border`} style={{ borderColor: secondaryColor }}>
+              <table className="w-full" style={{ fontSize: '11px', minWidth: isMobile ? '500px' : undefined }}>
                 <thead style={{ backgroundColor: cardBgColor }}>
                   <tr>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Ruta</th>
@@ -944,8 +944,8 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         height: HEIGHTS.SECTION_HEADER + (quote.ferries.length * HEIGHTS.FERRY_ROW) + 40,
         component: (
           <SectionCard icon={Ship} title="Ferrys">
-            <div className="overflow-hidden rounded border" style={{ borderColor: secondaryColor }}>
-              <table className="w-full" style={{ fontSize: '11px' }}>
+            <div className={`${isMobile ? 'overflow-x-auto' : 'overflow-hidden'} rounded border`} style={{ borderColor: secondaryColor }}>
+              <table className="w-full" style={{ fontSize: '11px', minWidth: isMobile ? '500px' : undefined }}>
                 <thead style={{ backgroundColor: cardBgColor }}>
                   <tr>
                     <th className="text-left font-medium" style={{ padding: '6px 8px', color: primaryColor }}>Ruta</th>
@@ -1157,7 +1157,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         height: HEIGHTS.INSURANCE,
         component: (
           <SectionCard icon={Shield} title="Asistencia al Viajero">
-            <div className="grid grid-cols-2" style={{ gap: '12px', fontSize: '11px' }}>
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px', fontSize: '11px' }}>
               <div>
                 <p><span style={{ color: `${primaryColor}99` }}>Compañía:</span> {quote.insurance.company}</p>
                 {quote.insurance.plan && quote.insurance.plan.trim() !== '' && (
