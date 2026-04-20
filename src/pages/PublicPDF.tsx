@@ -10,6 +10,7 @@ import { Loader2, CheckCircle, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Transform snake_case DB row to camelCase Quote
 function mapDbRowToQuote(row: any): Quote {
@@ -53,7 +54,6 @@ function mapDbRowToTemplate(row: any): Template {
 }
 
 const PDF_PAGE_WIDTH = 794;
-const MOBILE_BREAKPOINT = 768;
 
 const PublicPDF = () => {
   const { id } = useParams<{ id: string }>();
@@ -62,29 +62,23 @@ const PublicPDF = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT);
   const [contentHeight, setContentHeight] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   // Approval state
   const [approvalName, setApprovalName] = useState('');
   const [approving, setApproving] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
 
-  // Responsive scale + mobile detection
+  // Desktop scale calculation
   const updateScale = useCallback(() => {
-    if (containerRef.current) {
-      const containerWidth = containerRef.current.clientWidth;
-      const mobile = containerWidth < MOBILE_BREAKPOINT;
-      setIsMobile(mobile);
-
-      if (!mobile) {
-        const padding = 32;
-        const availableWidth = containerWidth - padding;
-        const newScale = Math.min(availableWidth / PDF_PAGE_WIDTH, 1);
-        setScale(newScale);
-      }
+    if (!isMobile && containerRef.current) {
+      const padding = 32;
+      const availableWidth = containerRef.current.clientWidth - padding;
+      const newScale = Math.min(availableWidth / PDF_PAGE_WIDTH, 1);
+      setScale(newScale);
     }
     if (contentRef.current && !isMobile) {
       setContentHeight(contentRef.current.scrollHeight);
@@ -188,7 +182,7 @@ const PublicPDF = () => {
   if (error || !quote) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted">
-        <div className="text-center">
+        <div className="text-center px-4">
           <p className="text-lg font-medium text-destructive">{error || 'Presupuesto no encontrado'}</p>
           <p className="mt-2 text-sm text-muted-foreground">
             El enlace puede haber expirado o el presupuesto no existe.
@@ -199,7 +193,7 @@ const PublicPDF = () => {
   }
 
   const approvalSection = (
-    <div className="mx-auto max-w-lg my-8 print:hidden">
+    <div className={`print:hidden ${isMobile ? 'px-3 pb-4' : 'mx-auto max-w-lg my-8'}`}>
       {isApproved ? (
         <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-6 text-center">
           <CheckCircle className="mx-auto h-12 w-12 text-emerald-500" />
@@ -209,8 +203,8 @@ const PublicPDF = () => {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border-2 border-primary/20 bg-card p-6 shadow-lg">
-          <h3 className="text-lg font-semibold text-center mb-1">¿Aprobás este presupuesto?</h3>
+        <div className={`rounded-xl border-2 border-primary/20 bg-card shadow-lg ${isMobile ? 'p-4' : 'p-6'}`}>
+          <h3 className={`font-semibold text-center mb-1 ${isMobile ? 'text-base' : 'text-lg'}`}>¿Aprobás este presupuesto?</h3>
           <p className="text-sm text-muted-foreground text-center mb-4">
             Ingresá tu nombre para confirmar la aprobación
           </p>
@@ -232,7 +226,7 @@ const PublicPDF = () => {
   );
 
   const pdfContent = (
-    <div ref={contentRef} className={`flex flex-col items-center gap-8 print:gap-0 print:items-stretch ${isMobile ? 'gap-4' : ''}`}>
+    <div ref={contentRef} className={`flex flex-col items-center print:gap-0 print:items-stretch ${isMobile ? 'gap-2' : 'gap-8'}`}>
       <PDFCoverPage quote={quote} template={template} isMobile={isMobile} />
       <PDFDetailsPages quote={quote} template={template} isMobile={isMobile} />
       <PDFContactPages quote={quote} template={template} isMobile={isMobile} />
@@ -242,6 +236,7 @@ const PublicPDF = () => {
     </div>
   );
 
+  // Mobile layout: full-width, no scaling
   if (isMobile) {
     return (
       <div ref={containerRef} className="min-h-screen bg-muted overflow-x-hidden print:bg-white print:min-h-0">
@@ -253,6 +248,7 @@ const PublicPDF = () => {
     );
   }
 
+  // Desktop layout: scaled A4 pages
   return (
     <div ref={containerRef} className="min-h-screen bg-muted overflow-x-hidden print:bg-white print:min-h-0">
       <div className="mx-auto py-4 print:p-0 print:m-0 print:max-w-none">
