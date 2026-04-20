@@ -92,7 +92,7 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
                   borderStyle: lodging.isOption ? 'dashed' : 'solid'
                 }}
               >
-                <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+                <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px' }}>
                   <div>
                     {lodging.isOption && (
                       <span 
@@ -200,7 +200,7 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
               Contactanos por WhatsApp
             </h3>
 
-            <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px' }}>
               {template.whatsappAgents.map((agent, index) => (
                 <div 
                   key={index}
@@ -272,14 +272,14 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
             printColorAdjust: 'exact'
           }}
         >
-          <div className="flex items-center justify-between">
+          <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}`}>
             <div>
-              <h3 className="font-serif font-bold" style={{ fontSize: '16px' }}>{template.agencyName || template.name}</h3>
+              <h3 className="font-serif font-bold" style={{ fontSize: isMobile ? '14px' : '16px' }}>{template.agencyName || template.name}</h3>
               <p style={{ marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
                 Tu viaje soñado, nuestra pasión
               </p>
             </div>
-            <div className="flex items-center" style={{ gap: '16px' }}>
+            <div className={`flex items-center ${isMobile ? 'flex-wrap gap-2' : ''}`} style={{ gap: isMobile ? '8px' : '16px' }}>
               <div className="flex items-center" style={{ gap: '6px', fontSize: '11px' }}>
                 <Phone style={{ width: '12px', height: '12px' }} />
                 <span>+54 11 2345-6789</span>
