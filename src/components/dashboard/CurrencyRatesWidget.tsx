@@ -87,7 +87,7 @@ export const CurrencyRatesWidget = () => {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            {data?.rates.map((rate) => {
+            {(data?.rates ?? []).map((rate) => {
               const highlight = HIGHLIGHT_KEYS.has(rate.key);
               const isBitcoin = rate.key === 'btc_usd';
               return (
