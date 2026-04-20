@@ -27,6 +27,7 @@ const createEmptyCruisePort = (): CruisePort => ({
 });
 
 export function CruiseStep({ quote, onUpdate }: CruiseStepProps) {
+  const [pasteOpen, setPasteOpen] = useState(false);
   const initCruise = () => { if (!quote.cruise) onUpdate({ cruise: createEmptyCruise() }); };
 
   const updateCruise = (updates: Partial<Cruise>) => {
