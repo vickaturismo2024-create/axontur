@@ -830,7 +830,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                     {showTransferPrices && transfer.included && formatCurrency(transfer.price) && (
                       <span style={{ fontWeight: 500 }}>{formatCurrency(transfer.price)}</span>
                     )}
-                    {!transfer.included && transfer.price > 0 && (
+                    {!transfer.included && (transfer.price ?? 0) > 0 && (
                       <span style={{ fontWeight: 500, fontSize: '10px', color: primaryColor }}>
                         Precio aparte: {formatCurrency(transfer.price)}
                       </span>
@@ -907,7 +907,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                           {formatCurrency(train.price) || '-'}
                         </td>
                       )}
-                      {(train as any).included === false && train.price > 0 && (
+                      {(train as any).included === false && (train.price ?? 0) > 0 && (
                         <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500, fontSize: '10px', color: primaryColor }}>
                           Precio aparte: {formatCurrency(train.price)}
                         </td>
@@ -977,7 +977,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                           {formatCurrency(ferry.price) || '-'}
                         </td>
                       )}
-                      {(ferry as any).included === false && ferry.price > 0 && (
+                      {(ferry as any).included === false && (ferry.price ?? 0) > 0 && (
                         <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 500, fontSize: '10px', color: primaryColor }}>
                           Precio aparte: {formatCurrency(ferry.price)}
                         </td>
@@ -1046,7 +1046,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
                       <span style={{ fontWeight: 600, color: primaryColor }}>{formatCurrency(car.price)}</span>
                     </div>
                   )}
-                  {(car as any).included === false && car.price > 0 && (
+                  {(car as any).included === false && (car.price ?? 0) > 0 && (
                     <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px dashed ${secondaryColor}`, textAlign: 'right' }}>
                       <span style={{ fontWeight: 500, fontSize: '10px', color: primaryColor }}>Precio aparte: {formatCurrency(car.price)}</span>
                     </div>
