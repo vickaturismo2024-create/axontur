@@ -21,6 +21,7 @@ import Agency from "./pages/Agency";
 import Settings from "./pages/Settings";
 import Clients from "./pages/Clients";
 import Suppliers from "./pages/Suppliers";
+import SupplierDetail from "./pages/SupplierDetail";
 import Reports from "./pages/Reports";
 import Calendar from "./pages/Calendar";
 import Files from "./pages/Files";
@@ -65,6 +66,7 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
                 <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
+                <Route path="/suppliers/:id" element={<ProtectedRoute><SupplierDetail /></ProtectedRoute>} />
                 <Route path="/files" element={<ProtectedRoute><Files /></ProtectedRoute>} />
                 <Route path="/files/:id" element={<ProtectedRoute><FileDetail /></ProtectedRoute>} />
                 <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />

@@ -14,9 +14,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Store, Search, Phone, Mail, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Store, Search, Phone, Mail, BarChart3, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SUPPLIER_TYPES } from './SupplierDetail';
 
 interface Supplier {
   id: string;
@@ -36,6 +38,7 @@ const Suppliers = () => {
   const { quotes } = useQuotes();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [editing, setEditing] = useState<Partial<Supplier> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -96,10 +99,17 @@ const Suppliers = () => {
   const getStatForSupplier = (name: string): SupplierStat | undefined =>
     supplierStats.find(s => s.name.toLowerCase() === name.toLowerCase());
 
-  const filtered = useMemo(() => (suppliers || []).filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.type.toLowerCase().includes(search.toLowerCase())
-  ), [suppliers, search]);
+  const filtered = useMemo(() => (suppliers || []).filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
+      s.type.toLowerCase().includes(search.toLowerCase());
+    const matchesType = typeFilter === 'all' || s.type === typeFilter;
+    return matchesSearch && matchesType;
+  }), [suppliers, search, typeFilter]);
+
+  const usedTypes = useMemo(() => {
+    const set = new Set((suppliers || []).map(s => s.type).filter(Boolean));
+    return Array.from(set);
+  }, [suppliers]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
@@ -126,9 +136,21 @@ const Suppliers = () => {
           </div>
         </div>
 
-        <div className="mb-6 relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por nombre o tipo..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-10" />
+        <div className="mb-6 flex flex-col sm:flex-row gap-2">
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar por nombre o tipo..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-10" />
+          </div>
+          <Select value={typeFilter} onValueChange={v => { setTypeFilter(v); setPage(0); }}>
+            <SelectTrigger className="sm:max-w-[200px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los tipos</SelectItem>
+              {SUPPLIER_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              {usedTypes.filter(t => !SUPPLIER_TYPES.includes(t)).map(t => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {isLoading ? (
@@ -164,7 +186,10 @@ const Suppliers = () => {
                           <Badge variant="secondary" className="text-[10px]">{stat.services} servicio(s)</Badge>
                         </div>
                       )}
-                      <div className="flex gap-2">
+                      <div className="flex gap-1 flex-wrap">
+                        <Link to={`/suppliers/${s.id}`}>
+                          <Button variant="ghost" size="sm"><ExternalLink className="mr-1 h-4 w-4" />Ver</Button>
+                        </Link>
                         <Button variant="ghost" size="sm" onClick={() => { setEditing(s); setIsDialogOpen(true); }}><Pencil className="mr-1 h-4 w-4" />Editar</Button>
                         <Button variant="ghost" size="sm" onClick={() => setDeleteId(s.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
                       </div>
@@ -200,7 +225,18 @@ const Suppliers = () => {
           {editing && (
             <div className="space-y-4">
               <div><Label>Nombre *</Label><Input value={editing.name || ''} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
-              <div><Label>Tipo de servicio</Label><Input value={editing.type || ''} onChange={e => setEditing({ ...editing, type: e.target.value })} placeholder="Ej: Aéreo, Terrestre, Hotelería..." /></div>
+              <div>
+                <Label>Tipo de servicio</Label>
+                <Select value={editing.type || ''} onValueChange={v => setEditing({ ...editing, type: v })}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger>
+                  <SelectContent>
+                    {SUPPLIER_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    {editing.type && !SUPPLIER_TYPES.includes(editing.type) && (
+                      <SelectItem value={editing.type}>{editing.type} (personalizado)</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
               <div><Label>Email</Label><Input type="email" value={editing.email || ''} onChange={e => setEditing({ ...editing, email: e.target.value })} /></div>
               <div><Label>Teléfono</Label><Input value={editing.phone || ''} onChange={e => setEditing({ ...editing, phone: e.target.value })} /></div>
               <div><Label>Notas</Label><Textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} rows={3} /></div>
