@@ -76,6 +76,9 @@ const defaults: UserSettings = {
   file_prefix: 'FILE',
   receipt_prefix: 'REC',
   pdf_footer_legal: '',
+  email_signature: '',
+  email_reply_to: '',
+  email_templates: {},
 };
 
 interface Ctx {
@@ -125,6 +128,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         file_prefix: d.file_prefix || 'FILE',
         receipt_prefix: d.receipt_prefix || 'REC',
         pdf_footer_legal: d.pdf_footer_legal || '',
+        email_signature: d.email_signature || '',
+        email_reply_to: d.email_reply_to || '',
+        email_templates: (d.email_templates as EmailTemplatesConfig) || {},
       });
     } else {
       setSettings(defaults);
