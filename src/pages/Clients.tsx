@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight, MapPin, Calendar, FolderOpen } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight, MapPin, Calendar, FolderOpen, ChevronLeft } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { DocumentAlertBadge, getDocStatus, getWorstStatus, DocStatus } from '@/components/clients/DocumentAlertBadge';
@@ -19,6 +21,8 @@ import { ClientFormDialog, ClientRecord, emptyClient } from '@/components/client
 import { ImportExcelDialog } from '@/components/clients/ImportExcelDialog';
 import { GroupsManager } from '@/components/clients/GroupsManager';
 import { Quote } from '@/types/quote';
+
+const PAGE_SIZE = 50;
 
 function mapRow(c: any): ClientRecord {
   return {
@@ -50,9 +54,9 @@ const Clients = () => {
   const { user } = useAuth();
   const { quotes } = useQuotes();
   const navigate = useNavigate();
-  const [clients, setClients] = useState<ClientRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -61,14 +65,14 @@ const Clients = () => {
   const [docFilter, setDocFilter] = useState<boolean>(() => searchParams.get('docs') === '1');
   const highlightName = searchParams.get('highlight');
 
-  const fetchClients = async () => {
-    if (!user) return;
-    const data = await fetchAllClients(user.id);
-    setClients(data);
-    setLoading(false);
-  };
+  const { data: clients = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['clients', user?.id],
+    queryFn: () => fetchAllClients(user!.id),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-  useEffect(() => { fetchClients(); }, [user]);
+  const fetchClients = async () => { await refetch(); };
 
   const existingDnis = useMemo(() => {
     const set = new Set<string>();
@@ -102,6 +106,16 @@ const Clients = () => {
       c.phone.includes(q) || c.dni.includes(q)
     );
   }, [clients, search, docFilter]);
+
+  // Reset page when filters/search change
+  useEffect(() => { setPage(1); }, [search, docFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = useMemo(
+    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filtered, currentPage]
+  );
 
   const getClientQuotes = (client: ClientRecord): Quote[] =>
     quotes.filter(q => q.client.name === client.name || (client.email && q.client.email === client.email));
@@ -138,7 +152,7 @@ const Clients = () => {
     try {
       const { error } = await supabase.from('clients').delete().eq('id', deleteTargetId);
       if (error) throw error;
-      setClients(prev => prev.filter(c => c.id !== deleteTargetId));
+      queryClient.setQueryData<ClientRecord[]>(['clients', user?.id], (prev) => (prev || []).filter(c => c.id !== deleteTargetId));
       setDeleteTargetId(null);
       toast.success('Cliente eliminado');
     } catch (e) { console.error(e); toast.error('Error al eliminar'); }
@@ -217,8 +231,21 @@ const Clients = () => {
             </div>
 
             {loading ? (
-              <div className="flex justify-center py-16">
-                <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-4 w-4" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-48" />
+                          <Skeleton className="h-4 w-72" />
+                        </div>
+                        <Skeleton className="h-6 w-20" />
+                      </div>
+                    </CardHeader>
+                  </Card>
+                ))}
               </div>
             ) : filtered.length === 0 ? (
               <Card className="py-12 text-center">
@@ -228,19 +255,36 @@ const Clients = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {filtered.map(client => (
-                  <ExpandableClientCard
-                    key={client.id}
-                    client={client}
-                    quotes={getClientQuotes(client)}
-                    onEdit={() => handleEdit(client)}
-                    onDelete={() => setDeleteTargetId(client.id)}
-                    navigate={navigate}
-                    defaultOpen={!!highlightName && client.name === highlightName}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="space-y-3">
+                  {paginated.map(client => (
+                    <ExpandableClientCard
+                      key={client.id}
+                      client={client}
+                      quotes={getClientQuotes(client)}
+                      onEdit={() => handleEdit(client)}
+                      onDelete={() => setDeleteTargetId(client.id)}
+                      navigate={navigate}
+                      defaultOpen={!!highlightName && client.name === highlightName}
+                    />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages} · {filtered.length} clientes
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                        <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                        Siguiente <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 

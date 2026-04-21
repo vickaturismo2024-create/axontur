@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -263,8 +264,15 @@ const FileDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container mx-auto flex items-center justify-center px-4 py-16">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <main className="container mx-auto px-4 py-8 space-y-6">
+          <Skeleton className="h-9 w-48" />
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-5 w-96" />
+          </div>
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-10 w-full max-w-2xl" />
+          <Skeleton className="h-64 w-full" />
         </main>
       </div>
     );
