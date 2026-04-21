@@ -271,6 +271,9 @@ export default function ReservationDetail() {
               <Button variant="outline" size="sm" onClick={exportICS} className="flex-1 sm:flex-none">
                 <Calendar className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">ICS</span>
               </Button>
+              <Button variant="outline" size="sm" onClick={openEmailDialog} className="flex-1 sm:flex-none">
+                <Mail className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Email</span>
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setIsReimportOpen(true)} className="flex-1 sm:flex-none">
                 <AlertTriangle className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Re-importar PNR</span><span className="sm:hidden">Re-importar</span>
               </Button>
