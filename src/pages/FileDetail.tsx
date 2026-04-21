@@ -370,23 +370,26 @@ const FileDetail = () => {
               </Select>
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-sm font-medium">Notas internas</label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notas privadas sobre este expediente..." />
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-sm font-medium">Notas internas</label>
+                {lastSaved && (
+                  <span className="text-xs text-muted-foreground">Guardado {lastSaved.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
+                )}
+              </div>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notas privadas sobre este expediente... (autoguardado)" />
             </div>
-            <Button onClick={handleSave} disabled={saving}>
-              <Save className="mr-2 h-4 w-4" />{saving ? 'Guardando...' : 'Guardar'}
-            </Button>
           </CardContent>
         </Card>
 
         {/* Tabs */}
         <Tabs defaultValue="summary">
-          <TabsList className="mb-4">
+          <TabsList className="mb-4 flex-wrap h-auto">
             <TabsTrigger value="summary">Resumen</TabsTrigger>
             <TabsTrigger value="services">Servicios</TabsTrigger>
             <TabsTrigger value="passengers">Pasajeros</TabsTrigger>
             <TabsTrigger value="suppliers">Operadores</TabsTrigger>
             <TabsTrigger value="receipts">Recibos</TabsTrigger>
+            <TabsTrigger value="communications">Comunicaciones</TabsTrigger>
           </TabsList>
 
           <TabsContent value="summary">
@@ -403,6 +406,9 @@ const FileDetail = () => {
           </TabsContent>
           <TabsContent value="receipts">
             <FileReceiptsTab fileId={file.id} clientName={file.client_name} currency={file.currency} clientId={file.client_id} />
+          </TabsContent>
+          <TabsContent value="communications">
+            <FileCommunicationsTab fileId={file.id} />
           </TabsContent>
         </Tabs>
       </main>
