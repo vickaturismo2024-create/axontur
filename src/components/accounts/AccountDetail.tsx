@@ -34,6 +34,7 @@ interface Props {
 
 export function AccountDetail({ accountId, accountName, accountType, open, onClose }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -110,12 +111,24 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
                   <span className="text-xs text-muted-foreground">{new Date(m.movement_date).toLocaleDateString('es-AR')}</span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1">
-                      {m.movement_type === 'credit' ? (
+                      {m.receipt_id ? (
+                        <Receipt className="h-3 w-3 flex-shrink-0 text-primary" />
+                      ) : m.movement_type === 'credit' ? (
                         <ArrowUpRight className="h-3 w-3 flex-shrink-0 text-green-600" />
                       ) : (
                         <ArrowDownRight className="h-3 w-3 flex-shrink-0 text-red-600" />
                       )}
                       <span className="truncate">{m.concept}</span>
+                      {m.file_id && (
+                        <button
+                          type="button"
+                          onClick={() => { onClose(); navigate(`/files/${m.file_id}`); }}
+                          className="text-primary hover:underline ml-1"
+                          title="Ver expediente"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                     {m.reference && <span className="text-xs text-muted-foreground">Ref: {m.reference}</span>}
                   </div>
