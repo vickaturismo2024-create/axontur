@@ -48,11 +48,19 @@ export function FileFinancialSummary({ fileId }: Props) {
         });
       }
 
-      // Receipt items (collected from client)
-      const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fileId);
-      if (receipts && receipts.length > 0) {
-        const receiptIds = receipts.map((r: any) => r.id);
-        const { data: items } = await supabase.from('file_receipt_items').select('amount, currency, service_currency, exchange_rate').in('receipt_id', receiptIds);
+      // Receipt items (collected from client) — excluye anulados y borradores
+      const { data: receipts } = await supabase
+        .from('file_receipts')
+        .select('id, status')
+        .eq('file_id', fileId);
+      const validReceiptIds = (receipts || [])
+        .filter((r: any) => r.status === 'issued' || r.status === 'paid' || !r.status)
+        .map((r: any) => r.id);
+      if (validReceiptIds.length > 0) {
+        const { data: items } = await supabase
+          .from('file_receipt_items')
+          .select('amount, currency, service_currency, exchange_rate')
+          .in('receipt_id', validReceiptIds);
         if (items) {
           items.forEach((i: any) => {
             const amt = Number(i.amount) || 0;
