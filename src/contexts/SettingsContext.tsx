@@ -25,7 +25,37 @@ export interface UserSettings {
   file_prefix: string;
   receipt_prefix: string;
   pdf_footer_legal: string;
+  // Email
+  email_signature: string;
+  email_reply_to: string;
+  email_templates: EmailTemplatesConfig;
 }
+
+export interface EmailTemplateConfig {
+  subject: string;
+  body: string;
+}
+
+export interface EmailTemplatesConfig {
+  receipt?: EmailTemplateConfig;
+  confirmation?: EmailTemplateConfig;
+  voucher?: EmailTemplateConfig;
+}
+
+export const DEFAULT_EMAIL_TEMPLATES: Required<EmailTemplatesConfig> = {
+  receipt: {
+    subject: 'Recibo {numero_recibo} - {agencia}',
+    body: 'Hola {cliente},\n\nTe enviamos el recibo {numero_recibo} por {moneda} {monto}.\n\nMuchas gracias.',
+  },
+  confirmation: {
+    subject: 'Confirmación de reserva {expediente}',
+    body: 'Hola {cliente},\n\nTu reserva del expediente {expediente} ha sido confirmada.\n\n¡Buen viaje!',
+  },
+  voucher: {
+    subject: 'Voucher de servicio - Expediente {expediente}',
+    body: 'Estimados,\n\nAdjuntamos el voucher correspondiente al expediente {expediente} del cliente {cliente}.\n\nSaludos cordiales.',
+  },
+};
 
 const defaults: UserSettings = {
   agency_name: '',
@@ -46,6 +76,9 @@ const defaults: UserSettings = {
   file_prefix: 'FILE',
   receipt_prefix: 'REC',
   pdf_footer_legal: '',
+  email_signature: '',
+  email_reply_to: '',
+  email_templates: {},
 };
 
 interface Ctx {
@@ -95,6 +128,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         file_prefix: d.file_prefix || 'FILE',
         receipt_prefix: d.receipt_prefix || 'REC',
         pdf_footer_legal: d.pdf_footer_legal || '',
+        email_signature: d.email_signature || '',
+        email_reply_to: d.email_reply_to || '',
+        email_templates: (d.email_templates as EmailTemplatesConfig) || {},
       });
     } else {
       setSettings(defaults);

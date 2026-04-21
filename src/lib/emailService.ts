@@ -2,8 +2,11 @@
  * Wrapper para envío de emails transaccionales vía la edge function
  * `send-transactional-email` de Lovable Cloud.
  *
- * Cada envío genera HTML con las plantillas de `emailTemplates.ts` y se loguea
- * en la tabla `email_logs` para auditoría.
+ * Lee plantillas custom y firma del perfil del usuario antes de aplicar
+ * las defaults. Reemplaza variables {cliente}, {expediente}, {numero_recibo},
+ * {monto}, {moneda}, {agencia} y anexa la firma al final del cuerpo.
+ *
+ * Cada envío se loguea en `email_logs` para auditoría.
  */
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -15,6 +18,14 @@ import {
   type ReceiptEmailData,
   type SupplierVoucherData,
 } from './emailTemplates';
+import {
+  getTemplate,
+  replaceVariables,
+  plainToHtml,
+  renderSignatureHtml,
+  type EmailTemplateKey,
+} from './emailVariables';
+import type { EmailTemplatesConfig } from '@/contexts/SettingsContext';
 
 export type EmailTemplateType =
   | 'reservation_confirmation'
@@ -35,22 +46,39 @@ interface SendResult {
   error?: string;
 }
 
-export async function getAgencyInfo(userId: string): Promise<AgencyInfo> {
+interface ProfileEmailConfig {
+  agency: AgencyInfo;
+  signature: string;
+  replyTo: string;
+  templates: EmailTemplatesConfig;
+}
+
+async function getProfileEmailConfig(userId: string): Promise<ProfileEmailConfig> {
   const { data } = await supabase
     .from('profiles')
-    .select('agency_name, email, phone, address, cuit, logo_url, website')
+    .select('agency_name, email, phone, address, cuit, logo_url, website, email_signature, email_reply_to, email_templates')
     .eq('user_id', userId)
     .maybeSingle();
-
+  const d = data as any;
   return {
-    name: (data?.agency_name as string) || 'Mi Agencia',
-    email: (data?.email as string) || '',
-    phone: (data?.phone as string) || '',
-    address: (data?.address as string) || '',
-    cuit: (data?.cuit as string) || '',
-    logoUrl: (data?.logo_url as string) || '',
-    website: (data?.website as string) || '',
+    agency: {
+      name: d?.agency_name || 'Mi Agencia',
+      email: d?.email || '',
+      phone: d?.phone || '',
+      address: d?.address || '',
+      cuit: d?.cuit || '',
+      logoUrl: d?.logo_url || '',
+      website: d?.website || '',
+    },
+    signature: d?.email_signature || '',
+    replyTo: d?.email_reply_to || '',
+    templates: (d?.email_templates as EmailTemplatesConfig) || {},
   };
+}
+
+export async function getAgencyInfo(userId: string): Promise<AgencyInfo> {
+  const cfg = await getProfileEmailConfig(userId);
+  return cfg.agency;
 }
 
 async function logEmail(opts: {
@@ -87,12 +115,9 @@ async function sendViaEdgeFunction(args: {
   html: string;
   templateType: EmailTemplateType;
   idempotencyKey: string;
+  replyTo?: string;
 }): Promise<SendResult> {
   try {
-    // Para esta iteración, usamos `send-transactional-email` con un template
-    // genérico "raw-html" que recibe el HTML pre-renderizado vía templateData.
-    // Si la edge function aún no acepta HTML inline, esto fallará y quedará
-    // logueado como error en email_logs.
     const { data, error } = await supabase.functions.invoke('send-transactional-email', {
       body: {
         templateName: 'raw-html',
@@ -101,6 +126,7 @@ async function sendViaEdgeFunction(args: {
         templateData: {
           subject: args.subject,
           html: args.html,
+          ...(args.replyTo ? { reply_to: args.replyTo } : {}),
         },
       },
     });
@@ -112,6 +138,48 @@ async function sendViaEdgeFunction(args: {
   }
 }
 
+/**
+ * Aplica plantilla custom (si existe) sobre el HTML default, reemplazando
+ * variables y anexando la firma del usuario.
+ */
+function applyCustomTemplate(
+  cfg: ProfileEmailConfig,
+  templateKey: EmailTemplateKey,
+  defaultSubject: string,
+  defaultHtml: string,
+  vars: Record<string, string | number>,
+): { subject: string; html: string } {
+  const custom = cfg.templates?.[templateKey];
+  const allVars = { agencia: cfg.agency.name, ...vars };
+
+  // Asunto: usa custom si existe, sino el default
+  const subject = custom?.subject
+    ? replaceVariables(custom.subject, allVars)
+    : defaultSubject;
+
+  // Cuerpo: si hay custom body, lo renderiza encima del HTML estructurado
+  // (mantiene el header + footer del template default por consistencia visual).
+  let html = defaultHtml;
+  if (custom?.body?.trim()) {
+    const customHtml = plainToHtml(replaceVariables(custom.body, allVars));
+    // Inyectar el cuerpo custom dentro del bloque content del template default
+    // reemplazando el contenido por defecto. Si no se puede, lo prefija.
+    const customBlock = `<div style="margin-bottom:20px;">${customHtml}</div>`;
+    html = html.replace(
+      /<div style="[^"]*padding:32px[^"]*">/,
+      m => `${m}${customBlock}`,
+    );
+  }
+
+  // Firma al final del bloque content
+  const signature = renderSignatureHtml(cfg.signature);
+  if (signature) {
+    html = html.replace(/<\/div>(\s*<div style="background-color:#f8fafc)/, `${signature}</div>$1`);
+  }
+
+  return { subject, html };
+}
+
 // ============================================================================
 // Senders públicos
 // ============================================================================
@@ -119,19 +187,28 @@ async function sendViaEdgeFunction(args: {
 export async function sendReservationConfirmation(
   opts: BaseSendOptions & { data: ReservationConfirmationData },
 ): Promise<SendResult> {
-  const agency = await getAgencyInfo(opts.userId);
-  const { subject, html } = reservationConfirmationTemplate(opts.data, agency);
+  const cfg = await getProfileEmailConfig(opts.userId);
+  const { subject, html } = reservationConfirmationTemplate(opts.data, cfg.agency);
+
+  const final = applyCustomTemplate(cfg, 'confirmation', subject, html, {
+    cliente: opts.data.clientName,
+    expediente: opts.data.fileNumber,
+    moneda: opts.data.currency,
+    monto: opts.data.totalPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 }),
+  });
+
   const result = await sendViaEdgeFunction({
     to: opts.to,
-    subject,
-    html,
+    subject: final.subject,
+    html: final.html,
     templateType: 'reservation_confirmation',
     idempotencyKey: `reservation-${opts.fileId || crypto.randomUUID()}-${Date.now()}`,
+    replyTo: cfg.replyTo,
   });
   await logEmail({
     userId: opts.userId,
     to: opts.to,
-    subject,
+    subject: final.subject,
     templateType: 'reservation_confirmation',
     status: result.success ? 'sent' : 'failed',
     errorMessage: result.error,
@@ -143,19 +220,28 @@ export async function sendReservationConfirmation(
 export async function sendReceiptEmail(
   opts: BaseSendOptions & { data: ReceiptEmailData },
 ): Promise<SendResult> {
-  const agency = await getAgencyInfo(opts.userId);
-  const { subject, html } = receiptEmailTemplate(opts.data, agency);
+  const cfg = await getProfileEmailConfig(opts.userId);
+  const { subject, html } = receiptEmailTemplate(opts.data, cfg.agency);
+
+  const final = applyCustomTemplate(cfg, 'receipt', subject, html, {
+    cliente: opts.data.clientName,
+    numero_recibo: opts.data.receiptNumber,
+    moneda: opts.data.currency,
+    monto: opts.data.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 }),
+  });
+
   const result = await sendViaEdgeFunction({
     to: opts.to,
-    subject,
-    html,
+    subject: final.subject,
+    html: final.html,
     templateType: 'receipt',
     idempotencyKey: `receipt-${opts.receiptId || crypto.randomUUID()}-${Date.now()}`,
+    replyTo: cfg.replyTo,
   });
   await logEmail({
     userId: opts.userId,
     to: opts.to,
-    subject,
+    subject: final.subject,
     templateType: 'receipt',
     status: result.success ? 'sent' : 'failed',
     errorMessage: result.error,
@@ -168,19 +254,26 @@ export async function sendReceiptEmail(
 export async function sendSupplierVoucher(
   opts: BaseSendOptions & { data: SupplierVoucherData },
 ): Promise<SendResult> {
-  const agency = await getAgencyInfo(opts.userId);
-  const { subject, html } = supplierVoucherTemplate(opts.data, agency);
+  const cfg = await getProfileEmailConfig(opts.userId);
+  const { subject, html } = supplierVoucherTemplate(opts.data, cfg.agency);
+
+  const final = applyCustomTemplate(cfg, 'voucher', subject, html, {
+    cliente: opts.data.supplierName,
+    expediente: opts.data.fileNumber,
+  });
+
   const result = await sendViaEdgeFunction({
     to: opts.to,
-    subject,
-    html,
+    subject: final.subject,
+    html: final.html,
     templateType: 'supplier_voucher',
     idempotencyKey: `voucher-${opts.fileId || crypto.randomUUID()}-${Date.now()}`,
+    replyTo: cfg.replyTo,
   });
   await logEmail({
     userId: opts.userId,
     to: opts.to,
-    subject,
+    subject: final.subject,
     templateType: 'supplier_voucher',
     status: result.success ? 'sent' : 'failed',
     errorMessage: result.error,
