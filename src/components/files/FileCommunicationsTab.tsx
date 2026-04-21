@@ -94,7 +94,7 @@ export function FileCommunicationsTab({ fileId }: Props) {
             concept: receipt.concept,
             currency: receipt.currency,
             amount: receipt.amount,
-            paymentMethod: receipt.payment_method ?? undefined,
+            paymentMethod: receipt.payment_method ?? '',
           },
         });
       } else if (log.template_type === 'supplier_voucher') {
