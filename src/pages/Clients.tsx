@@ -107,6 +107,16 @@ const Clients = () => {
     );
   }, [clients, search, docFilter]);
 
+  // Reset page when filters/search change
+  useEffect(() => { setPage(1); }, [search, docFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = useMemo(
+    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filtered, currentPage]
+  );
+
   const getClientQuotes = (client: ClientRecord): Quote[] =>
     quotes.filter(q => q.client.name === client.name || (client.email && q.client.email === client.email));
 
