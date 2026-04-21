@@ -14,6 +14,7 @@ import {
   Trash2,
   Mail,
   Send,
+  FileText,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ import {
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendReservationConfirmation } from '@/lib/emailService';
 import { toast } from 'sonner';
