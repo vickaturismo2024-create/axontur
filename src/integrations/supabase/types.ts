@@ -27,6 +27,7 @@ export type Database = {
           movement_date: string
           movement_type: string
           notes: string | null
+          receipt_id: string | null
           reference: string | null
           user_id: string
         }
@@ -42,6 +43,7 @@ export type Database = {
           movement_date?: string
           movement_type: string
           notes?: string | null
+          receipt_id?: string | null
           reference?: string | null
           user_id: string
         }
@@ -57,10 +59,19 @@ export type Database = {
           movement_date?: string
           movement_type?: string
           notes?: string | null
+          receipt_id?: string | null
           reference?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "account_movements_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "file_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_group_members: {
         Row: {
@@ -226,6 +237,73 @@ export type Database = {
         }
         Relationships: []
       }
+      email_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          file_id: string | null
+          id: string
+          receipt_id: string | null
+          reservation_id: string | null
+          sent_at: string
+          status: string
+          subject: string
+          template_type: string
+          to_email: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          file_id?: string | null
+          id?: string
+          receipt_id?: string | null
+          reservation_id?: string | null
+          sent_at?: string
+          status?: string
+          subject?: string
+          template_type?: string
+          to_email: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          file_id?: string | null
+          id?: string
+          receipt_id?: string | null
+          reservation_id?: string | null
+          sent_at?: string
+          status?: string
+          subject?: string
+          template_type?: string
+          to_email?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "file_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_passengers: {
         Row: {
           birth_date: string | null
@@ -341,6 +419,7 @@ export type Database = {
           payment_date: string
           payment_method: string | null
           receipt_number: number
+          status: string
           user_id: string
         }
         Insert: {
@@ -355,6 +434,7 @@ export type Database = {
           payment_date?: string
           payment_method?: string | null
           receipt_number?: number
+          status?: string
           user_id: string
         }
         Update: {
@@ -369,6 +449,7 @@ export type Database = {
           payment_date?: string
           payment_method?: string | null
           receipt_number?: number
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -1302,6 +1383,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      next_receipt_number: { Args: { p_user_id: string }; Returns: number }
       owns_client_group: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
