@@ -54,9 +54,9 @@ const Clients = () => {
   const { user } = useAuth();
   const { quotes } = useQuotes();
   const navigate = useNavigate();
-  const [clients, setClients] = useState<ClientRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -65,14 +65,14 @@ const Clients = () => {
   const [docFilter, setDocFilter] = useState<boolean>(() => searchParams.get('docs') === '1');
   const highlightName = searchParams.get('highlight');
 
-  const fetchClients = async () => {
-    if (!user) return;
-    const data = await fetchAllClients(user.id);
-    setClients(data);
-    setLoading(false);
-  };
+  const { data: clients = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['clients', user?.id],
+    queryFn: () => fetchAllClients(user!.id),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
-  useEffect(() => { fetchClients(); }, [user]);
+  const fetchClients = async () => { await refetch(); };
 
   const existingDnis = useMemo(() => {
     const set = new Set<string>();
