@@ -66,6 +66,15 @@ const FileDetail = () => {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('confirmed');
 
+  // Email dialogs
+  const [confirmEmailOpen, setConfirmEmailOpen] = useState(false);
+  const [voucherEmailOpen, setVoucherEmailOpen] = useState(false);
+  const [clientEmail, setClientEmail] = useState('');
+  const [voucherEmail, setVoucherEmail] = useState('');
+  const [voucherSupplier, setVoucherSupplier] = useState('');
+  const [voucherServices, setVoucherServices] = useState<{ description: string; supplier_name: string; service_date: string | null; confirmation_number: string | null }[]>([]);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
   useEffect(() => {
     if (!user || !id) return;
     const load = async () => {
