@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/Header';
 import { Search, Users, Truck, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,46 +16,48 @@ interface AccountSummary {
   id: string;
   name: string;
   type: 'client' | 'supplier';
-  balances: Record<string, number>; // currency -> balance
+  balances: Record<string, number>;
+}
+
+async function fetchAllPaged(table: 'clients' | 'suppliers', fields: string) {
+  const PAGE = 1000;
+  let from = 0;
+  const all: any[] = [];
+  while (true) {
+    const { data } = await supabase.from(table).select(fields).order('name').range(from, from + PAGE - 1);
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
 }
 
 export default function Accounts() {
   const { user } = useAuth();
-  const [clients, setClients] = useState<any[]>([]);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [movements, setMovements] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string; type: 'client' | 'supplier' } | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const fetchAllPaged = async (table: 'clients' | 'suppliers', fields: string, userId: string) => {
-    const PAGE = 1000;
-    let from = 0;
-    const all: any[] = [];
-    while (true) {
-      const { data } = await supabase.from(table).select(fields).eq('user_id', userId).order('name').range(from, from + PAGE - 1);
-      if (!data || data.length === 0) break;
-      all.push(...data);
-      if (data.length < PAGE) break;
-      from += PAGE;
-    }
-    return all;
-  };
+  const { data: clients = [], isLoading: lc } = useQuery({
+    queryKey: ['accounts-clients', user?.id],
+    queryFn: () => fetchAllPaged('clients', 'id, name'),
+    enabled: !!user,
+  });
+  const { data: suppliers = [], isLoading: ls } = useQuery({
+    queryKey: ['accounts-suppliers', user?.id],
+    queryFn: () => fetchAllPaged('suppliers', 'id, name'),
+    enabled: !!user,
+  });
+  const { data: movements = [], isLoading: lm } = useQuery({
+    queryKey: ['accounts-movements', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase.from('account_movements').select('*');
+      return (data as any[]) || [];
+    },
+    enabled: !!user,
+  });
 
-  const load = async () => {
-    if (!user) return;
-    const [c, s, m] = await Promise.all([
-      fetchAllPaged('clients', 'id, name', user.id),
-      fetchAllPaged('suppliers', 'id, name', user.id),
-      supabase.from('account_movements' as any).select('*').eq('user_id', user.id),
-    ]);
-    setClients(c);
-    setSuppliers(s);
-    setMovements((m.data as any[]) || []);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, [user]);
+  const loading = lc || ls || lm;
 
   const buildSummaries = (type: 'client' | 'supplier', entities: any[]): AccountSummary[] => {
     return entities.map(e => {
@@ -103,8 +107,6 @@ export default function Accounts() {
     );
   };
 
-  if (loading) return <><Header /><div className="container mx-auto p-6 text-center text-muted-foreground">Cargando cuentas...</div></>;
-
   return (
     <>
       <Header />
@@ -118,14 +120,20 @@ export default function Accounts() {
           <Input placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
 
-        <Tabs defaultValue="clients">
-          <TabsList>
-            <TabsTrigger value="clients" className="gap-2"><Users className="h-4 w-4" />Clientes</TabsTrigger>
-            <TabsTrigger value="suppliers" className="gap-2"><Truck className="h-4 w-4" />Proveedores</TabsTrigger>
-          </TabsList>
-          <TabsContent value="clients">{renderList(clientSummaries)}</TabsContent>
-          <TabsContent value="suppliers">{renderList(supplierSummaries)}</TabsContent>
-        </Tabs>
+        {loading ? (
+          <div className="space-y-2">
+            {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 w-full" />)}
+          </div>
+        ) : (
+          <Tabs defaultValue="clients">
+            <TabsList>
+              <TabsTrigger value="clients" className="gap-2"><Users className="h-4 w-4" />Clientes</TabsTrigger>
+              <TabsTrigger value="suppliers" className="gap-2"><Truck className="h-4 w-4" />Proveedores</TabsTrigger>
+            </TabsList>
+            <TabsContent value="clients">{renderList(clientSummaries)}</TabsContent>
+            <TabsContent value="suppliers">{renderList(supplierSummaries)}</TabsContent>
+          </Tabs>
+        )}
       </div>
 
       {selectedAccount && (
@@ -134,7 +142,7 @@ export default function Accounts() {
           accountName={selectedAccount.name}
           accountType={selectedAccount.type}
           open={!!selectedAccount}
-          onClose={() => { setSelectedAccount(null); load(); }}
+          onClose={() => { setSelectedAccount(null); }}
         />
       )}
     </>
