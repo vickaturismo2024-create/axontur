@@ -7,7 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText, Mail, Send } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
@@ -16,6 +20,7 @@ import { FileSuppliersTab } from '@/components/files/FileSuppliersTab';
 import { FileFinancialSummary } from '@/components/files/FileFinancialSummary';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendReservationConfirmation, sendSupplierVoucher } from '@/lib/emailService';
 import { toast } from 'sonner';
 
 interface FileRecord {
@@ -61,6 +66,15 @@ const FileDetail = () => {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('confirmed');
 
+  // Email dialogs
+  const [confirmEmailOpen, setConfirmEmailOpen] = useState(false);
+  const [voucherEmailOpen, setVoucherEmailOpen] = useState(false);
+  const [clientEmail, setClientEmail] = useState('');
+  const [voucherEmail, setVoucherEmail] = useState('');
+  const [voucherSupplier, setVoucherSupplier] = useState('');
+  const [voucherServices, setVoucherServices] = useState<{ description: string; supplier_name: string; service_date: string | null; confirmation_number: string | null }[]>([]);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
   useEffect(() => {
     if (!user || !id) return;
     const load = async () => {
@@ -71,9 +85,104 @@ const FileDetail = () => {
       setNotes(f.internal_notes || '');
       setStatus(f.status);
       setLoading(false);
+
+      // Cargar email del cliente vinculado
+      if (f.client_id) {
+        const { data: c } = await supabase.from('clients').select('email').eq('id', f.client_id).maybeSingle();
+        if (c?.email) setClientEmail(c.email);
+      }
     };
     load();
   }, [user, id]);
+
+  const openConfirmEmail = () => {
+    setConfirmEmailOpen(true);
+  };
+
+  const openVoucherEmail = async () => {
+    if (!file) return;
+    // Cargar servicios del expediente para elegir cuáles incluir en el voucher
+    const { data: services } = await supabase
+      .from('file_services')
+      .select('description, supplier_name, service_date, confirmation_number, supplier_id')
+      .eq('file_id', file.id);
+
+    const list = (services || []).map(s => ({
+      description: s.description || '',
+      supplier_name: s.supplier_name || '',
+      service_date: s.service_date,
+      confirmation_number: s.confirmation_number,
+    }));
+    setVoucherServices(list);
+
+    // Pre-cargar primer proveedor con email
+    const firstSupplierId = (services || []).find((s: any) => s.supplier_id)?.supplier_id;
+    if (firstSupplierId) {
+      const { data: sup } = await supabase.from('suppliers').select('name, email').eq('id', firstSupplierId).maybeSingle();
+      if (sup) {
+        setVoucherSupplier(sup.name || '');
+        setVoucherEmail(sup.email || '');
+      }
+    }
+    setVoucherEmailOpen(true);
+  };
+
+  const handleSendConfirmation = async () => {
+    if (!file || !user) return;
+    if (!clientEmail) { toast.error('Falta el email del cliente'); return; }
+    setSendingEmail(true);
+    const result = await sendReservationConfirmation({
+      to: clientEmail,
+      userId: user.id,
+      fileId: file.id,
+      data: {
+        clientName: file.client_name,
+        fileNumber: `FILE-${String(file.file_number).padStart(3, '0')}`,
+        destination: file.destination,
+        startDate: file.start_date ?? undefined,
+        endDate: file.end_date ?? undefined,
+        travelers: file.travelers,
+        currency: file.currency,
+        totalPrice: file.total_price,
+      },
+    });
+    setSendingEmail(false);
+    if (result.success) {
+      toast.success('Email de confirmación enviado');
+      setConfirmEmailOpen(false);
+    } else {
+      toast.error(result.error || 'No se pudo enviar el email');
+    }
+  };
+
+  const handleSendVoucher = async () => {
+    if (!file || !user) return;
+    if (!voucherEmail) { toast.error('Falta el email del operador'); return; }
+    if (!voucherSupplier) { toast.error('Falta el nombre del operador'); return; }
+    setSendingEmail(true);
+    const matching = voucherServices.filter(s => s.supplier_name === voucherSupplier);
+    const svc = matching[0] || voucherServices[0];
+    const result = await sendSupplierVoucher({
+      to: voucherEmail,
+      userId: user.id,
+      fileId: file.id,
+      data: {
+        supplierName: voucherSupplier,
+        fileNumber: `FILE-${String(file.file_number).padStart(3, '0')}`,
+        serviceDescription: svc?.description || file.destination,
+        serviceDate: svc?.service_date ?? undefined,
+        passengerNames: [file.client_name],
+        confirmationNumber: svc?.confirmation_number ?? undefined,
+      },
+    });
+    setSendingEmail(false);
+    if (result.success) {
+      toast.success('Voucher enviado al operador');
+      setVoucherEmailOpen(false);
+    } else {
+      toast.error(result.error || 'No se pudo enviar el voucher');
+    }
+  };
 
   const handleSave = async () => {
     if (!file) return;
@@ -143,27 +252,44 @@ const FileDetail = () => {
           <Button variant="ghost" onClick={() => navigate('/files')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Expedientes
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={deleting}>
-                <Trash2 className="mr-2 h-4 w-4" />{deleting ? 'Eliminando...' : 'Eliminar'}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Eliminar expediente {fileLabel}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción eliminará el expediente y todos sus datos asociados (servicios, pasajeros, recibos y pagos a operadores). No se puede deshacer.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Mail className="mr-2 h-4 w-4" /> Enviar email
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem onClick={openConfirmEmail}>
+                  <Send className="mr-2 h-4 w-4" /> Confirmación al cliente
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openVoucherEmail}>
+                  <FileText className="mr-2 h-4 w-4" /> Voucher a operador
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={deleting}>
+                  <Trash2 className="mr-2 h-4 w-4" />{deleting ? 'Eliminando...' : 'Eliminar'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar expediente {fileLabel}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción eliminará el expediente y todos sus datos asociados (servicios, pasajeros, recibos y pagos a operadores). No se puede deshacer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -249,6 +375,79 @@ const FileDetail = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Diálogo: Confirmación al cliente */}
+      <Dialog open={confirmEmailOpen} onOpenChange={setConfirmEmailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar confirmación al cliente</DialogTitle>
+            <DialogDescription>
+              Se enviará un email con los datos del expediente {fileLabel}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label htmlFor="client-email">Email del cliente</Label>
+              <Input
+                id="client-email"
+                type="email"
+                value={clientEmail}
+                onChange={e => setClientEmail(e.target.value)}
+                placeholder="cliente@ejemplo.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmEmailOpen(false)} disabled={sendingEmail}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSendConfirmation} disabled={sendingEmail || !clientEmail}>
+              <Send className="mr-2 h-4 w-4" />{sendingEmail ? 'Enviando...' : 'Enviar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Voucher a operador */}
+      <Dialog open={voucherEmailOpen} onOpenChange={setVoucherEmailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar voucher a operador</DialogTitle>
+            <DialogDescription>
+              Se enviará un voucher con los datos del servicio del expediente {fileLabel}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label htmlFor="voucher-supplier">Nombre del operador</Label>
+              <Input
+                id="voucher-supplier"
+                value={voucherSupplier}
+                onChange={e => setVoucherSupplier(e.target.value)}
+                placeholder="Operador / Mayorista"
+              />
+            </div>
+            <div>
+              <Label htmlFor="voucher-email">Email del operador</Label>
+              <Input
+                id="voucher-email"
+                type="email"
+                value={voucherEmail}
+                onChange={e => setVoucherEmail(e.target.value)}
+                placeholder="operador@ejemplo.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVoucherEmailOpen(false)} disabled={sendingEmail}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSendVoucher} disabled={sendingEmail || !voucherEmail || !voucherSupplier}>
+              <Send className="mr-2 h-4 w-4" />{sendingEmail ? 'Enviando...' : 'Enviar voucher'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

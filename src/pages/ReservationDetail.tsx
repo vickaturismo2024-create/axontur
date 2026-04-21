@@ -12,6 +12,8 @@ import {
   Pencil,
   Tag,
   Trash2,
+  Mail,
+  Send,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Header } from '@/components/layout/Header';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   useReservationDetails,
   useToggleCheckin,
@@ -38,6 +43,9 @@ import {
 } from '@/hooks/useFlightReservations';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { sendReservationConfirmation } from '@/lib/emailService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,6 +54,7 @@ import { cn } from '@/lib/utils';
 export default function ReservationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: reservation, isLoading } = useReservationDetails(id);
   const toggleCheckin = useToggleCheckin();
   const deleteFlightSegment = useDeleteFlightSegment();
@@ -53,6 +62,9 @@ export default function ReservationDetail() {
   const resolveChange = useResolveChange();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReimportOpen, setIsReimportOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   if (isLoading) {
     return (
@@ -120,6 +132,56 @@ export default function ReservationDetail() {
       toast.success('Todos los cambios resueltos');
     } catch {
       toast.error('Error al resolver cambios');
+    }
+  };
+
+  const openEmailDialog = async () => {
+    if (!reservation) return;
+    let preEmail = '';
+    if (reservation.file_id) {
+      const { data: f } = await supabase.from('files').select('client_id').eq('id', reservation.file_id).maybeSingle();
+      if (f?.client_id) {
+        const { data: c } = await supabase.from('clients').select('email').eq('id', f.client_id).maybeSingle();
+        if (c?.email) preEmail = c.email;
+      }
+    }
+    setEmailTo(preEmail);
+    setEmailDialogOpen(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!reservation || !user) return;
+    if (!emailTo) { toast.error('Falta el email'); return; }
+    setSendingEmail(true);
+    let fileNumber = reservation.locator || reservation.id.slice(0, 8);
+    let destination = '';
+    let travelers = reservation.passengers.length;
+    if (reservation.file_id) {
+      const { data: f } = await supabase.from('files').select('file_number, destination, travelers, client_name, currency, total_price, start_date, end_date').eq('id', reservation.file_id).maybeSingle();
+      if (f) {
+        fileNumber = `FILE-${String(f.file_number).padStart(3, '0')}`;
+        destination = f.destination || '';
+      }
+    }
+    const result = await sendReservationConfirmation({
+      to: emailTo,
+      userId: user.id,
+      reservationId: reservation.id,
+      data: {
+        clientName: reservation.passengers.map(p => `${p.last_name}${p.first_name ? ', ' + p.first_name : ''}`).join('; ') || 'Pasajero',
+        fileNumber,
+        destination: destination || (reservation.flight_segments[0]?.destination_iata ?? ''),
+        travelers,
+        currency: 'USD',
+        totalPrice: 0,
+      },
+    });
+    setSendingEmail(false);
+    if (result.success) {
+      toast.success('Email enviado');
+      setEmailDialogOpen(false);
+    } else {
+      toast.error(result.error || 'No se pudo enviar el email');
     }
   };
 
@@ -208,6 +270,9 @@ export default function ReservationDetail() {
               </Button>
               <Button variant="outline" size="sm" onClick={exportICS} className="flex-1 sm:flex-none">
                 <Calendar className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">ICS</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={openEmailDialog} className="flex-1 sm:flex-none">
+                <Mail className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Email</span>
               </Button>
               <Button variant="outline" size="sm" onClick={() => setIsReimportOpen(true)} className="flex-1 sm:flex-none">
                 <AlertTriangle className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Re-importar PNR</span><span className="sm:hidden">Re-importar</span>

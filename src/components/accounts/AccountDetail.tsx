@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Receipt, ExternalLink } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +20,7 @@ interface Movement {
   movement_date: string;
   notes: string | null;
   file_id: string | null;
+  receipt_id: string | null;
   created_at: string;
 }
 
@@ -32,6 +34,7 @@ interface Props {
 
 export function AccountDetail({ accountId, accountName, accountType, open, onClose }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -108,12 +111,24 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
                   <span className="text-xs text-muted-foreground">{new Date(m.movement_date).toLocaleDateString('es-AR')}</span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1">
-                      {m.movement_type === 'credit' ? (
+                      {m.receipt_id ? (
+                        <Receipt className="h-3 w-3 flex-shrink-0 text-primary" />
+                      ) : m.movement_type === 'credit' ? (
                         <ArrowUpRight className="h-3 w-3 flex-shrink-0 text-green-600" />
                       ) : (
                         <ArrowDownRight className="h-3 w-3 flex-shrink-0 text-red-600" />
                       )}
                       <span className="truncate">{m.concept}</span>
+                      {m.file_id && (
+                        <button
+                          type="button"
+                          onClick={() => { onClose(); navigate(`/files/${m.file_id}`); }}
+                          className="text-primary hover:underline ml-1"
+                          title="Ver expediente"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                     {m.reference && <span className="text-xs text-muted-foreground">Ref: {m.reference}</span>}
                   </div>
