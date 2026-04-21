@@ -2,6 +2,65 @@ import * as XLSX from 'xlsx';
 import { Quote } from '@/types/quote';
 import { SupplierStat } from '@/hooks/useSupplierAnalytics';
 import { getQuoteCurrency, hasCompleteCosts } from '@/lib/quoteFilters';
+import { OperationalReportData, PeriodRange, ByCurrency } from '@/hooks/useOperationalReport';
+
+const byCurrencyToRows = (data: ByCurrency): [string, number][] =>
+  Object.entries(data).map(([c, v]) => [c, Math.round(v * 100) / 100]);
+
+export function exportOperationalReportToExcel(data: OperationalReportData, range: PeriodRange) {
+  const wb = XLSX.utils.book_new();
+  const periodLabel = `${range.from} a ${range.to}`;
+
+  // Sheet 1: Resumen
+  const summaryRows: any[][] = [
+    ['Reporte Operativo', '', ''],
+    ['Período', periodLabel, ''],
+    ['', '', ''],
+    ['Indicador', 'Moneda', 'Monto'],
+  ];
+  const pushSection = (label: string, d: ByCurrency) => {
+    const entries = byCurrencyToRows(d);
+    if (entries.length === 0) {
+      summaryRows.push([label, '-', 0]);
+    } else {
+      entries.forEach(([c, v], i) => summaryRows.push([i === 0 ? label : '', c, v]));
+    }
+  };
+  pushSection('Cobranzas del período', data.collections);
+  pushSection('Pagos a proveedores', data.supplierPayments);
+  pushSection('Facturado del período', data.invoiced);
+  pushSection('Costo de expedientes período', data.costInvoiced);
+  pushSection('Cuentas por cobrar', data.receivable);
+  pushSection('Cuentas por pagar', data.payable);
+
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  wsSummary['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
+
+  // Sheet 2: Top clientes
+  const clientRows: any[][] = [['#', 'Cliente', 'Moneda', 'Facturado YTD']];
+  data.topClients.forEach((c, i) => {
+    const entries = Object.entries(c.byCurrency);
+    if (entries.length === 0) clientRows.push([i + 1, c.name, '-', 0]);
+    entries.forEach(([cur, v], j) => clientRows.push([j === 0 ? i + 1 : '', j === 0 ? c.name : '', cur, Math.round(v * 100) / 100]));
+  });
+  const wsClients = XLSX.utils.aoa_to_sheet(clientRows);
+  wsClients['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 10 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, wsClients, 'Top clientes');
+
+  // Sheet 3: Top proveedores
+  const supRows: any[][] = [['#', 'Proveedor', 'Moneda', 'Pagado YTD']];
+  data.topSuppliers.forEach((s, i) => {
+    const entries = Object.entries(s.byCurrency);
+    if (entries.length === 0) supRows.push([i + 1, s.name, '-', 0]);
+    entries.forEach(([cur, v], j) => supRows.push([j === 0 ? i + 1 : '', j === 0 ? s.name : '', cur, Math.round(v * 100) / 100]));
+  });
+  const wsSup = XLSX.utils.aoa_to_sheet(supRows);
+  wsSup['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 10 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, wsSup, 'Top proveedores');
+
+  XLSX.writeFile(wb, `reporte-operativo-${range.from}_a_${range.to}.xlsx`);
+}
 
 export function exportReportsToExcel(quotes: Quote[], supplierStats: SupplierStat[], currency: string = 'USD') {
   const wb = XLSX.utils.book_new();

@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plane, Plus, Search, Trash2, AlertTriangle, Download } from 'lucide-react';
+import { Plane, Plus, Search, Trash2, AlertTriangle, Download, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,11 +29,16 @@ import { toast } from 'sonner';
 import { exportPassengersToExcel } from '@/lib/exportPassengersExcel';
 import type { ReservationPassenger, FlightSegment, ReservationChange } from '@/types/reservation';
 
+type DateFilter = 'all' | 'upcoming' | 'past';
+
 export default function Reservations() {
   const { user } = useAuth();
   const { data: reservations, isLoading } = useReservationsList();
   const deleteReservation = useDeleteReservation();
   const [search, setSearch] = useState('');
+  const [airlineFilter, setAirlineFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [onlyChanges, setOnlyChanges] = useState(false);
 
   const reservationIds = reservations?.map(r => r.id) || [];
   const { data: allPassengers } = useQuery({
@@ -76,6 +82,19 @@ export default function Reservations() {
     enabled: reservationIds.length > 0,
   });
 
+  // Fetch linked file numbers
+  const fileIds = (reservations || []).map(r => r.file_id).filter(Boolean) as string[];
+  const { data: linkedFiles } = useQuery({
+    queryKey: ['reservation-linked-files', fileIds],
+    queryFn: async () => {
+      if (!fileIds.length) return [];
+      const { data } = await supabase.from('files').select('id, file_number').in('id', fileIds);
+      return (data || []) as { id: string; file_number: number }[];
+    },
+    enabled: fileIds.length > 0,
+  });
+  const fileById = new Map((linkedFiles || []).map(f => [f.id, f]));
+
   const passengersByRes = new Map<string, ReservationPassenger[]>();
   (allPassengers || []).forEach(p => {
     if (!passengersByRes.has(p.reservation_id)) passengersByRes.set(p.reservation_id, []);
@@ -93,17 +112,71 @@ export default function Reservations() {
     pendingChangesByRes.set(c.reservation_id, (pendingChangesByRes.get(c.reservation_id) || 0) + 1);
   });
 
-  const filtered = (reservations || []).filter(r => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    const pax = passengersByRes.get(r.id) || [];
-    const segs = segmentsByRes.get(r.id) || [];
-    return (
-      r.locator?.toLowerCase().includes(q) ||
-      pax.some(p => `${p.last_name} ${p.first_name}`.toLowerCase().includes(q)) ||
-      segs.some(s => `${s.airline_code}${s.flight_number} ${s.origin_iata} ${s.destination_iata}`.toLowerCase().includes(q))
-    );
-  });
+  const airlineOptions = useMemo(() => {
+    const set = new Set<string>();
+    (allSegments || []).forEach(s => s.airline_code && set.add(s.airline_code.toUpperCase()));
+    return Array.from(set).sort();
+  }, [allSegments]);
+
+  // Earliest dep date per reservation (for sort & date filter)
+  const earliestDepByRes = useMemo(() => {
+    const map = new Map<string, number>();
+    (allSegments || []).forEach(s => {
+      if (!s.dep_datetime_local) return;
+      const t = new Date(s.dep_datetime_local).getTime();
+      const cur = map.get(s.reservation_id);
+      if (cur === undefined || t < cur) map.set(s.reservation_id, t);
+    });
+    return map;
+  }, [allSegments]);
+
+  const filtered = useMemo(() => {
+    const now = Date.now();
+    return (reservations || [])
+      .filter(r => {
+        const segs = segmentsByRes.get(r.id) || [];
+        const pax = passengersByRes.get(r.id) || [];
+        const pendingCount = pendingChangesByRes.get(r.id) || 0;
+
+        // Search
+        if (search) {
+          const q = search.toLowerCase();
+          const matches =
+            r.locator?.toLowerCase().includes(q) ||
+            pax.some(p => `${p.last_name} ${p.first_name}`.toLowerCase().includes(q)) ||
+            segs.some(s => `${s.airline_code}${s.flight_number} ${s.origin_iata} ${s.destination_iata}`.toLowerCase().includes(q));
+          if (!matches) return false;
+        }
+
+        // Airline filter
+        if (airlineFilter !== 'all') {
+          if (!segs.some(s => s.airline_code?.toUpperCase() === airlineFilter)) return false;
+        }
+
+        // Date filter
+        if (dateFilter !== 'all') {
+          const earliest = earliestDepByRes.get(r.id);
+          if (earliest === undefined) return false;
+          if (dateFilter === 'upcoming' && earliest < now) return false;
+          if (dateFilter === 'past' && earliest >= now) return false;
+        }
+
+        // Pending changes filter
+        if (onlyChanges && pendingCount === 0) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        const ta = earliestDepByRes.get(a.id);
+        const tb = earliestDepByRes.get(b.id);
+        // Reservations with dep date come first, sorted ascending
+        if (ta !== undefined && tb !== undefined) return ta - tb;
+        if (ta !== undefined) return -1;
+        if (tb !== undefined) return 1;
+        // Fallback to created_at desc
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+  }, [reservations, search, airlineFilter, dateFilter, onlyChanges, segmentsByRes, passengersByRes, pendingChangesByRes, earliestDepByRes]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -151,14 +224,39 @@ export default function Reservations() {
           </div>
         </div>
 
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por localizador, pasajero o vuelo..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por localizador, pasajero o vuelo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={airlineFilter} onValueChange={setAirlineFilter}>
+            <SelectTrigger className="w-full lg:w-40"><SelectValue placeholder="Aerolínea" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las aerolíneas</SelectItem>
+              {airlineOptions.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
+            <SelectTrigger className="w-full lg:w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las fechas</SelectItem>
+              <SelectItem value="upcoming">Próximos</SelectItem>
+              <SelectItem value="past">Pasados</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant={onlyChanges ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setOnlyChanges(v => !v)}
+            className="lg:w-auto"
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" /> Con cambios
+          </Button>
         </div>
 
         {isLoading ? (
@@ -169,9 +267,11 @@ export default function Reservations() {
           <div className="text-center py-16">
             <Plane className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-muted-foreground text-lg mb-4">
-              {search ? 'No se encontraron vuelos' : 'No hay vuelos cargados'}
+              {search || airlineFilter !== 'all' || dateFilter !== 'all' || onlyChanges
+                ? 'No se encontraron vuelos con los filtros aplicados'
+                : 'No hay vuelos cargados'}
             </p>
-            {!search && (
+            {!search && airlineFilter === 'all' && dateFilter === 'all' && !onlyChanges && (
               <Button asChild>
                 <Link to="/reservations/import">
                   <Plus className="h-4 w-4 mr-2" />
@@ -188,6 +288,8 @@ export default function Reservations() {
               const hasChanges = segs.some(s => s.has_changes);
               const pendingCount = pendingChangesByRes.get(r.id) || 0;
               const firstSeg = segs[0];
+              const firstDep = earliestDepByRes.get(r.id);
+              const linkedFile = r.file_id ? fileById.get(r.file_id) : null;
 
               return (
                 <Card key={r.id} className="hover:shadow-md transition-shadow">
@@ -223,7 +325,11 @@ export default function Reservations() {
                               : 'Sin pasajeros'}
                           </span>
                           <span className="hidden sm:inline">•</span>
-                          <span className="whitespace-nowrap">{format(new Date(r.created_at), "d MMM yyyy", { locale: es })}</span>
+                          <span className="whitespace-nowrap">
+                            {firstDep
+                              ? `Sale ${format(new Date(firstDep), "d MMM yyyy", { locale: es })}`
+                              : format(new Date(r.created_at), "d MMM yyyy", { locale: es })}
+                          </span>
                           {r.gds && (
                             <>
                               <span className="hidden sm:inline">•</span>
@@ -232,6 +338,18 @@ export default function Reservations() {
                           )}
                         </div>
                       </Link>
+
+                      {linkedFile && (
+                        <Link
+                          to={`/files/${linkedFile.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 text-xs font-mono shrink-0"
+                          title="Ver expediente vinculado"
+                        >
+                          <FileText className="h-3 w-3" />
+                          FILE-{String(linkedFile.file_number).padStart(3, '0')}
+                        </Link>
+                      )}
 
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

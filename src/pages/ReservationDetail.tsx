@@ -14,6 +14,7 @@ import {
   Trash2,
   Mail,
   Send,
+  FileText,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ import {
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendReservationConfirmation } from '@/lib/emailService';
 import { toast } from 'sonner';
@@ -65,6 +67,16 @@ export default function ReservationDetail() {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+
+  const { data: linkedFile } = useQuery({
+    queryKey: ['reservation-file', reservation?.file_id],
+    queryFn: async () => {
+      if (!reservation?.file_id) return null;
+      const { data } = await supabase.from('files').select('id, file_number').eq('id', reservation.file_id).maybeSingle();
+      return data;
+    },
+    enabled: !!reservation?.file_id,
+  });
 
   if (isLoading) {
     return (
@@ -262,6 +274,15 @@ export default function ReservationDetail() {
                   Importada el {format(new Date(reservation.created_at), "d 'de' MMMM, HH:mm", { locale: es })}
                   {reservation.gds && ` • ${reservation.gds.toUpperCase()}`}
                 </p>
+                {linkedFile && (
+                  <Link
+                    to={`/files/${linkedFile.id}`}
+                    className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 text-xs font-mono"
+                  >
+                    <FileText className="h-3 w-3" />
+                    Ver expediente FILE-{String(linkedFile.file_number).padStart(3, '0')}
+                  </Link>
+                )}
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">

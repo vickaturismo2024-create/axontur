@@ -28,6 +28,7 @@ import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
 import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
 import { CurrencyRatesWidget } from '@/components/dashboard/CurrencyRatesWidget';
 import { OperationalAlertsWidget } from '@/components/dashboard/OperationalAlertsWidget';
+import { UpcomingFlightsWidget } from '@/components/dashboard/UpcomingFlightsWidget';
 
 import { defaultTemplate } from '@/data/demoData';
 
@@ -359,10 +360,11 @@ const Dashboard = () => {
           <CurrencyRatesWidget />
         </div>
 
-        {/* Reminders + Alertas operativas */}
-        <div className="mb-8 grid gap-4 lg:grid-cols-2">
+        {/* Reminders + Alertas operativas + Vuelos próximos */}
+        <div className="mb-8 grid gap-4 lg:grid-cols-3">
           <RemindersPanel />
           <OperationalAlertsWidget />
+          <UpcomingFlightsWidget />
         </div>
 
         {/* View Tabs (Active/Archived/Favorites) + Status Tabs + Search + Filters */}
