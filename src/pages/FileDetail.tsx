@@ -85,9 +85,100 @@ const FileDetail = () => {
       setNotes(f.internal_notes || '');
       setStatus(f.status);
       setLoading(false);
+
+      // Cargar email del cliente vinculado
+      if (f.client_id) {
+        const { data: c } = await supabase.from('clients').select('email').eq('id', f.client_id).maybeSingle();
+        if (c?.email) setClientEmail(c.email);
+      }
     };
     load();
   }, [user, id]);
+
+  const openConfirmEmail = () => {
+    setConfirmEmailOpen(true);
+  };
+
+  const openVoucherEmail = async () => {
+    if (!file) return;
+    // Cargar servicios del expediente para elegir cuáles incluir en el voucher
+    const { data: services } = await supabase
+      .from('file_services')
+      .select('description, supplier_name, service_date, confirmation_number, supplier_id')
+      .eq('file_id', file.id);
+
+    const list = (services || []).map(s => ({
+      description: s.description || '',
+      supplier_name: s.supplier_name || '',
+      service_date: s.service_date,
+      confirmation_number: s.confirmation_number,
+    }));
+    setVoucherServices(list);
+
+    // Pre-cargar primer proveedor con email
+    const firstSupplierId = (services || []).find((s: any) => s.supplier_id)?.supplier_id;
+    if (firstSupplierId) {
+      const { data: sup } = await supabase.from('suppliers').select('name, email').eq('id', firstSupplierId).maybeSingle();
+      if (sup) {
+        setVoucherSupplier(sup.name || '');
+        setVoucherEmail(sup.email || '');
+      }
+    }
+    setVoucherEmailOpen(true);
+  };
+
+  const handleSendConfirmation = async () => {
+    if (!file || !user) return;
+    if (!clientEmail) { toast.error('Falta el email del cliente'); return; }
+    setSendingEmail(true);
+    const result = await sendReservationConfirmation({
+      to: clientEmail,
+      userId: user.id,
+      fileId: file.id,
+      data: {
+        clientName: file.client_name,
+        fileNumber: `FILE-${String(file.file_number).padStart(3, '0')}`,
+        destination: file.destination,
+        startDate: file.start_date,
+        endDate: file.end_date,
+        travelers: file.travelers,
+        currency: file.currency,
+        totalPrice: file.total_price,
+      },
+    });
+    setSendingEmail(false);
+    if (result.success) {
+      toast.success('Email de confirmación enviado');
+      setConfirmEmailOpen(false);
+    } else {
+      toast.error(result.error || 'No se pudo enviar el email');
+    }
+  };
+
+  const handleSendVoucher = async () => {
+    if (!file || !user) return;
+    if (!voucherEmail) { toast.error('Falta el email del operador'); return; }
+    if (!voucherSupplier) { toast.error('Falta el nombre del operador'); return; }
+    setSendingEmail(true);
+    const result = await sendSupplierVoucher({
+      to: voucherEmail,
+      userId: user.id,
+      fileId: file.id,
+      data: {
+        supplierName: voucherSupplier,
+        clientName: file.client_name,
+        fileNumber: `FILE-${String(file.file_number).padStart(3, '0')}`,
+        services: voucherServices.filter(s => s.supplier_name === voucherSupplier || voucherServices.length === 1),
+      },
+    });
+    setSendingEmail(false);
+    if (result.success) {
+      toast.success('Voucher enviado al operador');
+      setVoucherEmailOpen(false);
+    } else {
+      toast.error(result.error || 'No se pudo enviar el voucher');
+    }
+  };
 
   const handleSave = async () => {
     if (!file) return;
