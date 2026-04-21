@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Store, Search, Phone, Mail, BarChart3 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Store, Search, Phone, Mail, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
@@ -27,27 +29,39 @@ interface Supplier {
 }
 
 const emptySupplier = { name: '', email: '', phone: '', type: '', notes: '' };
+const PAGE_SIZE = 30;
 
 const Suppliers = () => {
   const { user } = useAuth();
   const { quotes } = useQuotes();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Partial<Supplier> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
 
   const supplierStats = useSupplierAnalytics(quotes);
 
-  const fetchSuppliers = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase.from('suppliers').select('*').order('name');
-    if (data) setSuppliers(data as any);
-    setLoading(false);
-  }, [user]);
+  const { data: suppliers, isLoading } = useQuery<Supplier[]>({
+    queryKey: ['suppliers', user?.id],
+    queryFn: async () => {
+      const all: any[] = [];
+      let from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data } = await supabase.from('suppliers').select('*').order('name').range(from, from + PAGE - 1);
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      return all as Supplier[];
+    },
+    enabled: !!user,
+  });
 
-  useEffect(() => { fetchSuppliers(); }, [fetchSuppliers]);
+  const refresh = () => qc.invalidateQueries({ queryKey: ['suppliers', user?.id] });
 
   const handleSave = async () => {
     if (!editing || !user || !editing.name?.trim()) return;
@@ -68,7 +82,7 @@ const Suppliers = () => {
     }
     setIsDialogOpen(false);
     setEditing(null);
-    fetchSuppliers();
+    refresh();
   };
 
   const handleDelete = async () => {
@@ -76,16 +90,20 @@ const Suppliers = () => {
     await supabase.from('suppliers').delete().eq('id', deleteId);
     setDeleteId(null);
     toast.success('Proveedor eliminado');
-    fetchSuppliers();
+    refresh();
   };
 
   const getStatForSupplier = (name: string): SupplierStat | undefined =>
     supplierStats.find(s => s.name.toLowerCase() === name.toLowerCase());
 
-  const filtered = suppliers.filter(s =>
+  const filtered = useMemo(() => (suppliers || []).filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
     s.type.toLowerCase().includes(search.toLowerCase())
-  );
+  ), [suppliers, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+  const paginated = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-background">
@@ -110,48 +128,69 @@ const Suppliers = () => {
 
         <div className="mb-6 relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por nombre o tipo..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+          <Input placeholder="Buscar por nombre o tipo..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-10" />
         </div>
 
-        {loading ? (
-          <p className="text-muted-foreground">Cargando...</p>
+        {isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-44 w-full" />)}
+          </div>
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-muted-foreground">
             <Store className="mx-auto h-12 w-12 mb-4 opacity-50" />
-            <p>{suppliers.length === 0 ? 'No tenés proveedores aún. ¡Creá el primero!' : 'No se encontraron resultados.'}</p>
+            <p>{(suppliers?.length || 0) === 0 ? 'No tenés proveedores aún. ¡Creá el primero!' : 'No se encontraron resultados.'}</p>
           </CardContent></Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(s => {
-              const stat = getStatForSupplier(s.name);
-              return (
-                <Card key={s.id} className="group">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Store className="h-4 w-4 text-primary" /> {s.name}
-                    </CardTitle>
-                    {s.type && <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full w-fit">{s.type}</span>}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-1 text-sm text-muted-foreground mb-2">
-                      {s.email && <p className="flex items-center gap-1"><Mail className="h-3 w-3" />{s.email}</p>}
-                      {s.phone && <p className="flex items-center gap-1"><Phone className="h-3 w-3" />{s.phone}</p>}
-                      {s.notes && <p className="truncate">{s.notes}</p>}
-                    </div>
-                    {stat && (
-                      <div className="flex gap-2 flex-wrap mb-2">
-                        <Badge variant="secondary" className="text-[10px]">{stat.services} servicio(s)</Badge>
+          <>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {paginated.map(s => {
+                const stat = getStatForSupplier(s.name);
+                return (
+                  <Card key={s.id} className="group">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Store className="h-4 w-4 text-primary" /> {s.name}
+                      </CardTitle>
+                      {s.type && <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full w-fit">{s.type}</span>}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-1 text-sm text-muted-foreground mb-2">
+                        {s.email && <p className="flex items-center gap-1"><Mail className="h-3 w-3" />{s.email}</p>}
+                        {s.phone && <p className="flex items-center gap-1"><Phone className="h-3 w-3" />{s.phone}</p>}
+                        {s.notes && <p className="truncate">{s.notes}</p>}
                       </div>
-                    )}
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setEditing(s); setIsDialogOpen(true); }}><Pencil className="mr-1 h-4 w-4" />Editar</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(s.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                      {stat && (
+                        <div className="flex gap-2 flex-wrap mb-2">
+                          <Badge variant="secondary" className="text-[10px]">{stat.services} servicio(s)</Badge>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { setEditing(s); setIsDialogOpen(true); }}><Pencil className="mr-1 h-4 w-4" />Editar</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteId(s.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={currentPage === 0}>
+                    <ChevronLeft className="h-4 w-4" /> Anterior
+                  </Button>
+                  <span className="text-sm">{currentPage + 1} / {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1}>
+                    Siguiente <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 

@@ -27,6 +27,7 @@ import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
 import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
 import { CurrencyRatesWidget } from '@/components/dashboard/CurrencyRatesWidget';
+import { OperationalAlertsWidget } from '@/components/dashboard/OperationalAlertsWidget';
 
 import { defaultTemplate } from '@/data/demoData';
 
@@ -358,9 +359,10 @@ const Dashboard = () => {
           <CurrencyRatesWidget />
         </div>
 
-        {/* Reminders */}
-        <div className="mb-8">
+        {/* Reminders + Alertas operativas */}
+        <div className="mb-8 grid gap-4 lg:grid-cols-2">
           <RemindersPanel />
+          <OperationalAlertsWidget />
         </div>
 
         {/* View Tabs (Active/Archived/Favorites) + Status Tabs + Search + Filters */}
