@@ -231,8 +231,21 @@ const Clients = () => {
             </div>
 
             {loading ? (
-              <div className="flex justify-center py-16">
-                <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-4 w-4" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-48" />
+                          <Skeleton className="h-4 w-72" />
+                        </div>
+                        <Skeleton className="h-6 w-20" />
+                      </div>
+                    </CardHeader>
+                  </Card>
+                ))}
               </div>
             ) : filtered.length === 0 ? (
               <Card className="py-12 text-center">
@@ -242,19 +255,36 @@ const Clients = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {filtered.map(client => (
-                  <ExpandableClientCard
-                    key={client.id}
-                    client={client}
-                    quotes={getClientQuotes(client)}
-                    onEdit={() => handleEdit(client)}
-                    onDelete={() => setDeleteTargetId(client.id)}
-                    navigate={navigate}
-                    defaultOpen={!!highlightName && client.name === highlightName}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="space-y-3">
+                  {paginated.map(client => (
+                    <ExpandableClientCard
+                      key={client.id}
+                      client={client}
+                      quotes={getClientQuotes(client)}
+                      onEdit={() => handleEdit(client)}
+                      onDelete={() => setDeleteTargetId(client.id)}
+                      navigate={navigate}
+                      defaultOpen={!!highlightName && client.name === highlightName}
+                    />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages} · {filtered.length} clientes
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                        <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                        Siguiente <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 
