@@ -142,7 +142,7 @@ const Clients = () => {
     try {
       const { error } = await supabase.from('clients').delete().eq('id', deleteTargetId);
       if (error) throw error;
-      setClients(prev => prev.filter(c => c.id !== deleteTargetId));
+      queryClient.setQueryData<ClientRecord[]>(['clients', user?.id], (prev) => (prev || []).filter(c => c.id !== deleteTargetId));
       setDeleteTargetId(null);
       toast.success('Cliente eliminado');
     } catch (e) { console.error(e); toast.error('Error al eliminar'); }
