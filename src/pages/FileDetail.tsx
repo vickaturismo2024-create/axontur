@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { FilePassengersTab } from '@/components/files/FilePassengersTab';
 import { FileReceiptsTab } from '@/components/files/FileReceiptsTab';
 import { FileSuppliersTab } from '@/components/files/FileSuppliersTab';
 import { FileFinancialSummary } from '@/components/files/FileFinancialSummary';
+import { FileCommunicationsTab } from '@/components/files/FileCommunicationsTab';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendReservationConfirmation, sendSupplierVoucher } from '@/lib/emailService';
@@ -65,6 +66,9 @@ const FileDetail = () => {
   const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('confirmed');
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoad = useRef(true);
 
   // Email dialogs
   const [confirmEmailOpen, setConfirmEmailOpen] = useState(false);
@@ -94,6 +98,33 @@ const FileDetail = () => {
     };
     load();
   }, [user, id]);
+
+  // Autosave de notas con debounce 1s
+  useEffect(() => {
+    if (loading || !file || isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
+    notesDebounceRef.current = setTimeout(async () => {
+      const { error } = await supabase.from('files').update({ internal_notes: notes }).eq('id', file.id);
+      if (!error) setLastSaved(new Date());
+    }, 1000);
+    return () => { if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current); };
+  }, [notes, file?.id, loading]);
+
+  // Guardado inmediato del estado
+  useEffect(() => {
+    if (loading || !file || file.status === status) return;
+    supabase.from('files').update({ status }).eq('id', file.id).then(({ error }) => {
+      if (!error) {
+        setFile({ ...file, status });
+        toast.success('Estado actualizado');
+      } else {
+        toast.error('Error al cambiar estado');
+      }
+    });
+  }, [status]);
 
   const openConfirmEmail = () => {
     setConfirmEmailOpen(true);
