@@ -1,99 +1,119 @@
 
 
-## Plan: Iteración 2 — Bloques 7 + 8 (Performance, UX y Workflow de Expedientes)
+## Plan: Iteración 3 — Bloques 6 + 9 + 3 avanzado
 
-### BLOQUE 7 — Performance & UX
+Continuamos con tres bloques que completan el ERP operativo: settings de email, mejoras de proveedores y extractos avanzados de cuentas corrientes.
 
-**1. React Query en listados grandes**
-Migrar a `useQuery` los fetch manuales de:
-- `Clients.tsx`
-- `Files.tsx`
-- `Suppliers.tsx`
-- `Accounts.tsx` (clientes + proveedores + movimientos)
-- `Reservations.tsx`
+### BLOQUE 6 — Configuración de Email
 
-Beneficio: cache automática, menos refetch al cambiar de pestaña, refetch sólo cuando los datos cambian.
+**1. Nueva pestaña "Email" en Settings**
+Agregar a `Settings.tsx` una pestaña que permita configurar:
+- **Firma de email** (textarea, multilínea con HTML básico permitido).
+- **Email de respuesta** (`reply_to`) opcional.
+- **Plantillas personalizables** por tipo (`receipt`, `confirmation`, `voucher`):
+  - Asunto editable con variables `{cliente}`, `{expediente}`, `{numero_recibo}`.
+  - Cuerpo editable con las mismas variables.
+  - Botón "Restaurar por defecto".
+- **Vista previa** con datos de ejemplo.
 
-**2. Skeletons de carga**
-Reemplazar los textos "Cargando..." por componentes `<Skeleton />` de shadcn en:
-- Listas (`Clients`, `Files`, `Suppliers`, `Accounts`, `Reservations`).
-- Detalle de expediente (`FileDetail` mientras carga).
-- Dashboard (widgets).
+**2. Migración**
+Agregar a `profiles`:
+- `email_signature` (text)
+- `email_reply_to` (text)
+- `email_templates` (jsonb): `{ receipt: {subject, body}, confirmation: {...}, voucher: {...} }`
 
-**3. Paginación / virtualización ligera**
-- Agregar buscador + paginación visible (50 por página, con botones Anterior/Siguiente) en `Clients`, `Files`, `Suppliers`, `Reservations`. Mantenemos el patrón `.range()` ya documentado en memoria para >1000 registros.
-- Recibos dentro de un expediente: mostrar últimos 20 por defecto + botón "Ver todos".
+**3. Integración**
+Modificar `src/lib/emailTemplates.ts` y `emailService.ts` para que:
+- Lea las plantillas custom del perfil del usuario antes de aplicar las defaults.
+- Reemplace variables `{cliente}`, `{expediente}`, `{numero_recibo}`, `{monto}`, `{moneda}`.
+- Anexe la firma al final del cuerpo.
 
-**4. Optimización de re-renders**
-- `useMemo` en cálculos pesados de `AccountDetail` (saldos progresivos), `FileFinancialSummary` y `Reports`.
-- `React.memo` en filas de listas largas.
+### BLOQUE 9 — Mejoras de Proveedores
 
-### BLOQUE 8 — Workflow de Expedientes
+**1. Tipos predefinidos de proveedor**
+Hoy `suppliers.type` es texto libre. Agregar:
+- Select con opciones: `Aerolínea`, `Hotel`, `Operador`, `Cruceros`, `Asistencia`, `Traslados`, `Excursiones`, `Otro`.
+- Mantener compatibilidad con valores libres existentes.
 
-**1. Estados del expediente**
-Migración para agregar a `files.status` los valores: `confirmed`, `in_progress`, `completed`, `cancelled` (hoy sólo `confirmed`). Trigger de validación.
-- Selector de estado en `FileDetail` con badge de color.
-- Filtro por estado en `Files.tsx`.
-- Auto-sugerencia: si `end_date < today`, ofrecer marcar como `completed`.
+**2. Vista detalle de proveedor**
+Nueva ruta `/suppliers/:id` con:
+- Datos generales editables.
+- Lista de **servicios usados** (`file_services` filtrados por `supplier_id`).
+- Lista de **pagos realizados** (`file_supplier_payments` filtrados por `supplier_id`).
+- **Saldo actual** por moneda.
+- Métrica: facturación total YTD por moneda + cantidad de expedientes asociados.
 
-**2. Dashboard de alertas operativas**
-Nuevo widget en `Dashboard.tsx` "Alertas operativas" que agrupa:
-- Servicios con `payment_due_date` vencido o en <3 días (ya existe la lógica, sólo se muestra acá).
-- Documentos de clientes próximos a vencer (DNI/Pasaporte <6 meses).
-- Expedientes con viajes terminados sin marcar como `completed`.
-- Recibos en `draft` con más de 7 días.
+**3. Notas y archivos adjuntos**
+- Editor de notas en supplier (autoguardado).
+- (Adjuntos quedan para una iteración futura — necesitan storage bucket dedicado).
 
-Cada alerta es clickeable y navega al recurso.
+**4. Filtro por tipo en Suppliers.tsx**
+Tabs/select de tipo arriba del listado.
 
-**3. Tab "Comunicaciones" en FileDetail**
-Lee de `email_logs` filtrado por `file_id` y muestra:
-- Fecha, destinatario, asunto, plantilla usada, estado.
-- Botón "Reenviar" que dispara nuevamente `sendEmail()`.
+### BLOQUE 3 — Cuentas Corrientes Avanzado
 
-**4. Exportar pasajeros a Excel**
-Botón en `FilePassengersTab` y en `Reservations` que genera Excel con: nombre, DNI, pasaporte, vencimiento pasaporte, fecha nacimiento, nacionalidad, notas. Reutiliza `xlsx` ya instalado.
+**1. Filtros en AccountDetail**
+- Rango de fechas (date pickers desde/hasta).
+- Filtro por tipo de movimiento (`debit` / `credit` / `all`).
+- Filtro por moneda (cuando hay movimientos en >1 moneda).
+- Buscador por concepto/referencia.
 
-**5. Notas internas mejoradas en FileDetail**
-- Editor multilínea con autoguardado (debounce 1s, ya hay patrón en quotes).
-- Marca de tiempo y "última edición".
+**2. Exportar extracto a Excel**
+Botón en `AccountDetail.tsx` que genera Excel con:
+- Encabezado: nombre del titular, tipo, moneda, período.
+- Columnas: fecha, concepto, debe, haber, saldo, referencia, expediente.
+- Saldo final destacado.
+
+**3. Exportar extracto a PDF**
+Botón que genera PDF imprimible con:
+- Logo + datos de la agencia (de `profiles`).
+- Mismas columnas que Excel pero formateadas como tabla.
+- Footer legal del perfil.
+- Reutiliza `jspdf` + `jspdf-autotable` (ya instalados).
+
+**4. Resumen consolidado en Accounts.tsx**
+Cards al tope de la página:
+- Total **a cobrar** (suma de saldos positivos de clientes) por moneda.
+- Total **a pagar** (suma de saldos pendientes a proveedores) por moneda.
+- Movimientos del mes en curso.
 
 ### Lo que NO entra en esta iteración
 
-Bloque 3 avanzado (filtros + extractos PDF/Excel de cuentas corrientes), Bloque 6 (settings de email), Bloque 9 (mejoras de proveedores), y verificación de dominio de email.
+- Verificación de dominio de email (pendiente del usuario).
+- Adjuntos en proveedores (requiere storage bucket).
+- Reportes avanzados de proveedores (un Bloque futuro).
 
 ### Detalles técnicos
 
 ````text
 modificados:
-  src/pages/Clients.tsx                    (useQuery + skeleton + paginación)
-  src/pages/Files.tsx                      (useQuery + skeleton + paginación + filtro estado)
-  src/pages/Suppliers.tsx                  (useQuery + skeleton + paginación)
-  src/pages/Accounts.tsx                   (useQuery + skeleton)
-  src/pages/Reservations.tsx               (useQuery + skeleton + paginación)
-  src/pages/FileDetail.tsx                 (selector de estado + tab Comunicaciones + notas)
-  src/pages/Dashboard.tsx                  (widget Alertas operativas)
-  src/components/files/FilePassengersTab.tsx  (botón Exportar Excel)
-  src/components/files/FileFinancialSummary.tsx (useMemo)
-  src/components/accounts/AccountDetail.tsx     (useMemo)
+  src/pages/Settings.tsx                     (nueva tab Email)
+  src/pages/Suppliers.tsx                    (filtro por tipo, link a detalle)
+  src/pages/Accounts.tsx                     (cards de resumen consolidado)
+  src/components/accounts/AccountDetail.tsx  (filtros + export Excel/PDF)
+  src/lib/emailTemplates.ts                  (lee templates custom)
+  src/lib/emailService.ts                    (firma + reply_to)
+  src/components/clients/ClientFormDialog.tsx (no aplica, es referencia)
 
 nuevos:
-  src/components/files/FileCommunicationsTab.tsx
-  src/components/dashboard/OperationalAlertsWidget.tsx
-  src/lib/exportPassengersExcel.ts
+  src/components/settings/EmailTab.tsx
+  src/pages/SupplierDetail.tsx
+  src/lib/exportAccountStatement.ts          (Excel + PDF)
+  src/App.tsx                                (ruta /suppliers/:id)
 
 migración:
-  files.status → permitir 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
-  trigger validate_file_status
+  profiles.email_signature  (text)
+  profiles.email_reply_to   (text)
+  profiles.email_templates  (jsonb default)
 ````
 
 ### Verificación
 
-- Cambiar de pestaña en Clientes/Expedientes ya no dispara refetch innecesario.
-- Skeletons aparecen en lugar de "Cargando..." mientras se traen datos.
-- Paginación funciona en listas largas, mantiene buscador.
-- Cambio de estado en expediente refleja badge y filtra en listado.
-- Dashboard muestra alertas agrupadas y clickeables.
-- Tab Comunicaciones lista emails enviados desde el expediente.
-- Botón Exportar Pasajeros descarga Excel con columnas correctas.
-- Notas internas se autoguardan sin recargar página.
+- Tab Email en Settings carga, guarda y restaura defaults correctamente.
+- Enviar un recibo o confirmación usa la plantilla custom + firma del perfil.
+- `/suppliers/:id` muestra servicios, pagos y saldo por moneda.
+- Filtro por tipo en Suppliers funciona.
+- AccountDetail filtra por fecha, tipo y moneda; el saldo recalcula correctamente.
+- Botones Exportar Excel/PDF descargan archivos con formato correcto.
+- Cards de resumen en Accounts muestran totales por moneda.
 
