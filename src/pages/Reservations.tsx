@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plane, Plus, Search, Trash2, AlertTriangle } from 'lucide-react';
+import { Plane, Plus, Search, Trash2, AlertTriangle, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { exportPassengersToExcel } from '@/lib/exportPassengersExcel';
 import type { ReservationPassenger, FlightSegment, ReservationChange } from '@/types/reservation';
 
 export default function Reservations() {
@@ -32,7 +34,6 @@ export default function Reservations() {
   const deleteReservation = useDeleteReservation();
   const [search, setSearch] = useState('');
 
-  // Fetch passengers and segments for all reservations
   const reservationIds = reservations?.map(r => r.id) || [];
   const { data: allPassengers } = useQuery({
     queryKey: ['all-reservation-passengers', reservationIds],
@@ -113,6 +114,21 @@ export default function Reservations() {
     }
   };
 
+  const handleExportPassengers = () => {
+    const rows = (allPassengers || []).map(p => ({
+      name: `${p.last_name || ''} ${p.first_name || ''}`.trim(),
+      dni: p.document || '',
+      passport: '',
+      passport_expiry: '',
+      birth_date: '',
+      nationality: '',
+      notes: '',
+    }));
+    if (rows.length === 0) { toast.error('No hay pasajeros para exportar'); return; }
+    exportPassengersToExcel(rows, 'pasajeros-vuelos.xlsx');
+    toast.success(`${rows.length} pasajeros exportados`);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -123,6 +139,9 @@ export default function Reservations() {
             <p className="text-muted-foreground">Gestión de PNR, pasajeros y segmentos de vuelo</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleExportPassengers} disabled={!allPassengers?.length}>
+              <Download className="h-4 w-4 mr-2" /> Exportar pasajeros
+            </Button>
             <Button asChild>
               <Link to="/reservations/import">
                 <Plus className="h-4 w-4 mr-2" />
@@ -143,7 +162,9 @@ export default function Reservations() {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground">Cargando vuelos...</div>
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <Plane className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />

@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, User, UserPlus, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, User, UserPlus, Search, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { exportPassengersToExcel } from '@/lib/exportPassengersExcel';
 
 interface Passenger {
   id: string;
@@ -185,9 +186,16 @@ export function FilePassengersTab({ fileId }: Props) {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
         <h3 className="font-semibold">Pasajeros ({passengers.length})</h3>
-        <Button size="sm" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Agregar pasajero</Button>
+        <div className="flex gap-2">
+          {passengers.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => exportPassengersToExcel(passengers, `pasajeros-${fileId}.xlsx`)}>
+              <Download className="mr-2 h-4 w-4" />Exportar
+            </Button>
+          )}
+          <Button size="sm" onClick={openNew}><Plus className="mr-2 h-4 w-4" />Agregar pasajero</Button>
+        </div>
       </div>
 
       {passengers.length === 0 ? (
