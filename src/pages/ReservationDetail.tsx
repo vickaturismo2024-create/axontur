@@ -135,6 +135,56 @@ export default function ReservationDetail() {
     }
   };
 
+  const openEmailDialog = async () => {
+    if (!reservation) return;
+    let preEmail = '';
+    if (reservation.file_id) {
+      const { data: f } = await supabase.from('files').select('client_id').eq('id', reservation.file_id).maybeSingle();
+      if (f?.client_id) {
+        const { data: c } = await supabase.from('clients').select('email').eq('id', f.client_id).maybeSingle();
+        if (c?.email) preEmail = c.email;
+      }
+    }
+    setEmailTo(preEmail);
+    setEmailDialogOpen(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!reservation || !user) return;
+    if (!emailTo) { toast.error('Falta el email'); return; }
+    setSendingEmail(true);
+    let fileNumber = reservation.locator || reservation.id.slice(0, 8);
+    let destination = '';
+    let travelers = reservation.passengers.length;
+    if (reservation.file_id) {
+      const { data: f } = await supabase.from('files').select('file_number, destination, travelers, client_name, currency, total_price, start_date, end_date').eq('id', reservation.file_id).maybeSingle();
+      if (f) {
+        fileNumber = `FILE-${String(f.file_number).padStart(3, '0')}`;
+        destination = f.destination || '';
+      }
+    }
+    const result = await sendReservationConfirmation({
+      to: emailTo,
+      userId: user.id,
+      reservationId: reservation.id,
+      data: {
+        clientName: reservation.passengers.map(p => `${p.last_name}${p.first_name ? ', ' + p.first_name : ''}`).join('; ') || 'Pasajero',
+        fileNumber,
+        destination: destination || (reservation.flight_segments[0]?.destination_iata ?? ''),
+        travelers,
+        currency: 'USD',
+        totalPrice: 0,
+      },
+    });
+    setSendingEmail(false);
+    if (result.success) {
+      toast.success('Email enviado');
+      setEmailDialogOpen(false);
+    } else {
+      toast.error(result.error || 'No se pudo enviar el email');
+    }
+  };
+
   const copyForWhatsApp = () => {
     const paxList = reservation.passengers
       .map(p => `• ${p.last_name}/${p.first_name || ''}${p.title ? ` ${p.title}` : ''}`)
