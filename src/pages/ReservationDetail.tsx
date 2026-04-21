@@ -12,6 +12,8 @@ import {
   Pencil,
   Tag,
   Trash2,
+  Mail,
+  Send,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Header } from '@/components/layout/Header';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   useReservationDetails,
   useToggleCheckin,
@@ -38,6 +43,9 @@ import {
 } from '@/hooks/useFlightReservations';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { sendReservationConfirmation } from '@/lib/emailService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
