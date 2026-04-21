@@ -1,82 +1,103 @@
 
 
-## Plan: revisión y arreglo del PDF público para clientes (especial mobile)
+## Plan: Iteración 1 de mejoras de Claude (AxonTur)
 
-### Contexto
-El link público (`/pdf/:id`) usa `PublicPDF.tsx` + el árbol `PDFPreview` con páginas A4 (`PDFCoverPage`, `PDFItineraryPages`, `PDFContactPages`, `PDFDetailsPages`, `PDFPageWrapper`). Hoy todo está pensado para **A4 fijo** (≈794px de ancho). En mobile (375–414px) eso se ve roto porque:
+Vamos a ejecutar **Bloques 1 + 4 + 2 + 5** del análisis, con ajustes a la realidad del proyecto.
 
-- Las páginas tienen `width: 794px` rígido → aparece scroll horizontal o todo escalado microscópico.
-- Los grids internos (`grid-cols-2/3/4`) no colapsan en pantallas chicas.
-- Tipografía calculada para impresión (texto chico) queda ilegible.
-- Tablas (vuelos, cruceros, ocupación, precio) provocan overflow horizontal sin scroll dedicado.
-- Imágenes de portada / itinerario quedan recortadas o sobredimensionadas.
-- El header del link público (botón compartir, descargar PDF, aprobar) puede tapar contenido en mobile.
+### Ajustes al plan original de Claude
 
-Hay una memoria previa (`mem://style/pdf-mobile-optimization`) que indica que existe `isMobile` con `window.innerWidth`, pero por las quejas actuales no se está aplicando consistentemente o se rompió en cambios posteriores.
+- **Email**: usamos la infraestructura nativa de **Lovable Cloud** (no Resend). Esto evita pedirte cuentas externas y API keys; el remitente y dominio se configuran desde Cloud → Emails.
+- **`as any` en Supabase**: Claude detectó 2 archivos pero en realidad hay **~31 archivos con `as any`**. Casi todos existen porque las tablas no están en el archivo de tipos auto-generado. La limpieza correcta es **regenerar los tipos** (lo hace la plataforma sola al correr migraciones); luego van cayendo solos. Voy a quitar los `as any` cuando los tipos estén disponibles, no a mano.
+- **`strictNullChecks`**: lo activo y dedico un paso completo a arreglar los errores que aparezcan.
 
-### Objetivos
-1. **Mobile-first sobre el público**: cuando se abre `/pdf/:id` en un teléfono, el contenido debe ser legible, fluido (sin scroll horizontal), con tipografía cómoda y tablas con scroll interno cuando hace falta.
-2. **Mantener fidelidad A4 en desktop e impresión / descarga PDF** (no romper `html2canvas` + `jsPDF`).
-3. **Validar end-to-end** que el link funciona: que `get-public-quote` responde, que la expiración se respeta, que el aprobado funciona y que los contadores de vista se incrementan.
+### BLOQUE 1 — Fixes técnicos
 
-### Cambios
+1. **Vaciar `src/App.css`** (deja un comentario explicando por qué quedó vacío).
+2. **`index.html`**: cambiar `lang="en"` → `lang="es"` y quitar el TODO genérico del título.
+3. **TypeScript strict**: en `tsconfig.json` y `tsconfig.app.json` activar `strictNullChecks: true` y `noImplicitAny: true`. Luego recorrer los errores que tire `tsc --noEmit` y arreglarlos uno por uno (foco esperado: `FileReceiptsTab`, `NewMovementDialog`, `FileSuppliersTab`, `Accounts`, `FileFinancialSummary`).
+4. **Limpieza de `as any` legítimos**: una vez aplicadas las migraciones del Bloque 2 (estado de recibos, `receipt_id` en movimientos), los tipos se regeneran y los `as any` de esas tablas se quitan.
 
-**1. Contenedor responsive del público (`src/pages/PublicPDF.tsx`)**
-- Detectar mobile con el hook `useIsMobile` (ya existe) en vez de cálculo manual, para tener un único punto de verdad.
-- En mobile:
-  - Quitar el `width: 794px` fijo del wrapper exterior; usar `width: 100%` + padding lateral mínimo.
-  - Header sticky compacto (solo logo agencia + 2 botones icono: Descargar PDF / Compartir / Aprobar) que no tape contenido.
-  - Botón "Aprobar presupuesto" full-width fijo abajo (CTA grande) en lugar de mezclado en el header.
-- En desktop: comportamiento actual (página A4 centrada con sombra).
+### BLOQUE 4 — Infraestructura de Email (Lovable Cloud)
 
-**2. Páginas PDF responsive (`PDFPageWrapper`, `PDFCoverPage`, `PDFItineraryPage`, `PDFDetailsPage`, `PDFContactPage`)**
-- Pasar `isMobile` desde `PublicPDF` a `PDFPreview` y de ahí a cada página (ya hay un prop preparado en `PDFPageWrapper`).
-- En mobile:
-  - `width: 100%`, `min-height: auto`, padding interno reducido (12-16px).
-  - Tipografía: `clamp(14px, 4vw, 18px)` para body, `clamp(20px, 6vw, 28px)` para títulos.
-  - Grids `grid-cols-2/3/4` → `grid-cols-1` o `grid-cols-2` máximo.
-  - Imágenes `object-fit: cover` con `max-height: 240px` (portada) y `max-height: 180px` (itinerario).
-  - Tablas envueltas en `<div className="overflow-x-auto -mx-4 px-4">` para scroll interno controlado, no scroll de página.
-- En desktop / impresión: tamaños actuales sin cambios.
+1. **Setup email infra** de Cloud (crea cola, log de envíos, tabla de supresión, edge function `process-email-queue`, cron).
+2. **Verificación de dominio**: si todavía no tenés un dominio configurado para emails, te abro el diálogo de setup; si ya lo tenés, sigo. Mientras DNS se verifica, los emails se encolan.
+3. **`src/lib/emailTemplates.ts`** con 3 templates HTML inline (Gmail/Outlook compatibles): `reservationConfirmationTemplate`, `receiptEmailTemplate`, `supplierVoucherTemplate`. Mismos campos que propuso Claude.
+4. **`src/lib/emailService.ts`**: wrapper que invoca la edge function de envío de Cloud + helper `getAgencyInfo()` que lee de `profiles`.
+5. **Tabla `email_logs`** (preparada para el Bloque 8 más adelante): `id`, `user_id`, `file_id` nullable, `to_email`, `subject`, `template_type`, `sent_at`, `status`. RLS por `user_id`. Cada envío exitoso se loguea acá.
 
-**3. Secciones críticas con tablas (vuelos, crucero, ocupación, precio)**
-- Aplicar el patrón "card en mobile / tabla en desktop":
-  - Mobile: cada fila de la tabla se renderiza como card vertical con label/valor.
-  - Desktop: tabla normal.
-- Afecta a los componentes dentro de `PDFDetailsPages` (vuelos, alojamientos, precio, cruceros).
+### BLOQUE 2 — Recibos mejorados
 
-**4. Estilos globales del PDF público (`src/index.css`)**
-- Agregar bloque `@media (max-width: 768px)` para `.pdf-page-mobile`:
-  - Quitar `box-shadow` pesada, reducir `margin-bottom`.
-  - `page-break-inside: auto` (en mobile no tiene sentido el corte A4).
-- Mantener intacto `@media print` para que la descarga PDF siga siendo A4 fiel.
+**Migración Supabase:**
+- Agregar a `file_receipts`: `status` enum (`draft` / `issued` / `paid` / `cancelled`), default `issued`.
+- Agregar a `account_movements`: columna `receipt_id uuid` nullable + FK a `file_receipts(id) ON DELETE SET NULL`.
+- Función SQL `next_receipt_number(p_user_id uuid) returns int` con `SELECT COALESCE(MAX(receipt_number), 0) + 1 FROM file_receipts WHERE user_id = p_user_id` dentro de transacción + lock para evitar duplicados.
 
-**5. Verificación end-to-end del flujo completo**
-- Abrir un presupuesto enviado, generar el link público, abrirlo en:
-  - Desktop 1280px → debe verse igual que hoy.
-  - Mobile 390px → debe verse fluido, legible, sin scroll horizontal, con CTA aprobar accesible.
-- Probar:
-  - Aprobación digital (que sigue capturando nombre + IP + timestamp).
-  - Botón "Descargar PDF" (que el PDF descargado siga siendo A4, no el layout mobile).
-  - Botón "Compartir" (WhatsApp / copiar link).
-  - Que `get-public-quote` no devuelva 410 si el link no expiró.
-  - Que `quote_views` registre la visita.
+**Frontend `FileReceiptsTab.tsx`:**
+- Numeración correlativa **global por agencia** vía la función SQL nueva (no más por expediente).
+- `Badge` de estado con colores: gris/azul/verde/rojo tachado.
+- Menú compacto al lado del badge para transicionar `draft → issued → paid`, y opción separada "Anular" con `AlertDialog`.
+- Botón "Enviar por email" funcional (ver Bloque 5).
+- Borrado en cascada: al eliminar un recibo, borra `file_receipt_items` Y `account_movements` con `receipt_id = recibo.id`.
 
-### Archivos
+**`receiptPdfUtils.ts` rediseñado:**
+- Header con logo + nombre + CUIT de la agencia (lee de `profiles`).
+- N° de recibo grande tipo monoespaciada.
+- Cliente con CUIT/CUIL si está cargado.
+- Tabla de líneas: monto, moneda, método, cotización.
+- Total en letras (helper `numeroALetras`).
+- Pie con datos de contacto.
+- Marca de agua diagonal "ANULADO" si `status === 'cancelled'`.
+- Mantiene el patrón de 2 copias (Agencia/Cliente) en A4 con línea de corte (memoria existente).
+
+**Integración Recibos ↔ Cuentas Corrientes (Bloque 3 parcial):**
+- Al guardar recibo: cada item genera un movimiento en `account_movements` con `receipt_id = recibo.id`, vinculado al `client_id` del expediente.
+- En `FileFinancialSummary`: el campo "Cobrado" suma items de recibos con status `issued` o `paid` (excluye `draft` y `cancelled`).
+- En `Accounts.tsx`: ícono de recibo en movimientos con `receipt_id` y link al expediente correspondiente.
+
+### BLOQUE 5 — Botones de Email en la UI
+
+- **`FileReceiptsTab`**: botón Mail por recibo → Dialog con email del cliente pre-completado, asunto pre-completado, checkbox "incluir desglose en el cuerpo", `Enviar` invoca `sendEmail()` con `receiptEmailTemplate`. Loading + toast de éxito/error. Loguea en `email_logs`.
+- **`FileDetail.tsx`**: `DropdownMenu` con ícono Mail en el header, opciones:
+  - "Enviar confirmación al cliente" → `reservationConfirmationTemplate`
+  - "Enviar voucher a operador" → sub-diálogo para elegir proveedor/servicio + email destino → `supplierVoucherTemplate`
+- **`ReservationDetail.tsx`**: botón "Enviar confirmación por email" en el header.
+
+### Lo que NO entra en esta iteración
+
+Bloques 3 (parte de configuración avanzada de cuentas corrientes), 6 (Settings de email), 7 (React Query/skeleton/paginación), 8 (estados de expediente, dashboard de alertas, tab Comunicaciones, exportar pasajeros, notas internas) y 9 (mejoras de proveedores) **quedan para iteraciones siguientes**. Cuando termine ésta te aviso y elegís qué bloque sigue.
+
+### Detalles técnicos
+
 ````text
+nuevos:
+  src/lib/emailTemplates.ts
+  src/lib/emailService.ts
+  supabase/migrations/<ts>_receipts_status_and_email_logs.sql
+
 modificados:
-  src/pages/PublicPDF.tsx                 (header mobile + CTA fijo + isMobile)
-  src/components/pdf/PDFPreview.tsx       (propagar isMobile a hijos)
-  src/components/pdf/PDFPageWrapper.tsx   (estilos mobile)
-  src/components/pdf/PDFCoverPage.tsx     (imagen + tipografía responsive)
-  src/components/pdf/PDFItineraryPage.tsx (cards en mobile)
-  src/components/pdf/PDFDetailsPage.tsx   (tablas → cards en mobile)
-  src/components/pdf/PDFContactPage.tsx   (grid contactos responsive)
-  src/index.css                           (media queries .pdf-page-mobile)
+  src/App.css                              (vaciar)
+  index.html                               (lang="es")
+  tsconfig.json, tsconfig.app.json         (strictNullChecks, noImplicitAny)
+  src/components/files/FileReceiptsTab.tsx (status, badges, email, cascade)
+  src/components/files/receiptPdfUtils.ts  (rediseño completo)
+  src/components/files/FileFinancialSummary.tsx (filtro por status)
+  src/pages/Accounts.tsx                   (link a expediente desde recibo)
+  src/pages/FileDetail.tsx                 (dropdown Mail)
+  src/pages/ReservationDetail.tsx          (botón email)
+  + archivos varios donde aparezcan errores de strictNullChecks
+
+infraestructura:
+  Lovable Cloud → Email (setup_email_infra + verificación de dominio si falta)
 ````
 
-### Consideraciones
-- **No romper la descarga PDF**: `html2canvas` se ejecuta en un contenedor oculto que renderiza siempre con layout desktop A4 (no con el layout mobile). Voy a forzar `isMobile=false` solo en ese contenedor de captura.
-- **Backwards-compat**: si una plantilla existente tiene customizaciones, los defaults siguen funcionando.
-- **Sin cambios de schema ni de edge functions** — `get-public-quote` ya devuelve todo lo necesario.
+### Verificación
+
+- TypeScript compila sin errores con strict activado.
+- App.css vacío no rompe ninguna pantalla.
+- Crear un recibo nuevo → numeración global incremental, badge visible, movimiento en cuenta corriente con `receipt_id`.
+- Cambiar estado del recibo → badge actualiza, "Cobrado" en resumen financiero refleja el cambio.
+- Anular recibo → marca de agua "ANULADO" en PDF, no se cuenta en "Cobrado".
+- Borrar recibo → desaparecen sus movimientos en `account_movements`.
+- Click "Enviar email" en recibo → dialog → envío → toast éxito → fila en `email_logs`.
+- Dropdown Mail en FileDetail → enviar confirmación al cliente y voucher a operador funcionan.
 
