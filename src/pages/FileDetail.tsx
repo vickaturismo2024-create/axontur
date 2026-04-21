@@ -252,27 +252,44 @@ const FileDetail = () => {
           <Button variant="ghost" onClick={() => navigate('/files')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Expedientes
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={deleting}>
-                <Trash2 className="mr-2 h-4 w-4" />{deleting ? 'Eliminando...' : 'Eliminar'}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Eliminar expediente {fileLabel}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción eliminará el expediente y todos sus datos asociados (servicios, pasajeros, recibos y pagos a operadores). No se puede deshacer.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Mail className="mr-2 h-4 w-4" /> Enviar email
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem onClick={openConfirmEmail}>
+                  <Send className="mr-2 h-4 w-4" /> Confirmación al cliente
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openVoucherEmail}>
+                  <FileText className="mr-2 h-4 w-4" /> Voucher a operador
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={deleting}>
+                  <Trash2 className="mr-2 h-4 w-4" />{deleting ? 'Eliminando...' : 'Eliminar'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar expediente {fileLabel}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción eliminará el expediente y todos sus datos asociados (servicios, pasajeros, recibos y pagos a operadores). No se puede deshacer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
