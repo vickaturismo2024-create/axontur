@@ -54,6 +54,7 @@ import { cn } from '@/lib/utils';
 export default function ReservationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: reservation, isLoading } = useReservationDetails(id);
   const toggleCheckin = useToggleCheckin();
   const deleteFlightSegment = useDeleteFlightSegment();
@@ -61,6 +62,9 @@ export default function ReservationDetail() {
   const resolveChange = useResolveChange();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReimportOpen, setIsReimportOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   if (isLoading) {
     return (
