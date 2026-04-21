@@ -819,6 +819,9 @@ export type Database = {
           default_currency: string
           document_expiry_months: number
           email: string | null
+          email_reply_to: string
+          email_signature: string
+          email_templates: Json
           file_prefix: string
           id: string
           logo_url: string | null
@@ -843,6 +846,9 @@ export type Database = {
           default_currency?: string
           document_expiry_months?: number
           email?: string | null
+          email_reply_to?: string
+          email_signature?: string
+          email_templates?: Json
           file_prefix?: string
           id?: string
           logo_url?: string | null
@@ -867,6 +873,9 @@ export type Database = {
           default_currency?: string
           document_expiry_months?: number
           email?: string | null
+          email_reply_to?: string
+          email_signature?: string
+          email_templates?: Json
           file_prefix?: string
           id?: string
           logo_url?: string | null
