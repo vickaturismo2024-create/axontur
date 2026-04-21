@@ -139,8 +139,8 @@ const FileDetail = () => {
         clientName: file.client_name,
         fileNumber: `FILE-${String(file.file_number).padStart(3, '0')}`,
         destination: file.destination,
-        startDate: file.start_date,
-        endDate: file.end_date,
+        startDate: file.start_date ?? undefined,
+        endDate: file.end_date ?? undefined,
         travelers: file.travelers,
         currency: file.currency,
         totalPrice: file.total_price,
@@ -160,15 +160,19 @@ const FileDetail = () => {
     if (!voucherEmail) { toast.error('Falta el email del operador'); return; }
     if (!voucherSupplier) { toast.error('Falta el nombre del operador'); return; }
     setSendingEmail(true);
+    const matching = voucherServices.filter(s => s.supplier_name === voucherSupplier);
+    const svc = matching[0] || voucherServices[0];
     const result = await sendSupplierVoucher({
       to: voucherEmail,
       userId: user.id,
       fileId: file.id,
       data: {
         supplierName: voucherSupplier,
-        clientName: file.client_name,
         fileNumber: `FILE-${String(file.file_number).padStart(3, '0')}`,
-        services: voucherServices.filter(s => s.supplier_name === voucherSupplier || voucherServices.length === 1),
+        serviceDescription: svc?.description || file.destination,
+        serviceDate: svc?.service_date ?? undefined,
+        passengerNames: [file.client_name],
+        confirmationNumber: svc?.confirmation_number ?? undefined,
       },
     });
     setSendingEmail(false);
