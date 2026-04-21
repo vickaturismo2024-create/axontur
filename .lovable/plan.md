@@ -1,103 +1,99 @@
 
 
-## Plan: Iteración 1 de mejoras de Claude (AxonTur)
+## Plan: Iteración 2 — Bloques 7 + 8 (Performance, UX y Workflow de Expedientes)
 
-Vamos a ejecutar **Bloques 1 + 4 + 2 + 5** del análisis, con ajustes a la realidad del proyecto.
+### BLOQUE 7 — Performance & UX
 
-### Ajustes al plan original de Claude
+**1. React Query en listados grandes**
+Migrar a `useQuery` los fetch manuales de:
+- `Clients.tsx`
+- `Files.tsx`
+- `Suppliers.tsx`
+- `Accounts.tsx` (clientes + proveedores + movimientos)
+- `Reservations.tsx`
 
-- **Email**: usamos la infraestructura nativa de **Lovable Cloud** (no Resend). Esto evita pedirte cuentas externas y API keys; el remitente y dominio se configuran desde Cloud → Emails.
-- **`as any` en Supabase**: Claude detectó 2 archivos pero en realidad hay **~31 archivos con `as any`**. Casi todos existen porque las tablas no están en el archivo de tipos auto-generado. La limpieza correcta es **regenerar los tipos** (lo hace la plataforma sola al correr migraciones); luego van cayendo solos. Voy a quitar los `as any` cuando los tipos estén disponibles, no a mano.
-- **`strictNullChecks`**: lo activo y dedico un paso completo a arreglar los errores que aparezcan.
+Beneficio: cache automática, menos refetch al cambiar de pestaña, refetch sólo cuando los datos cambian.
 
-### BLOQUE 1 — Fixes técnicos
+**2. Skeletons de carga**
+Reemplazar los textos "Cargando..." por componentes `<Skeleton />` de shadcn en:
+- Listas (`Clients`, `Files`, `Suppliers`, `Accounts`, `Reservations`).
+- Detalle de expediente (`FileDetail` mientras carga).
+- Dashboard (widgets).
 
-1. **Vaciar `src/App.css`** (deja un comentario explicando por qué quedó vacío).
-2. **`index.html`**: cambiar `lang="en"` → `lang="es"` y quitar el TODO genérico del título.
-3. **TypeScript strict**: en `tsconfig.json` y `tsconfig.app.json` activar `strictNullChecks: true` y `noImplicitAny: true`. Luego recorrer los errores que tire `tsc --noEmit` y arreglarlos uno por uno (foco esperado: `FileReceiptsTab`, `NewMovementDialog`, `FileSuppliersTab`, `Accounts`, `FileFinancialSummary`).
-4. **Limpieza de `as any` legítimos**: una vez aplicadas las migraciones del Bloque 2 (estado de recibos, `receipt_id` en movimientos), los tipos se regeneran y los `as any` de esas tablas se quitan.
+**3. Paginación / virtualización ligera**
+- Agregar buscador + paginación visible (50 por página, con botones Anterior/Siguiente) en `Clients`, `Files`, `Suppliers`, `Reservations`. Mantenemos el patrón `.range()` ya documentado en memoria para >1000 registros.
+- Recibos dentro de un expediente: mostrar últimos 20 por defecto + botón "Ver todos".
 
-### BLOQUE 4 — Infraestructura de Email (Lovable Cloud)
+**4. Optimización de re-renders**
+- `useMemo` en cálculos pesados de `AccountDetail` (saldos progresivos), `FileFinancialSummary` y `Reports`.
+- `React.memo` en filas de listas largas.
 
-1. **Setup email infra** de Cloud (crea cola, log de envíos, tabla de supresión, edge function `process-email-queue`, cron).
-2. **Verificación de dominio**: si todavía no tenés un dominio configurado para emails, te abro el diálogo de setup; si ya lo tenés, sigo. Mientras DNS se verifica, los emails se encolan.
-3. **`src/lib/emailTemplates.ts`** con 3 templates HTML inline (Gmail/Outlook compatibles): `reservationConfirmationTemplate`, `receiptEmailTemplate`, `supplierVoucherTemplate`. Mismos campos que propuso Claude.
-4. **`src/lib/emailService.ts`**: wrapper que invoca la edge function de envío de Cloud + helper `getAgencyInfo()` que lee de `profiles`.
-5. **Tabla `email_logs`** (preparada para el Bloque 8 más adelante): `id`, `user_id`, `file_id` nullable, `to_email`, `subject`, `template_type`, `sent_at`, `status`. RLS por `user_id`. Cada envío exitoso se loguea acá.
+### BLOQUE 8 — Workflow de Expedientes
 
-### BLOQUE 2 — Recibos mejorados
+**1. Estados del expediente**
+Migración para agregar a `files.status` los valores: `confirmed`, `in_progress`, `completed`, `cancelled` (hoy sólo `confirmed`). Trigger de validación.
+- Selector de estado en `FileDetail` con badge de color.
+- Filtro por estado en `Files.tsx`.
+- Auto-sugerencia: si `end_date < today`, ofrecer marcar como `completed`.
 
-**Migración Supabase:**
-- Agregar a `file_receipts`: `status` enum (`draft` / `issued` / `paid` / `cancelled`), default `issued`.
-- Agregar a `account_movements`: columna `receipt_id uuid` nullable + FK a `file_receipts(id) ON DELETE SET NULL`.
-- Función SQL `next_receipt_number(p_user_id uuid) returns int` con `SELECT COALESCE(MAX(receipt_number), 0) + 1 FROM file_receipts WHERE user_id = p_user_id` dentro de transacción + lock para evitar duplicados.
+**2. Dashboard de alertas operativas**
+Nuevo widget en `Dashboard.tsx` "Alertas operativas" que agrupa:
+- Servicios con `payment_due_date` vencido o en <3 días (ya existe la lógica, sólo se muestra acá).
+- Documentos de clientes próximos a vencer (DNI/Pasaporte <6 meses).
+- Expedientes con viajes terminados sin marcar como `completed`.
+- Recibos en `draft` con más de 7 días.
 
-**Frontend `FileReceiptsTab.tsx`:**
-- Numeración correlativa **global por agencia** vía la función SQL nueva (no más por expediente).
-- `Badge` de estado con colores: gris/azul/verde/rojo tachado.
-- Menú compacto al lado del badge para transicionar `draft → issued → paid`, y opción separada "Anular" con `AlertDialog`.
-- Botón "Enviar por email" funcional (ver Bloque 5).
-- Borrado en cascada: al eliminar un recibo, borra `file_receipt_items` Y `account_movements` con `receipt_id = recibo.id`.
+Cada alerta es clickeable y navega al recurso.
 
-**`receiptPdfUtils.ts` rediseñado:**
-- Header con logo + nombre + CUIT de la agencia (lee de `profiles`).
-- N° de recibo grande tipo monoespaciada.
-- Cliente con CUIT/CUIL si está cargado.
-- Tabla de líneas: monto, moneda, método, cotización.
-- Total en letras (helper `numeroALetras`).
-- Pie con datos de contacto.
-- Marca de agua diagonal "ANULADO" si `status === 'cancelled'`.
-- Mantiene el patrón de 2 copias (Agencia/Cliente) en A4 con línea de corte (memoria existente).
+**3. Tab "Comunicaciones" en FileDetail**
+Lee de `email_logs` filtrado por `file_id` y muestra:
+- Fecha, destinatario, asunto, plantilla usada, estado.
+- Botón "Reenviar" que dispara nuevamente `sendEmail()`.
 
-**Integración Recibos ↔ Cuentas Corrientes (Bloque 3 parcial):**
-- Al guardar recibo: cada item genera un movimiento en `account_movements` con `receipt_id = recibo.id`, vinculado al `client_id` del expediente.
-- En `FileFinancialSummary`: el campo "Cobrado" suma items de recibos con status `issued` o `paid` (excluye `draft` y `cancelled`).
-- En `Accounts.tsx`: ícono de recibo en movimientos con `receipt_id` y link al expediente correspondiente.
+**4. Exportar pasajeros a Excel**
+Botón en `FilePassengersTab` y en `Reservations` que genera Excel con: nombre, DNI, pasaporte, vencimiento pasaporte, fecha nacimiento, nacionalidad, notas. Reutiliza `xlsx` ya instalado.
 
-### BLOQUE 5 — Botones de Email en la UI
-
-- **`FileReceiptsTab`**: botón Mail por recibo → Dialog con email del cliente pre-completado, asunto pre-completado, checkbox "incluir desglose en el cuerpo", `Enviar` invoca `sendEmail()` con `receiptEmailTemplate`. Loading + toast de éxito/error. Loguea en `email_logs`.
-- **`FileDetail.tsx`**: `DropdownMenu` con ícono Mail en el header, opciones:
-  - "Enviar confirmación al cliente" → `reservationConfirmationTemplate`
-  - "Enviar voucher a operador" → sub-diálogo para elegir proveedor/servicio + email destino → `supplierVoucherTemplate`
-- **`ReservationDetail.tsx`**: botón "Enviar confirmación por email" en el header.
+**5. Notas internas mejoradas en FileDetail**
+- Editor multilínea con autoguardado (debounce 1s, ya hay patrón en quotes).
+- Marca de tiempo y "última edición".
 
 ### Lo que NO entra en esta iteración
 
-Bloques 3 (parte de configuración avanzada de cuentas corrientes), 6 (Settings de email), 7 (React Query/skeleton/paginación), 8 (estados de expediente, dashboard de alertas, tab Comunicaciones, exportar pasajeros, notas internas) y 9 (mejoras de proveedores) **quedan para iteraciones siguientes**. Cuando termine ésta te aviso y elegís qué bloque sigue.
+Bloque 3 avanzado (filtros + extractos PDF/Excel de cuentas corrientes), Bloque 6 (settings de email), Bloque 9 (mejoras de proveedores), y verificación de dominio de email.
 
 ### Detalles técnicos
 
 ````text
-nuevos:
-  src/lib/emailTemplates.ts
-  src/lib/emailService.ts
-  supabase/migrations/<ts>_receipts_status_and_email_logs.sql
-
 modificados:
-  src/App.css                              (vaciar)
-  index.html                               (lang="es")
-  tsconfig.json, tsconfig.app.json         (strictNullChecks, noImplicitAny)
-  src/components/files/FileReceiptsTab.tsx (status, badges, email, cascade)
-  src/components/files/receiptPdfUtils.ts  (rediseño completo)
-  src/components/files/FileFinancialSummary.tsx (filtro por status)
-  src/pages/Accounts.tsx                   (link a expediente desde recibo)
-  src/pages/FileDetail.tsx                 (dropdown Mail)
-  src/pages/ReservationDetail.tsx          (botón email)
-  + archivos varios donde aparezcan errores de strictNullChecks
+  src/pages/Clients.tsx                    (useQuery + skeleton + paginación)
+  src/pages/Files.tsx                      (useQuery + skeleton + paginación + filtro estado)
+  src/pages/Suppliers.tsx                  (useQuery + skeleton + paginación)
+  src/pages/Accounts.tsx                   (useQuery + skeleton)
+  src/pages/Reservations.tsx               (useQuery + skeleton + paginación)
+  src/pages/FileDetail.tsx                 (selector de estado + tab Comunicaciones + notas)
+  src/pages/Dashboard.tsx                  (widget Alertas operativas)
+  src/components/files/FilePassengersTab.tsx  (botón Exportar Excel)
+  src/components/files/FileFinancialSummary.tsx (useMemo)
+  src/components/accounts/AccountDetail.tsx     (useMemo)
 
-infraestructura:
-  Lovable Cloud → Email (setup_email_infra + verificación de dominio si falta)
+nuevos:
+  src/components/files/FileCommunicationsTab.tsx
+  src/components/dashboard/OperationalAlertsWidget.tsx
+  src/lib/exportPassengersExcel.ts
+
+migración:
+  files.status → permitir 'confirmed' | 'in_progress' | 'completed' | 'cancelled'
+  trigger validate_file_status
 ````
 
 ### Verificación
 
-- TypeScript compila sin errores con strict activado.
-- App.css vacío no rompe ninguna pantalla.
-- Crear un recibo nuevo → numeración global incremental, badge visible, movimiento en cuenta corriente con `receipt_id`.
-- Cambiar estado del recibo → badge actualiza, "Cobrado" en resumen financiero refleja el cambio.
-- Anular recibo → marca de agua "ANULADO" en PDF, no se cuenta en "Cobrado".
-- Borrar recibo → desaparecen sus movimientos en `account_movements`.
-- Click "Enviar email" en recibo → dialog → envío → toast éxito → fila en `email_logs`.
-- Dropdown Mail en FileDetail → enviar confirmación al cliente y voucher a operador funcionan.
+- Cambiar de pestaña en Clientes/Expedientes ya no dispara refetch innecesario.
+- Skeletons aparecen en lugar de "Cargando..." mientras se traen datos.
+- Paginación funciona en listas largas, mantiene buscador.
+- Cambio de estado en expediente refleja badge y filtra en listado.
+- Dashboard muestra alertas agrupadas y clickeables.
+- Tab Comunicaciones lista emails enviados desde el expediente.
+- Botón Exportar Pasajeros descarga Excel con columnas correctas.
+- Notas internas se autoguardan sin recargar página.
 
