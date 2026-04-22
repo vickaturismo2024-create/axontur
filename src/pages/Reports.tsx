@@ -174,6 +174,10 @@ const Reports = () => {
           <TabsContent value="operational">
             <OperationalReport />
           </TabsContent>
+
+          <TabsContent value="exchange">
+            <ExchangeRatesReport />
+          </TabsContent>
         </Tabs>
       </main>
     </div>
