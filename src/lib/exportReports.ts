@@ -4,6 +4,70 @@ import { SupplierStat } from '@/hooks/useSupplierAnalytics';
 import { getQuoteCurrency, hasCompleteCosts } from '@/lib/quoteFilters';
 import { OperationalReportData, PeriodRange, ByCurrency } from '@/hooks/useOperationalReport';
 
+interface RateLogRow {
+  id: string;
+  rate_date: string;
+  from_currency: string;
+  to_currency: string;
+  rate: number;
+  source: string;
+  source_type: string | null;
+  source_id: string | null;
+}
+
+interface RateMonthlySummary {
+  period: string;
+  pair: string;
+  avg: number;
+  min: number;
+  max: number;
+  count: number;
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  manual: 'Manual',
+  system: 'Sistema',
+  historical: 'Histórico',
+};
+
+const SOURCE_TYPE_LABEL: Record<string, string> = {
+  receipt_item: 'Recibo',
+  supplier_payment: 'Pago proveedor',
+  movement: 'Movimiento',
+};
+
+export function exportExchangeRatesReport(
+  rows: RateLogRow[],
+  monthly: RateMonthlySummary[],
+  range: { from: string; to: string },
+) {
+  const wb = XLSX.utils.book_new();
+
+  const summaryRows: any[][] = [['Período', 'Par', 'Promedio', 'Mínimo', 'Máximo', 'Operaciones']];
+  monthly.forEach((m) =>
+    summaryRows.push([m.period, m.pair, Number(m.avg.toFixed(4)), Number(m.min.toFixed(4)), Number(m.max.toFixed(4)), m.count]),
+  );
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  wsSummary['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen mensual');
+
+  const detailRows: any[][] = [['Fecha', 'Par', 'Cotización', 'Origen', 'Tipo de operación']];
+  rows.forEach((r) =>
+    detailRows.push([
+      r.rate_date,
+      `${r.from_currency}→${r.to_currency}`,
+      Number(Number(r.rate).toFixed(4)),
+      SOURCE_LABEL[r.source] || r.source,
+      SOURCE_TYPE_LABEL[r.source_type || ''] || r.source_type || '-',
+    ]),
+  );
+  const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
+  wsDetail['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, wsDetail, 'Detalle');
+
+  XLSX.writeFile(wb, `tipos-de-cambio-${range.from}_a_${range.to}.xlsx`);
+}
+
 const byCurrencyToRows = (data: ByCurrency): [string, number][] =>
   Object.entries(data).map(([c, v]) => [c, Math.round(v * 100) / 100]);
 
