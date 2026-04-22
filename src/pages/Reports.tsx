@@ -46,6 +46,7 @@ const Reports = () => {
           <TabsList>
             <TabsTrigger value="profitability">Rentabilidad</TabsTrigger>
             <TabsTrigger value="operational">Operativo</TabsTrigger>
+            <TabsTrigger value="exchange">Tipos de Cambio</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profitability" className="space-y-6">
