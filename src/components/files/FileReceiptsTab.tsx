@@ -429,6 +429,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
                     </p>
                   </div>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openDetail(r)} title="Ver detalle">
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => downloadReceipt(r)} title="Descargar PDF">
                       <Download className="h-4 w-4" />
                     </Button>
