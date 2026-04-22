@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plane, Menu, LogOut, User, Moon, Sun, Search } from 'lucide-react';
 import { RemindersBadge } from '@/components/reminders/RemindersBadge';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
+import { InfraHealthDot } from '@/components/layout/InfraHealthDot';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -116,7 +117,10 @@ export function Header() {
               <Plane className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-serif text-base sm:text-lg font-semibold text-foreground truncate">{agencyName}</span>
+              <span className="font-serif text-base sm:text-lg font-semibold text-foreground truncate flex items-center gap-2">
+                {agencyName}
+                <InfraHealthDot />
+              </span>
             </div>
           </Link>
         </div>
