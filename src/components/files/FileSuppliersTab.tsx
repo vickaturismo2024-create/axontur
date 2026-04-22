@@ -7,10 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Trash2, Building2, DollarSign } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Plus, Trash2, Building2, DollarSign, Check, ChevronsUpDown, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ServiceRecord {
   supplier_name: string;
@@ -32,6 +35,11 @@ interface SupplierPayment {
   notes: string;
 }
 
+interface CatalogSupplier {
+  id: string;
+  name: string;
+}
+
 const METHODS = [
   { value: 'transfer', label: 'Transferencia' },
   { value: 'credit_card', label: 'Tarjeta de Crédito' },
@@ -49,26 +57,33 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
   const { user } = useAuth();
   const [services, setServices] = useState<ServiceRecord[]>([]);
   const [payments, setPayments] = useState<SupplierPayment[]>([]);
+  const [catalog, setCatalog] = useState<CatalogSupplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<{ name: string; id: string | null } | null>(null);
+  const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(null);
+  const [autoMatched, setAutoMatched] = useState(false);
+  const [comboOpen, setComboOpen] = useState(false);
   const [form, setForm] = useState({
     amount: 0, currency, payment_date: new Date().toISOString().split('T')[0],
     payment_method: 'transfer', reference: '', notes: '',
   });
 
   const load = async () => {
-    const [svcRes, payRes] = await Promise.all([
+    if (!user) return;
+    const [svcRes, payRes, supRes] = await Promise.all([
       supabase.from('file_services').select('supplier_name,supplier_id,cost,currency,status').eq('file_id', fileId),
       supabase.from('file_supplier_payments' as any).select('*').eq('file_id', fileId).order('payment_date', { ascending: false }),
+      supabase.from('suppliers').select('id,name').eq('user_id', user.id).order('name'),
     ]);
     setServices((svcRes.data as any[]) || []);
     setPayments((payRes.data as any[]) || []);
+    setCatalog((supRes.data as CatalogSupplier[]) || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [fileId]);
+  useEffect(() => { load(); }, [fileId, user?.id]);
 
   // Group services by supplier
   const suppliers = useMemo(() => {
@@ -90,36 +105,71 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     return paid;
   };
 
+  const findCatalogMatch = (name: string): CatalogSupplier | null => {
+    const norm = name.trim().toLowerCase();
+    return catalog.find(s => s.name.trim().toLowerCase() === norm) || null;
+  };
+
   const openPayment = (supplier: { name: string; id: string | null }) => {
     setSelectedSupplier(supplier);
+    // Pre-resolve supplier_id from service link or catalog match
+    let resolvedId: string | null = supplier.id || null;
+    let matched = false;
+    if (!resolvedId) {
+      const match = findCatalogMatch(supplier.name);
+      if (match) {
+        resolvedId = match.id;
+        matched = true;
+      }
+    } else {
+      matched = true;
+    }
+    setResolvedSupplierId(resolvedId);
+    setAutoMatched(matched);
     setForm({ amount: 0, currency, payment_date: new Date().toISOString().split('T')[0], payment_method: 'transfer', reference: '', notes: '' });
     setDialogOpen(true);
+  };
+
+  const createSupplierFromName = async (name: string) => {
+    if (!user) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const { data, error } = await supabase
+      .from('suppliers')
+      .insert({ user_id: user.id, name: trimmed, type: '' })
+      .select('id,name')
+      .single();
+    if (error || !data) {
+      toast.error('No se pudo crear el proveedor');
+      return;
+    }
+    setCatalog(prev => [...prev, data as CatalogSupplier].sort((a, b) => a.name.localeCompare(b.name)));
+    setResolvedSupplierId(data.id);
+    setAutoMatched(false);
+    setComboOpen(false);
+    toast.success(`Proveedor «${data.name}» creado`);
   };
 
   const handleSave = async () => {
     if (!user || !selectedSupplier) return;
     if (form.amount <= 0) { toast.error('El monto debe ser mayor a 0'); return; }
+    if (!resolvedSupplierId) {
+      toast.error('Debe enlazar el pago a un proveedor del catálogo');
+      return;
+    }
+
+    const supplierName = catalog.find(c => c.id === resolvedSupplierId)?.name || selectedSupplier.name;
 
     const { error } = await supabase.from('file_supplier_payments' as any).insert({
       file_id: fileId, user_id: user.id,
-      supplier_name: selectedSupplier.name, supplier_id: selectedSupplier.id,
+      supplier_name: supplierName, supplier_id: resolvedSupplierId,
       amount: form.amount, currency: form.currency, payment_date: form.payment_date,
       payment_method: form.payment_method, reference: form.reference, notes: form.notes,
     } as any);
 
     if (error) { toast.error('Error al registrar pago'); return; }
 
-    // Auto-insert debit movement in supplier account
-    if (selectedSupplier.id) {
-      await supabase.from('account_movements' as any).insert({
-        user_id: user.id, account_type: 'supplier', account_id: selectedSupplier.id,
-        file_id: fileId, movement_type: 'debit', amount: form.amount,
-        currency: form.currency, concept: `Pago a ${selectedSupplier.name}`,
-        reference: form.reference || null, movement_date: form.payment_date,
-      } as any);
-    }
-
-    toast.success('Pago registrado');
+    toast.success('Pago registrado y reflejado en cuenta corriente');
     setDialogOpen(false);
     load();
   };
@@ -138,6 +188,9 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     Object.entries(amounts).map(([cur, amt]) => `${cur} ${amt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`).join(' + ');
 
   if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando operadores...</div>;
+
+  const resolvedSupplierName = catalog.find(c => c.id === resolvedSupplierId)?.name;
+  const showCreateOption = selectedSupplier && !findCatalogMatch(selectedSupplier.name);
 
   return (
     <div>
@@ -173,7 +226,6 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
                   {Object.keys(paid).length > 0 && (
                     <div className="flex items-center gap-2 text-sm">
                       <Badge variant="secondary">Pagado: {formatMoney(paid)}</Badge>
-                      {/* Show pending per currency */}
                       {Object.entries(sup.costs).map(([cur, cost]) => {
                         const paidAmt = paid[cur] || 0;
                         const pending = cost - paidAmt;
@@ -214,11 +266,81 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Registrar pago a {selectedSupplier?.name}</DialogTitle></DialogHeader>
-          {selectedSupplier?.id && (
-            <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-              Este pago se reflejará automáticamente en la cuenta corriente del proveedor.
-            </div>
-          )}
+
+          {/* Supplier link selector */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Proveedor del catálogo *</label>
+            {resolvedSupplierId && autoMatched ? (
+              <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/10 px-3 py-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Enlazado a: {resolvedSupplierName}</span>
+                </div>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setResolvedSupplierId(null); setAutoMatched(false); }}>
+                  Cambiar
+                </Button>
+              </div>
+            ) : (
+              <Popover open={comboOpen} onOpenChange={setComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn('w-full justify-between', !resolvedSupplierId && 'text-muted-foreground')}
+                  >
+                    {resolvedSupplierId ? resolvedSupplierName : 'Seleccionar o crear proveedor...'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar proveedor..." />
+                    <CommandList>
+                      <CommandEmpty>
+                        {selectedSupplier && (
+                          <button
+                            type="button"
+                            onClick={() => createSupplierFromName(selectedSupplier.name)}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                          >
+                            <Plus className="mr-2 inline h-4 w-4" />
+                            Crear «{selectedSupplier.name}»
+                          </button>
+                        )}
+                      </CommandEmpty>
+                      {showCreateOption && selectedSupplier && (
+                        <CommandGroup>
+                          <CommandItem
+                            value={`__create__${selectedSupplier.name}`}
+                            onSelect={() => createSupplierFromName(selectedSupplier.name)}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Crear «{selectedSupplier.name}»
+                          </CommandItem>
+                        </CommandGroup>
+                      )}
+                      <CommandGroup heading="Catálogo">
+                        {catalog.map(s => (
+                          <CommandItem
+                            key={s.id}
+                            value={s.name}
+                            onSelect={() => { setResolvedSupplierId(s.id); setAutoMatched(false); setComboOpen(false); }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', resolvedSupplierId === s.id ? 'opacity-100' : 'opacity-0')} />
+                            {s.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Sin enlazar al catálogo, el pago no aparece en la cuenta corriente del proveedor.
+            </p>
+          </div>
+
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -254,7 +376,9 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
               <label className="mb-1 block text-sm font-medium">Notas</label>
               <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
-            <Button onClick={handleSave}>Registrar pago</Button>
+            <Button onClick={handleSave} disabled={!resolvedSupplierId || form.amount <= 0}>
+              Registrar pago
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -263,7 +387,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar pago?</AlertDialogTitle>
-            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+            <AlertDialogDescription>El movimiento asociado en la cuenta corriente también se eliminará. Esta acción no se puede deshacer.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
