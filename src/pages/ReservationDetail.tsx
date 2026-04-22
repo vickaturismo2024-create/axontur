@@ -165,6 +165,13 @@ export default function ReservationDetail() {
     if (!reservation || !user) return;
     if (!emailTo) { toast.error('Falta el email'); return; }
     setSendingEmail(true);
+    const infra = await isInfraReady();
+    if (!infra.domainReady) {
+      const ok = window.confirm('El dominio de email aún no está verificado o presenta errores recientes. ¿Enviar igual?');
+      if (!ok) { setSendingEmail(false); return; }
+    } else if (!infra.queueHealthy) {
+      toast.warning('La cola de envíos tiene errores recientes — el envío puede demorar.');
+    }
     let fileNumber = reservation.locator || reservation.id.slice(0, 8);
     let destination = '';
     let travelers = reservation.passengers.length;
