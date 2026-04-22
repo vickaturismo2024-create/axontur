@@ -47,7 +47,7 @@ import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendReservationConfirmation } from '@/lib/emailService';
+import { sendReservationConfirmation, isInfraReady } from '@/lib/emailService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';

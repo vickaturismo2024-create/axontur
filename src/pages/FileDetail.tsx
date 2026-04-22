@@ -22,7 +22,7 @@ import { FileFinancialSummary } from '@/components/files/FileFinancialSummary';
 import { FileCommunicationsTab } from '@/components/files/FileCommunicationsTab';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendReservationConfirmation, sendSupplierVoucher } from '@/lib/emailService';
+import { sendReservationConfirmation, sendSupplierVoucher, isInfraReady } from '@/lib/emailService';
 import { toast } from 'sonner';
 
 interface FileRecord {
@@ -163,6 +163,13 @@ const FileDetail = () => {
     if (!file || !user) return;
     if (!clientEmail) { toast.error('Falta el email del cliente'); return; }
     setSendingEmail(true);
+    const infra = await isInfraReady();
+    if (!infra.domainReady) {
+      const ok = window.confirm('El dominio de email aún no está verificado o presenta errores recientes. ¿Enviar igual?');
+      if (!ok) { setSendingEmail(false); return; }
+    } else if (!infra.queueHealthy) {
+      toast.warning('La cola de envíos tiene errores recientes — el envío puede demorar.');
+    }
     const result = await sendReservationConfirmation({
       to: clientEmail,
       userId: user.id,
@@ -192,6 +199,13 @@ const FileDetail = () => {
     if (!voucherEmail) { toast.error('Falta el email del operador'); return; }
     if (!voucherSupplier) { toast.error('Falta el nombre del operador'); return; }
     setSendingEmail(true);
+    const infra = await isInfraReady();
+    if (!infra.domainReady) {
+      const ok = window.confirm('El dominio de email aún no está verificado o presenta errores recientes. ¿Enviar igual?');
+      if (!ok) { setSendingEmail(false); return; }
+    } else if (!infra.queueHealthy) {
+      toast.warning('La cola de envíos tiene errores recientes — el envío puede demorar.');
+    }
     const matching = voucherServices.filter(s => s.supplier_name === voucherSupplier);
     const svc = matching[0] || voucherServices[0];
     const result = await sendSupplierVoucher({
