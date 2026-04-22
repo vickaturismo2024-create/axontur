@@ -1,90 +1,168 @@
 
 
-## Fase 2 — Auditoría de tipo de cambio y conversiones multi-moneda
+## Fase 3 — Conciliación bancaria de cobros (cuenta corriente del cliente)
 
 ### Por qué
-Hoy cuando registrás un recibo en una moneda distinta a la del servicio (ej: cliente paga en ARS un servicio en USD), guardás un `exchange_rate` en `file_receipt_items` pero **no queda rastro** de qué cotización usaste, cuándo, ni de dónde la sacaste. Si revisás un expediente viejo, no podés saber si el TC fue 1.000 o 1.200 al momento del cobro. Esto rompe la integridad financiera y complica el cierre contable.
+Hoy los recibos a clientes (`file_receipts` + `file_receipt_items`) se registran y aparecen en el resumen del expediente, pero **no generan movimientos en una cuenta corriente del cliente**. En cambio, los pagos a proveedores ya tienen su CC en `account_movements` (lo arreglamos en Fase 1). Esto significa que:
+- No podés ver "todos los cobros que recibiste de Juan Pérez" en un solo lugar.
+- No hay simetría con la CC de proveedores: si entrás a un cliente desde `/clients`, no ves su saldo ni movimientos.
+- No podés conciliar contra extractos bancarios por cliente.
 
 ### Cómo va a funcionar
 
-**1. Tabla `exchange_rate_log`**
-Cada vez que se aplica un tipo de cambio en una operación (recibo multi-moneda, pago a proveedor en otra moneda, etc.) queda registrado:
-- Fecha del tipo de cambio aplicado
-- Par de monedas (ej: `USD → ARS`)
-- Cotización usada
-- Origen: `manual` (cargada por el agente), `system` (cotización guardada en widget de dashboard) o `historical` (al editar registros viejos)
-- Referencia al recibo/pago/movimiento que la usó (`source_type` + `source_id`)
-- `user_id`
+**1. Trigger automático sobre `file_receipts`**
+Espejado al de proveedores (`sync_supplier_payment_to_account_movement`):
+- INSERT recibo con `file.client_id IS NOT NULL` → crea movimiento `credit` en `account_movements` con `account_type = 'client'`, `account_id = file.client_id`.
+- UPDATE recibo (monto, fecha, status) → actualiza el movimiento; si pasa a `cancelled` lo borra.
+- DELETE recibo → borra el movimiento.
+- Si el expediente no tiene `client_id` (recibos viejos sin cliente enlazado) → el trigger no hace nada (igual que pagos a proveedores sin `supplier_id`).
 
-**2. Captura automática**
-- Al guardar un `file_receipt_item` con `exchange_rate IS NOT NULL` → se inserta automáticamente en `exchange_rate_log` (vía trigger).
-- Al guardar un pago a proveedor en una moneda distinta a la del servicio asociado → idem.
-- Si la misma operación se edita y cambia el TC → se inserta una nueva fila (no se actualiza la vieja, para mantener historial).
+**2. Backfill**
+Insertar movimientos para todos los `file_receipts` existentes con `status <> 'cancelled'` cuyo expediente tenga `client_id`. Marca cada movimiento con `source_payment_id = receipt.id` (reusamos la columna que ya existe en `account_movements`) y `account_type = 'client'`. Idempotente: usa `ON CONFLICT (source_payment_id) DO NOTHING`.
 
-**3. Visualización**
-- En el detalle del recibo (modal de "Ver recibo" en pestaña Recibos del expediente) aparece un pequeño tooltip ⓘ junto a cada línea que muestra: *"TC aplicado: 1 USD = 1.150 ARS · 15/04/2026 · Manual"*.
-- En `/reports` agregamos una pestaña nueva **"Tipos de Cambio"** con tabla filtrable por mes/par de monedas, mostrando promedio, mínimo, máximo y cantidad de operaciones por período. Útil para chequear consistencia.
+**3. Página de detalle de cliente con CC**
+Reutilizar el patrón de `SupplierDetail.tsx`:
+- Nueva ruta `/clients/:id` → `ClientDetail.tsx`.
+- Header con datos del cliente + saldo total por moneda (créditos − débitos).
+- Tabla de movimientos: fecha, expediente (link), concepto, monto, moneda, método.
+- Filtros: rango de fechas + moneda.
+- Botón "Registrar movimiento manual" (mismo `NewMovementDialog` ya existente, en modo `account_type='client'`) para cargar ajustes que no vengan de un recibo (ej: nota de crédito).
+
+**4. Acceso desde `/clients`**
+- En la ficha expandible de cada cliente (`Clients.tsx`), agregar un botón "Ver cuenta corriente" que navegue a `/clients/:id`.
+- En el listado, mostrar un badge con el saldo neto en USD (o ARS si el cliente solo opera en pesos), tipo el que ya tienen los proveedores.
+
+**5. Consistencia con pestaña "Resumen" del expediente**
+El componente `FileFinancialSummary` ya calcula el balance por recibos directamente — no se toca. La CC del cliente vive aparte y consolida múltiples expedientes.
 
 ### Cambios técnicos
 
 **Base de datos (migración):**
 
 ```sql
-CREATE TABLE public.exchange_rate_log (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  rate_date date NOT NULL DEFAULT CURRENT_DATE,
-  from_currency text NOT NULL,
-  to_currency text NOT NULL,
-  rate numeric(20,6) NOT NULL,
-  source text NOT NULL DEFAULT 'manual', -- manual | system | historical
-  source_type text,                       -- receipt_item | supplier_payment | movement
-  source_id uuid,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.exchange_rate_log ENABLE ROW LEVEL SECURITY;
+-- 1. Constraint único para idempotencia (si no existe ya)
+ALTER TABLE public.account_movements
+  ADD CONSTRAINT account_movements_source_payment_id_key UNIQUE (source_payment_id);
+-- (si ya existe por la fase de proveedores, se omite)
 
-CREATE POLICY "Users can view their rate log"   ON public.exchange_rate_log FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can create their rate log" ON public.exchange_rate_log FOR INSERT WITH CHECK (auth.uid() = user_id);
--- No UPDATE/DELETE: registro inmutable.
+-- 2. Función espejo de la de proveedores
+CREATE OR REPLACE FUNCTION public.sync_receipt_to_account_movement()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_client_id uuid;
+  v_file_number integer;
+  v_concept text;
+BEGIN
+  IF (TG_OP = 'DELETE') THEN
+    DELETE FROM public.account_movements WHERE source_payment_id = OLD.id AND account_type = 'client';
+    RETURN OLD;
+  END IF;
 
-CREATE INDEX idx_exchange_rate_log_user_date ON public.exchange_rate_log (user_id, rate_date DESC);
-CREATE INDEX idx_exchange_rate_log_pair       ON public.exchange_rate_log (from_currency, to_currency);
-CREATE INDEX idx_exchange_rate_log_source     ON public.exchange_rate_log (source_type, source_id);
+  SELECT client_id, file_number INTO v_client_id, v_file_number
+    FROM public.files WHERE id = NEW.file_id;
+
+  -- Sin cliente enlazado: no se genera CC
+  IF v_client_id IS NULL THEN
+    IF (TG_OP = 'UPDATE') THEN
+      DELETE FROM public.account_movements WHERE source_payment_id = OLD.id AND account_type = 'client';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- Recibo cancelado: limpiar movimiento
+  IF NEW.status = 'cancelled' THEN
+    DELETE FROM public.account_movements WHERE source_payment_id = NEW.id AND account_type = 'client';
+    RETURN NEW;
+  END IF;
+
+  v_concept := 'Cobro recibo #' || NEW.receipt_number || ' · expediente #' || COALESCE(v_file_number::text, '-');
+
+  IF (TG_OP = 'INSERT') THEN
+    INSERT INTO public.account_movements (
+      user_id, account_type, account_id, file_id,
+      movement_type, amount, currency, concept,
+      movement_date, source_payment_id, receipt_id
+    ) VALUES (
+      NEW.user_id, 'client', v_client_id, NEW.file_id,
+      'credit', NEW.amount, NEW.currency, v_concept,
+      COALESCE(NEW.payment_date, CURRENT_DATE), NEW.id, NEW.id
+    )
+    ON CONFLICT (source_payment_id) DO NOTHING;
+    RETURN NEW;
+  END IF;
+
+  -- UPDATE
+  UPDATE public.account_movements
+    SET amount = NEW.amount,
+        currency = NEW.currency,
+        concept = v_concept,
+        account_id = v_client_id,
+        movement_date = COALESCE(NEW.payment_date, CURRENT_DATE),
+        user_id = NEW.user_id
+    WHERE source_payment_id = NEW.id AND account_type = 'client';
+
+  IF NOT FOUND THEN
+    INSERT INTO public.account_movements (
+      user_id, account_type, account_id, file_id,
+      movement_type, amount, currency, concept,
+      movement_date, source_payment_id, receipt_id
+    ) VALUES (
+      NEW.user_id, 'client', v_client_id, NEW.file_id,
+      'credit', NEW.amount, NEW.currency, v_concept,
+      COALESCE(NEW.payment_date, CURRENT_DATE), NEW.id, NEW.id
+    )
+    ON CONFLICT (source_payment_id) DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_sync_receipt_to_account_movement
+AFTER INSERT OR UPDATE OR DELETE ON public.file_receipts
+FOR EACH ROW EXECUTE FUNCTION public.sync_receipt_to_account_movement();
 ```
 
-**Trigger sobre `file_receipt_items`:**
-- Función `log_receipt_item_exchange_rate()` que en INSERT/UPDATE, si `exchange_rate IS NOT NULL AND service_currency IS NOT NULL AND service_currency <> currency`, inserta una fila en `exchange_rate_log` con:
-  - `from_currency = currency` (lo que pagó el cliente)
-  - `to_currency = service_currency` (moneda del servicio)
-  - `rate = exchange_rate`
-  - `source = 'manual'`
-  - `source_type = 'receipt_item'`
-  - `source_id = NEW.id`
-  - `rate_date` = fecha de pago del recibo padre (subquery a `file_receipts`)
-- Trigger `AFTER INSERT OR UPDATE ON file_receipt_items` — solo registra cuando hay diferencia real para evitar inflar la tabla.
+**Backfill (insert tool, no migración):**
+```sql
+INSERT INTO public.account_movements (
+  user_id, account_type, account_id, file_id,
+  movement_type, amount, currency, concept,
+  movement_date, source_payment_id, receipt_id
+)
+SELECT
+  fr.user_id, 'client', f.client_id, fr.file_id,
+  'credit', fr.amount, fr.currency,
+  'Cobro recibo #' || fr.receipt_number || ' · expediente #' || f.file_number,
+  fr.payment_date, fr.id, fr.id
+FROM public.file_receipts fr
+JOIN public.files f ON f.id = fr.file_id
+WHERE fr.status <> 'cancelled' AND f.client_id IS NOT NULL
+ON CONFLICT (source_payment_id) DO NOTHING;
+```
 
 **Frontend:**
 
-- **`src/components/files/FileReceiptsTab.tsx`** (modal de detalle / impresión): agregar tooltip con info del TC en cada `file_receipt_item` que tenga `exchange_rate` y `service_currency` distintos. Importar `Tooltip` de shadcn.
-- **`src/components/reports/ExchangeRatesReport.tsx`** (nuevo): componente que consulta `exchange_rate_log` con filtros de rango de fechas + par de monedas, agrupa por mes y muestra:
-  - Tabla resumen mensual: período | par | promedio | mín | máx | operaciones
-  - Tabla detallada (colapsable): fecha | par | TC | origen | tipo de operación | link al recibo/pago
-- **`src/pages/Reports.tsx`**: agregar nueva tab "Tipos de Cambio" que renderiza `ExchangeRatesReport`.
-- **`src/lib/exportReports.ts`**: nueva función `exportExchangeRatesReport()` que vuelca el log filtrado a Excel con dos pestañas (resumen mensual + detalle).
-
-**Backfill:**
-- Migración corre un `INSERT INTO exchange_rate_log (...) SELECT ...` sobre todos los `file_receipt_items` existentes con `exchange_rate IS NOT NULL` y `service_currency <> currency`, marcándolos como `source = 'historical'`. Así los registros viejos también quedan documentados.
+- **`src/pages/ClientDetail.tsx`** (nuevo): clon adaptado de `SupplierDetail.tsx`, consultando `account_movements` con `account_type = 'client' AND account_id = :id`. Saldo = sum(credits) − sum(debits) por moneda.
+- **`src/App.tsx`**: registrar ruta `/clients/:id`.
+- **`src/pages/Clients.tsx`**: en cada tarjeta, agregar botón "Cuenta Corriente" (ícono `Wallet`) que navega a `/clients/:id`. Opcional: badge con saldo neto.
+- **`src/components/accounts/NewMovementDialog.tsx`**: ya soporta `account_type` por prop, no hay que tocar — sólo lo invocamos desde ClientDetail con `account_type='client'`.
 
 ### Verificación
-- Cargar un recibo en ARS de un servicio en USD con TC 1.150 → en el modal de detalle aparece el tooltip "TC: 1 USD = 1.150 ARS · {fecha} · Manual".
-- Editar el recibo y cambiar el TC a 1.200 → en el log aparecen ambas entradas (la histórica con 1.150 y la nueva con 1.200).
-- Ir a `/reports` → tab "Tipos de Cambio" → filtrar por USD→ARS de los últimos 3 meses → ver promedio/min/max + lista de operaciones.
-- Exportar a Excel y verificar que las dos pestañas se generen correctamente.
-- `SELECT COUNT(*) FROM exchange_rate_log WHERE source='historical'` ≥ cantidad de receipt_items multi-moneda existentes.
+- Cargar un recibo nuevo de un cliente con `client_id` → aparece automáticamente en `/clients/:id` como crédito.
+- Cancelar el recibo (status = 'cancelled') → desaparece de la CC sin tocar el recibo.
+- Editar el monto → se refleja al instante en la CC.
+- Borrar el recibo → desaparece el movimiento.
+- Backfill: `SELECT COUNT(*) FROM account_movements WHERE account_type='client'` ≥ cantidad de `file_receipts` con `status<>'cancelled'` y expediente con cliente.
+- Cargar un movimiento manual desde `/clients/:id` → suma al saldo sin afectar recibos.
 
 ### Fuera de alcance
-- Cotización automática diaria desde el dashboard widget hacia la tabla (hoy el widget de dashboard ya muestra cotizaciones live, no las persistimos como referencia obligatoria — se podría sumar después).
-- Conversión automática del lado de pagos a proveedores (`file_supplier_payments`): hoy se guardan en su moneda original sin TC, así que no aplica todavía. Lo dejamos para una iteración aparte si surge el caso.
-- Re-cálculo retroactivo de saldos consolidados con cotizaciones del día (la pestaña Resumen ya usa la cotización actual del widget para convertir; eso queda como está).
+- Conciliación contra extractos bancarios reales (importar CSV/OFX y matchear). Es un paso siguiente natural pero más grande.
+- Notificaciones automáticas al cliente cuando hay un nuevo movimiento (mail/WhatsApp).
+- Recibos sin cliente enlazado (`files.client_id IS NULL`): quedan fuera de la CC. Si querés incluirlos hay que enlazar el expediente a un cliente primero.
+- Conversión multi-moneda en el saldo de la CC (hoy mostramos saldos separados por moneda, igual que en proveedores).
 
