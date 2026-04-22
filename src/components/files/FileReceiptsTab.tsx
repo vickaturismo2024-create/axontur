@@ -294,6 +294,18 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     await generateReceiptPDF(r as any, agency, (items as any[]) || []);
   };
 
+  const openDetail = async (r: Receipt) => {
+    setDetailReceipt(r);
+    setDetailLoading(true);
+    const { data } = await supabase
+      .from('file_receipt_items')
+      .select('*')
+      .eq('receipt_id', r.id)
+      .order('created_at', { ascending: true });
+    setDetailItems((data as any[]) || []);
+    setDetailLoading(false);
+  };
+
   const openEmailDialog = async (r: Receipt) => {
     setEmailReceipt(r);
     setEmailIncludeBreakdown(true);
