@@ -117,6 +117,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
   const openPayment = (supplier: { name: string; id: string | null }) => {
     setSelectedSupplier(supplier);
+    setEditingPayment(null);
     // Pre-resolve supplier_id from service link or catalog match
     let resolvedId: string | null = supplier.id || null;
     let matched = false;
@@ -132,6 +133,22 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     setResolvedSupplierId(resolvedId);
     setAutoMatched(matched);
     setForm({ amount: 0, currency, payment_date: new Date().toISOString().split('T')[0], payment_method: 'transfer', reference: '', notes: '' });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (payment: SupplierPayment) => {
+    setSelectedSupplier({ name: payment.supplier_name, id: payment.supplier_id });
+    setEditingPayment(payment);
+    setResolvedSupplierId(payment.supplier_id);
+    setAutoMatched(false);
+    setForm({
+      amount: payment.amount,
+      currency: payment.currency,
+      payment_date: payment.payment_date,
+      payment_method: payment.payment_method || 'transfer',
+      reference: payment.reference || '',
+      notes: payment.notes || '',
+    });
     setDialogOpen(true);
   };
 
