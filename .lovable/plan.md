@@ -1,50 +1,90 @@
 
 
-## Fase 1.2 — Edición de pagos + reasignación de proveedor genérico
+## Fase 2 — Auditoría de tipo de cambio y conversiones multi-moneda
 
-### Diagnóstico
-La migración inicial creó **un solo proveedor "Operador"** que concentra **54 pagos de 40 expedientes** que en realidad son operadores distintos. Hoy en la pestaña Proveedores del expediente sólo podés **registrar** o **borrar** pagos — no podés editarlos. Necesitamos habilitar la edición y que el cambio de proveedor se refleje automáticamente en las cuentas corrientes.
+### Por qué
+Hoy cuando registrás un recibo en una moneda distinta a la del servicio (ej: cliente paga en ARS un servicio en USD), guardás un `exchange_rate` en `file_receipt_items` pero **no queda rastro** de qué cotización usaste, cuándo, ni de dónde la sacaste. Si revisás un expediente viejo, no podés saber si el TC fue 1.000 o 1.200 al momento del cobro. Esto rompe la integridad financiera y complica el cierre contable.
 
 ### Cómo va a funcionar
 
-**Flujo nuevo:**
-1. En la pestaña "Proveedores" del expediente, cada pago del historial muestra ahora un botón ✏️ **Editar** además del 🗑️ Eliminar.
-2. Al editar un pago abrís el mismo diálogo que para registrar, pero con todos los datos precargados, incluyendo el selector de **Proveedor del catálogo**.
-3. Cambiás el proveedor (por ejemplo de "Operador" → "Despegar") usando el combobox: podés elegir uno existente del catálogo o crear uno nuevo al vuelo escribiendo el nombre.
-4. Al guardar:
-   - El pago se actualiza con el nuevo `supplier_id` y `supplier_name`.
-   - El trigger ya existente (`sync_supplier_payment_to_account_movement`) detecta el cambio de `supplier_id`, **borra el movimiento viejo** de la CC de "Operador" y **crea uno nuevo** en la CC del proveedor correcto.
-   - Saldo de "Operador" baja, saldo del proveedor real sube. Sin tocar nada más.
-5. Cuando termines de reasignar todos los pagos de "Operador", su CC queda vacía y podés borrar ese proveedor del catálogo desde `/suppliers` si querés.
+**1. Tabla `exchange_rate_log`**
+Cada vez que se aplica un tipo de cambio en una operación (recibo multi-moneda, pago a proveedor en otra moneda, etc.) queda registrado:
+- Fecha del tipo de cambio aplicado
+- Par de monedas (ej: `USD → ARS`)
+- Cotización usada
+- Origen: `manual` (cargada por el agente), `system` (cotización guardada en widget de dashboard) o `historical` (al editar registros viejos)
+- Referencia al recibo/pago/movimiento que la usó (`source_type` + `source_id`)
+- `user_id`
 
-**Bonus de UX:**
-- En el diálogo de edición, si el proveedor actual es "Operador" (u otro nombre genérico común: "Proveedor", "Sin nombre", "-"), aparece un aviso amarillo: *"Este proveedor parece genérico. Cambialo por el operador real para que el saldo se refleje en su cuenta corriente."*
-- El historial de pagos en el expediente muestra también el monto, fecha, método y proveedor enlazado, para que veas de un vistazo cuáles necesitan ser corregidos.
+**2. Captura automática**
+- Al guardar un `file_receipt_item` con `exchange_rate IS NOT NULL` → se inserta automáticamente en `exchange_rate_log` (vía trigger).
+- Al guardar un pago a proveedor en una moneda distinta a la del servicio asociado → idem.
+- Si la misma operación se edita y cambia el TC → se inserta una nueva fila (no se actualiza la vieja, para mantener historial).
+
+**3. Visualización**
+- En el detalle del recibo (modal de "Ver recibo" en pestaña Recibos del expediente) aparece un pequeño tooltip ⓘ junto a cada línea que muestra: *"TC aplicado: 1 USD = 1.150 ARS · 15/04/2026 · Manual"*.
+- En `/reports` agregamos una pestaña nueva **"Tipos de Cambio"** con tabla filtrable por mes/par de monedas, mostrando promedio, mínimo, máximo y cantidad de operaciones por período. Útil para chequear consistencia.
 
 ### Cambios técnicos
 
-**Frontend (`src/components/files/FileSuppliersTab.tsx`):**
-- Reutilizar el diálogo actual de "Registrar pago" para que también funcione en modo edición:
-  - Agregar estado `editingPayment: SupplierPayment | null`.
-  - Nueva función `openEdit(payment)` que precarga `form` (amount, currency, payment_date, payment_method, reference, notes), pre-resuelve `resolvedSupplierId` desde `payment.supplier_id`, y abre el diálogo.
-  - El título del diálogo cambia entre "Registrar pago a X" y "Editar pago a X".
-  - `handleSave` decide entre `INSERT` (modo nuevo) o `UPDATE WHERE id = editingPayment.id` (modo edición).
-  - Botón "Editar" (`Pencil` de lucide) en cada fila del historial junto al de eliminar.
-- Banner amarillo (`Alert`) dentro del diálogo cuando el `supplier_name` original esté en la lista de nombres genéricos (`['operador', 'proveedor', 'sin nombre', '-', '']`), explicando que se reasigne.
-- En el agrupamiento por proveedor del listado principal, mostrar también el `supplier_id` resuelto debajo del nombre (en gris, formato pequeño) para distinguir grupos cuando hay varios "Operador" sueltos sin enlazar (después de esta fase no debería haber, pero por las dudas).
+**Base de datos (migración):**
 
-**Base de datos:**
-- No se requieren cambios. El trigger `sync_supplier_payment_to_account_movement()` ya maneja el caso `OLD.supplier_id IS DISTINCT FROM NEW.supplier_id` (borra el movimiento viejo y crea uno nuevo).
-- No hay migración de datos: la reasignación es manual, expediente por expediente, controlada por vos.
+```sql
+CREATE TABLE public.exchange_rate_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  rate_date date NOT NULL DEFAULT CURRENT_DATE,
+  from_currency text NOT NULL,
+  to_currency text NOT NULL,
+  rate numeric(20,6) NOT NULL,
+  source text NOT NULL DEFAULT 'manual', -- manual | system | historical
+  source_type text,                       -- receipt_item | supplier_payment | movement
+  source_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.exchange_rate_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their rate log"   ON public.exchange_rate_log FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create their rate log" ON public.exchange_rate_log FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- No UPDATE/DELETE: registro inmutable.
+
+CREATE INDEX idx_exchange_rate_log_user_date ON public.exchange_rate_log (user_id, rate_date DESC);
+CREATE INDEX idx_exchange_rate_log_pair       ON public.exchange_rate_log (from_currency, to_currency);
+CREATE INDEX idx_exchange_rate_log_source     ON public.exchange_rate_log (source_type, source_id);
+```
+
+**Trigger sobre `file_receipt_items`:**
+- Función `log_receipt_item_exchange_rate()` que en INSERT/UPDATE, si `exchange_rate IS NOT NULL AND service_currency IS NOT NULL AND service_currency <> currency`, inserta una fila en `exchange_rate_log` con:
+  - `from_currency = currency` (lo que pagó el cliente)
+  - `to_currency = service_currency` (moneda del servicio)
+  - `rate = exchange_rate`
+  - `source = 'manual'`
+  - `source_type = 'receipt_item'`
+  - `source_id = NEW.id`
+  - `rate_date` = fecha de pago del recibo padre (subquery a `file_receipts`)
+- Trigger `AFTER INSERT OR UPDATE ON file_receipt_items` — solo registra cuando hay diferencia real para evitar inflar la tabla.
+
+**Frontend:**
+
+- **`src/components/files/FileReceiptsTab.tsx`** (modal de detalle / impresión): agregar tooltip con info del TC en cada `file_receipt_item` que tenga `exchange_rate` y `service_currency` distintos. Importar `Tooltip` de shadcn.
+- **`src/components/reports/ExchangeRatesReport.tsx`** (nuevo): componente que consulta `exchange_rate_log` con filtros de rango de fechas + par de monedas, agrupa por mes y muestra:
+  - Tabla resumen mensual: período | par | promedio | mín | máx | operaciones
+  - Tabla detallada (colapsable): fecha | par | TC | origen | tipo de operación | link al recibo/pago
+- **`src/pages/Reports.tsx`**: agregar nueva tab "Tipos de Cambio" que renderiza `ExchangeRatesReport`.
+- **`src/lib/exportReports.ts`**: nueva función `exportExchangeRatesReport()` que vuelca el log filtrado a Excel con dos pestañas (resumen mensual + detalle).
+
+**Backfill:**
+- Migración corre un `INSERT INTO exchange_rate_log (...) SELECT ...` sobre todos los `file_receipt_items` existentes con `exchange_rate IS NOT NULL` y `service_currency <> currency`, marcándolos como `source = 'historical'`. Así los registros viejos también quedan documentados.
 
 ### Verificación
-- Entrar a `/suppliers/<id>` de "Operador" → ver lista actual de 54 movimientos.
-- Abrir un expediente con pago a "Operador" → click en ✏️ Editar → cambiar proveedor a "Despegar" (existente) o crear "Aerolíneas Argentinas" (nuevo) → Guardar.
-- En `/suppliers/<operador_id>` el movimiento desapareció; en `/suppliers/<despegar_id>` aparece con su ícono de expediente y link.
-- Repetir para los 40 expedientes. Al final, el proveedor "Operador" queda con 0 movimientos y se puede borrar manualmente.
-- Editar el monto o la fecha de un pago sin cambiar proveedor también actualiza el movimiento de CC sin duplicarlo (ya cubierto por el trigger UPDATE branch).
+- Cargar un recibo en ARS de un servicio en USD con TC 1.150 → en el modal de detalle aparece el tooltip "TC: 1 USD = 1.150 ARS · {fecha} · Manual".
+- Editar el recibo y cambiar el TC a 1.200 → en el log aparecen ambas entradas (la histórica con 1.150 y la nueva con 1.200).
+- Ir a `/reports` → tab "Tipos de Cambio" → filtrar por USD→ARS de los últimos 3 meses → ver promedio/min/max + lista de operaciones.
+- Exportar a Excel y verificar que las dos pestañas se generen correctamente.
+- `SELECT COUNT(*) FROM exchange_rate_log WHERE source='historical'` ≥ cantidad de receipt_items multi-moneda existentes.
 
 ### Fuera de alcance
-- Reasignación masiva (UI tipo "bulk edit" para procesar varios pagos a la vez). Si hay muchos para corregir y resulta tedioso, lo agregamos en una iteración aparte.
-- Borrado automático del proveedor "Operador" del catálogo cuando quede vacío. Lo dejamos manual por seguridad.
+- Cotización automática diaria desde el dashboard widget hacia la tabla (hoy el widget de dashboard ya muestra cotizaciones live, no las persistimos como referencia obligatoria — se podría sumar después).
+- Conversión automática del lado de pagos a proveedores (`file_supplier_payments`): hoy se guardan en su moneda original sin TC, así que no aplica todavía. Lo dejamos para una iteración aparte si surge el caso.
+- Re-cálculo retroactivo de saldos consolidados con cotizaciones del día (la pestaña Resumen ya usa la cotización actual del widget para convertir; eso queda como está).
 
