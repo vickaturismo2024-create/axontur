@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, User, Building2, SlidersHorizontal, Bell, FileText, Mail } from 'lucide-react';
+import { Settings as SettingsIcon, User, Building2, SlidersHorizontal, Bell, FileText, Mail, Activity } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
 import { AccountTab } from '@/components/settings/AccountTab';
 import { AgencyTab } from '@/components/settings/AgencyTab';
@@ -11,8 +11,9 @@ import { PreferencesTab } from '@/components/settings/PreferencesTab';
 import { NotificationsTab } from '@/components/settings/NotificationsTab';
 import { DocumentsTab } from '@/components/settings/DocumentsTab';
 import { EmailTab } from '@/components/settings/EmailTab';
+import { InfraTab } from '@/components/settings/InfraTab';
 
-const TABS = ['account', 'agency', 'preferences', 'notifications', 'documents', 'email'] as const;
+const TABS = ['account', 'agency', 'preferences', 'notifications', 'documents', 'email', 'infraestructura'] as const;
 type TabKey = typeof TABS[number];
 
 const Settings = () => {
@@ -57,13 +58,14 @@ const Settings = () => {
 
         <div className="max-w-4xl">
           <Tabs value={tab} onValueChange={onTabChange}>
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 h-auto">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-7 h-auto">
               <TabsTrigger value="account" className="gap-1.5"><User className="h-4 w-4" /> Cuenta</TabsTrigger>
               <TabsTrigger value="agency" className="gap-1.5"><Building2 className="h-4 w-4" /> Agencia</TabsTrigger>
               <TabsTrigger value="preferences" className="gap-1.5"><SlidersHorizontal className="h-4 w-4" /> Preferencias</TabsTrigger>
               <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notificaciones</TabsTrigger>
               <TabsTrigger value="documents" className="gap-1.5"><FileText className="h-4 w-4" /> Documentos</TabsTrigger>
               <TabsTrigger value="email" className="gap-1.5"><Mail className="h-4 w-4" /> Email</TabsTrigger>
+              <TabsTrigger value="infraestructura" className="gap-1.5"><Activity className="h-4 w-4" /> Infraestructura</TabsTrigger>
             </TabsList>
 
             <Card className="mt-4">
@@ -75,6 +77,7 @@ const Settings = () => {
                   {tab === 'notifications' && 'Notificaciones y recordatorios'}
                   {tab === 'documents' && 'Numeración y formato de documentos'}
                   {tab === 'email' && 'Configuración de emails'}
+                  {tab === 'infraestructura' && 'Estado de infraestructura (email + dominio)'}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -84,6 +87,7 @@ const Settings = () => {
                 <TabsContent value="notifications" className="mt-0"><NotificationsTab /></TabsContent>
                 <TabsContent value="documents" className="mt-0"><DocumentsTab /></TabsContent>
                 <TabsContent value="email" className="mt-0"><EmailTab /></TabsContent>
+                <TabsContent value="infraestructura" className="mt-0"><InfraTab /></TabsContent>
               </CardContent>
             </Card>
           </Tabs>

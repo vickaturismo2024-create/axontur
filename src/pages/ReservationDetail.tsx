@@ -47,7 +47,7 @@ import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendReservationConfirmation } from '@/lib/emailService';
+import { sendReservationConfirmation, isInfraReady } from '@/lib/emailService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -165,6 +165,13 @@ export default function ReservationDetail() {
     if (!reservation || !user) return;
     if (!emailTo) { toast.error('Falta el email'); return; }
     setSendingEmail(true);
+    const infra = await isInfraReady();
+    if (!infra.domainReady) {
+      const ok = window.confirm('El dominio de email aún no está verificado o presenta errores recientes. ¿Enviar igual?');
+      if (!ok) { setSendingEmail(false); return; }
+    } else if (!infra.queueHealthy) {
+      toast.warning('La cola de envíos tiene errores recientes — el envío puede demorar.');
+    }
     let fileNumber = reservation.locator || reservation.id.slice(0, 8);
     let destination = '';
     let travelers = reservation.passengers.length;

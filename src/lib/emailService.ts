@@ -81,6 +81,25 @@ export async function getAgencyInfo(userId: string): Promise<AgencyInfo> {
   return cfg.agency;
 }
 
+/**
+ * Consulta rápida del estado de la infraestructura de email.
+ * Devuelve `{ domainReady, queueHealthy }` para que la UI pueda mostrar
+ * advertencias antes de invocar los senders. No falla nunca: si la edge
+ * function no responde, asume `ready: true` para no bloquear flujos.
+ */
+export async function isInfraReady(): Promise<{ domainReady: boolean; queueHealthy: boolean }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('check-email-infra', { body: {} });
+    if (error || !data) return { domainReady: true, queueHealthy: true };
+    const queue = (data as any).queue ?? { sent: 0, failed: 0, dlq: 0, total: 0 };
+    const domainReady = queue.sent > 0 || (queue.dlq === 0 && queue.failed === 0);
+    const failRatio = queue.total > 0 ? (queue.dlq + queue.failed) / queue.total : 0;
+    return { domainReady, queueHealthy: failRatio < 0.3 };
+  } catch {
+    return { domainReady: true, queueHealthy: true };
+  }
+}
+
 async function logEmail(opts: {
   userId: string;
   to: string;
