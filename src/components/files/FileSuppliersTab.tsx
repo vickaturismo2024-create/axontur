@@ -271,9 +271,9 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
           <div className="space-y-2">
             <label className="block text-sm font-medium">Proveedor del catálogo *</label>
             {resolvedSupplierId && autoMatched ? (
-              <div className="flex items-center justify-between rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+              <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/10 px-3 py-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
                   <span className="font-medium">Enlazado a: {resolvedSupplierName}</span>
                 </div>
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setResolvedSupplierId(null); setAutoMatched(false); }}>
