@@ -278,18 +278,31 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
                   {supPayments.length > 0 && (
                     <div className="space-y-1 border-t pt-2">
                       <p className="text-xs font-medium text-muted-foreground">Historial de pagos</p>
-                      {supPayments.map(p => (
-                        <div key={p.id} className="flex items-center justify-between rounded bg-muted/50 px-3 py-2 text-sm">
-                          <div>
-                            <span className="font-medium">{p.currency} {p.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                            <span className="ml-2 text-xs text-muted-foreground">{new Date(p.payment_date).toLocaleDateString('es-AR')} · {getMethodLabel(p.payment_method)}</span>
-                            {p.reference && <span className="ml-2 text-xs text-muted-foreground">Ref: {p.reference}</span>}
+                      {supPayments.map(p => {
+                        const linked = catalog.find(c => c.id === p.supplier_id);
+                        return (
+                          <div key={p.id} className="flex items-center justify-between rounded bg-muted/50 px-3 py-2 text-sm">
+                            <div className="min-w-0">
+                              <span className="font-medium">{p.currency} {p.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                              <span className="ml-2 text-xs text-muted-foreground">{new Date(p.payment_date).toLocaleDateString('es-AR')} · {getMethodLabel(p.payment_method)}</span>
+                              {p.reference && <span className="ml-2 text-xs text-muted-foreground">Ref: {p.reference}</span>}
+                              <div className="text-xs text-muted-foreground">
+                                {linked ? `→ CC: ${linked.name}` : (
+                                  <span className="text-destructive">Sin enlazar a catálogo</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => openEdit(p)}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => setDeleteId(p.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
-                          <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => setDeleteId(p.id)}>
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
