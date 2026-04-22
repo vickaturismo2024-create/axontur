@@ -1,49 +1,50 @@
 
 
-## Fase 1.1 — Enlazar pagos al catálogo de Proveedores
+## Fase 1.2 — Edición de pagos + reasignación de proveedor genérico
 
-### Por qué no funcionaba
-El trigger ya está activo y correcto, pero **los 58 pagos cargados tienen `supplier_id = NULL`** (sólo guardan el nombre escrito a mano: "Operador", "Tienda Leon"…). La función de sync está diseñada para ignorar pagos sin enlace al catálogo, así que nunca generó movimientos en CC.
+### Diagnóstico
+La migración inicial creó **un solo proveedor "Operador"** que concentra **54 pagos de 40 expedientes** que en realidad son operadores distintos. Hoy en la pestaña Proveedores del expediente sólo podés **registrar** o **borrar** pagos — no podés editarlos. Necesitamos habilitar la edición y que el cambio de proveedor se refleje automáticamente en las cuentas corrientes.
 
-### Solución
+### Cómo va a funcionar
 
-**1. Match automático + selector de respaldo (flujo nuevo)**
+**Flujo nuevo:**
+1. En la pestaña "Proveedores" del expediente, cada pago del historial muestra ahora un botón ✏️ **Editar** además del 🗑️ Eliminar.
+2. Al editar un pago abrís el mismo diálogo que para registrar, pero con todos los datos precargados, incluyendo el selector de **Proveedor del catálogo**.
+3. Cambiás el proveedor (por ejemplo de "Operador" → "Despegar") usando el combobox: podés elegir uno existente del catálogo o crear uno nuevo al vuelo escribiendo el nombre.
+4. Al guardar:
+   - El pago se actualiza con el nuevo `supplier_id` y `supplier_name`.
+   - El trigger ya existente (`sync_supplier_payment_to_account_movement`) detecta el cambio de `supplier_id`, **borra el movimiento viejo** de la CC de "Operador" y **crea uno nuevo** en la CC del proveedor correcto.
+   - Saldo de "Operador" baja, saldo del proveedor real sube. Sin tocar nada más.
+5. Cuando termines de reasignar todos los pagos de "Operador", su CC queda vacía y podés borrar ese proveedor del catálogo desde `/suppliers` si querés.
 
-En el diálogo "Registrar pago" de la pestaña Proveedores:
-- Al abrirse, intenta matchear el `supplier_name` del servicio contra el catálogo (búsqueda case-insensitive por nombre, scoped al `user_id`).
-- Si hay match → enlaza automático y muestra una etiqueta verde "Enlazado a catálogo: <nombre>".
-- Si no hay match → muestra un `Combobox` con autocompletar de proveedores existentes + opción "+ Crear proveedor «<nombre>»" que crea el registro al vuelo.
-- El campo es **obligatorio**: sin `supplier_id` no se permite guardar (con tooltip explicando que sin esto el pago no aparece en la cuenta corriente).
-
-**2. Backfill con auto-creación (pagos viejos)**
-
-Migración única que:
-- Recorre los `file_supplier_payments` con `supplier_id IS NULL` agrupados por `(user_id, lower(trim(supplier_name)))`.
-- Para cada nombre único: si existe un proveedor del catálogo con ese nombre (case-insensitive), reusa su id; si no, crea uno nuevo en `suppliers` con `name = supplier_name` original (preservando capitalización del primer pago) y `type = ''`.
-- Hace `UPDATE file_supplier_payments SET supplier_id = <id>` en bloque para cada nombre.
-- El trigger `trg_supplier_payment_sync_aiu` dispara automáticamente en cada UPDATE → genera los 58 movimientos en `account_movements` con su `source_payment_id`.
-- Salida: log de cuántos proveedores nuevos se crearon y cuántos pagos se enlazaron.
+**Bonus de UX:**
+- En el diálogo de edición, si el proveedor actual es "Operador" (u otro nombre genérico común: "Proveedor", "Sin nombre", "-"), aparece un aviso amarillo: *"Este proveedor parece genérico. Cambialo por el operador real para que el saldo se refleje en su cuenta corriente."*
+- El historial de pagos en el expediente muestra también el monto, fecha, método y proveedor enlazado, para que veas de un vistazo cuáles necesitan ser corregidos.
 
 ### Cambios técnicos
 
-**Migración SQL:**
-- Bloque `DO $$ … $$` que hace el backfill descrito (auto-crea proveedores, actualiza pagos, deja que el trigger cree los movements).
-- No toca el trigger ni la función — ya están bien.
-
 **Frontend (`src/components/files/FileSuppliersTab.tsx`):**
-- Cargar lista de proveedores del catálogo (`suppliers` del usuario) al montar el tab.
-- En `openPayment()`: pre-resolver `supplier_id` haciendo match case-insensitive sobre `supplier.name` vs el `supplier_name` del servicio.
-- Reemplazar el header del diálogo por un combobox/select que muestre el match resuelto y permita cambiarlo o crear nuevo (`Command` + `Popover` de shadcn ya disponibles en el proyecto).
-- Botón "Registrar pago" deshabilitado mientras `supplier_id` esté vacío + helper text explicativo.
-- Si el usuario crea un proveedor nuevo desde el diálogo, se guarda en `suppliers` y queda disponible en futuros pagos.
+- Reutilizar el diálogo actual de "Registrar pago" para que también funcione en modo edición:
+  - Agregar estado `editingPayment: SupplierPayment | null`.
+  - Nueva función `openEdit(payment)` que precarga `form` (amount, currency, payment_date, payment_method, reference, notes), pre-resuelve `resolvedSupplierId` desde `payment.supplier_id`, y abre el diálogo.
+  - El título del diálogo cambia entre "Registrar pago a X" y "Editar pago a X".
+  - `handleSave` decide entre `INSERT` (modo nuevo) o `UPDATE WHERE id = editingPayment.id` (modo edición).
+  - Botón "Editar" (`Pencil` de lucide) en cada fila del historial junto al de eliminar.
+- Banner amarillo (`Alert`) dentro del diálogo cuando el `supplier_name` original esté en la lista de nombres genéricos (`['operador', 'proveedor', 'sin nombre', '-', '']`), explicando que se reasigne.
+- En el agrupamiento por proveedor del listado principal, mostrar también el `supplier_id` resuelto debajo del nombre (en gris, formato pequeño) para distinguir grupos cuando hay varios "Operador" sueltos sin enlazar (después de esta fase no debería haber, pero por las dudas).
+
+**Base de datos:**
+- No se requieren cambios. El trigger `sync_supplier_payment_to_account_movement()` ya maneja el caso `OLD.supplier_id IS DISTINCT FROM NEW.supplier_id` (borra el movimiento viejo y crea uno nuevo).
+- No hay migración de datos: la reasignación es manual, expediente por expediente, controlada por vos.
 
 ### Verificación
-- Tras correr la migración: `SELECT COUNT(*) FROM account_movements WHERE source_payment_id IS NOT NULL` debe ser ≥ 58.
-- Entrar a `/suppliers/<id>` de "Tienda Leon", "Ticket Ya" u "Operador" → ver los pagos retroactivos con ícono de expediente y link.
-- Cargar un pago nuevo en un expediente: el diálogo muestra el proveedor matcheado o el selector; al guardar aparece al instante en la CC del proveedor.
-- Editar / borrar el pago desde el expediente actualiza la CC sola (trigger ya probado).
+- Entrar a `/suppliers/<id>` de "Operador" → ver lista actual de 54 movimientos.
+- Abrir un expediente con pago a "Operador" → click en ✏️ Editar → cambiar proveedor a "Despegar" (existente) o crear "Aerolíneas Argentinas" (nuevo) → Guardar.
+- En `/suppliers/<operador_id>` el movimiento desapareció; en `/suppliers/<despegar_id>` aparece con su ícono de expediente y link.
+- Repetir para los 40 expedientes. Al final, el proveedor "Operador" queda con 0 movimientos y se puede borrar manualmente.
+- Editar el monto o la fecha de un pago sin cambiar proveedor también actualiza el movimiento de CC sin duplicarlo (ya cubierto por el trigger UPDATE branch).
 
 ### Fuera de alcance
-- Limpiar duplicados o normalizar nombres de proveedores existentes en el catálogo.
-- Enlazar también los `file_services` al catálogo (este plan sólo toca pagos, que es lo que afecta CC).
+- Reasignación masiva (UI tipo "bulk edit" para procesar varios pagos a la vez). Si hay muchos para corregir y resulta tedioso, lo agregamos en una iteración aparte.
+- Borrado automático del proveedor "Operador" del catálogo cuando quede vacío. Lo dejamos manual por seguridad.
 
