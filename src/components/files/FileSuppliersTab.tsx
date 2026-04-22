@@ -437,7 +437,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
               <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
             <Button onClick={handleSave} disabled={!resolvedSupplierId || form.amount <= 0}>
-              Registrar pago
+              {editingPayment ? 'Guardar cambios' : 'Registrar pago'}
             </Button>
           </div>
         </DialogContent>
