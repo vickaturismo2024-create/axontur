@@ -394,6 +394,45 @@ export type Database = {
         }
         Relationships: []
       }
+      exchange_rate_log: {
+        Row: {
+          created_at: string
+          from_currency: string
+          id: string
+          rate: number
+          rate_date: string
+          source: string
+          source_id: string | null
+          source_type: string | null
+          to_currency: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_currency: string
+          id?: string
+          rate: number
+          rate_date?: string
+          source?: string
+          source_id?: string | null
+          source_type?: string | null
+          to_currency: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_currency?: string
+          id?: string
+          rate?: number
+          rate_date?: string
+          source?: string
+          source_id?: string | null
+          source_type?: string | null
+          to_currency?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       file_passengers: {
         Row: {
           birth_date: string | null
