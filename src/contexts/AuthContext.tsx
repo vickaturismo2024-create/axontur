@@ -2,10 +2,15 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+export type AppRole = 'admin' | 'vendedor';
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  agencyId: string | null;
+  agencyName: string | null;
+  role: AppRole | null;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -17,39 +22,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [agencyName, setAgencyName] = useState<string | null>(null);
+  const [role, setRole] = useState<AppRole | null>(null);
+
+  // Cargar la membresía de agencia del usuario logueado
+  const loadAgencyMembership = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('agency_members')
+        .select('agency_id, role, agencies(name)')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[Auth] Error loading agency membership:', error);
+        setAgencyId(null);
+        setAgencyName(null);
+        setRole(null);
+        return;
+      }
+
+      if (data) {
+        setAgencyId(data.agency_id);
+        setRole(data.role as AppRole);
+        const agencies = data.agencies as { name?: string } | null;
+        setAgencyName(agencies?.name ?? null);
+      } else {
+        setAgencyId(null);
+        setAgencyName(null);
+        setRole(null);
+      }
+    } catch (e) {
+      console.error('[Auth] Unexpected error loading membership:', e);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
-    
-    // Check for existing session first
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) {
-        setSession(session);
-        setUser(session?.user ?? null);
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadAgencyMembership(session.user.id).finally(() => {
+          if (mounted) setIsLoading(false);
+        });
+      } else {
         setIsLoading(false);
       }
     });
 
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (mounted) {
-          // Only update if there's an actual change
-          setSession((currentSession) => {
-            if (currentSession?.access_token !== session?.access_token) {
-              return session;
+        if (!mounted) return;
+        setSession((currentSession) => {
+          if (currentSession?.access_token !== session?.access_token) {
+            return session;
+          }
+          return currentSession;
+        });
+        setUser((currentUser) => {
+          const newUserId = session?.user?.id ?? null;
+          if (currentUser?.id !== newUserId) {
+            // Defer the membership lookup to avoid blocking the auth callback
+            if (session?.user) {
+              setTimeout(() => {
+                if (mounted) loadAgencyMembership(session.user.id);
+              }, 0);
+            } else {
+              setAgencyId(null);
+              setAgencyName(null);
+              setRole(null);
             }
-            return currentSession;
-          });
-          setUser((currentUser) => {
-            const newUserId = session?.user?.id ?? null;
-            if (currentUser?.id !== newUserId) {
-              return session?.user ?? null;
-            }
-            return currentUser;
-          });
-          setIsLoading(false);
-        }
+            return session?.user ?? null;
+          }
+          return currentUser;
+        });
+        setIsLoading(false);
       }
     );
 
@@ -96,6 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         isLoading,
+        agencyId,
+        agencyName,
+        role,
         signUp,
         signIn,
         signOut,

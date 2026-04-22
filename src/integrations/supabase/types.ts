@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           account_id: string
           account_type: string
+          agency_id: string | null
           amount: number
           concept: string
           created_at: string
@@ -35,6 +36,7 @@ export type Database = {
         Insert: {
           account_id: string
           account_type: string
+          agency_id?: string | null
           amount?: number
           concept?: string
           created_at?: string
@@ -52,6 +54,7 @@ export type Database = {
         Update: {
           account_id?: string
           account_type?: string
+          agency_id?: string | null
           amount?: number
           concept?: string
           created_at?: string
@@ -68,10 +71,91 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "account_movements_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "account_movements_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "file_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agencies: {
+        Row: {
+          address: string | null
+          created_at: string
+          cuit: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          owner_id: string
+          phone: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          cuit?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_id: string
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          cuit?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_id?: string
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      agency_members: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_members_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -111,6 +195,7 @@ export type Database = {
       }
       client_groups: {
         Row: {
+          agency_id: string | null
           created_at: string
           id: string
           name: string
@@ -118,6 +203,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string
           id?: string
           name: string
@@ -125,16 +211,26 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           created_at?: string
           id?: string
           name?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "client_groups_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_notes: {
         Row: {
+          agency_id: string | null
           client_id: string
           content: string
           created_at: string
@@ -143,6 +239,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           client_id: string
           content?: string
           created_at?: string
@@ -151,6 +248,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           client_id?: string
           content?: string
           created_at?: string
@@ -159,6 +257,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "client_notes_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "client_notes_client_id_fkey"
             columns: ["client_id"]
@@ -171,6 +276,7 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          agency_id: string | null
           birth_date: string | null
           created_at: string
           cuil_cuit: string | null
@@ -194,6 +300,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          agency_id?: string | null
           birth_date?: string | null
           created_at?: string
           cuil_cuit?: string | null
@@ -217,6 +324,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          agency_id?: string | null
           birth_date?: string | null
           created_at?: string
           cuil_cuit?: string | null
@@ -238,10 +346,19 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_logs: {
         Row: {
+          agency_id: string | null
           created_at: string
           error_message: string | null
           file_id: string | null
@@ -256,6 +373,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string
           error_message?: string | null
           file_id?: string | null
@@ -270,6 +388,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           created_at?: string
           error_message?: string | null
           file_id?: string | null
@@ -284,6 +403,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "email_logs_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "email_logs_file_id_fkey"
             columns: ["file_id"]
@@ -396,6 +522,7 @@ export type Database = {
       }
       exchange_rate_log: {
         Row: {
+          agency_id: string | null
           created_at: string
           from_currency: string
           id: string
@@ -408,6 +535,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string
           from_currency: string
           id?: string
@@ -420,6 +548,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           created_at?: string
           from_currency?: string
           id?: string
@@ -431,10 +560,19 @@ export type Database = {
           to_currency?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "exchange_rate_log_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       file_passengers: {
         Row: {
+          agency_id: string | null
           birth_date: string | null
           client_id: string | null
           created_at: string
@@ -450,6 +588,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           birth_date?: string | null
           client_id?: string | null
           created_at?: string
@@ -465,6 +604,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           birth_date?: string | null
           client_id?: string | null
           created_at?: string
@@ -480,6 +620,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "file_passengers_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "file_passengers_client_id_fkey"
             columns: ["client_id"]
@@ -498,6 +645,7 @@ export type Database = {
       }
       file_receipt_items: {
         Row: {
+          agency_id: string | null
           amount: number
           created_at: string
           currency: string
@@ -510,6 +658,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           amount?: number
           created_at?: string
           currency?: string
@@ -522,6 +671,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           amount?: number
           created_at?: string
           currency?: string
@@ -533,10 +683,19 @@ export type Database = {
           service_currency?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "file_receipt_items_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       file_receipts: {
         Row: {
+          agency_id: string | null
           amount: number
           client_name: string
           concept: string
@@ -552,6 +711,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           amount?: number
           client_name?: string
           concept?: string
@@ -567,6 +727,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           amount?: number
           client_name?: string
           concept?: string
@@ -583,6 +744,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "file_receipts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "file_receipts_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
@@ -593,6 +761,7 @@ export type Database = {
       }
       file_services: {
         Row: {
+          agency_id: string | null
           confirmation_number: string | null
           cost: number
           created_at: string
@@ -612,6 +781,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           confirmation_number?: string | null
           cost?: number
           created_at?: string
@@ -631,6 +801,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           confirmation_number?: string | null
           cost?: number
           created_at?: string
@@ -651,6 +822,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "file_services_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "file_services_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
@@ -668,6 +846,7 @@ export type Database = {
       }
       file_supplier_payments: {
         Row: {
+          agency_id: string | null
           amount: number
           created_at: string
           currency: string
@@ -682,6 +861,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           amount?: number
           created_at?: string
           currency?: string
@@ -696,6 +876,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           amount?: number
           created_at?: string
           currency?: string
@@ -709,10 +890,19 @@ export type Database = {
           supplier_name?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "file_supplier_payments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       files: {
         Row: {
+          agency_id: string | null
           client_id: string | null
           client_name: string
           created_at: string
@@ -733,6 +923,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           client_id?: string | null
           client_name?: string
           created_at?: string
@@ -753,6 +944,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           client_id?: string | null
           client_name?: string
           created_at?: string
@@ -773,6 +965,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "files_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "files_client_id_fkey"
             columns: ["client_id"]
@@ -898,6 +1097,7 @@ export type Database = {
       }
       payments: {
         Row: {
+          agency_id: string | null
           amount: number
           created_at: string
           currency: string
@@ -911,6 +1111,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           amount?: number
           created_at?: string
           currency?: string
@@ -924,6 +1125,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           amount?: number
           created_at?: string
           currency?: string
@@ -936,7 +1138,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1042,6 +1252,7 @@ export type Database = {
       }
       quote_tags: {
         Row: {
+          agency_id: string | null
           color: string
           created_at: string
           id: string
@@ -1049,6 +1260,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           color?: string
           created_at?: string
           id?: string
@@ -1056,16 +1268,26 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           color?: string
           created_at?: string
           id?: string
           name?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quote_tags_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quote_versions: {
         Row: {
+          agency_id: string | null
           created_at: string
           data: Json
           id: string
@@ -1074,6 +1296,7 @@ export type Database = {
           version_number: number
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string
           data: Json
           id?: string
@@ -1082,6 +1305,7 @@ export type Database = {
           version_number?: number
         }
         Update: {
+          agency_id?: string | null
           created_at?: string
           data?: Json
           id?: string
@@ -1090,6 +1314,13 @@ export type Database = {
           version_number?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "quote_versions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quote_versions_quote_id_fkey"
             columns: ["quote_id"]
@@ -1123,6 +1354,7 @@ export type Database = {
       quotes: {
         Row: {
           activities: Json | null
+          agency_id: string | null
           approved_at: string | null
           approved_by_name: string | null
           approved_ip: string | null
@@ -1151,6 +1383,7 @@ export type Database = {
         }
         Insert: {
           activities?: Json | null
+          agency_id?: string | null
           approved_at?: string | null
           approved_by_name?: string | null
           approved_ip?: string | null
@@ -1179,6 +1412,7 @@ export type Database = {
         }
         Update: {
           activities?: Json | null
+          agency_id?: string | null
           approved_at?: string | null
           approved_by_name?: string | null
           approved_ip?: string | null
@@ -1207,6 +1441,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "quotes_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "quotes_template_id_fkey"
             columns: ["template_id"]
             isOneToOne: false
@@ -1217,6 +1458,7 @@ export type Database = {
       }
       reminders: {
         Row: {
+          agency_id: string | null
           completed: boolean
           created_at: string
           id: string
@@ -1227,6 +1469,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           completed?: boolean
           created_at?: string
           id?: string
@@ -1237,6 +1480,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           completed?: boolean
           created_at?: string
           id?: string
@@ -1246,7 +1490,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reminders_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservation_attachments: {
         Row: {
@@ -1381,6 +1633,7 @@ export type Database = {
       }
       reservations: {
         Row: {
+          agency_id: string | null
           created_at: string
           file_id: string | null
           gds: string | null
@@ -1394,6 +1647,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string
           file_id?: string | null
           gds?: string | null
@@ -1407,6 +1661,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           created_at?: string
           file_id?: string | null
           gds?: string | null
@@ -1421,6 +1676,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "reservations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reservations_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
@@ -1431,6 +1693,7 @@ export type Database = {
       }
       suppliers: {
         Row: {
+          agency_id: string | null
           created_at: string
           email: string | null
           id: string
@@ -1442,6 +1705,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -1453,6 +1717,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agency_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -1463,7 +1728,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suppressed_emails: {
         Row: {
@@ -1491,6 +1764,7 @@ export type Database = {
       }
       templates: {
         Row: {
+          agency_id: string | null
           agency_name: string | null
           colors: Json
           created_at: string
@@ -1507,6 +1781,7 @@ export type Database = {
           whatsapp_agents: Json
         }
         Insert: {
+          agency_id?: string | null
           agency_name?: string | null
           colors?: Json
           created_at?: string
@@ -1523,6 +1798,7 @@ export type Database = {
           whatsapp_agents?: Json
         }
         Update: {
+          agency_id?: string | null
           agency_name?: string | null
           colors?: Json
           created_at?: string
@@ -1538,13 +1814,22 @@ export type Database = {
           user_id?: string
           whatsapp_agents?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      current_agency_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -1552,6 +1837,17 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_agency_member: {
+        Args: { _agency_id: string; _user_id: string }
+        Returns: boolean
       }
       move_to_dlq: {
         Args: {
@@ -1589,7 +1885,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "vendedor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1716,6 +2012,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "vendedor"],
+    },
   },
 } as const
