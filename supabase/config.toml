@@ -4,7 +4,7 @@ project_id = "nttvbhtcubceobwqehut"
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.check-email-infra]
-    verify_jwt = true
+    verify_jwt = false
   [functions.fetch-currency-rates]
     verify_jwt = false
   [functions.generate-itinerary]
