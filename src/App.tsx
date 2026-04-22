@@ -20,6 +20,7 @@ import PublicPDF from "./pages/PublicPDF";
 import Agency from "./pages/Agency";
 import Settings from "./pages/Settings";
 import Clients from "./pages/Clients";
+import ClientDetail from "./pages/ClientDetail";
 import Suppliers from "./pages/Suppliers";
 import SupplierDetail from "./pages/SupplierDetail";
 import Reports from "./pages/Reports";
@@ -65,6 +66,7 @@ const App = () => (
                 <Route path="/agency" element={<ProtectedRoute><Agency /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+                <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
                 <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
                 <Route path="/suppliers/:id" element={<ProtectedRoute><SupplierDetail /></ProtectedRoute>} />
                 <Route path="/files" element={<ProtectedRoute><Files /></ProtectedRoute>} />
