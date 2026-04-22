@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Receipt, ExternalLink, Filter, FileSpreadsheet, FileDown } from 'lucide-react';
+import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Receipt, ExternalLink, Filter, FileSpreadsheet, FileDown, FileText } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -30,6 +31,7 @@ interface Movement {
   notes: string | null;
   file_id: string | null;
   receipt_id: string | null;
+  source_payment_id: string | null;
   created_at: string;
 }
 
@@ -303,12 +305,23 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
               <div className="grid grid-cols-[90px_1fr_100px_100px_40px] gap-2 text-xs font-medium text-muted-foreground px-2">
                 <span>Fecha</span><span>Concepto</span><span className="text-right">Monto</span><span className="text-right">Saldo</span><span />
               </div>
-              {[...movementsWithBalance].reverse().map(m => (
+              {[...movementsWithBalance].reverse().map(m => {
+                const isAutoSync = !!m.source_payment_id;
+                return (
                 <div key={m.id} className="grid grid-cols-[90px_1fr_100px_100px_40px] gap-2 items-center rounded-md border px-2 py-1.5 text-sm">
                   <span className="text-xs text-muted-foreground">{new Date(m.movement_date).toLocaleDateString('es-AR')}</span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1">
-                      {m.receipt_id ? (
+                      {isAutoSync ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <FileText className="h-3 w-3 flex-shrink-0 text-primary" />
+                            </TooltipTrigger>
+                            <TooltipContent>Generado automáticamente desde un expediente</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : m.receipt_id ? (
                         <Receipt className="h-3 w-3 flex-shrink-0 text-primary" />
                       ) : m.movement_type === 'credit' ? (
                         <ArrowUpRight className="h-3 w-3 flex-shrink-0 text-green-600" />
@@ -335,11 +348,27 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
                   <span className="text-right font-mono text-xs">
                     {m.currency} {m.runningBalance.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteId(m.id)}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
+                  {isAutoSync ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
+                              <Trash2 className="h-3 w-3 text-muted-foreground" />
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>Eliminá el pago desde el expediente para borrar este movimiento</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteId(m.id)}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </DialogContent>
