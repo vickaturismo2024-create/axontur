@@ -29,6 +29,7 @@ export type Database = {
           notes: string | null
           receipt_id: string | null
           reference: string | null
+          source_payment_id: string | null
           user_id: string
         }
         Insert: {
@@ -45,6 +46,7 @@ export type Database = {
           notes?: string | null
           receipt_id?: string | null
           reference?: string | null
+          source_payment_id?: string | null
           user_id: string
         }
         Update: {
@@ -61,6 +63,7 @@ export type Database = {
           notes?: string | null
           receipt_id?: string | null
           reference?: string | null
+          source_payment_id?: string | null
           user_id?: string
         }
         Relationships: [
