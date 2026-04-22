@@ -182,17 +182,31 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
     const supplierName = catalog.find(c => c.id === resolvedSupplierId)?.name || selectedSupplier.name;
 
-    const { error } = await supabase.from('file_supplier_payments' as any).insert({
-      file_id: fileId, user_id: user.id,
-      supplier_name: supplierName, supplier_id: resolvedSupplierId,
-      amount: form.amount, currency: form.currency, payment_date: form.payment_date,
-      payment_method: form.payment_method, reference: form.reference, notes: form.notes,
-    } as any);
+    const payload = {
+      supplier_name: supplierName,
+      supplier_id: resolvedSupplierId,
+      amount: form.amount,
+      currency: form.currency,
+      payment_date: form.payment_date,
+      payment_method: form.payment_method,
+      reference: form.reference,
+      notes: form.notes,
+    };
 
-    if (error) { toast.error('Error al registrar pago'); return; }
+    let error;
+    if (editingPayment) {
+      ({ error } = await supabase.from('file_supplier_payments' as any).update(payload as any).eq('id', editingPayment.id));
+    } else {
+      ({ error } = await supabase.from('file_supplier_payments' as any).insert({
+        ...payload, file_id: fileId, user_id: user.id,
+      } as any));
+    }
 
-    toast.success('Pago registrado y reflejado en cuenta corriente');
+    if (error) { toast.error(editingPayment ? 'Error al actualizar pago' : 'Error al registrar pago'); return; }
+
+    toast.success(editingPayment ? 'Pago actualizado y reflejado en cuenta corriente' : 'Pago registrado y reflejado en cuenta corriente');
     setDialogOpen(false);
+    setEditingPayment(null);
     load();
   };
 
