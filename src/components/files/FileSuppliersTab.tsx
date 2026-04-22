@@ -214,6 +214,11 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Registrar pago a {selectedSupplier?.name}</DialogTitle></DialogHeader>
+          {selectedSupplier?.id && (
+            <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              Este pago se reflejará automáticamente en la cuenta corriente del proveedor.
+            </div>
+          )}
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
