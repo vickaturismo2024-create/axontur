@@ -312,9 +312,20 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingPayment(null); }}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Registrar pago a {selectedSupplier?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingPayment ? 'Editar pago' : 'Registrar pago'} a {selectedSupplier?.name}</DialogTitle>
+          </DialogHeader>
+
+          {editingPayment && isGenericName(editingPayment.supplier_name) && (
+            <Alert className="border-yellow-500/50 bg-yellow-500/10">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-xs">
+                Este proveedor parece genérico. Cambialo por el operador real para que el saldo se refleje en su cuenta corriente.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Supplier link selector */}
           <div className="space-y-2">
