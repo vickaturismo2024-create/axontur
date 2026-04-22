@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Plus, Trash2, Building2, DollarSign, Check, ChevronsUpDown, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Building2, DollarSign, Check, ChevronsUpDown, CheckCircle2, Pencil, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -65,10 +66,14 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
   const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(null);
   const [autoMatched, setAutoMatched] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<SupplierPayment | null>(null);
   const [form, setForm] = useState({
     amount: 0, currency, payment_date: new Date().toISOString().split('T')[0],
     payment_method: 'transfer', reference: '', notes: '',
   });
+
+  const GENERIC_NAMES = ['operador', 'proveedor', 'sin nombre', '-', ''];
+  const isGenericName = (name?: string) => GENERIC_NAMES.includes((name || '').trim().toLowerCase());
 
   const load = async () => {
     if (!user) return;
@@ -112,6 +117,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
   const openPayment = (supplier: { name: string; id: string | null }) => {
     setSelectedSupplier(supplier);
+    setEditingPayment(null);
     // Pre-resolve supplier_id from service link or catalog match
     let resolvedId: string | null = supplier.id || null;
     let matched = false;
@@ -127,6 +133,22 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     setResolvedSupplierId(resolvedId);
     setAutoMatched(matched);
     setForm({ amount: 0, currency, payment_date: new Date().toISOString().split('T')[0], payment_method: 'transfer', reference: '', notes: '' });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (payment: SupplierPayment) => {
+    setSelectedSupplier({ name: payment.supplier_name, id: payment.supplier_id });
+    setEditingPayment(payment);
+    setResolvedSupplierId(payment.supplier_id);
+    setAutoMatched(false);
+    setForm({
+      amount: payment.amount,
+      currency: payment.currency,
+      payment_date: payment.payment_date,
+      payment_method: payment.payment_method || 'transfer',
+      reference: payment.reference || '',
+      notes: payment.notes || '',
+    });
     setDialogOpen(true);
   };
 
@@ -160,17 +182,31 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
     const supplierName = catalog.find(c => c.id === resolvedSupplierId)?.name || selectedSupplier.name;
 
-    const { error } = await supabase.from('file_supplier_payments' as any).insert({
-      file_id: fileId, user_id: user.id,
-      supplier_name: supplierName, supplier_id: resolvedSupplierId,
-      amount: form.amount, currency: form.currency, payment_date: form.payment_date,
-      payment_method: form.payment_method, reference: form.reference, notes: form.notes,
-    } as any);
+    const payload = {
+      supplier_name: supplierName,
+      supplier_id: resolvedSupplierId,
+      amount: form.amount,
+      currency: form.currency,
+      payment_date: form.payment_date,
+      payment_method: form.payment_method,
+      reference: form.reference,
+      notes: form.notes,
+    };
 
-    if (error) { toast.error('Error al registrar pago'); return; }
+    let error;
+    if (editingPayment) {
+      ({ error } = await supabase.from('file_supplier_payments' as any).update(payload as any).eq('id', editingPayment.id));
+    } else {
+      ({ error } = await supabase.from('file_supplier_payments' as any).insert({
+        ...payload, file_id: fileId, user_id: user.id,
+      } as any));
+    }
 
-    toast.success('Pago registrado y reflejado en cuenta corriente');
+    if (error) { toast.error(editingPayment ? 'Error al actualizar pago' : 'Error al registrar pago'); return; }
+
+    toast.success(editingPayment ? 'Pago actualizado y reflejado en cuenta corriente' : 'Pago registrado y reflejado en cuenta corriente');
     setDialogOpen(false);
+    setEditingPayment(null);
     load();
   };
 
@@ -242,18 +278,31 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
                   {supPayments.length > 0 && (
                     <div className="space-y-1 border-t pt-2">
                       <p className="text-xs font-medium text-muted-foreground">Historial de pagos</p>
-                      {supPayments.map(p => (
-                        <div key={p.id} className="flex items-center justify-between rounded bg-muted/50 px-3 py-2 text-sm">
-                          <div>
-                            <span className="font-medium">{p.currency} {p.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                            <span className="ml-2 text-xs text-muted-foreground">{new Date(p.payment_date).toLocaleDateString('es-AR')} · {getMethodLabel(p.payment_method)}</span>
-                            {p.reference && <span className="ml-2 text-xs text-muted-foreground">Ref: {p.reference}</span>}
+                      {supPayments.map(p => {
+                        const linked = catalog.find(c => c.id === p.supplier_id);
+                        return (
+                          <div key={p.id} className="flex items-center justify-between rounded bg-muted/50 px-3 py-2 text-sm">
+                            <div className="min-w-0">
+                              <span className="font-medium">{p.currency} {p.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                              <span className="ml-2 text-xs text-muted-foreground">{new Date(p.payment_date).toLocaleDateString('es-AR')} · {getMethodLabel(p.payment_method)}</span>
+                              {p.reference && <span className="ml-2 text-xs text-muted-foreground">Ref: {p.reference}</span>}
+                              <div className="text-xs text-muted-foreground">
+                                {linked ? `→ CC: ${linked.name}` : (
+                                  <span className="text-destructive">Sin enlazar a catálogo</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => openEdit(p)}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => setDeleteId(p.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
-                          <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => setDeleteId(p.id)}>
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
@@ -263,9 +312,20 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingPayment(null); }}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Registrar pago a {selectedSupplier?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingPayment ? 'Editar pago' : 'Registrar pago'} a {selectedSupplier?.name}</DialogTitle>
+          </DialogHeader>
+
+          {editingPayment && isGenericName(editingPayment.supplier_name) && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Este proveedor parece genérico. Cambialo por el operador real para que el saldo se refleje en su cuenta corriente.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Supplier link selector */}
           <div className="space-y-2">
@@ -377,7 +437,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
               <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
             <Button onClick={handleSave} disabled={!resolvedSupplierId || form.amount <= 0}>
-              Registrar pago
+              {editingPayment ? 'Guardar cambios' : 'Registrar pago'}
             </Button>
           </div>
         </DialogContent>
