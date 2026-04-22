@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Receipt, ExternalLink, Filter, FileSpreadsheet, FileDown } from 'lucide-react';
+import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Receipt, ExternalLink, Filter, FileSpreadsheet, FileDown, FileText } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -30,6 +31,7 @@ interface Movement {
   notes: string | null;
   file_id: string | null;
   receipt_id: string | null;
+  source_payment_id: string | null;
   created_at: string;
 }
 
