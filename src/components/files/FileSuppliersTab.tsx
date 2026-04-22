@@ -66,10 +66,14 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
   const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(null);
   const [autoMatched, setAutoMatched] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<SupplierPayment | null>(null);
   const [form, setForm] = useState({
     amount: 0, currency, payment_date: new Date().toISOString().split('T')[0],
     payment_method: 'transfer', reference: '', notes: '',
   });
+
+  const GENERIC_NAMES = ['operador', 'proveedor', 'sin nombre', '-', ''];
+  const isGenericName = (name?: string) => GENERIC_NAMES.includes((name || '').trim().toLowerCase());
 
   const load = async () => {
     if (!user) return;
