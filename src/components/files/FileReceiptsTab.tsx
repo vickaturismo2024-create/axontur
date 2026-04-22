@@ -24,7 +24,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, Trash2, FileText, Download, PlusCircle, Mail, MoreVertical, Ban } from 'lucide-react';
+import { Plus, Trash2, FileText, Download, PlusCircle, Mail, MoreVertical, Ban, Eye, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -107,6 +108,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const [emailTo, setEmailTo] = useState('');
   const [emailIncludeBreakdown, setEmailIncludeBreakdown] = useState(true);
   const [emailSending, setEmailSending] = useState(false);
+  const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
+  const [detailItems, setDetailItems] = useState<any[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [form, setForm] = useState({
     client_name: clientName,
     payment_date: new Date().toISOString().split('T')[0],
@@ -290,6 +294,18 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     await generateReceiptPDF(r as any, agency, (items as any[]) || []);
   };
 
+  const openDetail = async (r: Receipt) => {
+    setDetailReceipt(r);
+    setDetailLoading(true);
+    const { data } = await supabase
+      .from('file_receipt_items')
+      .select('*')
+      .eq('receipt_id', r.id)
+      .order('created_at', { ascending: true });
+    setDetailItems((data as any[]) || []);
+    setDetailLoading(false);
+  };
+
   const openEmailDialog = async (r: Receipt) => {
     setEmailReceipt(r);
     setEmailIncludeBreakdown(true);
@@ -413,6 +429,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
                     </p>
                   </div>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openDetail(r)} title="Ver detalle">
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => downloadReceipt(r)} title="Descargar PDF">
                       <Download className="h-4 w-4" />
                     </Button>
@@ -699,6 +718,102 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal: detalle de recibo con líneas + tooltip de TC */}
+      <Dialog open={!!detailReceipt} onOpenChange={(o) => !o && setDetailReceipt(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {detailReceipt && `Recibo REC-${String(detailReceipt.receipt_number).padStart(4, '0')}`}
+            </DialogTitle>
+          </DialogHeader>
+          {detailReceipt && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Cliente</span>
+                  <p className="font-medium">{detailReceipt.client_name}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Fecha</span>
+                  <p className="font-medium">{new Date(detailReceipt.payment_date).toLocaleDateString('es-AR')}</p>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Concepto</span>
+                  <p className="font-medium">{detailReceipt.concept}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Líneas de pago</h4>
+                {detailLoading ? (
+                  <p className="py-4 text-center text-muted-foreground text-sm">Cargando...</p>
+                ) : detailItems.length === 0 ? (
+                  <p className="py-4 text-center text-muted-foreground text-sm">Sin líneas registradas.</p>
+                ) : (
+                  <TooltipProvider>
+                    <div className="space-y-2">
+                      {detailItems.map((it) => {
+                        const hasFx =
+                          it.exchange_rate &&
+                          it.service_currency &&
+                          it.service_currency !== it.currency;
+                        return (
+                          <div
+                            key={it.id}
+                            className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium">
+                                  {it.currency} {Number(it.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </span>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {getMethodLabel(it.payment_method || 'other')}
+                                </Badge>
+                                {hasFx && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center gap-1 text-xs text-primary cursor-help">
+                                        <Info className="h-3.5 w-3.5" />
+                                        TC {Number(it.exchange_rate).toFixed(2)}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <p className="text-xs">
+                                        <strong>TC aplicado:</strong> 1 {it.service_currency} ={' '}
+                                        {Number(it.exchange_rate).toLocaleString('es-AR')} {it.currency}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        Fecha: {new Date(detailReceipt.payment_date).toLocaleDateString('es-AR')} · Manual
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                              {it.notes && (
+                                <p className="text-xs text-muted-foreground mt-0.5 truncate">{it.notes}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </TooltipProvider>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center border-t pt-3">
+                <span className="text-sm text-muted-foreground">Total recibo</span>
+                <span className="font-bold text-lg">
+                  {detailReceipt.currency}{' '}
+                  {detailReceipt.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

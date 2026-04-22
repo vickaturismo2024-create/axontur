@@ -10,6 +10,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
 import { exportReportsToExcel } from '@/lib/exportReports';
 import { OperationalReport } from '@/components/reports/OperationalReport';
+import { ExchangeRatesReport } from '@/components/reports/ExchangeRatesReport';
 import { toast } from 'sonner';
 import { getAvailableCurrencies, getDefaultCurrency } from '@/lib/quoteFilters';
 
@@ -45,6 +46,7 @@ const Reports = () => {
           <TabsList>
             <TabsTrigger value="profitability">Rentabilidad</TabsTrigger>
             <TabsTrigger value="operational">Operativo</TabsTrigger>
+            <TabsTrigger value="exchange">Tipos de Cambio</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profitability" className="space-y-6">
@@ -171,6 +173,10 @@ const Reports = () => {
 
           <TabsContent value="operational">
             <OperationalReport />
+          </TabsContent>
+
+          <TabsContent value="exchange">
+            <ExchangeRatesReport />
           </TabsContent>
         </Tabs>
       </main>
