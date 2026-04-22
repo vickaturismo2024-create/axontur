@@ -1,74 +1,49 @@
 
 
-## Verificación automática de infraestructura (Email + Dominio)
+## Fase 1 — Sincronización automática Pagos a Proveedores → Cuenta Corriente
 
 ### Objetivo
-Tener un **panel interno de salud** que valide en tiempo real si el dominio de email (`notify.vickaturismo.tur.ar`), el procesamiento de la cola de emails y la cuenta de envíos están operativos. Bloquea acciones críticas (envío de recibos/confirmaciones) cuando algo no está listo y muestra un estado claro al usuario.
+Cuando registrás un pago a un proveedor desde un expediente (`file_supplier_payments`), el sistema crea **automáticamente** el movimiento equivalente en la cuenta corriente del proveedor (`account_movements`). Si lo modificás o eliminás, la CC se actualiza sola. No se duplica nada y los movimientos viejos quedan al día.
 
-### Funcionalidades
+### Cómo va a funcionar
 
-**1. Página `/settings/infraestructura` (nueva pestaña en Configuración)**
-- Tarjeta **Dominio de Email** con estado visual:
-  - 🟢 Verificado y activo
-  - 🟡 DNS propagándose
-  - 🔴 Falló / requiere acción
-  - Muestra FQDN, fecha de alta y último chequeo.
-- Tarjeta **Cola de envío**: cantidad de emails `pending`, `sent`, `failed`, `dlq` (últimas 24 hs).
-- Tarjeta **Últimos envíos** (tabla): plantilla, destinatario, estado, timestamp, error si aplica. Deduplicada por `message_id`.
-- Botón **Re-verificar ahora** que vuelve a consultar el estado del dominio.
+**Flujo nuevo (lo que cambia para vos):**
+1. Cargás un pago en la pestaña "Proveedores" del expediente → se ve en CC del proveedor al instante.
+2. Editás el monto del pago → el movimiento de CC se actualiza solo.
+3. Eliminás el pago → el movimiento desaparece.
+4. En la CC del proveedor, los movimientos automáticos muestran un **ícono de expediente** y un link al expediente origen. Esos movimientos **no se pueden borrar desde CC** (solo desde el expediente que los creó), para evitar inconsistencias.
 
-**2. Hook global `useEmailInfraStatus`**
-- Polling cada 5 minutos del estado del dominio + métricas de la cola.
-- Cachea resultado en React Query para no spamear.
-- Expone `{ domainReady, queueHealthy, lastCheck, error }`.
+**Backfill (única vez):** todos los `file_supplier_payments` ya cargados que aún no tienen movimiento en CC se procesan en una migración inicial. Después de esto, las cuentas corrientes de proveedores quedan al día con la realidad operativa.
 
-**3. Guardas en acciones críticas**
-- En `FileReceiptsTab` (enviar recibo por email), `EditReservationModal` (confirmaciones) y demás puntos que invocan `emailService.ts`:
-  - Si `domainReady === false` → modal advirtiendo "El dominio aún no está verificado, el email puede no llegar. ¿Enviar igual?".
-  - Si `queueHealthy === false` (muchos `dlq`/`failed` recientes) → toast amarillo de advertencia.
-- **No bloquea** generación de PDF (el PDF no depende del dominio); solo advierte en envíos por email.
+### Cambios técnicos
 
-**4. Indicador en Header**
-- Punto de color discreto al lado del nombre de la agencia:
-  - Verde = todo OK / Amarillo = propagando / Rojo = requiere acción.
-- Click → lleva a `/settings/infraestructura`.
+**Base de datos (migración):**
+1. Agregar columna `source_payment_id uuid` (nullable) a `account_movements` con índice único parcial `WHERE source_payment_id IS NOT NULL` para evitar duplicados.
+2. Crear función `sync_supplier_payment_to_account_movement()` (SECURITY DEFINER, search_path=public) que:
+   - **AFTER INSERT**: inserta movimiento con `account_type='supplier'`, `account_id=NEW.supplier_id`, `movement_type='debit'`, `concept='Pago expediente #' || file_number`, copiando amount/currency/payment_date/reference/user_id/file_id y `source_payment_id=NEW.id`. Si `supplier_id` es NULL, no hace nada (el pago no está vinculado a un proveedor del catálogo).
+   - **AFTER UPDATE**: actualiza el movimiento existente que matchea `source_payment_id=OLD.id` con los nuevos valores. Si cambió el `supplier_id`, borra el viejo y crea uno nuevo.
+   - **AFTER DELETE**: borra el movimiento donde `source_payment_id=OLD.id`.
+3. Triggers `trg_supplier_payment_sync_aiu` (AFTER INSERT OR UPDATE) y `trg_supplier_payment_sync_ad` (AFTER DELETE) sobre `file_supplier_payments`.
+4. **Backfill**: bloque `DO $$ ... $$` que recorre los `file_supplier_payments` existentes con `supplier_id NOT NULL` y crea su movimiento si todavía no existe (chequeando por `source_payment_id`). Conserva el `created_at` original del pago como `movement_date` solo si no hay `payment_date`; respeta `user_id` original.
 
-**5. Notificación inicial**
-- Al loguearse, si el dominio pasa de `pending` a `active` desde la última visita, toast de éxito: "Tu dominio de email está activo".
-- Si lleva más de 72 hs en `pending`, banner persistente con link a la guía de DNS.
-
-### Detalles técnicos
-
-- **Edge function nueva** `check-email-infra` (verify_jwt = true):
-  - Consulta `email_send_log` agregada (últimas 24 hs) por `status` deduplicado por `message_id`.
-  - Devuelve JSON `{ queue: { pending, sent, failed, dlq }, lastError }`.
-- **Estado del dominio**: se consulta vía `supabase.functions.invoke('check-email-infra')` que internamente lee la tabla de configuración del workspace; no se expone API key alguna al cliente.
-- **React Query**: `staleTime: 5min`, `refetchOnWindowFocus: false` (consistente con la convención del proyecto, ver memoria `tab-persistence-optimization`).
-- **RLS**: solo el dueño del proyecto (rol `admin` en `user_roles` si existe, sino `auth.uid() = user_id`) puede ver el panel.
-
-### Archivos a crear/modificar
-
-```
-crear:
-  src/pages/InfraStatus.tsx           (panel principal)
-  src/hooks/useEmailInfraStatus.ts    (hook con React Query)
-  src/components/layout/InfraHealthDot.tsx  (indicador en Header)
-  supabase/functions/check-email-infra/index.ts
-
-modificar:
-  src/components/layout/Header.tsx              (agregar punto de salud)
-  src/pages/Settings.tsx                        (tab "Infraestructura")
-  src/components/files/FileReceiptsTab.tsx      (guard antes de enviar)
-  src/components/reservations/EditReservationModal.tsx  (guard)
-  src/lib/emailService.ts                       (helper isInfraReady())
-  src/App.tsx                                   (ruta /settings/infraestructura)
-  supabase/config.toml                          (registrar nueva función)
-```
+**Frontend:**
+- `src/pages/SupplierDetail.tsx` y `src/components/accounts/AccountDetail.tsx`:
+  - En la tabla de movimientos, mostrar un ícono `FileText` (lucide) cuando `source_payment_id` está seteado, con tooltip "Generado desde expediente #N" y link clickeable al expediente (`/files/:file_id`).
+  - Deshabilitar el botón de eliminar para esos movimientos, con tooltip explicativo.
+- `src/types` / consumers de `account_movements`: agregar `source_payment_id?: string | null` al tipo (los types de Supabase se autogeneran post-migración).
+- `src/components/files/FileSuppliersTab.tsx`: agregar nota informativa breve ("Este pago se reflejará automáticamente en la cuenta corriente del proveedor") arriba del formulario de pago, solo cuando haya `supplier_id` seleccionado.
 
 ### Verificación
-- Pestaña **Infraestructura** muestra estado del dominio y métricas de la cola de las últimas 24 hs.
-- Header muestra punto de color reflejando el estado real.
-- Al intentar enviar un recibo por email con DNS pendiente, aparece modal de confirmación.
-- Re-chequeo manual actualiza estado sin recargar página.
-- Cuando el dominio pase a `active`, indicadores cambian a verde automáticamente en la próxima ventana de polling (≤5 min).
+- Crear un nuevo `file_supplier_payment` en un expediente con proveedor del catálogo → aparece en `/suppliers/:id` (cuenta corriente) con ícono y link.
+- Editar el monto desde el expediente → el saldo del proveedor refleja el cambio.
+- Borrar el pago → desaparece el movimiento.
+- Pagos sin `supplier_id` (proveedor manual sueltos) **no** generan movimiento (comportamiento esperado).
+- Después del backfill, los proveedores muestran movimientos retroactivos correctamente y la suma de saldos coincide con `SUM(amount)` de `file_supplier_payments` por `supplier_id`.
+- No es posible borrar un movimiento auto-generado desde la pantalla de CC.
+
+### Fuera de alcance (para próximas fases del documento)
+- Fase 2: tabla `exchange_rate_log` y auditoría de tipo de cambio.
+- Fase 3: pestaña "Resultados Reales" en Reportes.
+- Fase 4: Cierre de Caja / widget de ingresos del día.
+- Fase 5: Facturación AFIP.
 
