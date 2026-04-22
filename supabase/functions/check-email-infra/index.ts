@@ -1,9 +1,13 @@
 // Aggregates email infrastructure health for the authenticated user.
 // Returns queue metrics from email_send_log (last 24h, deduplicated by message_id)
-// plus the most recent error. The frontend combines this with the email-domain
-// status (queried separately via the platform tools) to build the health panel.
+// plus the most recent error.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.95.0';
-import { corsHeaders } from 'https://esm.sh/@supabase/supabase-js@2.95.0/cors';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+};
 
 interface QueueMetrics {
   pending: number;
@@ -29,29 +33,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
+    // verify_jwt = true in config.toml ensures the platform validates the JWT
+    // before invoking this function. We just need the user_id from the header
+    // for logging/scoping purposes if needed — but here we read service-role
+    // data, so we don't even need to decode the JWT.
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     // Service-role client to read email_send_log (RLS restricts to service_role).
     const adminClient = createClient(supabaseUrl, serviceKey);
