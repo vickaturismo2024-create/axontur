@@ -46,8 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data) {
         setAgencyId(data.agency_id);
         setRole(data.role as AppRole);
-        // @ts-expect-error nested relation
-        setAgencyName(data.agencies?.name ?? null);
+        const agencies = data.agencies as { name?: string } | null;
+        setAgencyName(agencies?.name ?? null);
       } else {
         setAgencyId(null);
         setAgencyName(null);
