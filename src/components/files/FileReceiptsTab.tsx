@@ -108,6 +108,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const [emailTo, setEmailTo] = useState('');
   const [emailIncludeBreakdown, setEmailIncludeBreakdown] = useState(true);
   const [emailSending, setEmailSending] = useState(false);
+  const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
+  const [detailItems, setDetailItems] = useState<any[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [form, setForm] = useState({
     client_name: clientName,
     payment_date: new Date().toISOString().split('T')[0],
