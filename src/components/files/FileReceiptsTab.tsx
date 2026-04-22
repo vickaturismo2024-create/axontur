@@ -29,7 +29,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { generateReceiptPDF } from '@/components/files/receiptPdfUtils';
-import { sendReceiptEmail } from '@/lib/emailService';
+import { sendReceiptEmail, isInfraReady } from '@/lib/emailService';
 
 interface Receipt {
   id: string;
@@ -309,6 +309,20 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     }
     setEmailSending(true);
     try {
+      // Guard: chequear estado de la infraestructura de email
+      const infra = await isInfraReady();
+      if (!infra.domainReady) {
+        const ok = window.confirm(
+          'El dominio de email todavía no está verificado o presenta errores recientes. El recibo puede no llegar al destinatario. ¿Querés enviarlo igual?',
+        );
+        if (!ok) {
+          setEmailSending(false);
+          return;
+        }
+      } else if (!infra.queueHealthy) {
+        toast.warning('La cola de envíos tiene errores recientes — el envío puede demorar.');
+      }
+
       const { data: itemsData } = await supabase
         .from('file_receipt_items')
         .select('*')
