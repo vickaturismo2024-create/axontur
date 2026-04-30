@@ -18,6 +18,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuotesSafe } from '@/contexts/QuotesContext';
 import { useTheme } from '@/hooks/useTheme';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const navItems = [
@@ -38,6 +40,7 @@ export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { isAdmin, role } = usePermissions();
   const quotesContext = useQuotesSafe();
   const { theme, toggleTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -153,6 +156,11 @@ export function Header() {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium">Mi cuenta</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
+                    {role && (
+                      <Badge variant={isAdmin ? 'default' : 'secondary'} className="w-fit text-[10px] mt-1">
+                        {isAdmin ? 'Administrador' : 'Vendedor'}
+                      </Badge>
+                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
