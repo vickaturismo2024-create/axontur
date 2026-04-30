@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AdminOnly } from '@/components/auth/AdminOnly';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -308,21 +309,23 @@ export default function ReservationDetail() {
               <Button size="sm" onClick={() => setIsEditModalOpen(true)} className="flex-1 sm:flex-none">
                 <Pencil className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Editar</span>
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm" className="flex-1 sm:flex-none"><Trash2 className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Eliminar</span></Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar vuelo?</AlertDialogTitle>
-                    <AlertDialogDescription>Se eliminarán todos los segmentos, pasajeros y datos asociados.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteReservation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <AdminOnly>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="flex-1 sm:flex-none"><Trash2 className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Eliminar</span></Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Eliminar vuelo?</AlertDialogTitle>
+                      <AlertDialogDescription>Se eliminarán todos los segmentos, pasajeros y datos asociados.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteReservation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </AdminOnly>
             </div>
           </div>
 

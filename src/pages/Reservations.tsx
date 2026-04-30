@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { AdminOnly } from '@/components/auth/AdminOnly';
 import { Link } from 'react-router-dom';
 import { Plane, Plus, Search, Trash2, AlertTriangle, Download, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
