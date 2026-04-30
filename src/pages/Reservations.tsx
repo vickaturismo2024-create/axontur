@@ -376,6 +376,7 @@ export default function Reservations() {
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
+                      </AdminOnly>
                     </div>
                   </CardContent>
                 </Card>
