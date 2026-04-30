@@ -67,14 +67,14 @@ const Settings = () => {
 
         <div className="max-w-4xl">
           <Tabs value={tab} onValueChange={onTabChange}>
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-7 h-auto">
+            <TabsList className={`grid w-full h-auto ${isAdmin ? 'grid-cols-2 sm:grid-cols-7' : 'grid-cols-3'}`}>
               <TabsTrigger value="account" className="gap-1.5"><User className="h-4 w-4" /> Cuenta</TabsTrigger>
-              <TabsTrigger value="agency" className="gap-1.5"><Building2 className="h-4 w-4" /> Agencia</TabsTrigger>
+              {isAdmin && <TabsTrigger value="agency" className="gap-1.5"><Building2 className="h-4 w-4" /> Agencia</TabsTrigger>}
               <TabsTrigger value="preferences" className="gap-1.5"><SlidersHorizontal className="h-4 w-4" /> Preferencias</TabsTrigger>
               <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notificaciones</TabsTrigger>
-              <TabsTrigger value="documents" className="gap-1.5"><FileText className="h-4 w-4" /> Documentos</TabsTrigger>
-              <TabsTrigger value="email" className="gap-1.5"><Mail className="h-4 w-4" /> Email</TabsTrigger>
-              <TabsTrigger value="infraestructura" className="gap-1.5"><Activity className="h-4 w-4" /> Infraestructura</TabsTrigger>
+              {isAdmin && <TabsTrigger value="documents" className="gap-1.5"><FileText className="h-4 w-4" /> Documentos</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="email" className="gap-1.5"><Mail className="h-4 w-4" /> Email</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="infraestructura" className="gap-1.5"><Activity className="h-4 w-4" /> Infraestructura</TabsTrigger>}
             </TabsList>
 
             <Card className="mt-4">
