@@ -351,6 +351,7 @@ export default function Reservations() {
                         </Link>
                       )}
 
+                      <AdminOnly>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10">
