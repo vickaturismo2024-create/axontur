@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { AdminOnly } from '@/components/auth/AdminOnly';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
 import { supabase } from '@/integrations/supabase/client';
@@ -191,7 +192,9 @@ const Suppliers = () => {
                           <Button variant="ghost" size="sm"><ExternalLink className="mr-1 h-4 w-4" />Ver</Button>
                         </Link>
                         <Button variant="ghost" size="sm" onClick={() => { setEditing(s); setIsDialogOpen(true); }}><Pencil className="mr-1 h-4 w-4" />Editar</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setDeleteId(s.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
+                        <AdminOnly>
+                          <Button variant="ghost" size="sm" onClick={() => setDeleteId(s.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
+                        </AdminOnly>
                       </div>
                     </CardContent>
                   </Card>

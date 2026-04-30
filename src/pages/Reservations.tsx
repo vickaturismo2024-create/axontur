@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { AdminOnly } from '@/components/auth/AdminOnly';
 import { Link } from 'react-router-dom';
 import { Plane, Plus, Search, Trash2, AlertTriangle, Download, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -351,6 +352,7 @@ export default function Reservations() {
                         </Link>
                       )}
 
+                      <AdminOnly>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10">
@@ -375,6 +377,7 @@ export default function Reservations() {
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
+                      </AdminOnly>
                     </div>
                   </CardContent>
                 </Card>

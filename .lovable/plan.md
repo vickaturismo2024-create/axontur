@@ -1,131 +1,121 @@
+## Fase B — Restricciones por rol (Admin / Vendedor)
 
-
-# Roadmap multi-usuario y roles — 3 fases
-
-## Visión general
-
-Hoy AxonTur es **mono-usuario**: cada cuenta opera aislada y todo lo que se carga queda atado a `user_id`. Para venderlo a agencias reales necesitamos:
-
-1. **Agencias** como entidad que agrupa usuarios y datos.
-2. **Roles** (`admin` / `vendedor`) con restricciones reales en UI y base de datos.
-3. **Invitaciones** para que el admin sume vendedores a su agencia.
-
-Vamos en 3 fases independientes y reversibles. Cada fase queda funcional por sí sola.
+### Objetivo
+Que el rol `vendedor` pueda operar el día a día (cargar presupuestos, clientes, expedientes, recibos) pero **no pueda tocar lo financiero sensible ni la configuración de la agencia**. El `admin` mantiene control total.
 
 ---
-
-## Fase A — Concepto de Agencia y migración de datos
-
-**Objetivo:** introducir la entidad agencia sin romper nada. Vos quedás como **Owner/Admin** de tu agencia actual con todos tus datos intactos.
-
-### Cambios
-
-1. **Tabla nueva `agencies`**: id, nombre (tomado de `profiles.agency_name`), datos fiscales, owner_id, created_at.
-2. **Tabla nueva `agency_members`**: vincula `user_id` ↔ `agency_id` ↔ `role` (`admin` | `vendedor`). Por ahora vos sos único miembro como `admin`.
-3. **Columna nueva `agency_id`** en todas las tablas operativas (`quotes`, `clients`, `suppliers`, `files`, `file_receipts`, `file_receipt_items`, `file_services`, `file_supplier_payments`, `file_passengers`, `account_movements`, `payments`, `templates`, `quote_tags`, `quote_versions`, `client_groups`, `client_notes`, `reservations`, `reminders`, `email_logs`, `exchange_rate_log`).
-4. **Función security definer `current_agency_id()`** que devuelve la agencia del usuario logueado (consultando `agency_members`).
-5. **RLS actualizado**: las policies pasan de `auth.uid() = user_id` a `agency_id = current_agency_id()`. Esto permite que cualquier miembro de la agencia vea los mismos datos.
-6. **Migración de datos**:
-   - Crea una agencia con tu `profiles.agency_name` (o "Mi Agencia" si está vacío).
-   - Te inserta como `admin` en `agency_members`.
-   - Backfill: `UPDATE … SET agency_id = <tu_agencia>` en todas las tablas para tus filas existentes.
-7. **Frontend**: `AuthContext` extendido con `agencyId` y `role`. Cargados al loguearse. Cero cambios visibles en pantallas (sigue funcionando exactamente igual que hoy).
-
-### Verificación
-- Loguearse → ves todos tus presupuestos/expedientes/clientes/recibos como siempre.
-- DB: cada fila operativa tiene `agency_id` poblado.
-- `SELECT current_agency_id()` retorna tu agencia.
-
----
-
-## Fase B — Roles y restricciones UI
-
-**Objetivo:** aplicar el rol `vendedor` con lock-down financiero/configuración. Sigue siendo agencia mono-usuario (vos sos admin), pero podés crear un usuario de prueba como vendedor para validar.
 
 ### Matriz de permisos
 
-| Acción | Admin | Vendedor |
-|---|:-:|:-:|
-| Crear/editar presupuestos | ✓ | ✓ |
-| Eliminar presupuestos | ✓ | ✗ |
-| Crear/editar clientes y proveedores | ✓ | ✓ |
-| Eliminar clientes y proveedores | ✓ | ✗ |
-| Crear expedientes (desde quote) | ✓ | ✓ |
-| Editar pasajeros, servicios, comunicaciones del expediente | ✓ | ✓ |
-| Eliminar expedientes | ✓ | ✗ |
-| Cargar recibos a clientes | ✓ | ✓ |
-| Editar/anular recibos | ✓ | ✗ |
-| Cargar pagos a proveedores | ✓ | ✓ |
-| Editar/eliminar pagos a proveedores | ✓ | ✗ |
-| Cargar movimientos manuales en CC (cliente o proveedor) | ✓ | ✗ |
-| Editar tipos de cambio en recibos multi-moneda | ✓ | ✗ |
-| Ver pestaña Reportes (rentabilidad, márgenes, TC) | ✓ | ✗ |
-| Ver Cuenta Corriente de clientes/proveedores | ✓ | ✗ |
-| Ver pestaña Resumen financiero del expediente | ✓ | ✗ |
-| Editar Configuración (agencia, plantillas, email, infraestructura) | ✓ | ✗ |
-| Gestionar miembros del equipo | ✓ | ✗ |
-| Reservas (PNR, vuelos) | ✓ | ✓ |
-| Calendario | ✓ | ✓ |
+| Área | Vendedor | Admin |
+|---|---|---|
+| **Presupuestos** (crear, editar, duplicar, aprobar, PDF) | ✅ | ✅ |
+| Eliminar presupuestos | ❌ | ✅ |
+| **Clientes** (crear, editar, notas, importar) | ✅ | ✅ |
+| Eliminar clientes | ❌ | ✅ |
+| **Proveedores** (crear, editar) | ✅ | ✅ |
+| Eliminar proveedores | ❌ | ✅ |
+| **Expedientes** (crear desde presupuesto, agregar pasajeros, servicios, comunicaciones) | ✅ | ✅ |
+| Eliminar expedientes | ❌ | ✅ |
+| **Recibos a clientes** (emitir) | ✅ | ✅ |
+| Anular / eliminar recibos | ❌ | ✅ |
+| **Pagos a proveedores** (registrar) | ✅ | ✅ |
+| Anular / eliminar pagos a proveedores | ❌ | ✅ |
+| **Cuentas corrientes — movimientos manuales** (alta, edición, baja) | ❌ | ✅ |
+| Ver cuentas corrientes | ✅ | ✅ |
+| **Reservas / PNRs** (importar, editar) | ✅ | ✅ |
+| Eliminar reservas | ❌ | ✅ |
+| **Reportes / Analítica** (ver) | ✅ | ✅ |
+| Exportar reportes | ✅ | ✅ |
+| **Configuración → Cuenta** (su propio perfil) | ✅ | ✅ |
+| **Configuración → Agencia** (datos, logo, CUIT) | ❌ | ✅ |
+| **Configuración → Documentos / Email / Infraestructura** | ❌ | ✅ |
+| **Configuración → Preferencias / Notificaciones** (propias) | ✅ | ✅ |
+| **Plantillas de PDF** (crear, editar) | ❌ (solo usar) | ✅ |
+| **Gestión de usuarios de la agencia** (Fase C) | ❌ | ✅ |
+
+**Regla de oro:** vendedor crea y edita, admin elimina y configura.
+
+---
 
 ### Cambios técnicos
 
-1. **Hook `useRole()`**: lee `role` del `AuthContext`, expone `isAdmin`, `isVendedor`, helper `can(action)`.
-2. **`<RoleGuard requires="admin">`**: wrapper que oculta o desactiva botones/secciones para vendedores. Aplicado en:
-   - Botones eliminar (presupuestos, clientes, expedientes, recibos, pagos a proveedores, movimientos).
-   - Tabs financieras (Resumen del expediente, Cuenta Corriente, Reportes, Settings).
-   - Acciones de edición de TC en recibos multi-moneda.
-   - Botón "Registrar movimiento manual" en CC.
-   - Sidebar/Header: ocultar links a Reportes, Settings, Cuentas Corrientes para vendedor.
-3. **Rutas protegidas**: `<ProtectedRoute requireRole="admin">` para `/reportes`, `/settings`, `/clients/:id`, `/suppliers/:id`, `/accounts`. Si vendedor entra por URL → redirige a `/`.
-4. **Defensa en backend (RLS)**: además de filtrar por agencia, las policies de `DELETE` y de tablas sensibles validan rol vía nueva función `has_role(_user_id, 'admin')`. Aunque alguien manipule el frontend, la base bloquea.
-5. **Banner UX**: si vendedor llega a una zona vacía por permisos, se muestra "Esta función está restringida al administrador de la agencia."
+#### 1. Capa de base de datos (RLS reforzado)
+Restringir el `DELETE` de tablas sensibles a `admin` únicamente, sumando `has_role(auth.uid(), 'admin')` a las políticas existentes:
 
-### Verificación
-- Cambiar tu propio rol a `vendedor` temporalmente desde DB → la UI esconde botones de eliminar, Reportes, Settings, CC. Volverlo a `admin` → todo vuelve.
-- Intentar `DELETE` en consola de Supabase con rol vendedor → error de RLS.
+- `quotes`, `clients`, `suppliers`, `files`
+- `file_receipts`, `file_receipt_items`
+- `file_supplier_payments`
+- `account_movements` (DELETE + UPDATE + INSERT manuales: solo admin)
+- `reservations`, `flight_segments`
+- `quote_tags`, `client_groups`, `quote_versions`
 
----
+Las políticas de `SELECT/INSERT/UPDATE` operativas siguen igual (todos los miembros).
 
-## Fase C — Invitaciones y onboarding multi-usuario
+Para `account_movements` la restricción es más fuerte: el `INSERT/UPDATE/DELETE` manual queda bloqueado para vendedor (los movimientos automáticos por trigger igualmente se siguen creando porque corren como `SECURITY DEFINER`).
 
-**Objetivo:** que el admin sume vendedores reales a su agencia desde la UI. Listo para vender el producto.
+Para `agencies` (UPDATE) ya está limitado a admin — se mantiene.
 
-### Cambios
+#### 2. Capa de UI (ocultar/deshabilitar)
+Crear un hook `usePermissions()` que exponga flags derivados del `role` de `AuthContext`:
 
-1. **Tabla `agency_invitations`**: agency_id, email, role, token, status (`pending`/`accepted`/`revoked`), expires_at, invited_by.
-2. **Edge Function `send-invitation`**: recibe email + rol, valida que el invitador sea `admin`, genera token, manda mail con link `https://axontur.lovable.app/auth?invite=<token>` usando la infraestructura de email existente (template nuevo `invite.tsx`).
-3. **Edge Function `accept-invitation`**: el invitado entra al link, se loguea o se registra (signup normal), y al confirmar email se ejecuta esta función que: valida token, agrega al usuario en `agency_members` con el rol asignado, marca invitación como `accepted`.
-4. **Página nueva `/settings?tab=team`** (sólo admin):
-   - Lista de miembros actuales con su rol y email.
-   - Botón "Invitar usuario" → diálogo con email + select de rol.
-   - Cambiar rol de un miembro existente.
-   - Quitar miembro de la agencia (deja sus datos pero pierde acceso).
-   - No podés removerte a vos mismo si sos único admin.
-5. **Signup mejorado** (`src/pages/Auth.tsx`):
-   - Si la URL trae `?invite=<token>` → muestra "Te invitaron a unirte a {agencia} como {rol}", el signup automáticamente lo asocia.
-   - Si no hay invitación → signup normal crea su propia agencia (vos sos owner/admin de tu agencia).
-6. **Ajuste profile/agency**: separar lo que es del usuario (foto, idioma) de lo que es de la agencia (nombre, CUIT, logo, plantillas, email config). La agencia comparte settings; el usuario tiene los suyos.
-7. **Indicador de agencia en Header**: badge con nombre de agencia + rol del usuario logueado.
+```ts
+const { canDelete, canManageAgency, canCreateMovements, canEditTemplates, isAdmin } = usePermissions();
+```
 
-### Verificación
-- Como admin invitás a `vendedor@test.com` → recibe email con link.
-- El vendedor crea cuenta con ese link → entra ya como miembro de tu agencia con rol vendedor.
-- Ve los mismos clientes/expedientes/presupuestos que vos, pero sin botones de eliminar, sin Reportes ni Settings.
-- Vos podés cambiar su rol a admin o quitarlo desde `/settings?tab=team`.
+Aplicarlo en:
+- Botones de eliminar (presupuestos, clientes, proveedores, expedientes, recibos, pagos, reservas) → ocultos para vendedor
+- `NewMovementDialog` (movimientos manuales en CC) → botón "Nuevo movimiento" oculto para vendedor en `/accounts`
+- `Settings` → tabs **Agencia, Documentos, Email, Infraestructura** ocultos para vendedor
+- `Templates` → botones "Crear/Editar/Eliminar" plantilla deshabilitados para vendedor (ver y usar sí)
+- `Header` → mostrar badge "Vendedor" / "Admin" junto al nombre de usuario
+
+#### 3. Mensajes claros
+Cuando un vendedor intenta una acción restringida (por ejemplo, vía URL directa o RLS bloquea), mostrar toast: *"Esta acción requiere permisos de administrador. Contactá al admin de tu agencia."*
+
+#### 4. Componente `<AdminOnly>` 
+Wrapper simple para envolver bloques de UI que solo deben ver admins:
+```tsx
+<AdminOnly>
+  <Button variant="destructive">Eliminar</Button>
+</AdminOnly>
+```
 
 ---
 
-## Fuera de alcance (para iteraciones futuras)
+### Archivos a tocar (estimado)
 
-- Permisos granulares por usuario (más allá de los 2 roles).
-- Auditoría/log de acciones por usuario (quién borró qué).
-- Múltiples agencias por usuario (hoy 1 usuario = 1 agencia).
-- Facturación/billing por agencia.
-- SSO o login con Google.
+- **Migración SQL** nueva: refuerza políticas RLS de DELETE en ~10 tablas + bloqueo de INSERT/UPDATE manual en `account_movements`.
+- **Nuevos**:
+  - `src/hooks/usePermissions.ts`
+  - `src/components/auth/AdminOnly.tsx`
+- **Editados** (ocultar acciones según rol):
+  - `src/pages/Settings.tsx` (filtrar tabs)
+  - `src/pages/Accounts.tsx` + `src/components/accounts/AccountDetail.tsx` + `NewMovementDialog.tsx`
+  - `src/pages/Clients.tsx`, `ClientDetail.tsx`
+  - `src/pages/Suppliers.tsx`, `SupplierDetail.tsx`
+  - `src/pages/Files.tsx`, `FileDetail.tsx` + tabs (Receipts, Suppliers, Services)
+  - `src/pages/Reservations.tsx`, `ReservationDetail.tsx`
+  - `src/pages/Templates.tsx`
+  - `src/pages/Dashboard.tsx` (botón eliminar presupuesto)
+  - `src/components/quotes/QuoteCard.tsx` (botón eliminar)
+  - `src/components/layout/Header.tsx` (badge de rol)
 
 ---
 
-## Próximo paso
+### Cómo lo vas a probar
+1. Como tu usuario actual (`admin`) todo sigue exactamente igual.
+2. Para probar como vendedor: en Fase C tendremos invitaciones, pero por ahora podemos crear un segundo usuario de prueba y cambiarle el rol manualmente en la base. Si querés, en este mismo paso te dejo un botón "Modo vendedor (preview)" en Settings → Cuenta que **simula** la UI restringida sin tocar la base, así verificás visualmente antes de Fase C.
 
-Si lo aprobás, arrancamos con **Fase A** (agencia + migración de datos), que es la base. Es la más invasiva técnicamente porque toca RLS y agrega columnas a casi todas las tablas, pero la UI no cambia y vos seguís viendo todo igual. Una vez que confirmemos que nada se rompió, pasamos a **Fase B** (restricciones de rol) y después a **Fase C** (invitaciones).
+---
 
+### Fuera de alcance (van en Fase C)
+- Invitar usuarios por email
+- Pantalla de gestión de miembros de la agencia
+- Cambiar rol de un miembro existente
+- Transferir ownership
+
+---
+
+### ¿Confirmás?
+Si está OK arranco con la migración RLS + el hook `usePermissions` + el wrapper `AdminOnly`, y después barro las pantallas para ocultar acciones. ¿Querés que incluya el "Modo vendedor (preview)" para poder testear sin crear segundo usuario?

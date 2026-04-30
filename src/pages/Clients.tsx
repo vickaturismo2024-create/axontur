@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { AdminOnly } from '@/components/auth/AdminOnly';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
@@ -558,7 +559,9 @@ function ExpandableClientCard({ client, quotes, onEdit, onDelete, navigate, defa
               <Button variant="ghost" size="sm" onClick={() => navigate(`/clients/${client.id}`)}>
                 <Wallet className="mr-1 h-4 w-4" /> Cuenta Corriente
               </Button>
-              <Button variant="ghost" size="sm" onClick={onDelete} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+              <AdminOnly>
+                <Button variant="ghost" size="sm" onClick={onDelete} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+              </AdminOnly>
             </div>
           </CardContent>
         </CollapsibleContent>

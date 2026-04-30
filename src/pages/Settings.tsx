@@ -12,20 +12,29 @@ import { NotificationsTab } from '@/components/settings/NotificationsTab';
 import { DocumentsTab } from '@/components/settings/DocumentsTab';
 import { EmailTab } from '@/components/settings/EmailTab';
 import { InfraTab } from '@/components/settings/InfraTab';
+import { usePermissions } from '@/hooks/usePermissions';
 
-const TABS = ['account', 'agency', 'preferences', 'notifications', 'documents', 'email', 'infraestructura'] as const;
-type TabKey = typeof TABS[number];
+const ALL_TABS = ['account', 'agency', 'preferences', 'notifications', 'documents', 'email', 'infraestructura'] as const;
+type TabKey = typeof ALL_TABS[number];
 
 const Settings = () => {
   const { loading } = useSettings();
+  const { isAdmin } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Vendedores solo ven tabs de uso personal
+  const TABS = isAdmin
+    ? ALL_TABS
+    : (['account', 'preferences', 'notifications'] as const);
+
   const initial = (searchParams.get('tab') as TabKey) || 'account';
-  const [tab, setTab] = useState<TabKey>(TABS.includes(initial) ? initial : 'account');
+  const safeInitial = (TABS as readonly string[]).includes(initial) ? initial : 'account';
+  const [tab, setTab] = useState<TabKey>(safeInitial as TabKey);
 
   useEffect(() => {
     const t = searchParams.get('tab') as TabKey;
-    if (t && TABS.includes(t) && t !== tab) setTab(t);
-  }, [searchParams]);
+    if (t && (TABS as readonly string[]).includes(t) && t !== tab) setTab(t);
+  }, [searchParams, isAdmin]);
 
   const onTabChange = (v: string) => {
     setTab(v as TabKey);
@@ -58,14 +67,14 @@ const Settings = () => {
 
         <div className="max-w-4xl">
           <Tabs value={tab} onValueChange={onTabChange}>
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-7 h-auto">
+            <TabsList className={`grid w-full h-auto ${isAdmin ? 'grid-cols-2 sm:grid-cols-7' : 'grid-cols-3'}`}>
               <TabsTrigger value="account" className="gap-1.5"><User className="h-4 w-4" /> Cuenta</TabsTrigger>
-              <TabsTrigger value="agency" className="gap-1.5"><Building2 className="h-4 w-4" /> Agencia</TabsTrigger>
+              {isAdmin && <TabsTrigger value="agency" className="gap-1.5"><Building2 className="h-4 w-4" /> Agencia</TabsTrigger>}
               <TabsTrigger value="preferences" className="gap-1.5"><SlidersHorizontal className="h-4 w-4" /> Preferencias</TabsTrigger>
               <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notificaciones</TabsTrigger>
-              <TabsTrigger value="documents" className="gap-1.5"><FileText className="h-4 w-4" /> Documentos</TabsTrigger>
-              <TabsTrigger value="email" className="gap-1.5"><Mail className="h-4 w-4" /> Email</TabsTrigger>
-              <TabsTrigger value="infraestructura" className="gap-1.5"><Activity className="h-4 w-4" /> Infraestructura</TabsTrigger>
+              {isAdmin && <TabsTrigger value="documents" className="gap-1.5"><FileText className="h-4 w-4" /> Documentos</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="email" className="gap-1.5"><Mail className="h-4 w-4" /> Email</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="infraestructura" className="gap-1.5"><Activity className="h-4 w-4" /> Infraestructura</TabsTrigger>}
             </TabsList>
 
             <Card className="mt-4">
@@ -82,12 +91,12 @@ const Settings = () => {
               </CardHeader>
               <CardContent>
                 <TabsContent value="account" className="mt-0"><AccountTab /></TabsContent>
-                <TabsContent value="agency" className="mt-0"><AgencyTab /></TabsContent>
+                {isAdmin && <TabsContent value="agency" className="mt-0"><AgencyTab /></TabsContent>}
                 <TabsContent value="preferences" className="mt-0"><PreferencesTab /></TabsContent>
                 <TabsContent value="notifications" className="mt-0"><NotificationsTab /></TabsContent>
-                <TabsContent value="documents" className="mt-0"><DocumentsTab /></TabsContent>
-                <TabsContent value="email" className="mt-0"><EmailTab /></TabsContent>
-                <TabsContent value="infraestructura" className="mt-0"><InfraTab /></TabsContent>
+                {isAdmin && <TabsContent value="documents" className="mt-0"><DocumentsTab /></TabsContent>}
+                {isAdmin && <TabsContent value="email" className="mt-0"><EmailTab /></TabsContent>}
+                {isAdmin && <TabsContent value="infraestructura" className="mt-0"><InfraTab /></TabsContent>}
               </CardContent>
             </Card>
           </Tabs>
