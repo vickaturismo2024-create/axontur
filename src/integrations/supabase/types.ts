@@ -1197,6 +1197,8 @@ export type Database = {
         Row: {
           address: string | null
           agency_name: string | null
+          birthday_whatsapp_country_code: string
+          birthday_whatsapp_template: string
           created_at: string
           cuit: string | null
           date_format: string
@@ -1224,6 +1226,8 @@ export type Database = {
         Insert: {
           address?: string | null
           agency_name?: string | null
+          birthday_whatsapp_country_code?: string
+          birthday_whatsapp_template?: string
           created_at?: string
           cuit?: string | null
           date_format?: string
@@ -1251,6 +1255,8 @@ export type Database = {
         Update: {
           address?: string | null
           agency_name?: string | null
+          birthday_whatsapp_country_code?: string
+          birthday_whatsapp_template?: string
           created_at?: string
           cuit?: string | null
           date_format?: string
