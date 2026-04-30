@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { toast } from 'sonner';
 import { NewMovementDialog } from './NewMovementDialog';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   exportStatementExcel,
   exportStatementPDF,
@@ -46,6 +47,7 @@ interface Props {
 export function AccountDetail({ accountId, accountName, accountType, open, onClose }: Props) {
   const { user } = useAuth();
   const { settings } = useSettings();
+  const { canCreateMovements } = usePermissions();
   const navigate = useNavigate();
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -214,9 +216,11 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-2">
               <span className="truncate">{accountName} — Cuenta Corriente</span>
-              <Button size="sm" onClick={() => setAddOpen(true)}>
-                <Plus className="mr-1 h-3 w-3" /> Movimiento
-              </Button>
+              {canCreateMovements && (
+                <Button size="sm" onClick={() => setAddOpen(true)}>
+                  <Plus className="mr-1 h-3 w-3" /> Movimiento
+                </Button>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -361,10 +365,12 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
                         <TooltipContent>Eliminá el pago desde el expediente para borrar este movimiento</TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                  ) : (
+                  ) : canCreateMovements ? (
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteId(m.id)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
+                  ) : (
+                    <span />
                   )}
                 </div>
                 );
