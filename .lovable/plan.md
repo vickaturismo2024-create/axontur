@@ -1,103 +1,75 @@
-## Objetivo
+## Diagnóstico
 
-Agregar un nuevo segmento **Cumpleaños** en el dashboard (al lado de Recordatorios, Alertas operativas y Vuelos próximos) que liste los clientes cumpleañeros, y permitir enviar un saludo por **WhatsApp** desde la app, con mensaje **personalizable** y **plantilla guardable**.
+Los logs de `process-email-queue` muestran que **todos los emails de invitación quedan atascados** con este error de la API:
 
----
+```
+400 {"type":"missing_parameter","message":"Missing run_id or idempotency_key",
+     "details":"Auth emails require run_id. App emails can omit run_id by 
+               providing idempotency_key with purpose=transactional."}
+```
 
-## 1. Nuevo widget: `BirthdayWidget`
+**Causa**: la edge function `send-team-invitation` arma el payload con campos que el dispatcher no entiende (`recipient_email`, `sender_name`, `template_name`, `metadata`) y NO incluye `purpose: "transactional"` ni `idempotency_key`. El dispatcher (`process-email-queue`) lee otros nombres de campo (`to`, `from`, `purpose`, `idempotency_key`, `label`) — exactamente como lo hace `auth-email-hook`.
 
-Archivo: `src/components/dashboard/BirthdayWidget.tsx`
+Además, ya hay **4 mensajes atascados en la cola** que se reintentan cada 5s (read_ct hasta 11) y todos seguirán fallando hasta que se purguen.
 
-Comportamiento:
-- Lee `clients` (paginado con `.range()` por la regla de >1000 filas) trayendo `id, name, birth_date, phone`.
-- Calcula tres grupos:
-  - **Hoy** (mes y día = hoy) — destacado
-  - **Esta semana** (próximos 7 días)
-  - **Este mes** (resto del mes)
-- Cada item muestra: nombre, fecha (`d MMM`), edad que cumple, y dos acciones:
-  - **WhatsApp** (verde, ícono) → abre diálogo de envío
-  - **Ver cliente** → navega a `/clients?highlight={name}`
-- Si el cliente no tiene `phone`, el botón WhatsApp queda deshabilitado con tooltip "Sin teléfono".
-- Estilo y estructura idénticos a `OperationalAlertsWidget` (Card, secciones colapsadas, badge con total, `Skeleton` mientras carga).
-- Respeta `settings.notify_birthdays` (si está apagado, el widget no se renderiza).
+## Solución
 
-## 2. Diálogo de envío por WhatsApp
+### 1. Reescribir el payload en `supabase/functions/send-team-invitation/index.ts`
 
-Archivo: `src/components/dashboard/BirthdayWhatsAppDialog.tsx`
+Cambiar los campos del payload para que coincidan con lo que `process-email-queue` espera:
 
-- `Dialog` con:
-  - Textarea editable precargada con la plantilla del usuario.
-  - Variables disponibles (chips clickeables que insertan en cursor): `{{nombre}}`, `{{primer_nombre}}`, `{{edad}}`, `{{agencia}}`.
-  - Vista previa del mensaje renderizado.
-  - Checkbox **"Guardar como plantilla por defecto"**.
-  - Botón **Enviar por WhatsApp** → abre `https://wa.me/{phone}?text={encodeURIComponent(mensaje)}` en nueva pestaña.
-- Validación con Zod: mensaje no vacío, máximo 1000 caracteres.
-- Sanitización del teléfono: solo dígitos, asume formato internacional (si arranca con `0` o no tiene código de país, mostrar advertencia "Verificá el código de país").
+```ts
+const messageId = crypto.randomUUID();
+const idempotencyKey = `team-invite-${inv.id}`;
 
-## 3. Plantilla persistente
+// Log pending ANTES de encolar
+await admin.from('email_send_log').insert({
+  message_id: messageId,
+  template_name: 'team_invitation',
+  recipient_email: inv.email,
+  status: 'pending',
+});
 
-Reutilizamos `user_settings` (ya existe vía `SettingsContext`). Agregamos dos campos opcionales:
+const payload = {
+  message_id: messageId,
+  idempotency_key: idempotencyKey,
+  to: inv.email,
+  from: `${FROM_NAME} <noreply@${SENDER_DOMAIN}>`,
+  sender_domain: SENDER_DOMAIN,
+  subject,
+  html,
+  purpose: 'transactional',
+  label: 'team_invitation',
+  queued_at: new Date().toISOString(),
+};
+
+await admin.rpc('enqueue_email', { queue_name: 'transactional_emails', payload });
+```
+
+Si `enqueue_email` falla, se loguea `failed` en `email_send_log` para que quede traza.
+
+### 2. Redeploy de la función
+
+`supabase--deploy_edge_functions` con `["send-team-invitation"]`.
+
+### 3. Purgar los 4 mensajes atascados
+
+Los mensajes con id 1–4 en la cola `transactional_emails` tienen el formato viejo y nunca van a poder enviarse. Los borramos directamente de pgmq:
 
 ```sql
-ALTER TABLE user_settings
-  ADD COLUMN IF NOT EXISTS birthday_whatsapp_template text
-    DEFAULT '¡Feliz cumpleaños, {{primer_nombre}}! 🎉 Te deseamos un día increíble. Saludos, {{agencia}}.',
-  ADD COLUMN IF NOT EXISTS birthday_whatsapp_country_code text DEFAULT '54';
+SELECT pgmq.delete('transactional_emails', msg_id)
+FROM pgmq.q_transactional_emails;
 ```
 
-Migración + tipo en `SettingsContext` (`birthday_whatsapp_template`, `birthday_whatsapp_country_code`) y método `updateSettings` ya soporta el patch.
+Esto se ejecuta vía la herramienta de migración (operación puntual segura: solo elimina mensajes encolados, no afecta tablas de la app).
 
-## 4. Configuración en `NotificationsTab`
+### 4. Probar
 
-En `src/components/settings/NotificationsTab.tsx`, dentro del bloque de "🎂 Cumpleaños":
-- Cuando `notify_birthdays` está activo, mostrar:
-  - Textarea con la plantilla por defecto del mensaje WhatsApp + chips de variables.
-  - Input de **Código de país por defecto** (ej. `54` para Argentina), usado cuando el teléfono del cliente no lo tiene.
-  - Botón "Restaurar plantilla original".
-
-## 5. Integración en Dashboard
-
-`src/pages/Dashboard.tsx` línea 364–368: ampliar la grilla a 4 columnas (`lg:grid-cols-4` o pasar a `xl:grid-cols-4` según viewport) e insertar `<BirthdayWidget />` al final.
-
-```tsx
-<div className="mb-8 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-  <RemindersPanel />
-  <OperationalAlertsWidget />
-  <UpcomingFlightsWidget />
-  <BirthdayWidget />
-</div>
-```
-
-## 6. Limpieza del `BirthdayNotifier`
-
-Mantener el toast de cumpleaños del día (es complementario, dispara una sola vez por sesión), pero ahora el widget es la fuente principal de visibilidad y acción.
-
----
-
-## Detalles técnicos
-
-- **Edad**: `differenceInYears(today, parseISO(birth_date))` — usar `parseISO` de `date-fns` (regla del proyecto sobre timezones).
-- **Orden**: Hoy → próximos por fecha ascendente.
-- **Render variables**: helper `renderTemplate(tmpl, ctx)` que reemplaza `{{var}}` por valores del cliente + agencia (de `useAuth`/agency context).
-- **WhatsApp link**: `https://wa.me/` requiere número en formato internacional sin `+` ni espacios. Si el `phone` del cliente no empieza con dígito de país, prependemos `birthday_whatsapp_country_code`.
-- **Seguridad**: usamos `encodeURIComponent` sobre el mensaje antes de armar la URL. No se hace fetch al servidor — se delega a WhatsApp Web/App.
-- **Multi-tenant**: la consulta a `clients` ya filtra por `agency_id` vía RLS existente.
-- **Permisos**: el widget es visible a `admin` y `vendedor` (los vendedores también atienden a sus clientes).
-
----
-
-## Archivos a crear / modificar
-
-- **Crear**: `src/components/dashboard/BirthdayWidget.tsx`
-- **Crear**: `src/components/dashboard/BirthdayWhatsAppDialog.tsx`
-- **Crear**: `src/lib/birthdayTemplate.ts` (helper `renderTemplate` + `buildWhatsAppUrl`)
-- **Migración**: agregar `birthday_whatsapp_template` y `birthday_whatsapp_country_code` a `user_settings`
-- **Modificar**: `src/contexts/SettingsContext.tsx` (tipo + defaults)
-- **Modificar**: `src/components/settings/NotificationsTab.tsx` (UI de plantilla)
-- **Modificar**: `src/pages/Dashboard.tsx` (grilla 4 columnas + import widget)
-
----
+Desde **Configuración → Equipo**, invitar a un email real. Esperar ~5–10s y verificar:
+- El email llega a la bandeja del invitado.
+- En `email_send_log` aparece una fila `sent` para `template_name = 'team_invitation'`.
+- Los logs de `process-email-queue` ya no muestran errores.
 
 ## Resultado esperado
 
-En el dashboard, al lado de los demás widgets, aparece **🎂 Cumpleaños** con los clientes de hoy / esta semana / este mes. Un click en el ícono de WhatsApp abre un diálogo con el mensaje precargado, editable, con variables; al confirmar se abre WhatsApp con el saludo listo para enviar al número del cliente. La plantilla queda guardada para próximos saludos.
+Las invitaciones nuevas se envían correctamente con el branding de AxonTur desde `notify.vickaturismo.tur.ar`, y la cola queda limpia.

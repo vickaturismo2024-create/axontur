@@ -159,21 +159,29 @@ Deno.serve(async (req) => {
       expiresInDays,
     });
 
-    // Encolar email
-    const messageId = `team-invite-${inv.id}-${Date.now()}`;
-    const payload = {
+    // Encolar email (formato esperado por process-email-queue)
+    const messageId = crypto.randomUUID();
+    const idempotencyKey = `team-invite-${inv.id}`;
+
+    // Log pending ANTES de encolar
+    await admin.from('email_send_log').insert({
       message_id: messageId,
       template_name: 'team_invitation',
       recipient_email: inv.email,
+      status: 'pending',
+    });
+
+    const payload = {
+      message_id: messageId,
+      idempotency_key: idempotencyKey,
+      to: inv.email,
+      from: `${FROM_NAME} <noreply@${SENDER_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
-      sender_name: FROM_NAME,
       subject,
       html,
-      metadata: {
-        invitation_id: inv.id,
-        agency_id: inv.agency_id,
-        invited_by: callerId,
-      },
+      purpose: 'transactional',
+      label: 'team_invitation',
+      queued_at: new Date().toISOString(),
     };
 
     const { error: enqErr } = await admin.rpc('enqueue_email', {
@@ -181,6 +189,13 @@ Deno.serve(async (req) => {
       payload,
     });
     if (enqErr) {
+      await admin.from('email_send_log').insert({
+        message_id: messageId,
+        template_name: 'team_invitation',
+        recipient_email: inv.email,
+        status: 'failed',
+        error_message: enqErr.message,
+      });
       return json({ error: 'enqueue_failed', detail: enqErr.message }, 500);
     }
 
