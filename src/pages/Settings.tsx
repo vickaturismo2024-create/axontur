@@ -91,12 +91,12 @@ const Settings = () => {
               </CardHeader>
               <CardContent>
                 <TabsContent value="account" className="mt-0"><AccountTab /></TabsContent>
-                <TabsContent value="agency" className="mt-0"><AgencyTab /></TabsContent>
+                {isAdmin && <TabsContent value="agency" className="mt-0"><AgencyTab /></TabsContent>}
                 <TabsContent value="preferences" className="mt-0"><PreferencesTab /></TabsContent>
                 <TabsContent value="notifications" className="mt-0"><NotificationsTab /></TabsContent>
-                <TabsContent value="documents" className="mt-0"><DocumentsTab /></TabsContent>
-                <TabsContent value="email" className="mt-0"><EmailTab /></TabsContent>
-                <TabsContent value="infraestructura" className="mt-0"><InfraTab /></TabsContent>
+                {isAdmin && <TabsContent value="documents" className="mt-0"><DocumentsTab /></TabsContent>}
+                {isAdmin && <TabsContent value="email" className="mt-0"><EmailTab /></TabsContent>}
+                {isAdmin && <TabsContent value="infraestructura" className="mt-0"><InfraTab /></TabsContent>}
               </CardContent>
             </Card>
           </Tabs>
