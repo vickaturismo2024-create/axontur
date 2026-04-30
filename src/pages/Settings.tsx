@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, User, Building2, SlidersHorizontal, Bell, FileText, Mail, Activity } from 'lucide-react';
+import { Settings as SettingsIcon, User, Building2, SlidersHorizontal, Bell, FileText, Mail, Activity, Users } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
 import { AccountTab } from '@/components/settings/AccountTab';
 import { AgencyTab } from '@/components/settings/AgencyTab';
@@ -12,9 +12,10 @@ import { NotificationsTab } from '@/components/settings/NotificationsTab';
 import { DocumentsTab } from '@/components/settings/DocumentsTab';
 import { EmailTab } from '@/components/settings/EmailTab';
 import { InfraTab } from '@/components/settings/InfraTab';
+import { TeamTab } from '@/components/settings/TeamTab';
 import { usePermissions } from '@/hooks/usePermissions';
 
-const ALL_TABS = ['account', 'agency', 'preferences', 'notifications', 'documents', 'email', 'infraestructura'] as const;
+const ALL_TABS = ['account', 'agency', 'team', 'preferences', 'notifications', 'documents', 'email', 'infraestructura'] as const;
 type TabKey = typeof ALL_TABS[number];
 
 const Settings = () => {
