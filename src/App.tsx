@@ -59,6 +59,7 @@ const App = () => (
               <BirthdayNotifier />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/accept-invitation" element={<AcceptInvitation />} />
                 <Route path="/pdf/:id" element={<PublicPDF />} />
                 <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/quote/:id" element={<ProtectedRoute><QuoteEditor /></ProtectedRoute>} />
