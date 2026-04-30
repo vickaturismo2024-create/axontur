@@ -31,6 +31,7 @@ import Accounts from "./pages/Accounts";
 import Reservations from "./pages/Reservations";
 import ReservationImport from "./pages/ReservationImport";
 import ReservationDetail from "./pages/ReservationDetail";
+import AcceptInvitation from "./pages/AcceptInvitation";
 import NotFound from "./pages/NotFound";
 
 // Create QueryClient outside component to prevent recreation on re-renders
@@ -58,6 +59,7 @@ const App = () => (
               <BirthdayNotifier />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/accept-invitation" element={<AcceptInvitation />} />
                 <Route path="/pdf/:id" element={<PublicPDF />} />
                 <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/quote/:id" element={<ProtectedRoute><QuoteEditor /></ProtectedRoute>} />
