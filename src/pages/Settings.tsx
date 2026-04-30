@@ -12,20 +12,29 @@ import { NotificationsTab } from '@/components/settings/NotificationsTab';
 import { DocumentsTab } from '@/components/settings/DocumentsTab';
 import { EmailTab } from '@/components/settings/EmailTab';
 import { InfraTab } from '@/components/settings/InfraTab';
+import { usePermissions } from '@/hooks/usePermissions';
 
-const TABS = ['account', 'agency', 'preferences', 'notifications', 'documents', 'email', 'infraestructura'] as const;
-type TabKey = typeof TABS[number];
+const ALL_TABS = ['account', 'agency', 'preferences', 'notifications', 'documents', 'email', 'infraestructura'] as const;
+type TabKey = typeof ALL_TABS[number];
 
 const Settings = () => {
   const { loading } = useSettings();
+  const { isAdmin } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Vendedores solo ven tabs de uso personal
+  const TABS = isAdmin
+    ? ALL_TABS
+    : (['account', 'preferences', 'notifications'] as const);
+
   const initial = (searchParams.get('tab') as TabKey) || 'account';
-  const [tab, setTab] = useState<TabKey>(TABS.includes(initial) ? initial : 'account');
+  const safeInitial = (TABS as readonly string[]).includes(initial) ? initial : 'account';
+  const [tab, setTab] = useState<TabKey>(safeInitial as TabKey);
 
   useEffect(() => {
     const t = searchParams.get('tab') as TabKey;
-    if (t && TABS.includes(t) && t !== tab) setTab(t);
-  }, [searchParams]);
+    if (t && (TABS as readonly string[]).includes(t) && t !== tab) setTab(t);
+  }, [searchParams, isAdmin]);
 
   const onTabChange = (v: string) => {
     setTab(v as TabKey);
