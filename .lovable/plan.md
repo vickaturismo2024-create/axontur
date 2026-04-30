@@ -1,114 +1,103 @@
-# Mejorar gestión de equipo (Configuración → Equipo)
+## Objetivo
 
-## Contexto
+Agregar un nuevo segmento **Cumpleaños** en el dashboard (al lado de Recordatorios, Alertas operativas y Vuelos próximos) que liste los clientes cumpleañeros, y permitir enviar un saludo por **WhatsApp** desde la app, con mensaje **personalizable** y **plantilla guardable**.
 
-La pestaña **Equipo** ya soporta lo básico (invitar, copiar link, cambiar rol, eliminar miembro, cancelar/eliminar invitación). Pero hay 4 huecos importantes que conviene cerrar ahora que el dominio de email está activo:
+---
 
-1. **Los miembros se ven como `8a3f1c2b...`** en lugar del email real, porque desde el cliente no se puede leer `auth.users` y no guardamos el email en `agency_members`.
-2. **Al invitar, el link sólo se copia al portapapeles** — hay que pegárselo manualmente al usuario por WhatsApp/email. Ahora que `notify.vickaturismo.tur.ar` está verificado, se puede mandar el email automáticamente.
-3. **Las invitaciones expiradas** (>7 días) no se pueden reactivar, hay que cancelarlas y crear una nueva.
-4. **No hay forma de "reenviar"** una invitación pendiente cuando el usuario perdió el link original.
+## 1. Nuevo widget: `BirthdayWidget`
 
-## Cambios propuestos
+Archivo: `src/components/dashboard/BirthdayWidget.tsx`
 
-### 1. Mostrar email real de los miembros
+Comportamiento:
+- Lee `clients` (paginado con `.range()` por la regla de >1000 filas) trayendo `id, name, birth_date, phone`.
+- Calcula tres grupos:
+  - **Hoy** (mes y día = hoy) — destacado
+  - **Esta semana** (próximos 7 días)
+  - **Este mes** (resto del mes)
+- Cada item muestra: nombre, fecha (`d MMM`), edad que cumple, y dos acciones:
+  - **WhatsApp** (verde, ícono) → abre diálogo de envío
+  - **Ver cliente** → navega a `/clients?highlight={name}`
+- Si el cliente no tiene `phone`, el botón WhatsApp queda deshabilitado con tooltip "Sin teléfono".
+- Estilo y estructura idénticos a `OperationalAlertsWidget` (Card, secciones colapsadas, badge con total, `Skeleton` mientras carga).
+- Respeta `settings.notify_birthdays` (si está apagado, el widget no se renderiza).
 
-- Crear RPC `get_agency_members_with_email(_agency_id uuid)` SECURITY DEFINER que joinee `agency_members` con `auth.users` y devuelva `id, user_id, email, role, created_at`.
-- La RPC valida que el caller sea miembro de esa agencia (`is_agency_member`).
-- En `TeamTab` reemplazar la query directa a `agency_members` por la RPC.
-- Mostrar `email` (o "Vos" si es el usuario actual) en lugar del UUID truncado.
+## 2. Diálogo de envío por WhatsApp
 
-### 2. Enviar invitación por email automáticamente
+Archivo: `src/components/dashboard/BirthdayWhatsAppDialog.tsx`
 
-- Crear edge function `send-team-invitation` que:
-  - Recibe `{ invitationId }`.
-  - Valida que el caller sea admin de la agencia dueña de la invitación.
-  - Lee la invitación + nombre de la agencia + nombre de quien invita.
-  - Renderiza un email HTML con branding AxonTur (logo, color primario, link de aceptación, validez 7 días).
-  - Encola vía `enqueue_email` en la cola transaccional.
-  - Loguea en `email_logs`.
-- En `handleInvite` (TeamTab), después de crear la invitación: invocar la edge function. Si falla, igual mostrar el link copiado como fallback.
-- Agregar botón **"Reenviar email"** en cada invitación pendiente (al lado de "Copiar link"), que llama a la misma edge function.
+- `Dialog` con:
+  - Textarea editable precargada con la plantilla del usuario.
+  - Variables disponibles (chips clickeables que insertan en cursor): `{{nombre}}`, `{{primer_nombre}}`, `{{edad}}`, `{{agencia}}`.
+  - Vista previa del mensaje renderizado.
+  - Checkbox **"Guardar como plantilla por defecto"**.
+  - Botón **Enviar por WhatsApp** → abre `https://wa.me/{phone}?text={encodeURIComponent(mensaje)}` en nueva pestaña.
+- Validación con Zod: mensaje no vacío, máximo 1000 caracteres.
+- Sanitización del teléfono: solo dígitos, asume formato internacional (si arranca con `0` o no tiene código de país, mostrar advertencia "Verificá el código de país").
 
-### 3. Reactivar invitaciones expiradas
+## 3. Plantilla persistente
 
-- En el listado **Historial**, junto a las invitaciones con `status='expired'`, agregar botón **"Reactivar"**.
-- Acción: `UPDATE agency_invitations SET status='pending', expires_at = now() + interval '7 days', token = encode(gen_random_bytes(24),'hex') WHERE id=…` (vía RPC `reactivate_invitation` SECURITY DEFINER + check de admin).
-- Después de reactivar, ofrecer reenviar el email.
-
-### 4. Cleanups menores
-
-- Marcar visualmente las invitaciones cuya `expires_at < now()` aunque sigan en `status='pending'` (badge "Expirada" en rojo) — útil si el cron de expiración no corrió todavía.
-- Agregar contador de "Vendedores: N · Admins: M" en el header de la sección.
-
-## Detalle técnico
-
-**Migration nueva:**
+Reutilizamos `user_settings` (ya existe vía `SettingsContext`). Agregamos dos campos opcionales:
 
 ```sql
--- 1. Mostrar emails de miembros
-CREATE OR REPLACE FUNCTION public.get_agency_members_with_email(_agency_id uuid)
-RETURNS TABLE(id uuid, user_id uuid, email text, role app_role, created_at timestamptz)
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-  IF NOT public.is_agency_member(_agency_id, auth.uid()) THEN
-    RAISE EXCEPTION 'not_authorized';
-  END IF;
-  RETURN QUERY
-    SELECT m.id, m.user_id, u.email::text, m.role, m.created_at
-    FROM public.agency_members m
-    JOIN auth.users u ON u.id = m.user_id
-    WHERE m.agency_id = _agency_id
-    ORDER BY m.created_at;
-END;
-$$;
-
--- 2. Reactivar invitación expirada
-CREATE OR REPLACE FUNCTION public.reactivate_invitation(_invitation_id uuid)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE v_inv public.agency_invitations;
-BEGIN
-  SELECT * INTO v_inv FROM public.agency_invitations WHERE id = _invitation_id;
-  IF v_inv IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'not_found'); END IF;
-  IF NOT (v_inv.agency_id = current_agency_id() AND has_role(auth.uid(),'admin')) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'not_authorized');
-  END IF;
-  UPDATE public.agency_invitations
-    SET status='pending',
-        expires_at = now() + interval '7 days',
-        token = encode(extensions.gen_random_bytes(24),'hex'),
-        updated_at = now()
-    WHERE id = _invitation_id
-    RETURNING token INTO v_inv.token;
-  RETURN jsonb_build_object('success', true, 'token', v_inv.token);
-END;
-$$;
+ALTER TABLE user_settings
+  ADD COLUMN IF NOT EXISTS birthday_whatsapp_template text
+    DEFAULT '¡Feliz cumpleaños, {{primer_nombre}}! 🎉 Te deseamos un día increíble. Saludos, {{agencia}}.',
+  ADD COLUMN IF NOT EXISTS birthday_whatsapp_country_code text DEFAULT '54';
 ```
 
-**Nueva edge function** `supabase/functions/send-team-invitation/index.ts`:
-- `verify_jwt = true` (usa el JWT del admin invitando).
-- Service-role client para leer `agency_invitations` + `agencies` + email del invited_by.
-- Valida que `auth.uid()` tenga rol admin en esa agencia (vía `has_role`).
-- Construye HTML con `<a href="{origin}/accept-invitation?token=…">` y branding AxonTur.
-- Llama `supabase.rpc('enqueue_email', { queue_name: 'transactional_emails', payload: {...} })`.
+Migración + tipo en `SettingsContext` (`birthday_whatsapp_template`, `birthday_whatsapp_country_code`) y método `updateSettings` ya soporta el patch.
 
-**Files tocados (TS/TSX):**
+## 4. Configuración en `NotificationsTab`
 
-- `src/components/settings/TeamTab.tsx` — usar RPC nueva, agregar botones Reenviar y Reactivar, mostrar email, badge expirada, contador.
-- `supabase/functions/send-team-invitation/index.ts` (nuevo) + entrada en `supabase/config.toml`.
+En `src/components/settings/NotificationsTab.tsx`, dentro del bloque de "🎂 Cumpleaños":
+- Cuando `notify_birthdays` está activo, mostrar:
+  - Textarea con la plantilla por defecto del mensaje WhatsApp + chips de variables.
+  - Input de **Código de país por defecto** (ej. `54` para Argentina), usado cuando el teléfono del cliente no lo tiene.
+  - Botón "Restaurar plantilla original".
 
-## Lo que NO cambia
+## 5. Integración en Dashboard
 
-- Estructura de tabla `agency_members` / `agency_invitations` (sólo se agregan funciones).
-- Flujo de aceptación (`/accept-invitation` y `accept_agency_invitation` siguen igual).
-- Reglas RLS existentes — todo nuevo va vía SECURITY DEFINER con check explícito.
-- Regla "1 user = 1 agencia" sigue vigente.
+`src/pages/Dashboard.tsx` línea 364–368: ampliar la grilla a 4 columnas (`lg:grid-cols-4` o pasar a `xl:grid-cols-4` según viewport) e insertar `<BirthdayWidget />` al final.
+
+```tsx
+<div className="mb-8 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+  <RemindersPanel />
+  <OperationalAlertsWidget />
+  <UpcomingFlightsWidget />
+  <BirthdayWidget />
+</div>
+```
+
+## 6. Limpieza del `BirthdayNotifier`
+
+Mantener el toast de cumpleaños del día (es complementario, dispara una sola vez por sesión), pero ahora el widget es la fuente principal de visibilidad y acción.
+
+---
+
+## Detalles técnicos
+
+- **Edad**: `differenceInYears(today, parseISO(birth_date))` — usar `parseISO` de `date-fns` (regla del proyecto sobre timezones).
+- **Orden**: Hoy → próximos por fecha ascendente.
+- **Render variables**: helper `renderTemplate(tmpl, ctx)` que reemplaza `{{var}}` por valores del cliente + agencia (de `useAuth`/agency context).
+- **WhatsApp link**: `https://wa.me/` requiere número en formato internacional sin `+` ni espacios. Si el `phone` del cliente no empieza con dígito de país, prependemos `birthday_whatsapp_country_code`.
+- **Seguridad**: usamos `encodeURIComponent` sobre el mensaje antes de armar la URL. No se hace fetch al servidor — se delega a WhatsApp Web/App.
+- **Multi-tenant**: la consulta a `clients` ya filtra por `agency_id` vía RLS existente.
+- **Permisos**: el widget es visible a `admin` y `vendedor` (los vendedores también atienden a sus clientes).
+
+---
+
+## Archivos a crear / modificar
+
+- **Crear**: `src/components/dashboard/BirthdayWidget.tsx`
+- **Crear**: `src/components/dashboard/BirthdayWhatsAppDialog.tsx`
+- **Crear**: `src/lib/birthdayTemplate.ts` (helper `renderTemplate` + `buildWhatsAppUrl`)
+- **Migración**: agregar `birthday_whatsapp_template` y `birthday_whatsapp_country_code` a `user_settings`
+- **Modificar**: `src/contexts/SettingsContext.tsx` (tipo + defaults)
+- **Modificar**: `src/components/settings/NotificationsTab.tsx` (UI de plantilla)
+- **Modificar**: `src/pages/Dashboard.tsx` (grilla 4 columnas + import widget)
+
+---
 
 ## Resultado esperado
 
-- En **Configuración → Equipo**, los miembros muestran su email real.
-- Al invitar, el sistema envía el email automáticamente (además de copiar el link como backup).
-- Cualquier invitación pendiente tiene un botón "Reenviar email".
-- Las invitaciones expiradas se pueden reactivar con un click sin perder el historial.
+En el dashboard, al lado de los demás widgets, aparece **🎂 Cumpleaños** con los clientes de hoy / esta semana / este mes. Un click en el ícono de WhatsApp abre un diálogo con el mensaje precargado, editable, con variables; al confirmar se abre WhatsApp con el saludo listo para enviar al número del cliente. La plantilla queda guardada para próximos saludos.
