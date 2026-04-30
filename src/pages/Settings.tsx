@@ -68,9 +68,10 @@ const Settings = () => {
 
         <div className="max-w-4xl">
           <Tabs value={tab} onValueChange={onTabChange}>
-            <TabsList className={`grid w-full h-auto ${isAdmin ? 'grid-cols-2 sm:grid-cols-7' : 'grid-cols-3'}`}>
+            <TabsList className={`grid w-full h-auto ${isAdmin ? 'grid-cols-2 sm:grid-cols-8' : 'grid-cols-3'}`}>
               <TabsTrigger value="account" className="gap-1.5"><User className="h-4 w-4" /> Cuenta</TabsTrigger>
               {isAdmin && <TabsTrigger value="agency" className="gap-1.5"><Building2 className="h-4 w-4" /> Agencia</TabsTrigger>}
+              {isAdmin && <TabsTrigger value="team" className="gap-1.5"><Users className="h-4 w-4" /> Equipo</TabsTrigger>}
               <TabsTrigger value="preferences" className="gap-1.5"><SlidersHorizontal className="h-4 w-4" /> Preferencias</TabsTrigger>
               <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notificaciones</TabsTrigger>
               {isAdmin && <TabsTrigger value="documents" className="gap-1.5"><FileText className="h-4 w-4" /> Documentos</TabsTrigger>}
@@ -83,6 +84,7 @@ const Settings = () => {
                 <CardTitle>
                   {tab === 'account' && 'Cuenta y seguridad'}
                   {tab === 'agency' && 'Datos de tu agencia'}
+                  {tab === 'team' && 'Miembros del equipo'}
                   {tab === 'preferences' && 'Preferencias de la app'}
                   {tab === 'notifications' && 'Notificaciones y recordatorios'}
                   {tab === 'documents' && 'Numeración y formato de documentos'}
@@ -93,6 +95,7 @@ const Settings = () => {
               <CardContent>
                 <TabsContent value="account" className="mt-0"><AccountTab /></TabsContent>
                 {isAdmin && <TabsContent value="agency" className="mt-0"><AgencyTab /></TabsContent>}
+                {isAdmin && <TabsContent value="team" className="mt-0"><TeamTab /></TabsContent>}
                 <TabsContent value="preferences" className="mt-0"><PreferencesTab /></TabsContent>
                 <TabsContent value="notifications" className="mt-0"><NotificationsTab /></TabsContent>
                 {isAdmin && <TabsContent value="documents" className="mt-0"><DocumentsTab /></TabsContent>}
