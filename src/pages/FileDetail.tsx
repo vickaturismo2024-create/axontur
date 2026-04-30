@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { AdminOnly } from '@/components/auth/AdminOnly';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';

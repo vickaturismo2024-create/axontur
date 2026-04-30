@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AdminOnly } from '@/components/auth/AdminOnly';
 import { toast } from 'sonner';
 import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/contexts/QuotesContext';

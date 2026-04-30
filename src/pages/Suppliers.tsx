@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { AdminOnly } from '@/components/auth/AdminOnly';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
 import { supabase } from '@/integrations/supabase/client';
