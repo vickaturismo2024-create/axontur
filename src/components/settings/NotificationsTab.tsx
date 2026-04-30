@@ -22,12 +22,59 @@ export function NotificationsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between border rounded-lg p-4">
-        <div>
-          <Label className="text-base">🎂 Cumpleaños de clientes</Label>
-          <p className="text-xs text-muted-foreground mt-1">Te avisamos cuando un cliente cumple años.</p>
+      <div className="border rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-base">🎂 Cumpleaños de clientes</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Mostramos los cumpleañeros en el dashboard y te dejamos enviar un saludo por WhatsApp.
+            </p>
+          </div>
+          <Switch checked={settings.notify_birthdays} onCheckedChange={(v) => save({ notify_birthdays: v })} />
         </div>
-        <Switch checked={settings.notify_birthdays} onCheckedChange={(v) => save({ notify_birthdays: v })} />
+
+        {settings.notify_birthdays && (
+          <div className="space-y-3 pt-3 border-t">
+            <div className="space-y-2">
+              <Label className="text-sm">Plantilla del mensaje de WhatsApp</Label>
+              <Textarea
+                rows={3}
+                value={settings.birthday_whatsapp_template}
+                onChange={(e) => save({ birthday_whatsapp_template: e.target.value })}
+                maxLength={1000}
+              />
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Variables:</span>
+                {['{{primer_nombre}}', '{{nombre}}', '{{edad}}', '{{agencia}}'].map(v => (
+                  <Badge key={v} variant="secondary" className="text-[10px]">{v}</Badge>
+                ))}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto h-7 text-xs"
+                  onClick={() => save({ birthday_whatsapp_template: DEFAULT_BIRTHDAY_TEMPLATE })}
+                >
+                  Restaurar plantilla
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label className="text-sm">Código de país por defecto:</Label>
+              <span className="text-sm">+</span>
+              <Input
+                type="text"
+                inputMode="numeric"
+                className="w-20"
+                value={settings.birthday_whatsapp_country_code}
+                onChange={(e) => save({ birthday_whatsapp_country_code: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+              />
+              <span className="text-xs text-muted-foreground">
+                Se usa cuando el teléfono del cliente no incluye código de país.
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="border rounded-lg p-4 space-y-3">
