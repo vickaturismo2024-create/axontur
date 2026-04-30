@@ -236,7 +236,9 @@ const Templates = () => {
                     <Button variant="ghost" size="sm" onClick={() => setDefaultTemplate(template.id)} className="text-gold-dark"><Star className="mr-1 h-4 w-4" /> Predeterminar</Button>
                   )}
                   {template.id !== 'default' && (
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(template.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
+                    <AdminOnly>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(template.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
+                    </AdminOnly>
                   )}
                 </div>
               </CardContent>

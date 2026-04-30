@@ -223,9 +223,11 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
                 {quote.archived ? <ArchiveRestore className="mr-1.5 h-4 w-4" /> : <Archive className="mr-1.5 h-4 w-4" />}
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={() => onDelete(quote.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
-              <Trash2 className="mr-1.5 h-4 w-4" />
-            </Button>
+            <AdminOnly>
+              <Button variant="ghost" size="sm" onClick={() => onDelete(quote.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <Trash2 className="mr-1.5 h-4 w-4" />
+              </Button>
+            </AdminOnly>
           </div>
 
           <p className="mt-3 text-xs text-muted-foreground">Creado: {formatDate(quote.createdAt)}</p>
