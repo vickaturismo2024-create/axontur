@@ -1,62 +1,114 @@
-# Re-provisionar el dominio de email
+# Mejorar gestión de equipo (Configuración → Equipo)
 
 ## Contexto
 
-- Dominio: `notify.vickaturismo.tur.ar`
-- Estado actual: **Pending** (sin cambios hace varios días)
-- DNS: 100% propagado globalmente (`ns5.lovable.cloud`, `ns6.lovable.cloud` confirmados en DNSChecker)
-- Diagnóstico: el verificador del lado Lovable quedó atascado y no re-chequea automáticamente
+La pestaña **Equipo** ya soporta lo básico (invitar, copiar link, cambiar rol, eliminar miembro, cancelar/eliminar invitación). Pero hay 4 huecos importantes que conviene cerrar ahora que el dominio de email está activo:
 
-La infraestructura de cola, tablas y Edge Functions ya está desplegada y operativa — solo falta que el dominio quede en estado **Active** para que empiecen a salir los emails.
+1. **Los miembros se ven como `8a3f1c2b...`** en lugar del email real, porque desde el cliente no se puede leer `auth.users` y no guardamos el email en `agency_members`.
+2. **Al invitar, el link sólo se copia al portapapeles** — hay que pegárselo manualmente al usuario por WhatsApp/email. Ahora que `notify.vickaturismo.tur.ar` está verificado, se puede mandar el email automáticamente.
+3. **Las invitaciones expiradas** (>7 días) no se pueden reactivar, hay que cancelarlas y crear una nueva.
+4. **No hay forma de "reenviar"** una invitación pendiente cuando el usuario perdió el link original.
 
-## Importante: esta acción la tenés que hacer vos en la UI
+## Cambios propuestos
 
-Yo **no tengo herramienta para eliminar el dominio** desde acá. La eliminación y re-creación se hacen manualmente en **Cloud → Emails → Manage Domains**. Lo que sí puedo hacer es guiarte paso a paso y verificar el estado después.
+### 1. Mostrar email real de los miembros
 
-## Pasos
+- Crear RPC `get_agency_members_with_email(_agency_id uuid)` SECURITY DEFINER que joinee `agency_members` con `auth.users` y devuelva `id, user_id, email, role, created_at`.
+- La RPC valida que el caller sea miembro de esa agencia (`is_agency_member`).
+- En `TeamTab` reemplazar la query directa a `agency_members` por la RPC.
+- Mostrar `email` (o "Vos" si es el usuario actual) en lugar del UUID truncado.
 
-### 1. Eliminar el dominio actual (lo hacés vos)
+### 2. Enviar invitación por email automáticamente
 
-1. Abrí **Cloud → Emails → Manage Domains**
-2. Encontrá la fila de `notify.vickaturismo.tur.ar`
-3. Click en los **tres puntos (⋯)** a la derecha
-4. Seleccioná **Remove** (Eliminar) y confirmá
+- Crear edge function `send-team-invitation` que:
+  - Recibe `{ invitationId }`.
+  - Valida que el caller sea admin de la agencia dueña de la invitación.
+  - Lee la invitación + nombre de la agencia + nombre de quien invita.
+  - Renderiza un email HTML con branding AxonTur (logo, color primario, link de aceptación, validez 7 días).
+  - Encola vía `enqueue_email` en la cola transaccional.
+  - Loguea en `email_logs`.
+- En `handleInvite` (TeamTab), después de crear la invitación: invocar la edge function. Si falla, igual mostrar el link copiado como fallback.
+- Agregar botón **"Reenviar email"** en cada invitación pendiente (al lado de "Copiar link"), que llama a la misma edge function.
 
-### 2. Re-agregarlo desde cero (lo hacés vos)
+### 3. Reactivar invitaciones expiradas
 
-1. En la misma pantalla, click en **Add Domain** (o equivalente)
-2. Ingresá `vickaturismo.tur.ar` como dominio raíz
-3. Dejá `notify` como subdominio (es el default y coincide con la config actual del código)
-4. Confirmá
+- En el listado **Historial**, junto a las invitaciones con `status='expired'`, agregar botón **"Reactivar"**.
+- Acción: `UPDATE agency_invitations SET status='pending', expires_at = now() + interval '7 days', token = encode(gen_random_bytes(24),'hex') WHERE id=…` (vía RPC `reactivate_invitation` SECURITY DEFINER + check de admin).
+- Después de reactivar, ofrecer reenviar el email.
 
-Como los registros NS (`ns5.lovable.cloud`, `ns6.lovable.cloud`) **ya están propagados** en tu proveedor de DNS, la verificación debería ser **inmediata** o tomar pocos minutos — no hay que esperar 72hs porque el DNS ya existe.
+### 4. Cleanups menores
 
-### 3. Yo verifico el resultado
+- Marcar visualmente las invitaciones cuya `expires_at < now()` aunque sigan en `status='pending'` (badge "Expirada" en rojo) — útil si el cron de expiración no corrió todavía.
+- Agregar contador de "Vendedores: N · Admins: M" en el header de la sección.
 
-Una vez que lo re-agregaste, decime "listo" y voy a:
-- Llamar a `check_email_domain_status` para confirmar que pasó a **Active**
-- Revisar la cola de emails y el log de envíos
-- Si queda algún email en "pending" desde antes, forzar el procesamiento de la cola
+## Detalle técnico
 
-## Qué NO hay que tocar
+**Migration nueva:**
 
-- **No cambies los registros NS** en tu proveedor de dominio. Quedan igual (`ns5` y `ns6`). Cuando re-agregues el dominio, Lovable detectará que ya están y verificará al instante.
-- **No cambies el subdominio** (tiene que seguir siendo `notify`) porque el código en `auth-email-hook` y `send-transactional-email` tiene hardcodeado `notify.vickaturismo.tur.ar` como `SENDER_DOMAIN`. Si cambia el subdominio, hay que actualizar el código también.
+```sql
+-- 1. Mostrar emails de miembros
+CREATE OR REPLACE FUNCTION public.get_agency_members_with_email(_agency_id uuid)
+RETURNS TABLE(id uuid, user_id uuid, email text, role app_role, created_at timestamptz)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_agency_member(_agency_id, auth.uid()) THEN
+    RAISE EXCEPTION 'not_authorized';
+  END IF;
+  RETURN QUERY
+    SELECT m.id, m.user_id, u.email::text, m.role, m.created_at
+    FROM public.agency_members m
+    JOIN auth.users u ON u.id = m.user_id
+    WHERE m.agency_id = _agency_id
+    ORDER BY m.created_at;
+END;
+$$;
 
-## Plan B (si después de re-agregar sigue en Pending >10 min)
+-- 2. Reactivar invitación expirada
+CREATE OR REPLACE FUNCTION public.reactivate_invitation(_invitation_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE v_inv public.agency_invitations;
+BEGIN
+  SELECT * INTO v_inv FROM public.agency_invitations WHERE id = _invitation_id;
+  IF v_inv IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'not_found'); END IF;
+  IF NOT (v_inv.agency_id = current_agency_id() AND has_role(auth.uid(),'admin')) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'not_authorized');
+  END IF;
+  UPDATE public.agency_invitations
+    SET status='pending',
+        expires_at = now() + interval '7 days',
+        token = encode(extensions.gen_random_bytes(24),'hex'),
+        updated_at = now()
+    WHERE id = _invitation_id
+    RETURNING token INTO v_inv.token;
+  RETURN jsonb_build_object('success', true, 'token', v_inv.token);
+END;
+$$;
+```
 
-Si el problema persiste incluso después de re-crear el dominio, el bug es del verificador de Lovable y hay que escalarlo a soporte con:
-- Nombre del dominio
-- Captura del DNSChecker mostrando NS propagados
-- Captura del estado "Pending" en Manage Domains
+**Nueva edge function** `supabase/functions/send-team-invitation/index.ts`:
+- `verify_jwt = true` (usa el JWT del admin invitando).
+- Service-role client para leer `agency_invitations` + `agencies` + email del invited_by.
+- Valida que `auth.uid()` tenga rol admin en esa agencia (vía `has_role`).
+- Construye HTML con `<a href="{origin}/accept-invitation?token=…">` y branding AxonTur.
+- Llama `supabase.rpc('enqueue_email', { queue_name: 'transactional_emails', payload: {...} })`.
 
-Mientras tanto, AxonTur sigue 100% operativo — la única funcionalidad afectada es el envío automático de emails (invitaciones de equipo, notificaciones). Las invitaciones se pueden seguir compartiendo manualmente desde **Configuración → Equipo**.
+**Files tocados (TS/TSX):**
 
-## Resumen de acciones
+- `src/components/settings/TeamTab.tsx` — usar RPC nueva, agregar botones Reenviar y Reactivar, mostrar email, badge expirada, contador.
+- `supabase/functions/send-team-invitation/index.ts` (nuevo) + entrada en `supabase/config.toml`.
 
-| Paso | Quién | Dónde |
-|------|-------|-------|
-| Eliminar dominio | Vos | Cloud → Emails → ⋯ → Remove |
-| Re-agregar dominio | Vos | Cloud → Emails → Add Domain |
-| Verificar estado | Yo | Tras tu confirmación |
-| Revisar cola de emails | Yo | Tras verificar Active |
+## Lo que NO cambia
+
+- Estructura de tabla `agency_members` / `agency_invitations` (sólo se agregan funciones).
+- Flujo de aceptación (`/accept-invitation` y `accept_agency_invitation` siguen igual).
+- Reglas RLS existentes — todo nuevo va vía SECURITY DEFINER con check explícito.
+- Regla "1 user = 1 agencia" sigue vigente.
+
+## Resultado esperado
+
+- En **Configuración → Equipo**, los miembros muestran su email real.
+- Al invitar, el sistema envía el email automáticamente (además de copiar el link como backup).
+- Cualquier invitación pendiente tiene un botón "Reenviar email".
+- Las invitaciones expiradas se pueden reactivar con un click sin perder el historial.

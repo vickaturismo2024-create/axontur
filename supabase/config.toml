@@ -15,3 +15,5 @@ project_id = "nttvbhtcubceobwqehut"
     verify_jwt = true
   [functions.scrape-package]
     verify_jwt = false
+  [functions.send-team-invitation]
+    verify_jwt = true

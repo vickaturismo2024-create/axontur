@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Copy, Mail, Trash2, UserPlus, Crown, User as UserIcon, Loader2 } from 'lucide-react';
+import { Copy, Mail, Trash2, UserPlus, Crown, User as UserIcon, Loader2, Send, RotateCw } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -19,9 +19,9 @@ type AppRole = 'admin' | 'vendedor';
 interface Member {
   id: string;
   user_id: string;
+  email: string;
   role: AppRole;
   created_at: string;
-  email?: string;
 }
 
 interface Invitation {
@@ -43,12 +43,14 @@ export function TeamTab() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<AppRole>('vendedor');
   const [submitting, setSubmitting] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [reactivatingId, setReactivatingId] = useState<string | null>(null);
 
   const load = async () => {
     if (!agencyId) return;
     setLoading(true);
     const [membersRes, invitesRes] = await Promise.all([
-      supabase.from('agency_members').select('id, user_id, role, created_at').eq('agency_id', agencyId),
+      supabase.rpc('get_agency_members_with_email', { _agency_id: agencyId }),
       supabase.from('agency_invitations').select('*').eq('agency_id', agencyId).order('created_at', { ascending: false }),
     ]);
     if (membersRes.data) setMembers(membersRes.data as Member[]);
@@ -58,10 +60,21 @@ export function TeamTab() {
 
   useEffect(() => { load(); }, [agencyId]);
 
+  const sendInvitationEmail = async (invitationId: string): Promise<boolean> => {
+    const { data, error } = await supabase.functions.invoke('send-team-invitation', {
+      body: { invitationId },
+    });
+    if (error || (data && (data as any).error)) {
+      const msg = (data as any)?.error || error?.message || 'No se pudo enviar el email';
+      toast.error('Email no enviado', { description: msg });
+      return false;
+    }
+    return true;
+  };
+
   const handleInvite = async () => {
     if (!inviteEmail.trim() || !agencyId || !user) return;
     setSubmitting(true);
-    // Verificar si ya hay invitación pendiente para ese email
     const existing = invitations.find(i => i.email.toLowerCase() === inviteEmail.toLowerCase() && i.status === 'pending');
     if (existing) {
       toast.error('Ya hay una invitación pendiente para ese email');
@@ -74,20 +87,27 @@ export function TeamTab() {
       role: inviteRole,
       invited_by: user.id,
     }).select().single();
-    setSubmitting(false);
     if (error) {
       toast.error('Error: ' + error.message);
+      setSubmitting(false);
       return;
     }
-    toast.success('Invitación creada. Copiá el link y enviáselo al usuario.');
+
+    // Intentar enviar email automáticamente
+    const sent = await sendInvitationEmail(data.id);
+
+    setSubmitting(false);
     setInviteEmail('');
     setInviteRole('vendedor');
     setInviteOpen(false);
     await load();
-    if (data?.token) {
+
+    if (sent) {
+      toast.success('Invitación enviada por email a ' + data.email);
+    } else if (data?.token) {
       const link = `${window.location.origin}/accept-invitation?token=${data.token}`;
       navigator.clipboard.writeText(link).catch(() => {});
-      toast.success('Link copiado al portapapeles', { description: link, duration: 6000 });
+      toast.success('Invitación creada — link copiado al portapapeles', { duration: 6000 });
     }
   };
 
@@ -95,6 +115,28 @@ export function TeamTab() {
     const link = `${window.location.origin}/accept-invitation?token=${token}`;
     navigator.clipboard.writeText(link);
     toast.success('Link copiado');
+  };
+
+  const resendInvite = async (id: string) => {
+    setResendingId(id);
+    const ok = await sendInvitationEmail(id);
+    setResendingId(null);
+    if (ok) toast.success('Email reenviado');
+  };
+
+  const reactivateInvite = async (id: string) => {
+    setReactivatingId(id);
+    const { data, error } = await supabase.rpc('reactivate_invitation', { _invitation_id: id });
+    if (error || !(data as any)?.success) {
+      toast.error('No se pudo reactivar', { description: (data as any)?.error || error?.message });
+      setReactivatingId(null);
+      return;
+    }
+    await load();
+    // Reenviar email automáticamente tras reactivar
+    await sendInvitationEmail(id);
+    setReactivatingId(null);
+    toast.success('Invitación reactivada y email enviado');
   };
 
   const cancelInvite = async (id: string) => {
@@ -126,8 +168,10 @@ export function TeamTab() {
   };
 
   const adminCount = members.filter(m => m.role === 'admin').length;
+  const vendedorCount = members.filter(m => m.role === 'vendedor').length;
   const pendingInvites = invitations.filter(i => i.status === 'pending');
   const otherInvites = invitations.filter(i => i.status !== 'pending');
+  const isExpired = (iso: string) => new Date(iso).getTime() < Date.now();
 
   return (
     <div className="space-y-6">
@@ -160,13 +204,13 @@ export function TeamTab() {
                 </Select>
               </div>
               <p className="text-xs text-muted-foreground">
-                Se generará un link único de invitación que copiarás y enviarás manualmente al usuario. La invitación expira en 7 días.
+                Le mandaremos un email con el link de invitación. Si el envío falla, copiamos el link al portapapeles para que lo compartas manualmente. La invitación expira en 7 días.
               </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancelar</Button>
               <Button onClick={handleInvite} disabled={submitting || !inviteEmail.trim()}>
-                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Crear invitación
+                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Enviar invitación
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -175,7 +219,14 @@ export function TeamTab() {
 
       {/* Miembros actuales */}
       <div className="space-y-2">
-        <h4 className="text-sm font-medium text-muted-foreground">Miembros activos ({members.length})</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-muted-foreground">Miembros activos ({members.length})</h4>
+          {!loading && members.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {adminCount} {adminCount === 1 ? 'administrador' : 'administradores'} · {vendedorCount} {vendedorCount === 1 ? 'vendedor' : 'vendedores'}
+            </p>
+          )}
+        </div>
         {loading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : (
@@ -188,7 +239,10 @@ export function TeamTab() {
                   <div className="flex items-center gap-3 min-w-0">
                     {m.role === 'admin' ? <Crown className="h-5 w-5 text-amber-500 shrink-0" /> : <UserIcon className="h-5 w-5 text-muted-foreground shrink-0" />}
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{isMe ? 'Vos' : m.user_id.substring(0, 8) + '...'}</p>
+                      <p className="font-medium truncate">
+                        {m.email || m.user_id.substring(0, 8) + '…'}
+                        {isMe && <Badge variant="secondary" className="ml-2 text-[10px]">Vos</Badge>}
+                      </p>
                       <p className="text-xs text-muted-foreground">Miembro desde {format(parseISO(m.created_at), 'dd MMM yyyy', { locale: es })}</p>
                     </div>
                   </div>
@@ -230,26 +284,46 @@ export function TeamTab() {
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-muted-foreground">Invitaciones pendientes ({pendingInvites.length})</h4>
           <div className="space-y-2">
-            {pendingInvites.map((inv) => (
-              <Card key={inv.id} className="p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Mail className="h-5 w-5 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{inv.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      <Badge variant="outline" className="mr-2">{inv.role === 'admin' ? 'Administrador' : 'Vendedor'}</Badge>
-                      Expira el {format(parseISO(inv.expires_at), 'dd MMM yyyy', { locale: es })}
-                    </p>
+            {pendingInvites.map((inv) => {
+              const expired = isExpired(inv.expires_at);
+              return (
+                <Card key={inv.id} className="p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Mail className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{inv.email}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline">{inv.role === 'admin' ? 'Administrador' : 'Vendedor'}</Badge>
+                        {expired ? (
+                          <Badge variant="destructive">Expirada</Badge>
+                        ) : (
+                          <span>Expira el {format(parseISO(inv.expires_at), 'dd MMM yyyy', { locale: es })}</span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => copyLink(inv.token)}>
-                    <Copy className="h-4 w-4 mr-1" /> Copiar link
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => cancelInvite(inv.id)}>Cancelar</Button>
-                </div>
-              </Card>
-            ))}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {expired ? (
+                      <Button variant="outline" size="sm" onClick={() => reactivateInvite(inv.id)} disabled={reactivatingId === inv.id}>
+                        {reactivatingId === inv.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCw className="h-4 w-4 mr-1" />}
+                        Reactivar
+                      </Button>
+                    ) : (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => resendInvite(inv.id)} disabled={resendingId === inv.id}>
+                          {resendingId === inv.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                          Reenviar email
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => copyLink(inv.token)} title="Copiar link">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => cancelInvite(inv.id)}>Cancelar</Button>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
@@ -273,9 +347,17 @@ export function TeamTab() {
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => deleteInvite(inv.id)}>
-                  <Trash2 className="h-4 w-4 text-muted-foreground" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  {inv.status !== 'accepted' && (
+                    <Button variant="outline" size="sm" onClick={() => reactivateInvite(inv.id)} disabled={reactivatingId === inv.id}>
+                      {reactivatingId === inv.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCw className="h-4 w-4 mr-1" />}
+                      Reactivar
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon" onClick={() => deleteInvite(inv.id)}>
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </div>
               </Card>
             ))}
           </div>

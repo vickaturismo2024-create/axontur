@@ -1884,6 +1884,16 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_agency_members_with_email: {
+        Args: { _agency_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
       get_invitation_by_token: { Args: { _token: string }; Returns: Json }
       has_role: {
         Args: {
@@ -1922,6 +1932,7 @@ export type Database = {
         Args: { _reservation_id: string; _user_id: string }
         Returns: boolean
       }
+      reactivate_invitation: { Args: { _invitation_id: string }; Returns: Json }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
