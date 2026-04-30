@@ -158,6 +158,12 @@ Deno.serve(async (req) => {
       acceptUrl,
       expiresInDays,
     });
+    const roleLabel = inv.role === 'admin' ? 'Administrador' : 'Vendedor';
+    const text =
+      `Te invitaron a unirte a ${agencyName} en AxonTur.\n\n` +
+      `${callerEmail} te invitó a colaborar como ${roleLabel}.\n\n` +
+      `Aceptá la invitación abriendo este link (expira en ${expiresInDays} días):\n${acceptUrl}\n\n` +
+      `Si no esperabas esta invitación, podés ignorar este email.`;
 
     // Encolar email (formato esperado por process-email-queue)
     const messageId = crypto.randomUUID();
@@ -179,6 +185,7 @@ Deno.serve(async (req) => {
       sender_domain: SENDER_DOMAIN,
       subject,
       html,
+      text,
       purpose: 'transactional',
       label: 'team_invitation',
       queued_at: new Date().toISOString(),
