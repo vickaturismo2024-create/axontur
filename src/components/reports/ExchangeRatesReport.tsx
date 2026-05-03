@@ -166,7 +166,7 @@ export function ExchangeRatesReport() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm stack-table">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="py-2 pr-4">Período</th>
@@ -180,18 +180,18 @@ export function ExchangeRatesReport() {
                 <tbody>
                   {monthlySummary.map((m, i) => (
                     <tr key={i} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-medium">
+                      <td data-label="Período" className="py-2 pr-4 font-medium">
                         {format(parseISO(`${m.period}-01`), 'MMM yyyy', { locale: es })}
                       </td>
-                      <td className="py-2 pr-4">
+                      <td data-label="Par" className="py-2 pr-4">
                         <Badge variant="outline" className="font-mono text-xs">
                           {m.pair}
                         </Badge>
                       </td>
-                      <td className="py-2 pr-4 text-right font-mono">{m.avg.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-right font-mono text-muted-foreground">{m.min.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-right font-mono text-muted-foreground">{m.max.toFixed(2)}</td>
-                      <td className="py-2 text-right">{m.count}</td>
+                      <td data-label="Promedio" className="py-2 pr-4 text-right font-mono">{m.avg.toFixed(2)}</td>
+                      <td data-label="Mínimo" className="py-2 pr-4 text-right font-mono text-muted-foreground">{m.min.toFixed(2)}</td>
+                      <td data-label="Máximo" className="py-2 pr-4 text-right font-mono text-muted-foreground">{m.max.toFixed(2)}</td>
+                      <td data-label="Operaciones" className="py-2 text-right">{m.count}</td>
                     </tr>
                   ))}
                 </tbody>
