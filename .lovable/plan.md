@@ -1,75 +1,61 @@
-## Diagnóstico
+# Optimización Mobile — AxonTur
 
-Los logs de `process-email-queue` muestran que **todos los emails de invitación quedan atascados** con este error de la API:
+Foco principal (según tu respuesta): **tablas que no entran / scroll horizontal**, además de revisión general del Dashboard, Wizard y listados.
 
-```
-400 {"type":"missing_parameter","message":"Missing run_id or idempotency_key",
-     "details":"Auth emails require run_id. App emails can omit run_id by 
-               providing idempotency_key with purpose=transactional."}
-```
+## Patrón base que vamos a aplicar
 
-**Causa**: la edge function `send-team-invitation` arma el payload con campos que el dispatcher no entiende (`recipient_email`, `sender_name`, `template_name`, `metadata`) y NO incluye `purpose: "transactional"` ni `idempotency_key`. El dispatcher (`process-email-queue`) lee otros nombres de campo (`to`, `from`, `purpose`, `idempotency_key`, `label`) — exactamente como lo hace `auth-email-hook`.
+Para cada tabla larga, usar el mismo patrón ya validado en otras partes de la app:
 
-Además, ya hay **4 mensajes atascados en la cola** que se reintentan cada 5s (read_ct hasta 11) y todos seguirán fallando hasta que se purguen.
-
-## Solución
-
-### 1. Reescribir el payload en `supabase/functions/send-team-invitation/index.ts`
-
-Cambiar los campos del payload para que coincidan con lo que `process-email-queue` espera:
-
-```ts
-const messageId = crypto.randomUUID();
-const idempotencyKey = `team-invite-${inv.id}`;
-
-// Log pending ANTES de encolar
-await admin.from('email_send_log').insert({
-  message_id: messageId,
-  template_name: 'team_invitation',
-  recipient_email: inv.email,
-  status: 'pending',
-});
-
-const payload = {
-  message_id: messageId,
-  idempotency_key: idempotencyKey,
-  to: inv.email,
-  from: `${FROM_NAME} <noreply@${SENDER_DOMAIN}>`,
-  sender_domain: SENDER_DOMAIN,
-  subject,
-  html,
-  purpose: 'transactional',
-  label: 'team_invitation',
-  queued_at: new Date().toISOString(),
-};
-
-await admin.rpc('enqueue_email', { queue_name: 'transactional_emails', payload });
+```text
+Desktop (md+)          Mobile (<md)
+┌───────────────┐      ┌──────────────┐
+│ tabla normal  │      │ Card apilada │
+│ con columnas  │  →   │ label: valor │
+└───────────────┘      │ acciones     │
+                       └──────────────┘
 ```
 
-Si `enqueue_email` falla, se loguea `failed` en `email_send_log` para que quede traza.
+Implementación: el mismo componente renderiza `<table className="hidden md:table">` + bloque `<div className="md:hidden space-y-2">` con tarjetas (`Card` shadcn).
 
-### 2. Redeploy de la función
+## 1. Listados (prioridad alta)
 
-`supabase--deploy_edge_functions` con `["send-team-invitation"]`.
+- **Pagos / Reportes** (`src/pages/Reports.tsx`, `src/components/reports/ExchangeRatesReport.tsx`): hoy `overflow-x-auto`. Convertir a vista dual tabla/cards. En mobile, una card por fila con: fecha, cliente/proveedor, monto, moneda, badge de estado.
+- **Cuentas Corrientes** (`src/components/accounts/AccountDetail.tsx`): movimientos en cards con fecha + descripción arriba, monto a la derecha, saldo abajo.
+- **Expedientes / FileDetail tabs** (`FileReceiptsTab`, `FileSuppliersTab`, `FileCommunicationsTab`): tablas → cards. Recibos: nro + fecha + total destacado; servicios por proveedor agrupados con total pagado/pendiente.
+- **Pricing del Wizard** (`src/components/quotes/PricingSection.tsx`): tabla de servicios → cards verticales con label arriba y valor grande, totales sticky al pie.
+- **Clientes / Suppliers / Files** (listados ya en grid): ajustar a `grid-cols-1` puro en mobile, reducir padding interno y mejorar jerarquía (nombre grande, metadata chica).
 
-### 3. Purgar los 4 mensajes atascados
+## 2. Dashboard (widgets)
 
-Los mensajes con id 1–4 en la cola `transactional_emails` tienen el formato viejo y nunca van a poder enviarse. Los borramos directamente de pgmq:
+- `BirthdayWidget`, `OperationalAlertsWidget`, `UpcomingFlightsWidget`, `RemindersPanel`: en mobile reducir `p-6` → `p-4`, títulos `text-base`, items con `truncate` y badges más chicos. Acciones (WhatsApp, ver) como íconos en mobile en vez de botones con texto.
+- `DashboardCharts`: forzar altura menor (`h-48`) y leyenda debajo en `<sm`.
+- `CurrencyRatesWidget`: scroll horizontal interno reemplazado por grid de 2 columnas.
 
-```sql
-SELECT pgmq.delete('transactional_emails', msg_id)
-FROM pgmq.q_transactional_emails;
-```
+## 3. Wizard de presupuestos
 
-Esto se ejecuta vía la herramienta de migración (operación puntual segura: solo elimina mensajes encolados, no afecta tablas de la app).
+- Steps con formularios largos (`LodgingStep`, `FlightsStep`, `ActivitiesStep`, `CruiseStep`, `TransportStep`): unificar a 1 columna en mobile (`grid-cols-1 md:grid-cols-2`), inputs `h-11` para target táctil y labels arriba.
+- Stepper superior: en mobile mostrar solo el step actual + contador "3 de 8" y flechas, en lugar de toda la barra.
+- Barra inferior de acciones (Anterior/Siguiente/Guardar) sticky al `bottom-0` en mobile con safe-area.
 
-### 4. Probar
+## 4. Header / Navegación
 
-Desde **Configuración → Equipo**, invitar a un email real. Esperar ~5–10s y verificar:
-- El email llega a la bandeja del invitado.
-- En `email_send_log` aparece una fila `sent` para `template_name = 'team_invitation'`.
-- Los logs de `process-email-queue` ya no muestran errores.
+- Botón User y Theme ya están ocultos en mobile (`hidden md:inline-flex`) — mover a dentro del Sheet menú lateral (ya están parcialmente). Asegurar que el header en mobile no pase de ~56px de alto.
+- `InfraHealthDot` solo visible si hay problema, para no competir con el nombre de agencia.
 
-## Resultado esperado
+## 5. Utilidades transversales
 
-Las invitaciones nuevas se envían correctamente con el branding de AxonTur desde `notify.vickaturismo.tur.ar`, y la cola queda limpia.
+- Crear hook `useIsMobile` ya existe → asegurar uso consistente.
+- Aumentar tap targets globales: botones `size="sm"` en mobile pasan a `h-10` mínimo.
+- Padding del `container`: `px-3` en mobile en lugar de `px-4`.
+
+## Detalles técnicos
+
+- Sin cambios de schema ni de backend.
+- No tocamos `client.ts`, `types.ts` ni archivos auto-generados.
+- Reutilizamos `Card`, `Badge`, `Button`, `Sheet` de shadcn.
+- Breakpoint principal: `md` (768px) usando Tailwind.
+- Los componentes PDF mantienen su layout (ya tienen su propia optimización mobile vía `pdf-page-mobile`).
+
+## Entregable
+
+Una serie de ediciones quirúrgicas en los archivos listados, sin nuevas dependencias. Al terminar vas a poder usar la app cómodamente desde el celular sin scroll horizontal en ninguna tabla y con widgets más densos en información útil.
