@@ -166,7 +166,7 @@ export function ExchangeRatesReport() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm stack-table">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="py-2 pr-4">Período</th>
@@ -180,18 +180,18 @@ export function ExchangeRatesReport() {
                 <tbody>
                   {monthlySummary.map((m, i) => (
                     <tr key={i} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-medium">
+                      <td data-label="Período" className="py-2 pr-4 font-medium">
                         {format(parseISO(`${m.period}-01`), 'MMM yyyy', { locale: es })}
                       </td>
-                      <td className="py-2 pr-4">
+                      <td data-label="Par" className="py-2 pr-4">
                         <Badge variant="outline" className="font-mono text-xs">
                           {m.pair}
                         </Badge>
                       </td>
-                      <td className="py-2 pr-4 text-right font-mono">{m.avg.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-right font-mono text-muted-foreground">{m.min.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-right font-mono text-muted-foreground">{m.max.toFixed(2)}</td>
-                      <td className="py-2 text-right">{m.count}</td>
+                      <td data-label="Promedio" className="py-2 pr-4 text-right font-mono">{m.avg.toFixed(2)}</td>
+                      <td data-label="Mínimo" className="py-2 pr-4 text-right font-mono text-muted-foreground">{m.min.toFixed(2)}</td>
+                      <td data-label="Máximo" className="py-2 pr-4 text-right font-mono text-muted-foreground">{m.max.toFixed(2)}</td>
+                      <td data-label="Operaciones" className="py-2 text-right">{m.count}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -217,7 +217,7 @@ export function ExchangeRatesReport() {
               <p className="py-6 text-center text-muted-foreground text-sm">Sin operaciones.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm stack-table">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="py-2 pr-4">Fecha</th>
@@ -230,19 +230,19 @@ export function ExchangeRatesReport() {
                   <tbody>
                     {filtered.map((r) => (
                       <tr key={r.id} className="border-b last:border-0">
-                        <td className="py-2 pr-4 whitespace-nowrap">
+                        <td data-label="Fecha" className="py-2 pr-4 whitespace-nowrap">
                           {format(parseISO(r.rate_date), 'dd/MM/yyyy')}
                         </td>
-                        <td className="py-2 pr-4 font-mono text-xs">
+                        <td data-label="Par" className="py-2 pr-4 font-mono text-xs">
                           {r.from_currency}→{r.to_currency}
                         </td>
-                        <td className="py-2 pr-4 text-right font-mono">{Number(r.rate).toFixed(4)}</td>
-                        <td className="py-2 pr-4">
+                        <td data-label="Cotización" className="py-2 pr-4 text-right font-mono">{Number(r.rate).toFixed(4)}</td>
+                        <td data-label="Origen" className="py-2 pr-4">
                           <Badge variant={r.source === 'manual' ? 'default' : 'secondary'} className="text-[10px]">
                             {SOURCE_LABEL[r.source] || r.source}
                           </Badge>
                         </td>
-                        <td className="py-2 text-muted-foreground text-xs">
+                        <td data-label="Tipo" className="py-2 text-muted-foreground text-xs">
                           {SOURCE_TYPE_LABEL[r.source_type || ''] || r.source_type || '—'}
                         </td>
                       </tr>

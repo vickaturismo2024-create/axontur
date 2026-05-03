@@ -142,9 +142,9 @@ const Files = () => {
                 const st = STATUS_MAP[file.status] || STATUS_MAP.confirmed;
                 return (
                   <Card key={file.id} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => navigate(`/files/${file.id}`)}>
-                    <CardContent className="flex items-center gap-4 p-4">
-                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <FolderOpen className="h-6 w-6 text-primary" />
+                    <CardContent className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+                      <div className="flex h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                        <FolderOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -154,7 +154,7 @@ const Files = () => {
                           <Badge variant={st.variant}>{st.label}</Badge>
                         </div>
                         <p className="mt-1 truncate font-medium">{file.client_name || 'Sin cliente'}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                           {file.destination && (
                             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{file.destination}</span>
                           )}
@@ -163,6 +163,7 @@ const Files = () => {
                           )}
                           <span className="flex items-center gap-1"><Users className="h-3 w-3" />{file.travelers} pax</span>
                         </div>
+                        <p className="sm:hidden mt-1 text-sm font-bold">{file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                       </div>
                       <div className="hidden flex-shrink-0 text-right sm:block">
                         <p className="text-lg font-bold">{file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
