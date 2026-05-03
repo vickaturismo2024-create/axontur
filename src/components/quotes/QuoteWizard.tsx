@@ -225,8 +225,8 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   return (
     <div className="flex min-h-[calc(100vh-200px)] gap-6">
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Steps Navigation */}
-        <div data-tour="step-tabs" className="mb-6 flex items-center gap-2 overflow-x-auto pb-2">
+        {/* Steps Navigation - desktop tabs */}
+        <div data-tour="step-tabs" className="mb-4 hidden md:flex items-center gap-2 overflow-x-auto pb-2">
           {steps.map((step, index) => {
             const Icon = step.icon;
             return (
@@ -246,34 +246,60 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
           })}
         </div>
 
+        {/* Steps Navigation - mobile compact */}
+        <div className="mb-4 md:hidden flex items-center gap-2 rounded-lg border bg-muted/30 px-2 py-2">
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={goPrev} disabled={currentStep === 0}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <select
+            value={currentStep}
+            onChange={(e) => setCurrentStep(Number(e.target.value))}
+            className="flex-1 bg-transparent text-sm font-medium outline-none"
+          >
+            {steps.map((s, i) => (
+              <option key={s.id} value={i}>{i + 1}. {s.label}</option>
+            ))}
+          </select>
+          <span className="text-xs text-muted-foreground shrink-0">{currentStep + 1}/{steps.length}</span>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={goNext} disabled={currentStep === steps.length - 1}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
         {/* Step Content */}
         <Card className="mb-6 flex flex-1 flex-col overflow-hidden">
-          <CardHeader className="shrink-0">
-            <CardTitle className="flex items-center gap-2 font-serif">
+          <CardHeader className="shrink-0 p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 font-serif text-base sm:text-xl">
               {(() => { const Icon = steps[currentStep].icon; return <Icon className="h-5 w-5 text-gold" />; })()}
               {steps[currentStep].label}
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto">
+          <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6">
             {renderStepContent()}
           </CardContent>
         </Card>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between">
-          <Button variant="outline" onClick={currentStep === 0 ? onCancel : goPrev}>
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            {currentStep === 0 ? 'Cancelar' : 'Anterior'}
+        {/* Navigation - sticky on mobile */}
+        <div className="sticky bottom-0 -mx-3 sm:mx-0 flex items-center justify-between gap-2 border-t bg-background/95 backdrop-blur px-3 py-3 sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:py-0">
+          <Button variant="outline" size="sm" onClick={currentStep === 0 ? onCancel : goPrev}>
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">{currentStep === 0 ? 'Cancelar' : 'Anterior'}</span>
+            <span className="sm:hidden">{currentStep === 0 ? 'Salir' : 'Atrás'}</span>
           </Button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {saveStatus === 'saving' && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Guardando...
               </span>
             )}
             {saveStatus === 'saved' && (
-              <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+              <span className="hidden sm:flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                 <Check className="h-3 w-3" /> Guardado
+              </span>
+            )}
+            {saveStatus !== 'idle' && (
+              <span className="sm:hidden">
+                {saveStatus === 'saving' ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Check className="h-4 w-4 text-emerald-600" />}
               </span>
             )}
             <Button variant="outline" onClick={() => setShowPreviewPanel(!showPreviewPanel)} className="hidden lg:flex">
@@ -281,11 +307,11 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
               {showPreviewPanel ? 'Ocultar' : 'Vista previa'}
             </Button>
             {currentStep === steps.length - 1 ? (
-              <Button data-tour="save-button" onClick={handleSave} className="bg-gold text-gold-foreground hover:bg-gold/90">
-                Guardar presupuesto
+              <Button data-tour="save-button" size="sm" onClick={handleSave} className="bg-gold text-gold-foreground hover:bg-gold/90">
+                Guardar
               </Button>
             ) : (
-              <Button onClick={goNext}>Siguiente<ChevronRight className="ml-2 h-4 w-4" /></Button>
+              <Button size="sm" onClick={goNext}>Siguiente<ChevronRight className="ml-1 h-4 w-4" /></Button>
             )}
           </div>
         </div>
