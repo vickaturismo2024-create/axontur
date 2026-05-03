@@ -306,73 +306,88 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
             </p>
           ) : (
             <div className="space-y-1">
-              <div className="grid grid-cols-[90px_1fr_100px_100px_40px] gap-2 text-xs font-medium text-muted-foreground px-2">
+              <div className="hidden md:grid grid-cols-[90px_1fr_120px_120px_40px] gap-2 text-xs font-medium text-muted-foreground px-2">
                 <span>Fecha</span><span>Concepto</span><span className="text-right">Monto</span><span className="text-right">Saldo</span><span />
               </div>
               {[...movementsWithBalance].reverse().map(m => {
                 const isAutoSync = !!m.source_payment_id;
+                const Icon = isAutoSync || m.receipt_id ? (isAutoSync ? FileText : Receipt) : (m.movement_type === 'credit' ? ArrowUpRight : ArrowDownRight);
+                const iconClass = isAutoSync || m.receipt_id ? 'text-primary' : (m.movement_type === 'credit' ? 'text-green-600' : 'text-red-600');
+                const dateStr = new Date(m.movement_date).toLocaleDateString('es-AR');
+                const amountStr = `${m.movement_type === 'credit' ? '+' : '-'}${m.currency} ${m.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+                const balanceStr = `${m.currency} ${m.runningBalance.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+                const amountColor = m.movement_type === 'credit' ? 'text-green-600' : 'text-red-600';
+
+                const deleteBtn = isAutoSync ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
+                            <Trash2 className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Eliminá el pago desde el expediente para borrar este movimiento</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : canCreateMovements ? (
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteId(m.id)}>
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                ) : null;
+
                 return (
-                <div key={m.id} className="grid grid-cols-[90px_1fr_100px_100px_40px] gap-2 items-center rounded-md border px-2 py-1.5 text-sm">
-                  <span className="text-xs text-muted-foreground">{new Date(m.movement_date).toLocaleDateString('es-AR')}</span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1">
-                      {isAutoSync ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <FileText className="h-3 w-3 flex-shrink-0 text-primary" />
-                            </TooltipTrigger>
-                            <TooltipContent>Generado automáticamente desde un expediente</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : m.receipt_id ? (
-                        <Receipt className="h-3 w-3 flex-shrink-0 text-primary" />
-                      ) : m.movement_type === 'credit' ? (
-                        <ArrowUpRight className="h-3 w-3 flex-shrink-0 text-green-600" />
-                      ) : (
-                        <ArrowDownRight className="h-3 w-3 flex-shrink-0 text-red-600" />
-                      )}
-                      <span className="truncate">{m.concept}</span>
-                      {m.file_id && (
-                        <button
-                          type="button"
-                          onClick={() => { onClose(); navigate(`/files/${m.file_id}`); }}
-                          className="text-primary hover:underline ml-1"
-                          title="Ver expediente"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
-                      )}
+                  <div key={m.id} className="rounded-md border md:border-0 md:rounded-none md:bg-transparent bg-card overflow-hidden">
+                    {/* Desktop row */}
+                    <div className="hidden md:grid grid-cols-[90px_1fr_120px_120px_40px] gap-2 items-center md:border md:rounded-md md:px-2 md:py-1.5 text-sm">
+                      <span className="text-xs text-muted-foreground">{dateStr}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <Icon className={`h-3 w-3 flex-shrink-0 ${iconClass}`} />
+                          <span className="truncate">{m.concept}</span>
+                          {m.file_id && (
+                            <button type="button" onClick={() => { onClose(); navigate(`/files/${m.file_id}`); }} className="text-primary hover:underline ml-1" title="Ver expediente">
+                              <ExternalLink className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        {m.reference && <span className="text-xs text-muted-foreground">Ref: {m.reference}</span>}
+                      </div>
+                      <span className={`text-right font-mono text-xs ${amountColor}`}>{amountStr}</span>
+                      <span className="text-right font-mono text-xs">{balanceStr}</span>
+                      {deleteBtn || <span />}
                     </div>
-                    {m.reference && <span className="text-xs text-muted-foreground">Ref: {m.reference}</span>}
+
+                    {/* Mobile card */}
+                    <div className="md:hidden p-3 text-sm">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <Icon className={`h-3.5 w-3.5 flex-shrink-0 ${iconClass}`} />
+                            <span className="font-medium truncate">{m.concept}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{dateStr}{m.reference ? ` · Ref: ${m.reference}` : ''}</p>
+                        </div>
+                        {deleteBtn}
+                      </div>
+                      <div className="flex items-end justify-between gap-2 pt-1 border-t">
+                        <div>
+                          <p className="text-[10px] uppercase text-muted-foreground">Saldo</p>
+                          <p className="font-mono text-xs">{balanceStr}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase text-muted-foreground">Monto</p>
+                          <p className={`font-mono font-semibold ${amountColor}`}>{amountStr}</p>
+                        </div>
+                        {m.file_id && (
+                          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => { onClose(); navigate(`/files/${m.file_id}`); }}>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <span className={`text-right font-mono text-xs ${m.movement_type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                    {m.movement_type === 'credit' ? '+' : '-'}{m.currency} {m.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                  </span>
-                  <span className="text-right font-mono text-xs">
-                    {m.currency} {m.runningBalance.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                  </span>
-                  {isAutoSync ? (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
-                              <Trash2 className="h-3 w-3 text-muted-foreground" />
-                            </Button>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>Eliminá el pago desde el expediente para borrar este movimiento</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : canCreateMovements ? (
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteId(m.id)}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  ) : (
-                    <span />
-                  )}
-                </div>
                 );
               })}
             </div>
