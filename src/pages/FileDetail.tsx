@@ -13,7 +13,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText, Mail, Send } from 'lucide-react';
+import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText, Mail, Send, Plane } from 'lucide-react';
+import { syncQuoteFlightsToReservation } from '@/lib/quoteFlightsToReservation';
+import type { Quote } from '@/types/quote';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
@@ -364,12 +366,36 @@ const FileDetail = () => {
                 <ExternalLink className="h-3 w-3" />
               </button>
               {file.quote_id && (
-                <button
-                  onClick={() => navigate(`/quote/${file.quote_id}`)}
-                  className="flex items-center gap-1 text-primary hover:underline"
-                >
-                  <FileText className="h-3.5 w-3.5" />Ver presupuesto
-                </button>
+                <>
+                  <button
+                    onClick={() => navigate(`/quote/${file.quote_id}`)}
+                    className="flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <FileText className="h-3.5 w-3.5" />Ver presupuesto
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!user || !file.quote_id) return;
+                      const { data: q, error } = await supabase
+                        .from('quotes').select('*').eq('id', file.quote_id).maybeSingle();
+                      if (error || !q) { toast.error('No se pudo leer el presupuesto'); return; }
+                      const result = await syncQuoteFlightsToReservation(q as unknown as Quote, file.id, user.id);
+                      if (result.created) {
+                        toast.success(`${result.segmentsCreated} vuelo(s) sincronizados al calendario`);
+                      } else if (result.reason === 'already_exists') {
+                        toast.info('Los vuelos ya estaban sincronizados');
+                      } else if (result.reason === 'no_valid_flights') {
+                        toast.info('Este presupuesto no tiene vuelos con fecha y horario');
+                      } else {
+                        toast.error('No se pudieron sincronizar los vuelos');
+                      }
+                    }}
+                    className="flex items-center gap-1 text-primary hover:underline"
+                    title="Sincronizar vuelos del presupuesto al calendario y alertas"
+                  >
+                    <Plane className="h-3.5 w-3.5" />Sincronizar vuelos al calendario
+                  </button>
+                </>
               )}
               {file.destination && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{file.destination}</span>}
               {file.start_date && <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(file.start_date).toLocaleDateString('es-AR')}{file.end_date ? ` - ${new Date(file.end_date).toLocaleDateString('es-AR')}` : ''}</span>}
