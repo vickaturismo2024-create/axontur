@@ -1,10 +1,17 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Quote } from '@/types/quote';
+import { syncQuoteFlightsToReservation } from './quoteFlightsToReservation';
 
 export async function createFileFromQuote(quote: Quote, userId: string): Promise<{ fileId: string; fileNumber: number } | null> {
   // Check if file already exists for this quote
   const { data: existing } = await supabase.from('files').select('id,file_number').eq('quote_id', quote.id).maybeSingle();
   if (existing) {
+    // Idempotent backfill: ensure flights from the quote are synced to reservations/calendar
+    try {
+      await syncQuoteFlightsToReservation(quote, (existing as any).id, userId);
+    } catch (e) {
+      console.error('[createFileFromQuote] sync flights (existing file) failed', e);
+    }
     return { fileId: (existing as any).id, fileNumber: (existing as any).file_number };
   }
 
@@ -181,6 +188,14 @@ export async function createFileFromQuote(quote: Quote, userId: string): Promise
   if (services.length > 0) {
     const withFileId = services.map(s => ({ ...s, file_id: (fileData as any).id }));
     await supabase.from('file_services').insert(withFileId);
+  }
+
+  // Sync quote flights into reservations + flight_segments so they show up
+  // in the calendar and upcoming flights widget / alerts.
+  try {
+    await syncQuoteFlightsToReservation(quote, (fileData as any).id, userId);
+  } catch (e) {
+    console.error('[createFileFromQuote] sync flights (new file) failed', e);
   }
 
   return { fileId: (fileData as any).id, fileNumber: (fileData as any).file_number };
