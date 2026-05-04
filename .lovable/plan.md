@@ -1,56 +1,95 @@
-## Problema
+## Objetivo
 
-Cuando un presupuesto aprobado se convierte en expediente (función `createFileFromQuote`), los vuelos del presupuesto se guardan **sólo como `file_services`** (registros administrativos). El **Calendario de vuelos**, el **Widget "Vuelos próximos (7 días)"** y la **campanita de alertas** leen exclusivamente de las tablas `reservations` + `flight_segments`, que se alimentan únicamente desde la importación de PNR/PDF.
+Empaquetar **todo el código** de AxonTur + un dossier técnico (README de contexto, schema DB, análisis de stack y recomendaciones) en un único `.zip` descargable desde `/mnt/documents/`. Esto es una **tarea de exec** (no toca el código de la app), genera artefactos para que vos / un revisor externo puedan auditar todo offline.
 
-Resultado: el expediente de Vasta tiene vuelos cargados en el presupuesto (GOL G37756 AEP→MCZ el 18/04/2026 y G37620 REC→AEP el 06/05/2026), pero **no aparecen en el calendario** porque nunca se creó una `reservation`.
+## Qué incluye el paquete
 
-## Solución
+```
+axontur-review-bundle.zip
+├── README.md                       ← contexto técnico completo (ver abajo)
+├── ARCHITECTURE.md                 ← diagrama de capas, flujo de datos, multi-tenancy
+├── STACK_ANALYSIS.md               ← análisis crítico de tecnologías + recomendaciones
+├── DATABASE_SCHEMA.md              ← todas las tablas, RLS, funciones, triggers
+├── EDGE_FUNCTIONS.md               ← inventario de las 12 edge functions
+├── METRICS.md                      ← LOC por módulo, dependencias, archivos pesados
+├── code/
+│   ├── src/                        ← 100% del frontend (~42k LOC, 280 archivos)
+│   ├── supabase/
+│   │   ├── functions/              ← 12 edge functions (Deno)
+│   │   ├── migrations/             ← 43 migraciones SQL
+│   │   └── config.toml
+│   ├── package.json
+│   ├── tsconfig*.json
+│   ├── tailwind.config.ts
+│   ├── vite.config.ts
+│   └── index.html
+└── db-snapshot/
+    ├── tables.sql                  ← DDL exportado de las 30+ tablas
+    ├── functions.sql               ← 23 funciones DB (has_role, current_agency_id, triggers, etc.)
+    └── rls-policies.sql            ← todas las policies RLS
+```
 
-Al crear el expediente desde un presupuesto, si el presupuesto tiene vuelos cargados con fecha y horario, generar automáticamente:
+> Se excluyen `node_modules`, `bun.lockb`, `.env` (secretos) y archivos generados.
 
-1. **1 `reservation`** vinculada al expediente (`file_id` = nuevo expediente, `source_type` = `'quote'`, `locator` vacío para que se pueda completar después).
-2. **N `flight_segments`** (uno por cada vuelo del presupuesto) con: aerolínea, número de vuelo, origen IATA (extraído entre paréntesis del campo, ej. "Buenos Aires (AEP)" → `AEP`), destino IATA, fecha+hora local de salida y llegada, clase de reserva (vacía).
-3. **N `reservation_passengers`** copiados desde el presupuesto (nombre del cliente y acompañantes si existen en `quote.client` / `quote.trip.travelers`). Mínimo 1 pasajero con el nombre del cliente.
+## Contenido del README.md de contexto
 
-### Reglas
+1. **Qué es AxonTur** — ERP/Back Office para agencias de viajes (multi-tenant).
+2. **Stack actual** resumido:
+   - **Frontend:** React 18 + Vite 5 + TypeScript 5 + Tailwind 3 + shadcn/ui (Radix) + React Query 5 + React Router 6 + React Hook Form + Zod
+   - **Backend:** Supabase (Postgres + Auth + Edge Functions Deno + pgmq para colas de email)
+   - **Hosting:** Lovable (preview) + `axontur.lovable.app` (publicado). Supabase gestionado.
+   - **PDF:** html2canvas + jsPDF | **Excel:** xlsx (SheetJS) | **AI:** Lovable AI Gateway (Gemini/GPT-5)
+3. **Módulos funcionales** (23 páginas): Dashboard, Quotes/Wizard, Files (Expedientes), Clients (CRM), Suppliers, Accounts (CC), Reports, Calendar, Reservations (PNR), Templates, Settings, Auth.
+4. **Cómo correrlo localmente** (`bun install && bun dev`, vars de entorno requeridas).
+5. **Convenciones del repo** (memoria de proyecto, RLS por `agency_id`, `parseISO` para fechas, `.upsert()` para quotes, `.range()` paginado >1000, etc.).
 
-- **Sólo se crea la reserva si hay al menos 1 vuelo con `date` + `departureTime`.** Si los vuelos son sólo "opciones" (`isOption: true`), se ignoran (no se confirmaron).
-- **Idempotencia**: si ya existe una `reservation` con el mismo `file_id` y `source_type='quote'`, **no se duplica** (se omite la creación). Esto cubre re-aperturas y la actualización en lote.
-- **Origen/destino IATA**: extraer las 3 letras entre paréntesis del campo `origin`/`destination` (formato actual del wizard: "Buenos Aires (AEP)"). Si no hay paréntesis, usar las primeras 3 letras en mayúsculas como fallback.
-- **Fecha local**: combinar `date` (YYYY-MM-DD) + `departureTime`/`arrivalTime` (HH:mm) → ISO local. Si `arrivalTime` trae sufijo `+1` (vuelo nocturno), sumar 1 día a la fecha de llegada.
-- El campo `notes` del segmento queda vacío (no usamos `raw_text` porque no viene de un PNR).
-- `is_incomplete = false`, `has_changes = false`, `segment_status = 'HK'` (confirmado por defecto).
+## Contenido de STACK_ANALYSIS.md (análisis crítico)
 
-### Backfill para expedientes existentes
+Evaluación honesta por capa, con **¿es la tecnología adecuada?** + alternativas:
 
-Como el caso de Vasta y posibles otros ya tienen expediente sin reserva, agregar un **backfill one-shot**: al cargar el dashboard, si un expediente confirmado tiene `quote_id` con vuelos pero **ninguna `reservation` asociada**, ejecutar la creación. Alternativa simple: botón "Sincronizar vuelos al calendario" en la pestaña de Servicios del expediente, que dispara la misma función. **Recomendado**: hacer ambas cosas — backfill automático silencioso al abrir cada expediente, más botón manual visible.
+- **Vite + React + TS** — Adecuado. SPA pura, sin SSR. Trade-off: SEO limitado (no es necesario para back-office).
+- **shadcn/ui + Radix** — Adecuado. Bundle controlado vs MUI/Chakra.
+- **React Query** — Bien usado (`refetchOnWindowFocus: false`, staleTime 5min). Revisar invalidaciones.
+- **Supabase + RLS por `current_agency_id()`** — Patrón sólido para multi-tenant. Riesgos: cada query depende de la función SECURITY DEFINER; rendimiento con muchos miembros.
+- **Edge Functions (Deno)** — 12 funciones, varias con `verify_jwt = false` (públicas) — auditar `scrape-package`, `get-public-quote`, `auth-email-hook`.
+- **PDF con html2canvas + jsPDF** — Funciona pero es **costoso en cliente** (CPU/memoria, fuentes, paginación frágil). Alternativas: `@react-pdf/renderer`, Puppeteer en edge, o servicio externo.
+- **Excel con xlsx (SheetJS)** — OK pero la versión community tiene CVEs históricos. Considerar `exceljs`.
+- **pgmq + edge cron** para emails — Buena elección para evitar bloquear UI.
+- **Bundle size** — 280 archivos, 42k LOC frontend; revisar code-splitting por ruta (hoy `App.tsx` importa todas las páginas estáticamente).
+- **Hosting** — Lovable publish es estático/CDN. Supabase es el cuello de botella real (instance size). Recomendación: monitorear `cloud_status` y considerar región.
+- **Seguridad** — RLS bien aplicado, pero usar `supabase--linter` y revisar policies con `current_agency_id()` que asume 1 user = 1 agencia.
+- **Testing** — Solo 1 archivo de test (`src/test/example.test.ts`). **Gap importante** — recomendar Vitest + Testing Library para hooks críticos (pricing, occupancy, fileFromQuote).
+- **Observabilidad** — No hay Sentry/PostHog. Solo console + edge logs.
 
-## Cambios técnicos
+Cada punto incluye: **veredicto** (Mantener / Revisar / Migrar), **razón**, y **alternativa concreta** si aplica.
 
-### Archivos a modificar
+## Contenido de DATABASE_SCHEMA.md
 
-1. **`src/lib/fileFromQuote.ts`** — después de insertar `files` y `file_services`, llamar nueva función `createReservationFromQuoteFlights(quote, fileId, userId)`:
-   - Filtra vuelos válidos (con fecha + hora + no opcionales).
-   - Si hay 0, sale.
-   - Inserta `reservations` con `file_id`, `source_type: 'quote'`, `gds: null`, `locator: null`.
-   - Inserta `flight_segments` (uno por vuelo, ordenados por fecha) con `seq` incremental.
-   - Inserta `reservation_passengers` con el nombre del cliente.
+- Listado de las **~30 tablas** agrupadas por dominio (agencies, quotes, files, reservations, accounts, email).
+- Para cada tabla: columnas, RLS policies, FKs.
+- Las **23 funciones** SQL agrupadas: helpers (`has_role`, `current_agency_id`), triggers (`sync_*_to_account_movement`, `set_file_number`), RPCs (`accept_agency_invitation`, `get_invitation_by_token`).
+- Diagrama ASCII de relaciones principales (quote → file → services/receipts/payments → account_movements).
 
-2. **`src/lib/quoteFlightsToReservation.ts`** (nuevo) — utilidades:
-   - `parseIataFromLocation(loc: string): string` (extrae `XXX` entre paréntesis).
-   - `combineLocalDateTime(date, time): string | null` (maneja sufijo `+1`).
-   - `syncQuoteFlightsToReservation(quote, fileId, userId)` (idempotente, chequea reserva existente antes de insertar).
+## Pasos de ejecución
 
-3. **`src/pages/FileDetail.tsx`** (o `FileServicesTab.tsx`) — agregar botón "Sincronizar vuelos al calendario" visible cuando el expediente tiene `quote_id` y no tiene reserva asociada todavía. Al hacer clic, llama a la utilidad y muestra toast.
+1. Crear directorio `/tmp/bundle/` con la estructura.
+2. Copiar `src/`, `supabase/functions/`, `supabase/migrations/`, configs.
+3. Generar los `.md` de documentación (escritos por mí leyendo el repo + memoria + schema ya en contexto).
+4. Volcar schema DB usando `supabase--read_query` sobre `information_schema` y `pg_proc` para tener un snapshot SQL fiel.
+5. Empaquetar con `zip -r` (vía `nix run nixpkgs#zip`).
+6. Emitir `<lov-artifact path="axontur-review-bundle.zip" mime_type="application/zip">`.
 
-4. **`src/components/files/CreateFileFromQuote.tsx`** y **`src/components/quotes/QuoteCard.tsx`** — ya llaman a `createFileFromQuote`, no requieren cambios (el sync queda dentro).
+## Tamaño estimado del ZIP
 
-### Sin cambios de schema
+~1.2 MB comprimido (código fuente sin `node_modules`).
 
-Las tablas `reservations`, `flight_segments`, `reservation_passengers` ya tienen las columnas necesarias y RLS apropiada (`owns_reservation` por `user_id`).
+## Lo que NO incluye (y por qué)
 
-## Verificación
+- **`.env` / secretos** — riesgo de exposición. Listo los nombres en el README.
+- **`node_modules` / lockfiles binarios** — reproducibles con `bun install`.
+- **Datos reales de la DB** — solo schema, no filas.
+- **Build artifacts** (`dist/`).
 
-1. Para el expediente de Vasta: usar el botón "Sincronizar vuelos al calendario" → confirmar que aparecen los 2 vuelos GOL en el calendario de abril/mayo 2026 y en "Vuelos próximos" cuando estén dentro de 7 días.
-2. Crear un presupuesto nuevo con 1 vuelo, aprobarlo y abrir expediente → la reserva se crea automáticamente y los segmentos aparecen en el calendario.
-3. Volver a abrir el mismo expediente → no se duplica la reserva.
+## Confirmación
+
+¿Procedo con esta estructura, o querés que ajuste algo (ej. incluir lockfile, sumar análisis de performance específico, generar también un PDF en vez de solo `.md`)?
