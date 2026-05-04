@@ -1,61 +1,56 @@
-# Optimización Mobile — AxonTur
+## Problema
 
-Foco principal (según tu respuesta): **tablas que no entran / scroll horizontal**, además de revisión general del Dashboard, Wizard y listados.
+Cuando un presupuesto aprobado se convierte en expediente (función `createFileFromQuote`), los vuelos del presupuesto se guardan **sólo como `file_services`** (registros administrativos). El **Calendario de vuelos**, el **Widget "Vuelos próximos (7 días)"** y la **campanita de alertas** leen exclusivamente de las tablas `reservations` + `flight_segments`, que se alimentan únicamente desde la importación de PNR/PDF.
 
-## Patrón base que vamos a aplicar
+Resultado: el expediente de Vasta tiene vuelos cargados en el presupuesto (GOL G37756 AEP→MCZ el 18/04/2026 y G37620 REC→AEP el 06/05/2026), pero **no aparecen en el calendario** porque nunca se creó una `reservation`.
 
-Para cada tabla larga, usar el mismo patrón ya validado en otras partes de la app:
+## Solución
 
-```text
-Desktop (md+)          Mobile (<md)
-┌───────────────┐      ┌──────────────┐
-│ tabla normal  │      │ Card apilada │
-│ con columnas  │  →   │ label: valor │
-└───────────────┘      │ acciones     │
-                       └──────────────┘
-```
+Al crear el expediente desde un presupuesto, si el presupuesto tiene vuelos cargados con fecha y horario, generar automáticamente:
 
-Implementación: el mismo componente renderiza `<table className="hidden md:table">` + bloque `<div className="md:hidden space-y-2">` con tarjetas (`Card` shadcn).
+1. **1 `reservation`** vinculada al expediente (`file_id` = nuevo expediente, `source_type` = `'quote'`, `locator` vacío para que se pueda completar después).
+2. **N `flight_segments`** (uno por cada vuelo del presupuesto) con: aerolínea, número de vuelo, origen IATA (extraído entre paréntesis del campo, ej. "Buenos Aires (AEP)" → `AEP`), destino IATA, fecha+hora local de salida y llegada, clase de reserva (vacía).
+3. **N `reservation_passengers`** copiados desde el presupuesto (nombre del cliente y acompañantes si existen en `quote.client` / `quote.trip.travelers`). Mínimo 1 pasajero con el nombre del cliente.
 
-## 1. Listados (prioridad alta)
+### Reglas
 
-- **Pagos / Reportes** (`src/pages/Reports.tsx`, `src/components/reports/ExchangeRatesReport.tsx`): hoy `overflow-x-auto`. Convertir a vista dual tabla/cards. En mobile, una card por fila con: fecha, cliente/proveedor, monto, moneda, badge de estado.
-- **Cuentas Corrientes** (`src/components/accounts/AccountDetail.tsx`): movimientos en cards con fecha + descripción arriba, monto a la derecha, saldo abajo.
-- **Expedientes / FileDetail tabs** (`FileReceiptsTab`, `FileSuppliersTab`, `FileCommunicationsTab`): tablas → cards. Recibos: nro + fecha + total destacado; servicios por proveedor agrupados con total pagado/pendiente.
-- **Pricing del Wizard** (`src/components/quotes/PricingSection.tsx`): tabla de servicios → cards verticales con label arriba y valor grande, totales sticky al pie.
-- **Clientes / Suppliers / Files** (listados ya en grid): ajustar a `grid-cols-1` puro en mobile, reducir padding interno y mejorar jerarquía (nombre grande, metadata chica).
+- **Sólo se crea la reserva si hay al menos 1 vuelo con `date` + `departureTime`.** Si los vuelos son sólo "opciones" (`isOption: true`), se ignoran (no se confirmaron).
+- **Idempotencia**: si ya existe una `reservation` con el mismo `file_id` y `source_type='quote'`, **no se duplica** (se omite la creación). Esto cubre re-aperturas y la actualización en lote.
+- **Origen/destino IATA**: extraer las 3 letras entre paréntesis del campo `origin`/`destination` (formato actual del wizard: "Buenos Aires (AEP)"). Si no hay paréntesis, usar las primeras 3 letras en mayúsculas como fallback.
+- **Fecha local**: combinar `date` (YYYY-MM-DD) + `departureTime`/`arrivalTime` (HH:mm) → ISO local. Si `arrivalTime` trae sufijo `+1` (vuelo nocturno), sumar 1 día a la fecha de llegada.
+- El campo `notes` del segmento queda vacío (no usamos `raw_text` porque no viene de un PNR).
+- `is_incomplete = false`, `has_changes = false`, `segment_status = 'HK'` (confirmado por defecto).
 
-## 2. Dashboard (widgets)
+### Backfill para expedientes existentes
 
-- `BirthdayWidget`, `OperationalAlertsWidget`, `UpcomingFlightsWidget`, `RemindersPanel`: en mobile reducir `p-6` → `p-4`, títulos `text-base`, items con `truncate` y badges más chicos. Acciones (WhatsApp, ver) como íconos en mobile en vez de botones con texto.
-- `DashboardCharts`: forzar altura menor (`h-48`) y leyenda debajo en `<sm`.
-- `CurrencyRatesWidget`: scroll horizontal interno reemplazado por grid de 2 columnas.
+Como el caso de Vasta y posibles otros ya tienen expediente sin reserva, agregar un **backfill one-shot**: al cargar el dashboard, si un expediente confirmado tiene `quote_id` con vuelos pero **ninguna `reservation` asociada**, ejecutar la creación. Alternativa simple: botón "Sincronizar vuelos al calendario" en la pestaña de Servicios del expediente, que dispara la misma función. **Recomendado**: hacer ambas cosas — backfill automático silencioso al abrir cada expediente, más botón manual visible.
 
-## 3. Wizard de presupuestos
+## Cambios técnicos
 
-- Steps con formularios largos (`LodgingStep`, `FlightsStep`, `ActivitiesStep`, `CruiseStep`, `TransportStep`): unificar a 1 columna en mobile (`grid-cols-1 md:grid-cols-2`), inputs `h-11` para target táctil y labels arriba.
-- Stepper superior: en mobile mostrar solo el step actual + contador "3 de 8" y flechas, en lugar de toda la barra.
-- Barra inferior de acciones (Anterior/Siguiente/Guardar) sticky al `bottom-0` en mobile con safe-area.
+### Archivos a modificar
 
-## 4. Header / Navegación
+1. **`src/lib/fileFromQuote.ts`** — después de insertar `files` y `file_services`, llamar nueva función `createReservationFromQuoteFlights(quote, fileId, userId)`:
+   - Filtra vuelos válidos (con fecha + hora + no opcionales).
+   - Si hay 0, sale.
+   - Inserta `reservations` con `file_id`, `source_type: 'quote'`, `gds: null`, `locator: null`.
+   - Inserta `flight_segments` (uno por vuelo, ordenados por fecha) con `seq` incremental.
+   - Inserta `reservation_passengers` con el nombre del cliente.
 
-- Botón User y Theme ya están ocultos en mobile (`hidden md:inline-flex`) — mover a dentro del Sheet menú lateral (ya están parcialmente). Asegurar que el header en mobile no pase de ~56px de alto.
-- `InfraHealthDot` solo visible si hay problema, para no competir con el nombre de agencia.
+2. **`src/lib/quoteFlightsToReservation.ts`** (nuevo) — utilidades:
+   - `parseIataFromLocation(loc: string): string` (extrae `XXX` entre paréntesis).
+   - `combineLocalDateTime(date, time): string | null` (maneja sufijo `+1`).
+   - `syncQuoteFlightsToReservation(quote, fileId, userId)` (idempotente, chequea reserva existente antes de insertar).
 
-## 5. Utilidades transversales
+3. **`src/pages/FileDetail.tsx`** (o `FileServicesTab.tsx`) — agregar botón "Sincronizar vuelos al calendario" visible cuando el expediente tiene `quote_id` y no tiene reserva asociada todavía. Al hacer clic, llama a la utilidad y muestra toast.
 
-- Crear hook `useIsMobile` ya existe → asegurar uso consistente.
-- Aumentar tap targets globales: botones `size="sm"` en mobile pasan a `h-10` mínimo.
-- Padding del `container`: `px-3` en mobile en lugar de `px-4`.
+4. **`src/components/files/CreateFileFromQuote.tsx`** y **`src/components/quotes/QuoteCard.tsx`** — ya llaman a `createFileFromQuote`, no requieren cambios (el sync queda dentro).
 
-## Detalles técnicos
+### Sin cambios de schema
 
-- Sin cambios de schema ni de backend.
-- No tocamos `client.ts`, `types.ts` ni archivos auto-generados.
-- Reutilizamos `Card`, `Badge`, `Button`, `Sheet` de shadcn.
-- Breakpoint principal: `md` (768px) usando Tailwind.
-- Los componentes PDF mantienen su layout (ya tienen su propia optimización mobile vía `pdf-page-mobile`).
+Las tablas `reservations`, `flight_segments`, `reservation_passengers` ya tienen las columnas necesarias y RLS apropiada (`owns_reservation` por `user_id`).
 
-## Entregable
+## Verificación
 
-Una serie de ediciones quirúrgicas en los archivos listados, sin nuevas dependencias. Al terminar vas a poder usar la app cómodamente desde el celular sin scroll horizontal en ninguna tabla y con widgets más densos en información útil.
+1. Para el expediente de Vasta: usar el botón "Sincronizar vuelos al calendario" → confirmar que aparecen los 2 vuelos GOL en el calendario de abril/mayo 2026 y en "Vuelos próximos" cuando estén dentro de 7 días.
+2. Crear un presupuesto nuevo con 1 vuelo, aprobarlo y abrir expediente → la reserva se crea automáticamente y los segmentos aparecen en el calendario.
+3. Volver a abrir el mismo expediente → no se duplica la reserva.
