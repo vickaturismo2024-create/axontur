@@ -1,49 +1,63 @@
-## Objetivo
+# Arreglar "Enviar por WhatsApp" en Compartir presupuesto
 
-Permitir que un admin de agencia agregue **directamente** a un usuario que ya está registrado en la app pero todavía no pertenece a ninguna agencia, sin tener que mandar/aceptar una invitación por email.
+## Problema detectado
 
-Esto resuelve casos como el de `juancruzaguero@gmail.com`: el usuario ya creó su cuenta pero quedó "huérfano" sin acceso a datos.
+En el menú **Compartir → Enviar por WhatsApp** del PDF de presupuesto, hacer clic no abre nada (ni WhatsApp, ni error). El teléfono del cliente está bien cargado (ej. `+54 9 11 1234-5678`).
 
-## Restricciones
+**Causa raíz:** el handler usa `window.open(url, '_blank')` dentro de un `DropdownMenuItem` de Radix. Radix cierra el menú de forma asíncrona después del clic, y para cuando se ejecuta `window.open`, el navegador ya considera que perdió el "user gesture" original → **bloquea la apertura como popup, silenciosamente, sin error**. El mismo botón "Enviar por Email" funciona porque `mailto:` no se considera popup.
 
-- Se mantiene la regla **1 usuario = 1 agencia**: no se puede asignar a alguien que ya pertenece a otra agencia.
-- Sólo admins pueden hacerlo (mismas reglas que invitar).
-- Se respeta la confidencialidad: no se exponen los emails de todos los usuarios de la base — el admin tiene que **escribir el email exacto** del usuario a asignar.
+## Solución
 
-## Cambios
+Cambiar el item de WhatsApp para que use un enlace real (`<a href="https://wa.me/...">`) en vez de un `onClick` con `window.open`. Los navegadores siempre permiten la navegación de un `<a target="_blank">` aunque el menú se cierre, porque la URL ya está resuelta en el DOM en el momento del clic.
 
-### 1. Nueva función RPC `assign_user_to_agency(_email, _role)`
+### Cambios
 
-`SECURITY DEFINER`, en `public`. Hace:
+**1. `src/components/pdf/PDFShareMenu.tsx`**
+- Calcular el `whatsappUrl` y la validez del teléfono al renderizar (no en un handler).
+- Reemplazar el `DropdownMenuItem onClick={handleShareWhatsApp}` por un `DropdownMenuItem asChild` que envuelve un `<a href={whatsappUrl} target="_blank" rel="noopener noreferrer">`.
+- Si el teléfono es inválido, en vez de no renderizar, dejar el item como botón con `onClick` que muestra el toast de error (caso poco frecuente, pero útil).
+- Mantener el resto del menú igual.
 
-1. Verifica que `auth.uid()` es admin de su agencia actual (`current_agency_id() + has_role 'admin'`).
-2. Busca en `auth.users` el `id` del email recibido (case-insensitive).
-3. Si no existe → devuelve `{ success: false, error: 'user_not_found' }`. (No se filtra esto antes porque sólo confirma o niega un email puntual ingresado por el admin.)
-4. Si el usuario ya está en `agency_members` → devuelve `{ success: false, error: 'already_member' }`.
-5. Inserta `(agency_id = current_agency_id(), user_id, role)` en `agency_members`.
-6. Devuelve `{ success: true, user_id, role }`.
+**2. Aplicar el mismo patrón (defensivo) en otros lugares donde se usa `window.open('https://wa.me/...')` dentro de menús/popovers**, para evitar el mismo bug a futuro:
+- `src/components/dashboard/BirthdayWhatsAppDialog.tsx` (revisar si está dentro de un Dialog que se cierra antes de abrir)
+- `src/components/pdf/PDFContactPage.tsx` y `PDFContactPages.tsx` (botones de agentes — probablemente ya funcionan porque son botones directos, pero verificar)
 
-Migración: crear la función + `GRANT EXECUTE ... TO authenticated`.
+Solo se cambiará el comportamiento donde haga falta; no se tocan los otros si ya funcionan.
 
-### 2. UI — `src/components/settings/TeamTab.tsx`
+## Detalle técnico
 
-Agregar al lado del botón "Invitar miembro" un botón secundario **"Agregar usuario existente"** que abre un dialog con:
+```tsx
+// Antes
+<DropdownMenuItem onClick={handleShareWhatsApp}>
+  <MessageCircle /> Enviar por WhatsApp
+</DropdownMenuItem>
 
-- Input email (obligatorio).
-- Select de rol (admin / vendedor, default vendedor).
-- Botón "Agregar a la agencia".
+// Después
+const phoneDigits = normalizePhoneForWhatsApp(quote.client.phone || '', defaultCountryCode);
+const phoneValid = phoneDigits.length >= 8 && phoneDigits.length <= 15;
+const whatsappMessage = `¡Hola ${quote.client.name}! ...`;
+const whatsappUrl = phoneValid 
+  ? buildWhatsAppUrl(phoneDigits, whatsappMessage) 
+  : null;
 
-Al confirmar:
-- Llama `supabase.rpc('assign_user_to_agency', { _email, _role })`.
-- Maneja errores con toasts claros:
-  - `user_not_found` → "No encontramos un usuario registrado con ese email. Pedile que se registre primero o usá Invitar miembro."
-  - `already_member` → "Ese usuario ya pertenece a una agencia."
-  - `not_authorized` → "No tenés permisos."
-- Éxito → toast "Usuario agregado", refresca la lista.
+{whatsappUrl ? (
+  <DropdownMenuItem asChild>
+    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="gap-2 cursor-pointer flex items-center">
+      <MessageCircle className="h-4 w-4 text-green-600" /> Enviar por WhatsApp
+    </a>
+  </DropdownMenuItem>
+) : (
+  <DropdownMenuItem onClick={() => toast.error('El cliente no tiene un teléfono válido para WhatsApp')}>
+    <MessageCircle className="h-4 w-4 text-green-600" /> Enviar por WhatsApp
+  </DropdownMenuItem>
+)}
+```
 
-## Detalles técnicos
+## Resultado esperado
 
-- La función usa `SECURITY DEFINER` con `set search_path = public, auth` para poder leer `auth.users`.
-- No exponemos un endpoint de búsqueda por email (evita enumeración masiva); el admin tiene que conocer el email.
-- Sin cambios en RLS de `agency_members` — el insert ocurre con privilegios elevados desde la función.
-- Sin cambios en el flujo de invitaciones existente.
+Hacer clic en **Compartir → Enviar por WhatsApp** abre `wa.me/<número>` en una pestaña nueva con el mensaje pre-cargado, sin bloqueo de popup.
+
+## Archivos a modificar
+
+- `src/components/pdf/PDFShareMenu.tsx` (cambio principal)
+- (Opcional, solo si reproducimos el bug ahí) `src/components/dashboard/BirthdayWhatsAppDialog.tsx`
