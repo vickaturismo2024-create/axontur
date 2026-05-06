@@ -1881,6 +1881,10 @@ export type Database = {
     }
     Functions: {
       accept_agency_invitation: { Args: { _token: string }; Returns: Json }
+      assign_user_to_agency: {
+        Args: { _email: string; _role: Database["public"]["Enums"]["app_role"] }
+        Returns: Json
+      }
       current_agency_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
