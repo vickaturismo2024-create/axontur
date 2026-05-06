@@ -88,8 +88,12 @@ Deno.serve(async (req) => {
     const acceptUrl = `${APP_URL}/accept-invitation?token=${inv.token}`;
     const roleLabel = inv.role === 'admin' ? 'Administrador' : 'Vendedor';
 
-    // Invocar send-transactional-email con el template estándar
+    // Invocar send-transactional-email con el template estándar.
+    // Pasamos explícitamente el service-role key como Bearer porque
+    // functions.invoke() no inyecta automáticamente el JWT en llamadas
+    // entre edge functions, y send-transactional-email tiene verify_jwt = true.
     const { data: sendData, error: sendErr } = await admin.functions.invoke('send-transactional-email', {
+      headers: { Authorization: `Bearer ${serviceKey}` },
       body: {
         templateName: 'team-invitation',
         recipientEmail: inv.email,
