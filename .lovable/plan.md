@@ -1,95 +1,72 @@
 ## Objetivo
 
-Empaquetar **todo el código** de AxonTur + un dossier técnico (README de contexto, schema DB, análisis de stack y recomendaciones) en un único `.zip` descargable desde `/mnt/documents/`. Esto es una **tarea de exec** (no toca el código de la app), genera artefactos para que vos / un revisor externo puedan auditar todo offline.
+Arreglar el envío de invitaciones de equipo refactorizando `send-team-invitation` para que use el patrón estándar de emails transaccionales de Lovable Cloud (template React Email + `send-transactional-email`), en lugar del payload "raw" actual que está siendo rechazado por la API y va al Dead Letter Queue (DLQ).
 
-## Qué incluye el paquete
+## Diagnóstico
 
-```
-axontur-review-bundle.zip
-├── README.md                       ← contexto técnico completo (ver abajo)
-├── ARCHITECTURE.md                 ← diagrama de capas, flujo de datos, multi-tenancy
-├── STACK_ANALYSIS.md               ← análisis crítico de tecnologías + recomendaciones
-├── DATABASE_SCHEMA.md              ← todas las tablas, RLS, funciones, triggers
-├── EDGE_FUNCTIONS.md               ← inventario de las 12 edge functions
-├── METRICS.md                      ← LOC por módulo, dependencias, archivos pesados
-├── code/
-│   ├── src/                        ← 100% del frontend (~42k LOC, 280 archivos)
-│   ├── supabase/
-│   │   ├── functions/              ← 12 edge functions (Deno)
-│   │   ├── migrations/             ← 43 migraciones SQL
-│   │   └── config.toml
-│   ├── package.json
-│   ├── tsconfig*.json
-│   ├── tailwind.config.ts
-│   ├── vite.config.ts
-│   └── index.html
-└── db-snapshot/
-    ├── tables.sql                  ← DDL exportado de las 30+ tablas
-    ├── functions.sql               ← 23 funciones DB (has_role, current_agency_id, triggers, etc.)
-    └── rls-policies.sql            ← todas las policies RLS
-```
+- `send-team-invitation` arma HTML/texto inline y lo encola directamente en `transactional_emails` con `enqueue_email`.
+- El dispatcher (`process-email-queue`) envía el payload a la Email API, que lo rechaza con `400 missing_parameter: "text"` porque espera el formato estándar (`templateName` + `templateData`).
+- Tras 5 intentos, los mensajes caen al DLQ → nunca llega el mail.
+- La infraestructura nueva (`send-transactional-email`, `preview-transactional-email`, `handle-email-unsubscribe`, `handle-email-suppression`) ya existe en archivos pero **no está registrada en `supabase/config.toml` ni desplegada**.
 
-> Se excluyen `node_modules`, `bun.lockb`, `.env` (secretos) y archivos generados.
+## Plan de implementación
 
-## Contenido del README.md de contexto
+### 1. Registrar las nuevas Edge Functions en `supabase/config.toml`
+Agregar bloques para:
+- `send-transactional-email` (verify_jwt = true)
+- `preview-transactional-email` (verify_jwt = false, gated por `LOVABLE_API_KEY`)
+- `handle-email-unsubscribe` (verify_jwt = false)
+- `handle-email-suppression` (verify_jwt = false)
 
-1. **Qué es AxonTur** — ERP/Back Office para agencias de viajes (multi-tenant).
-2. **Stack actual** resumido:
-   - **Frontend:** React 18 + Vite 5 + TypeScript 5 + Tailwind 3 + shadcn/ui (Radix) + React Query 5 + React Router 6 + React Hook Form + Zod
-   - **Backend:** Supabase (Postgres + Auth + Edge Functions Deno + pgmq para colas de email)
-   - **Hosting:** Lovable (preview) + `axontur.lovable.app` (publicado). Supabase gestionado.
-   - **PDF:** html2canvas + jsPDF | **Excel:** xlsx (SheetJS) | **AI:** Lovable AI Gateway (Gemini/GPT-5)
-3. **Módulos funcionales** (23 páginas): Dashboard, Quotes/Wizard, Files (Expedientes), Clients (CRM), Suppliers, Accounts (CC), Reports, Calendar, Reservations (PNR), Templates, Settings, Auth.
-4. **Cómo correrlo localmente** (`bun install && bun dev`, vars de entorno requeridas).
-5. **Convenciones del repo** (memoria de proyecto, RLS por `agency_id`, `parseISO` para fechas, `.upsert()` para quotes, `.range()` paginado >1000, etc.).
+### 2. Crear el template React Email `team-invitation`
+Archivo: `supabase/functions/_shared/transactional-email-templates/team-invitation.tsx`
+- Componente React Email con branding AxonTur (navy `#1d324d`, fondo blanco).
+- Props: `agencyName`, `inviterEmail`, `roleLabel`, `acceptUrl`, `expiresInDays`.
+- Subject dinámico: `Te invitaron a {agencyName} en AxonTur`.
+- Incluye `previewData` para el preview del dashboard.
 
-## Contenido de STACK_ANALYSIS.md (análisis crítico)
+### 3. Crear/actualizar `registry.ts`
+Archivo: `supabase/functions/_shared/transactional-email-templates/registry.ts`
+- Exporta `TemplateEntry` interface.
+- Mapea `'team-invitation'` → template importado.
 
-Evaluación honesta por capa, con **¿es la tecnología adecuada?** + alternativas:
+### 4. Refactorizar `send-team-invitation/index.ts`
+- Eliminar la construcción de HTML inline y la llamada directa a `enqueue_email`.
+- Reemplazar por una invocación a `send-transactional-email`:
+  ```ts
+  await admin.functions.invoke('send-transactional-email', {
+    body: {
+      templateName: 'team-invitation',
+      recipientEmail: inv.email,
+      idempotencyKey: `team-invite-${inv.id}`,
+      templateData: { agencyName, inviterEmail, roleLabel, acceptUrl, expiresInDays },
+    },
+  })
+  ```
+- Mantener validaciones de admin/agencia y el log en `email_logs`.
 
-- **Vite + React + TS** — Adecuado. SPA pura, sin SSR. Trade-off: SEO limitado (no es necesario para back-office).
-- **shadcn/ui + Radix** — Adecuado. Bundle controlado vs MUI/Chakra.
-- **React Query** — Bien usado (`refetchOnWindowFocus: false`, staleTime 5min). Revisar invalidaciones.
-- **Supabase + RLS por `current_agency_id()`** — Patrón sólido para multi-tenant. Riesgos: cada query depende de la función SECURITY DEFINER; rendimiento con muchos miembros.
-- **Edge Functions (Deno)** — 12 funciones, varias con `verify_jwt = false` (públicas) — auditar `scrape-package`, `get-public-quote`, `auth-email-hook`.
-- **PDF con html2canvas + jsPDF** — Funciona pero es **costoso en cliente** (CPU/memoria, fuentes, paginación frágil). Alternativas: `@react-pdf/renderer`, Puppeteer en edge, o servicio externo.
-- **Excel con xlsx (SheetJS)** — OK pero la versión community tiene CVEs históricos. Considerar `exceljs`.
-- **pgmq + edge cron** para emails — Buena elección para evitar bloquear UI.
-- **Bundle size** — 280 archivos, 42k LOC frontend; revisar code-splitting por ruta (hoy `App.tsx` importa todas las páginas estáticamente).
-- **Hosting** — Lovable publish es estático/CDN. Supabase es el cuello de botella real (instance size). Recomendación: monitorear `cloud_status` y considerar región.
-- **Seguridad** — RLS bien aplicado, pero usar `supabase--linter` y revisar policies con `current_agency_id()` que asume 1 user = 1 agencia.
-- **Testing** — Solo 1 archivo de test (`src/test/example.test.ts`). **Gap importante** — recomendar Vitest + Testing Library para hooks críticos (pricing, occupancy, fileFromQuote).
-- **Observabilidad** — No hay Sentry/PostHog. Solo console + edge logs.
+### 5. Crear página `/unsubscribe`
+Archivo: `src/pages/Unsubscribe.tsx` + ruta en `src/App.tsx`.
+- Lee `?token=` de la URL.
+- GET al edge function para validar.
+- Botón "Confirmar baja" → POST con el token.
+- Estilo coherente con AxonTur.
 
-Cada punto incluye: **veredicto** (Mantener / Revisar / Migrar), **razón**, y **alternativa concreta** si aplica.
+### 6. Limpiar el DLQ
+Migración SQL para purgar mensajes muertos de invitaciones anteriores en `pgmq.q_transactional_emails_dlq`.
 
-## Contenido de DATABASE_SCHEMA.md
+### 7. Deploy de las Edge Functions
+Desplegar: `send-transactional-email`, `preview-transactional-email`, `handle-email-unsubscribe`, `handle-email-suppression`, `send-team-invitation`.
 
-- Listado de las **~30 tablas** agrupadas por dominio (agencies, quotes, files, reservations, accounts, email).
-- Para cada tabla: columnas, RLS policies, FKs.
-- Las **23 funciones** SQL agrupadas: helpers (`has_role`, `current_agency_id`), triggers (`sync_*_to_account_movement`, `set_file_number`), RPCs (`accept_agency_invitation`, `get_invitation_by_token`).
-- Diagrama ASCII de relaciones principales (quote → file → services/receipts/payments → account_movements).
+### 8. Test end-to-end
+Reenviar invitación a `juancruzaguero@gmail.com` y validar logs (`email_send_log` con status `sent`).
 
-## Pasos de ejecución
+## Sobre GitHub
 
-1. Crear directorio `/tmp/bundle/` con la estructura.
-2. Copiar `src/`, `supabase/functions/`, `supabase/migrations/`, configs.
-3. Generar los `.md` de documentación (escritos por mí leyendo el repo + memoria + schema ya en contexto).
-4. Volcar schema DB usando `supabase--read_query` sobre `information_schema` y `pg_proc` para tener un snapshot SQL fiel.
-5. Empaquetar con `zip -r` (vía `nix run nixpkgs#zip`).
-6. Emitir `<lov-artifact path="axontur-review-bundle.zip" mime_type="application/zip">`.
+Los cambios se pushean automáticamente al repo conectado vía la sincronización bidireccional de Lovable. No hago `git push` manual — basta con conectar GitHub una vez (Connectors → GitHub) si todavía no lo hiciste.
 
-## Tamaño estimado del ZIP
+## Resultado esperado
 
-~1.2 MB comprimido (código fuente sin `node_modules`).
-
-## Lo que NO incluye (y por qué)
-
-- **`.env` / secretos** — riesgo de exposición. Listo los nombres en el README.
-- **`node_modules` / lockfiles binarios** — reproducibles con `bun install`.
-- **Datos reales de la DB** — solo schema, no filas.
-- **Build artifacts** (`dist/`).
-
-## Confirmación
-
-¿Procedo con esta estructura, o querés que ajuste algo (ej. incluir lockfile, sumar análisis de performance específico, generar también un PDF en vez de solo `.md`)?
+- Las invitaciones de equipo llegan al inbox del invitado.
+- `email_send_log` muestra `sent` (no `failed`/`dlq`).
+- Toda la infra transaccional queda lista para futuros emails (recibos, vouchers, confirmaciones).
