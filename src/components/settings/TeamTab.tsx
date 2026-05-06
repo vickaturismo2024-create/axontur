@@ -45,6 +45,10 @@ export function TeamTab() {
   const [submitting, setSubmitting] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignEmail, setAssignEmail] = useState('');
+  const [assignRole, setAssignRole] = useState<AppRole>('vendedor');
+  const [assigning, setAssigning] = useState(false);
 
   const load = async () => {
     if (!agencyId) return;
@@ -109,6 +113,35 @@ export function TeamTab() {
       navigator.clipboard.writeText(link).catch(() => {});
       toast.success('Invitación creada — link copiado al portapapeles', { duration: 6000 });
     }
+  };
+
+  const handleAssignExisting = async () => {
+    const email = assignEmail.trim().toLowerCase();
+    if (!email) return;
+    setAssigning(true);
+    const { data, error } = await supabase.rpc('assign_user_to_agency', { _email: email, _role: assignRole });
+    setAssigning(false);
+    if (error) {
+      toast.error('Error: ' + error.message);
+      return;
+    }
+    const res = data as { success: boolean; error?: string } | null;
+    if (!res?.success) {
+      const errMap: Record<string, string> = {
+        user_not_found: 'No encontramos un usuario registrado con ese email. Pedile que se registre primero o usá Invitar miembro.',
+        already_member: 'Ese usuario ya pertenece a una agencia.',
+        not_authorized: 'No tenés permisos para hacer esto.',
+        not_authenticated: 'Tu sesión expiró, recargá la página.',
+        invalid_email: 'El email no es válido.',
+      };
+      toast.error('No se pudo agregar', { description: errMap[res?.error || ''] || res?.error || 'Error desconocido' });
+      return;
+    }
+    toast.success(`Usuario ${email} agregado a la agencia`);
+    setAssignEmail('');
+    setAssignRole('vendedor');
+    setAssignOpen(false);
+    await load();
   };
 
   const copyLink = (token: string) => {
@@ -180,41 +213,78 @@ export function TeamTab() {
           <h3 className="text-lg font-semibold">Miembros del equipo</h3>
           <p className="text-sm text-muted-foreground">Administrá quién tiene acceso a tu agencia y con qué rol.</p>
         </div>
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogTrigger asChild>
-            <Button><UserPlus className="h-4 w-4 mr-2" /> Invitar miembro</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invitar nuevo miembro</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="vendedor@ejemplo.com" />
+        <div className="flex items-center gap-2">
+          <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline"><UserIcon className="h-4 w-4 mr-2" /> Agregar usuario existente</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Agregar usuario existente</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>Email del usuario</Label>
+                  <Input type="email" value={assignEmail} onChange={(e) => setAssignEmail(e.target.value)} placeholder="usuario@ejemplo.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rol</Label>
+                  <Select value={assignRole} onValueChange={(v) => setAssignRole(v as AppRole)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vendedor">Vendedor (carga de operación diaria)</SelectItem>
+                      <SelectItem value="admin">Administrador (acceso completo)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Asigna directamente a un usuario que ya tiene cuenta en la app. El usuario tiene que estar registrado y no pertenecer a otra agencia.
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label>Rol</Label>
-                <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as AppRole)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="vendedor">Vendedor (carga de operación diaria)</SelectItem>
-                    <SelectItem value="admin">Administrador (acceso completo)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancelar</Button>
+                <Button onClick={handleAssignExisting} disabled={assigning || !assignEmail.trim()}>
+                  {assigning && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Agregar a la agencia
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+            <DialogTrigger asChild>
+              <Button><UserPlus className="h-4 w-4 mr-2" /> Invitar miembro</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invitar nuevo miembro</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="vendedor@ejemplo.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rol</Label>
+                  <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as AppRole)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vendedor">Vendedor (carga de operación diaria)</SelectItem>
+                      <SelectItem value="admin">Administrador (acceso completo)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Le mandaremos un email con el link de invitación. Si el envío falla, copiamos el link al portapapeles para que lo compartas manualmente. La invitación expira en 7 días.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Le mandaremos un email con el link de invitación. Si el envío falla, copiamos el link al portapapeles para que lo compartas manualmente. La invitación expira en 7 días.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancelar</Button>
-              <Button onClick={handleInvite} disabled={submitting || !inviteEmail.trim()}>
-                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Enviar invitación
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancelar</Button>
+                <Button onClick={handleInvite} disabled={submitting || !inviteEmail.trim()}>
+                  {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Enviar invitación
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Miembros actuales */}
