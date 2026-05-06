@@ -8,6 +8,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { generatePDF } from '@/lib/generatePDF';
 import { exportQuoteToExcel } from '@/lib/exportExcel';
+import { normalizePhoneForWhatsApp, buildWhatsAppUrl } from '@/lib/birthdayTemplate';
+import { useSettingsSafe } from '@/contexts/SettingsContext';
 
 interface PDFShareMenuProps {
   quote: Quote;
