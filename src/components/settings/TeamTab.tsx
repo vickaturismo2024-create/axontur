@@ -115,6 +115,35 @@ export function TeamTab() {
     }
   };
 
+  const handleAssignExisting = async () => {
+    const email = assignEmail.trim().toLowerCase();
+    if (!email) return;
+    setAssigning(true);
+    const { data, error } = await supabase.rpc('assign_user_to_agency', { _email: email, _role: assignRole });
+    setAssigning(false);
+    if (error) {
+      toast.error('Error: ' + error.message);
+      return;
+    }
+    const res = data as { success: boolean; error?: string } | null;
+    if (!res?.success) {
+      const errMap: Record<string, string> = {
+        user_not_found: 'No encontramos un usuario registrado con ese email. Pedile que se registre primero o usá Invitar miembro.',
+        already_member: 'Ese usuario ya pertenece a una agencia.',
+        not_authorized: 'No tenés permisos para hacer esto.',
+        not_authenticated: 'Tu sesión expiró, recargá la página.',
+        invalid_email: 'El email no es válido.',
+      };
+      toast.error('No se pudo agregar', { description: errMap[res?.error || ''] || res?.error || 'Error desconocido' });
+      return;
+    }
+    toast.success(`Usuario ${email} agregado a la agencia`);
+    setAssignEmail('');
+    setAssignRole('vendedor');
+    setAssignOpen(false);
+    await load();
+  };
+
   const copyLink = (token: string) => {
     const link = `${window.location.origin}/accept-invitation?token=${token}`;
     navigator.clipboard.writeText(link);
