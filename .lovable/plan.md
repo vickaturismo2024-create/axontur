@@ -1,50 +1,40 @@
-# Fix: Invitation email returns "Edge Function returned a non-2xx status code"
+## Problema
 
-## Diagnosis
-
-Logs of `send-team-invitation` show:
-```
-UNAUTHORIZED_INVALID_JWT_FORMAT
-status: 401
-url: .../functions/v1/send-transactional-email
-```
-
-When `send-team-invitation` calls `supabase.functions.invoke('send-transactional-email', ...)` using the service-role client, the SDK does NOT automatically inject the service-role key into the `Authorization` header of the inter-function HTTP call. Because `send-transactional-email` is configured with `verify_jwt = true`, the gateway rejects the call before it reaches our code.
-
-## Fix
-
-Two options, both safe:
-
-### Option A (recommended) — Pass Authorization header explicitly
-
-In `supabase/functions/send-team-invitation/index.ts`, change the `functions.invoke` call to include the service-role key in the headers:
+En `PDFShareMenu.tsx` (botón "Enviar por WhatsApp" del presupuesto), el código actual es muy ingenuo:
 
 ```ts
-const { data: sendData, error: sendErr } = await admin.functions.invoke(
-  'send-transactional-email',
-  {
-    headers: { Authorization: `Bearer ${serviceKey}` },
-    body: { /* same as today */ },
-  },
-);
+window.open(`https://wa.me/${quote.client.phone?.replace(/\D/g, '')}?text=${text}`, '_blank');
 ```
 
-This is the standard pattern for service-to-service Edge Function calls and keeps `verify_jwt = true` on `send-transactional-email` (good security default).
+Falla cuando:
+- El cliente no tiene teléfono cargado → abre `https://wa.me/?text=...` (WhatsApp no encuentra contacto y no pasa nada / pantalla en blanco).
+- El teléfono no tiene código de país (ej. `11 3333-4444`) → wa.me lo rechaza o abre un chat inválido.
+- El teléfono empieza con `0` o `00` (formato local/internacional viejo) → genera un número incorrecto.
+- No hay feedback al usuario cuando algo falla, parece que "no funciona".
 
-### Option B — Forward the caller's JWT
+Mientras tanto, el dialog de cumpleaños (`BirthdayWhatsAppDialog`) ya usa `normalizePhoneForWhatsApp` con código de país por defecto desde Settings, y funciona bien.
 
-Pass the user's `authHeader` instead. Works because the user is authenticated, but couples the inter-function call to the user's session and breaks any future server-to-server trigger.
+## Solución
 
-→ Going with **Option A**.
+Reutilizar la misma lógica de normalización en el menú de compartir del presupuesto.
 
-## Steps
+### Cambios en `src/components/pdf/PDFShareMenu.tsx`
 
-1. Edit `supabase/functions/send-team-invitation/index.ts` to add the `Authorization: Bearer ${serviceKey}` header on the `functions.invoke` call.
-2. Redeploy `send-team-invitation`.
-3. User retries the invitation from Settings → Team.
+1. Importar `normalizePhoneForWhatsApp` y `buildWhatsAppUrl` desde `@/lib/birthdayTemplate`.
+2. Importar `useSettings` para leer `birthday_whatsapp_country_code` (mismo setting que ya configura el usuario, "código de país por defecto").
+3. Reescribir `handleShareWhatsApp`:
+   - Normalizar el teléfono del cliente con el código de país por defecto.
+   - Si queda vacío o con longitud inválida (<8 o >15 dígitos) → mostrar `toast.error("El cliente no tiene un teléfono válido para WhatsApp")` y abortar.
+   - Si OK → construir URL con `buildWhatsAppUrl` y abrir.
 
-## Out of scope
+### Resultado esperado
 
-- No DB migrations.
-- No changes to `send-transactional-email`, templates, or queue.
-- No changes to `config.toml`.
+- Si el cliente tiene teléfono válido → abre WhatsApp correctamente con el mensaje y el enlace al PDF.
+- Si el teléfono es local sin código de país → se le antepone el código por defecto (ej. `54`) configurado en Ajustes → Notificaciones.
+- Si no hay teléfono → toast claro indicando el problema, sin pantallazo en blanco.
+
+## Detalles técnicos
+
+- Sin cambios de DB ni de edge functions.
+- Sin cambios de UI más allá del handler.
+- El código de país sigue siendo configurable desde Ajustes → Notificaciones (campo ya existente).
