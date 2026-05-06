@@ -21,6 +21,8 @@ interface PDFShareMenuProps {
 
 export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContainerSelector }: PDFShareMenuProps) {
   const agencyName = template?.agencyName || template?.name || 'Mi Agencia';
+  const settingsCtx = useSettingsSafe();
+  const defaultCountryCode = settingsCtx?.settings.birthday_whatsapp_country_code || '54';
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
