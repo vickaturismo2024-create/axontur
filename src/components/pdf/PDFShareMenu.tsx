@@ -46,10 +46,15 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContain
   };
 
   const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(
-      `¡Hola ${quote.client.name}! 👋\n\nTe comparto tu presupuesto de viaje a *${quote.trip.destination}* 🌍✈️\n\n🔗 Ver presupuesto: ${getShareUrl()}\n\nSi tienes alguna pregunta, ¡no dudes en escribirnos!`
-    );
-    window.open(`https://wa.me/${quote.client.phone?.replace(/\D/g, '')}?text=${text}`, '_blank');
+    const phoneDigits = normalizePhoneForWhatsApp(quote.client.phone || '', defaultCountryCode);
+    if (!phoneDigits || phoneDigits.length < 8 || phoneDigits.length > 15) {
+      toast.error('El cliente no tiene un teléfono válido para WhatsApp', {
+        description: 'Verificá el teléfono del cliente o el código de país por defecto en Ajustes → Notificaciones.',
+      });
+      return;
+    }
+    const message = `¡Hola ${quote.client.name}! 👋\n\nTe comparto tu presupuesto de viaje a *${quote.trip.destination}* 🌍✈️\n\n🔗 Ver presupuesto: ${getShareUrl()}\n\nSi tienes alguna pregunta, ¡no dudes en escribirnos!`;
+    window.open(buildWhatsAppUrl(phoneDigits, message), '_blank', 'noopener,noreferrer');
   };
 
   const setExpiry = (hours: number | null) => {
