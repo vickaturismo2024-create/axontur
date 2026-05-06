@@ -83,9 +83,17 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContain
         <DropdownMenuItem onClick={handleShareEmail} className="gap-2 cursor-pointer">
           <Mail className="h-4 w-4" />Enviar por Email
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleShareWhatsApp} className="gap-2 cursor-pointer">
-          <MessageCircle className="h-4 w-4 text-green-600" />Enviar por WhatsApp
-        </DropdownMenuItem>
+        {whatsappUrl ? (
+          <DropdownMenuItem asChild>
+            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="gap-2 cursor-pointer flex items-center">
+              <MessageCircle className="h-4 w-4 text-green-600" />Enviar por WhatsApp
+            </a>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={handleInvalidWhatsApp} className="gap-2 cursor-pointer">
+            <MessageCircle className="h-4 w-4 text-green-600" />Enviar por WhatsApp
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={async () => {
           if (!pdfContainerSelector) { onPrint(); return; }
           setDownloading(true);
