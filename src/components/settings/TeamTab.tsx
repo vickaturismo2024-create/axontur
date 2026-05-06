@@ -45,6 +45,10 @@ export function TeamTab() {
   const [submitting, setSubmitting] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignEmail, setAssignEmail] = useState('');
+  const [assignRole, setAssignRole] = useState<AppRole>('vendedor');
+  const [assigning, setAssigning] = useState(false);
 
   const load = async () => {
     if (!agencyId) return;
