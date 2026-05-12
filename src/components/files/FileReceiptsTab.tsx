@@ -154,7 +154,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     setItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const totalAmount = items.reduce((sum, it) => sum + it.amount, 0);
+  const mainCurrencyForForm = items[0]?.currency || currency;
+  const totals = computeReceiptTotals(items, mainCurrencyForForm);
+  const totalAmount = totals.convertedTotal;
 
   const handleSave = async () => {
     if (!user) return;
