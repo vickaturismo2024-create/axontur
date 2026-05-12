@@ -31,6 +31,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { generateReceiptPDF } from '@/components/files/receiptPdfUtils';
 import { sendReceiptEmail, isInfraReady } from '@/lib/emailService';
+import { computeReceiptTotals, formatMoney } from '@/lib/receiptTotals';
 
 interface Receipt {
   id: string;
