@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { computeReceiptTotals } from '@/lib/receiptTotals';
 
 interface Receipt {
   receipt_number: number;
