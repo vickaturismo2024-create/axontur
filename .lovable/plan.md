@@ -1,63 +1,84 @@
-# Arreglar "Enviar por WhatsApp" en Compartir presupuesto
+## Problema
 
-## Problema detectado
+En el recibo REC-0052 las líneas se suman como números planos:
 
-En el menú **Compartir → Enviar por WhatsApp** del PDF de presupuesto, hacer clic no abre nada (ni WhatsApp, ni error). El teléfono del cliente está bien cargado (ej. `+54 9 11 1234-5678`).
-
-**Causa raíz:** el handler usa `window.open(url, '_blank')` dentro de un `DropdownMenuItem` de Radix. Radix cierra el menú de forma asíncrona después del clic, y para cuando se ejecuta `window.open`, el navegador ya considera que perdió el "user gesture" original → **bloquea la apertura como popup, silenciosamente, sin error**. El mismo botón "Enviar por Email" funciona porque `mailto:` no se considera popup.
-
-## Solución
-
-Cambiar el item de WhatsApp para que use un enlace real (`<a href="https://wa.me/...">`) en vez de un `onClick` con `window.open`. Los navegadores siempre permiten la navegación de un `<a target="_blank">` aunque el menú se cierre, porque la URL ya está resuelta en el DOM en el momento del clic.
-
-### Cambios
-
-**1. `src/components/pdf/PDFShareMenu.tsx`**
-- Calcular el `whatsappUrl` y la validez del teléfono al renderizar (no en un handler).
-- Reemplazar el `DropdownMenuItem onClick={handleShareWhatsApp}` por un `DropdownMenuItem asChild` que envuelve un `<a href={whatsappUrl} target="_blank" rel="noopener noreferrer">`.
-- Si el teléfono es inválido, en vez de no renderizar, dejar el item como botón con `onClick` que muestra el toast de error (caso poco frecuente, pero útil).
-- Mantener el resto del menú igual.
-
-**2. Aplicar el mismo patrón (defensivo) en otros lugares donde se usa `window.open('https://wa.me/...')` dentro de menús/popovers**, para evitar el mismo bug a futuro:
-- `src/components/dashboard/BirthdayWhatsAppDialog.tsx` (revisar si está dentro de un Dialog que se cierra antes de abrir)
-- `src/components/pdf/PDFContactPage.tsx` y `PDFContactPages.tsx` (botones de agentes — probablemente ya funcionan porque son botones directos, pero verificar)
-
-Solo se cambiará el comportamiento donde haga falta; no se tocan los otros si ya funcionan.
-
-## Detalle técnico
-
-```tsx
-// Antes
-<DropdownMenuItem onClick={handleShareWhatsApp}>
-  <MessageCircle /> Enviar por WhatsApp
-</DropdownMenuItem>
-
-// Después
-const phoneDigits = normalizePhoneForWhatsApp(quote.client.phone || '', defaultCountryCode);
-const phoneValid = phoneDigits.length >= 8 && phoneDigits.length <= 15;
-const whatsappMessage = `¡Hola ${quote.client.name}! ...`;
-const whatsappUrl = phoneValid 
-  ? buildWhatsAppUrl(phoneDigits, whatsappMessage) 
-  : null;
-
-{whatsappUrl ? (
-  <DropdownMenuItem asChild>
-    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="gap-2 cursor-pointer flex items-center">
-      <MessageCircle className="h-4 w-4 text-green-600" /> Enviar por WhatsApp
-    </a>
-  </DropdownMenuItem>
-) : (
-  <DropdownMenuItem onClick={() => toast.error('El cliente no tiene un teléfono válido para WhatsApp')}>
-    <MessageCircle className="h-4 w-4 text-green-600" /> Enviar por WhatsApp
-  </DropdownMenuItem>
-)}
+```
+USD 500,00 + ARS 715.000,00 = "USD 715.500,00"   ← incorrecto
 ```
 
-## Resultado esperado
+El total ignora la moneda y le pega el símbolo de la primera línea. Con el TC de 1430 cargado en la línea de ARS, el total real es:
 
-Hacer clic en **Compartir → Enviar por WhatsApp** abre `wa.me/<número>` en una pestaña nueva con el mensaje pre-cargado, sin bloqueo de popup.
+```
+USD 500 + (ARS 715.000 / 1430) = USD 1.000
+```
 
-## Archivos a modificar
+La causa está en `FileReceiptsTab.tsx` línea 156:
+`const totalAmount = items.reduce((sum, it) => sum + it.amount, 0)` — suma todo sin convertir.
+Y se persiste así en `file_receipts.amount`.
 
-- `src/components/pdf/PDFShareMenu.tsx` (cambio principal)
-- (Opcional, solo si reproducimos el bug ahí) `src/components/dashboard/BirthdayWhatsAppDialog.tsx`
+## Cómo se interpreta el TC (ya guardado en BD)
+
+Cada línea (`file_receipt_items`) puede tener:
+- `currency` — moneda en que el cliente pagó (ej. ARS).
+- `service_currency` — moneda "real" del servicio (ej. USD).
+- `exchange_rate` — TC con la convención **"1 service_currency = rate currency"** (ej. 1430 = 1 USD por 1430 ARS).
+
+Conversión de una línea a la moneda principal del recibo:
+- Si `line.currency == main` → `amount` tal cual.
+- Si `line.service_currency == main` y hay TC → `amount / rate`.
+- Si no hay forma de convertir → se muestra como subtotal aparte y se aclara que no entra en el total convertido.
+
+## Cambios
+
+### 1. Helper de conversión `src/lib/receiptTotals.ts` (nuevo)
+
+Funciones puras que toman las líneas + moneda principal y devuelven:
+- `subtotalsByCurrency: { [currency]: number }` — suma cruda por moneda.
+- `convertedTotal: number` — total expresado en la moneda principal usando los TC de cada línea.
+- `unconvertibleLines: ReceiptItem[]` — líneas sin TC para convertir (si las hay).
+
+### 2. Detalle del recibo (`FileReceiptsTab.tsx` ~líneas 808-816)
+
+Reemplazar el bloque "Total recibo" por:
+
+```
+Subtotales        USD 500,00
+                  ARS 715.000,00 (≈ USD 500,00 · TC 1430)
+─────────────────────────────────────
+Total recibo      USD 1.000,00
+```
+
+Si todas las líneas ya están en la moneda principal, se muestra solo el total simple (comportamiento actual, no se rompe nada).
+
+Si hay líneas sin TC y en moneda distinta, se muestra warning chico: "Línea en X sin TC — no se incluye en el total convertido".
+
+### 3. Lista de recibos (cards en `FileReceiptsTab.tsx`)
+
+El número grande de cada card pasa a usar el total convertido recalculado on-the-fly desde los items, no `receipt.amount` directo.
+
+### 4. PDF del recibo (`receiptPdfUtils.ts` líneas 257 y 268)
+
+- Reemplazar el "Total" por el mismo bloque (subtotales + total convertido).
+- `numeroALetras(...)` se llama sobre el total convertido en la moneda principal.
+
+### 5. Resumen financiero del expediente (`FileFinancialSummary.tsx`)
+
+Verificar y, si corresponde, reemplazar usos de `receipt.amount` por el total recalculado para que el "cobrado" del expediente cuadre.
+
+### 6. Recálculo automático de recibos existentes
+
+Migración SQL one-shot que recalcula `file_receipts.amount` a partir de las líneas:
+- Para cada recibo: `amount = sum( CASE WHEN item.currency = receipt.currency THEN item.amount WHEN item.service_currency = receipt.currency AND item.exchange_rate > 0 THEN item.amount / item.exchange_rate ELSE 0 END )`
+- También ajusta `account_movements` derivados del recibo (uno por línea, ya están en su moneda original — no se tocan, solo se actualiza el `amount` del recibo cabecera).
+
+Esto deja REC-0052 con `amount = 1000` y `currency = USD`.
+
+### 7. Al crear/editar recibos nuevos
+
+`handleSave` (línea 158) ya no guarda `totalAmount` crudo. Calcula `convertedTotal` con el helper y lo guarda en `file_receipts.amount`. La moneda principal sigue siendo `items[0].currency`.
+
+## Fuera de alcance
+
+- No se cambia el esquema de `file_receipt_items` ni la semántica del TC (sigue siendo "1 service = rate currency").
+- No se toca el flujo de cuenta corriente: cada línea sigue generando un movimiento en su moneda original.
+- No se agrega conversión cruzada entre líneas con monedas que no sean ni la principal ni el `service_currency` (caso raro, queda como "no convertible" con warning).
