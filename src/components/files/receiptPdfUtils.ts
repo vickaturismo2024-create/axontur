@@ -247,7 +247,31 @@ function drawReceipt(
     y += 1;
   }
 
-  // ---------- Total ----------
+  // ---------- Total (con desglose multi-moneda si corresponde) ----------
+  const pdfTotals = computeReceiptTotals(items as any, receipt.currency);
+  const subtotalEntries = Object.entries(pdfTotals.subtotalsByCurrency);
+  const showBreakdown = pdfTotals.isMultiCurrency && subtotalEntries.length > 0;
+
+  if (showBreakdown) {
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SUBTOTALES', margin, y + 3);
+    doc.setFont('helvetica', 'normal');
+    let sy = y + 3;
+    subtotalEntries.forEach(([cur, amt]) => {
+      doc.text(
+        `${cur} ${amt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+        w - margin,
+        sy,
+        { align: 'right' },
+      );
+      sy += 3.5;
+    });
+    y = sy + 0.5;
+  }
+
+  const totalAmountForPdf = pdfTotals.convertedTotal;
   doc.setFillColor(BRAND_LIGHT[0], BRAND_LIGHT[1], BRAND_LIGHT[2]);
   doc.roundedRect(margin, y, w - margin * 2, 9, 2, 2, 'F');
   doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
@@ -255,7 +279,7 @@ function drawReceipt(
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL:', margin + 3, y + 6);
   doc.text(
-    `${receipt.currency} ${receipt.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+    `${receipt.currency} ${totalAmountForPdf.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
     w - margin - 3,
     y + 6,
     { align: 'right' },
@@ -266,7 +290,7 @@ function drawReceipt(
   doc.setTextColor(60, 60, 60);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'italic');
-  const letrasText = `Son: ${numeroALetras(receipt.amount, receipt.currency)}`;
+  const letrasText = `Son: ${numeroALetras(totalAmountForPdf, receipt.currency)}`;
   const letrasLines = doc.splitTextToSize(letrasText, w - margin * 2);
   doc.text(letrasLines, margin, y);
   y += letrasLines.length * 3.5 + 2;
