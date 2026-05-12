@@ -31,6 +31,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { generateReceiptPDF } from '@/components/files/receiptPdfUtils';
 import { sendReceiptEmail, isInfraReady } from '@/lib/emailService';
+import { computeReceiptTotals, formatMoney } from '@/lib/receiptTotals';
 
 interface Receipt {
   id: string;
@@ -153,7 +154,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     setItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const totalAmount = items.reduce((sum, it) => sum + it.amount, 0);
+  const mainCurrencyForForm = items[0]?.currency || currency;
+  const totals = computeReceiptTotals(items, mainCurrencyForForm);
+  const totalAmount = totals.convertedTotal;
 
   const handleSave = async () => {
     if (!user) return;
@@ -807,13 +810,37 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
                 )}
               </div>
 
-              <div className="flex justify-between items-center border-t pt-3">
-                <span className="text-sm text-muted-foreground">Total recibo</span>
-                <span className="font-bold text-lg">
-                  {detailReceipt.currency}{' '}
-                  {detailReceipt.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
+              {(() => {
+                const detailTotals = computeReceiptTotals(detailItems as any, detailReceipt.currency);
+                const subtotalEntries = Object.entries(detailTotals.subtotalsByCurrency);
+                const showBreakdown = detailTotals.isMultiCurrency && subtotalEntries.length > 0;
+                return (
+                  <div className="border-t pt-3 space-y-2">
+                    {showBreakdown && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">Subtotales</p>
+                        {subtotalEntries.map(([cur, amt]) => (
+                          <div key={cur} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{cur}</span>
+                            <span className="font-medium">{formatMoney(cur, amt)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {detailTotals.unconvertibleLines.length > 0 && (
+                      <p className="text-xs text-amber-600">
+                        Hay líneas en otra moneda sin TC cargado: no se incluyen en el total convertido.
+                      </p>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total recibo</span>
+                      <span className="font-bold text-lg">
+                        {formatMoney(detailReceipt.currency, detailTotals.convertedTotal)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </DialogContent>
