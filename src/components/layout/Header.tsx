@@ -4,7 +4,7 @@ import { RemindersBadge } from '@/components/reminders/RemindersBadge';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { InfraHealthDot } from '@/components/layout/InfraHealthDot';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
@@ -31,6 +31,7 @@ const navItems = [
   { label: 'Vuelos', href: '/reservations' },
   { label: 'Cuentas Ctes.', href: '/accounts' },
   { label: 'Reportes', href: '/reportes' },
+  { label: 'Importación', href: '/importar' },
   { label: 'Configuración', href: '/settings' },
   { label: 'Calendario', href: '/calendar' },
   { label: 'Tutoriales', href: '/tutoriales' },
@@ -72,7 +73,9 @@ export function Header() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shrink-0">
                     <Plane className="h-4 w-4 text-primary-foreground" />
                   </div>
-                  <span className="font-serif text-base font-semibold text-foreground truncate">{agencyName}</span>
+                  <SheetTitle className="font-serif text-base font-semibold text-foreground truncate m-0">
+                    {agencyName}
+                  </SheetTitle>
                 </div>
               </div>
 
@@ -115,17 +118,21 @@ export function Header() {
             </SheetContent>
           </Sheet>
 
-          <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary shrink-0">
-              <Plane className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary shrink-0">
+                <Plane className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="font-serif text-base sm:text-lg font-semibold text-foreground truncate">
+                  {agencyName}
+                </span>
+              </div>
+            </Link>
+            <div className="flex items-center mt-1">
+              <InfraHealthDot />
             </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-serif text-base sm:text-lg font-semibold text-foreground truncate flex items-center gap-2">
-                {agencyName}
-                <InfraHealthDot />
-              </span>
-            </div>
-          </Link>
+          </div>
         </div>
 
         {/* Right side actions */}

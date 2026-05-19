@@ -1,7 +1,7 @@
 /**
  * Exporta extractos de cuenta corriente a Excel y PDF.
  */
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -45,57 +45,68 @@ const fmtDate = (d: string) => {
   }
 };
 
-export function exportStatementExcel(
+export async function exportStatementExcel(
   header: StatementHeader,
   movements: StatementMovement[],
   agency: AgencyHeader,
 ) {
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Extracto');
 
-  const meta: any[][] = [
-    [agency.name || 'Agencia'],
-    [`Extracto de Cuenta Corriente — ${header.accountType === 'client' ? 'Cliente' : 'Proveedor'}`],
-    [`Titular: ${header.accountName}`],
-    [`Moneda: ${header.currency}`],
-    [
-      `Período: ${header.periodFrom ? fmtDate(header.periodFrom) : 'Inicio'} al ${header.periodTo ? fmtDate(header.periodTo) : 'Hoy'}`,
-    ],
-    [],
-    ['Fecha', 'Concepto', 'Referencia', 'Expediente', 'Debe', 'Haber', 'Saldo'],
+  ws.columns = [
+    { width: 13 },
+    { width: 36 },
+    { width: 19 },
+    { width: 15 },
+    { width: 13 },
+    { width: 13 },
+    { width: 15 },
   ];
 
+  // Encabezado
+  ws.addRow([agency.name || 'Agencia']);
+  ws.addRow([`Extracto de Cuenta Corriente — ${header.accountType === 'client' ? 'Cliente' : 'Proveedor'}`]);
+  ws.addRow([`Titular: ${header.accountName}`]);
+  ws.addRow([`Moneda: ${header.currency}`]);
+  ws.addRow([
+    `Período: ${header.periodFrom ? fmtDate(header.periodFrom) : 'Inicio'} al ${header.periodTo ? fmtDate(header.periodTo) : 'Hoy'}`,
+  ]);
+  ws.addRow([]);
+
+  // Cabecera de columnas
+  ws.addRow(['Fecha', 'Concepto', 'Referencia', 'Expediente', 'Debe', 'Haber', 'Saldo']);
+
+  // Movimientos
   movements.forEach(m => {
-    meta.push([
+    ws.addRow([
       fmtDate(m.date),
       m.concept,
-      m.reference || '',
+      m.reference  || '',
       m.fileNumber || '',
-      m.debit || 0,
+      m.debit  || 0,
       m.credit || 0,
       m.balance,
     ]);
   });
 
+  // Saldo final
   const finalBalance = movements.length > 0 ? movements[movements.length - 1].balance : 0;
-  meta.push([]);
-  meta.push(['', '', '', '', '', 'Saldo final:', finalBalance]);
+  ws.addRow([]);
+  ws.addRow(['', '', '', '', '', 'Saldo final:', finalBalance]);
 
-  const ws = XLSX.utils.aoa_to_sheet(meta);
-  ws['!cols'] = [
-    { wch: 12 },
-    { wch: 35 },
-    { wch: 18 },
-    { wch: 14 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 14 },
-  ];
-
-  XLSX.utils.book_append_sheet(wb, ws, 'Extracto');
+  // Descargar
   const filename = `extracto-${header.accountName.replace(/\s+/g, '_')}-${header.currency}.xlsx`;
-  XLSX.writeFile(wb, filename);
+  const buffer  = await wb.xlsx.writeBuffer();
+  const blob    = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url     = URL.createObjectURL(blob);
+  const a       = document.createElement('a');
+  a.href        = url;
+  a.download    = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
+// exportStatementPDF — sin cambios, queda exactamente igual
 export function exportStatementPDF(
   header: StatementHeader,
   movements: StatementMovement[],
@@ -105,7 +116,6 @@ export function exportStatementPDF(
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = 15;
 
-  // Encabezado de agencia
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.text(agency.name || 'Agencia', 14, y);
@@ -120,14 +130,12 @@ export function exportStatementPDF(
     y += 5;
   }
 
-  // Título extracto
   y += 4;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text(
     `Extracto de Cuenta Corriente — ${header.accountType === 'client' ? 'Cliente' : 'Proveedor'}`,
-    14,
-    y,
+    14, y,
   );
   y += 6;
   doc.setFont('helvetica', 'normal');
@@ -138,25 +146,23 @@ export function exportStatementPDF(
   y += 5;
   doc.text(
     `Período: ${header.periodFrom ? fmtDate(header.periodFrom) : 'Inicio'} al ${header.periodTo ? fmtDate(header.periodTo) : 'Hoy'}`,
-    14,
-    y,
+    14, y,
   );
   y += 4;
 
-  // Tabla de movimientos
   autoTable(doc, {
     startY: y + 2,
     head: [['Fecha', 'Concepto', 'Ref.', 'Exp.', 'Debe', 'Haber', 'Saldo']],
     body: movements.map(m => [
       fmtDate(m.date),
       m.concept,
-      m.reference || '',
+      m.reference  || '',
       m.fileNumber || '',
       fmt(m.debit),
       fmt(m.credit),
       fmt(m.balance),
     ]),
-    styles: { fontSize: 8, cellPadding: 1.5 },
+    styles:     { fontSize: 8, cellPadding: 1.5 },
     headStyles: { fillColor: [30, 58, 95], textColor: 255 },
     columnStyles: {
       0: { cellWidth: 20 },
@@ -166,7 +172,7 @@ export function exportStatementPDF(
     },
   });
 
-  const finalY = (doc as any).lastAutoTable?.finalY || y + 20;
+  const finalY      = (doc as any).lastAutoTable?.finalY || y + 20;
   const finalBalance = movements.length > 0 ? movements[movements.length - 1].balance : 0;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
@@ -174,7 +180,6 @@ export function exportStatementPDF(
     align: 'right',
   });
 
-  // Footer legal
   if (agency.footerLegal) {
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);

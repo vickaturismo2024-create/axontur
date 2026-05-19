@@ -68,7 +68,7 @@ const Reports = () => {
                   ))}
                 </div>
               )}
-              <Button onClick={() => { exportReportsToExcel(quotes, supplierStats, activeCurrency); toast.success('Reporte exportado'); }} className="ml-auto">
+              <Button onClick={async () => { await exportReportsToExcel(quotes, supplierStats, activeCurrency); toast.success('Reporte exportado'); }} className="ml-auto">
                 <Download className="mr-2 h-4 w-4" /> Exportar a Excel
               </Button>
             </div>

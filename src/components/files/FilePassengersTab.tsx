@@ -190,7 +190,7 @@ export function FilePassengersTab({ fileId }: Props) {
         <h3 className="font-semibold">Pasajeros ({passengers.length})</h3>
         <div className="flex gap-2">
           {passengers.length > 0 && (
-            <Button size="sm" variant="outline" onClick={() => exportPassengersToExcel(passengers, `pasajeros-${fileId}.xlsx`)}>
+            <Button size="sm" variant="outline" onClick={async () => await exportPassengersToExcel(passengers, `pasajeros-${fileId}.xlsx`)}>
               <Download className="mr-2 h-4 w-4" />Exportar
             </Button>
           )}

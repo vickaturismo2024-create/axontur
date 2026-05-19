@@ -100,12 +100,12 @@ export function ExchangeRatesReport() {
       .sort((a, b) => (b.period === a.period ? a.pair.localeCompare(b.pair) : b.period.localeCompare(a.period)));
   }, [filtered]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (filtered.length === 0) {
       toast.error('No hay datos para exportar');
       return;
     }
-    exportExchangeRatesReport(filtered as any, monthlySummary, { from, to });
+    await exportExchangeRatesReport(filtered as any, monthlySummary, { from, to });
     toast.success('Reporte exportado');
   };
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,6 +37,29 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // ── Rate limiting ──────────────────────────────────────────
+    // Cliente con service role exclusivamente para el rate limiter.
+    // El cliente supabaseAuth usa anon key y no puede escribir
+    // en rate_limit_log, que requiere service role.
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Máximo 25 itinerarios por usuario por hora.
+    // Más permisivo que scrape (que llama a Firecrawl de pago),
+    // pero igual necesario para proteger el AI Gateway.
+    const rl = await checkRateLimit(supabaseAdmin, claimsData.claims.sub, {
+      action:        "generate_itinerary",
+      maxRequests:   25,
+      windowMinutes: 60,
+    });
+
+    if (!rl.allowed) {
+      return rateLimitResponse(rl, corsHeaders);
+    }
+    // ──────────────────────────────────────────────────────────
 
     const { trip, flights, lodgings, transfers, activities, trains, ferries, cruise } = await req.json();
 

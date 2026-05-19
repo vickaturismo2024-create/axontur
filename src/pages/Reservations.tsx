@@ -188,7 +188,7 @@ export default function Reservations() {
     }
   };
 
-  const handleExportPassengers = () => {
+  const handleExportPassengers = async () => {
     const rows = (allPassengers || []).map(p => ({
       name: `${p.last_name || ''} ${p.first_name || ''}`.trim(),
       dni: p.document || '',
@@ -199,7 +199,7 @@ export default function Reservations() {
       notes: '',
     }));
     if (rows.length === 0) { toast.error('No hay pasajeros para exportar'); return; }
-    exportPassengersToExcel(rows, 'pasajeros-vuelos.xlsx');
+    await exportPassengersToExcel(rows, 'pasajeros-vuelos.xlsx');
     toast.success(`${rows.length} pasajeros exportados`);
   };
 

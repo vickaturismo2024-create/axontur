@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -131,6 +132,20 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // ── Rate limiting ──────────────────────────────────────────
+    // Máximo 10 scrapes por usuario por hora.
+    // Firecrawl cobra por request — esto protege contra abuso.
+    const rl = await checkRateLimit(supabase, user.id, {
+      action:        "scrape_package",
+      maxRequests:   10,
+      windowMinutes: 60,
+    });
+
+    if (!rl.allowed) {
+      return rateLimitResponse(rl, corsHeaders);
+    }
+    // ──────────────────────────────────────────────────────────
 
     const { url } = await req.json();
 

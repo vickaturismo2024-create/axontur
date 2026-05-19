@@ -112,7 +112,7 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContain
           <Printer className="h-4 w-4" />Imprimir
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => { try { exportQuoteToExcel(quote); toast.success('Excel descargado'); } catch { toast.error('Error al exportar'); } }} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={async () => { try { await exportQuoteToExcel(quote); toast.success('Excel descargado'); } catch { toast.error('Error al exportar'); } }} className="gap-2 cursor-pointer">
           <FileSpreadsheet className="h-4 w-4 text-green-600" />Exportar a Excel
         </DropdownMenuItem>
         {onSetExpiry && (

@@ -119,13 +119,13 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
     return { movementsWithBalance: list, finalBalances: Object.entries(balances) };
   }, [filtered]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const currencies = currencyFilter !== 'all' ? [currencyFilter] : availableCurrencies;
     if (currencies.length === 0) {
       toast.error('No hay movimientos para exportar');
       return;
     }
-    currencies.forEach(curr => {
+    for (const curr of currencies) {
       const list = movementsWithBalance.filter(m => m.currency === curr);
       const stmts: StatementMovement[] = list.map(m => ({
         date: m.movement_date,
@@ -136,7 +136,7 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
         credit: m.movement_type === 'credit' ? m.amount : 0,
         balance: m.runningBalance,
       }));
-      exportStatementExcel(
+      await exportStatementExcel(
         {
           accountName,
           accountType,
@@ -155,7 +155,7 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
           footerLegal: settings.pdf_footer_legal,
         },
       );
-    });
+    }
     toast.success('Excel descargado');
   };
 

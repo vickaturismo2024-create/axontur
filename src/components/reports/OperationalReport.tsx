@@ -35,9 +35,9 @@ export function OperationalReport() {
   const { data, isLoading } = useOperationalReport(period, customRange);
   const range = getPeriodRange(period, customRange);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!data) return;
-    exportOperationalReportToExcel(data, range);
+    await exportOperationalReportToExcel(data, range);
     toast.success('Reporte operativo exportado');
   };
 

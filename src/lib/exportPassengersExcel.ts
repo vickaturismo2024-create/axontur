@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 export interface PassengerExportRow {
   name: string;
@@ -10,19 +10,41 @@ export interface PassengerExportRow {
   notes?: string | null;
 }
 
-export function exportPassengersToExcel(passengers: PassengerExportRow[], filename = 'pasajeros.xlsx') {
-  const rows = passengers.map(p => ({
-    Nombre: p.name || '',
-    DNI: p.dni || '',
-    Pasaporte: p.passport || '',
-    'Vto. Pasaporte': p.passport_expiry || '',
-    'Fecha Nac.': p.birth_date || '',
-    Nacionalidad: p.nationality || '',
-    Notas: p.notes || '',
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 30 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Pasajeros');
-  XLSX.writeFile(wb, filename);
+export async function exportPassengersToExcel(
+  passengers: PassengerExportRow[],
+  filename = 'pasajeros.xlsx',
+) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Pasajeros');
+
+  ws.columns = [
+    { header: 'Nombre',        key: 'Nombre',          width: 29 },
+    { header: 'DNI',           key: 'DNI',             width: 15 },
+    { header: 'Pasaporte',     key: 'Pasaporte',       width: 17 },
+    { header: 'Vto. Pasaporte',key: 'VtoPasaporte',    width: 15 },
+    { header: 'Fecha Nac.',    key: 'FechaNac',        width: 15 },
+    { header: 'Nacionalidad',  key: 'Nacionalidad',    width: 19 },
+    { header: 'Notas',         key: 'Notas',           width: 31 },
+  ];
+
+  passengers.forEach(p => {
+    ws.addRow({
+      Nombre:        p.name             || '',
+      DNI:           p.dni              || '',
+      Pasaporte:     p.passport         || '',
+      VtoPasaporte:  p.passport_expiry  || '',
+      FechaNac:      p.birth_date       || '',
+      Nacionalidad:  p.nationality      || '',
+      Notas:         p.notes            || '',
+    });
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement('a');
+  a.href       = url;
+  a.download   = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

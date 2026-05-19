@@ -13,7 +13,7 @@ import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, Fil
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { DocumentAlertBadge, getDocStatus, getWorstStatus, DocStatus } from '@/components/clients/DocumentAlertBadge';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuotes } from '@/contexts/QuotesContext';
@@ -163,18 +163,61 @@ const Clients = () => {
     await fetchClients();
   };
 
-  const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(clients.map(c => ({
-      Nombre: c.name, Email: c.email, 'Tel. Particular': c.phone, 'Tel. Comercial': c.phone_work,
-      Celular: c.phone_mobile, Dirección: c.address, Localidad: c.locality,
-      Nacionalidad: c.nationality, 'Fecha Nac.': c.birth_date, Sexo: c.sex,
-      DNI: c.dni, 'Vto. DNI': c.dni_expiry, Pasaporte: c.passport,
-      'Emisión Pas.': c.passport_issue, 'Vto. Pas.': c.passport_expiry,
-      'CUIL/CUIT': c.cuil_cuit, Notas: c.notes,
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
-    XLSX.writeFile(wb, 'clientes.xlsx');
+  const handleExport = async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Clientes');
+
+    ws.columns = [
+      { header: 'Nombre',         key: 'Nombre',        width: 28 },
+      { header: 'Email',          key: 'Email',         width: 28 },
+      { header: 'Tel. Particular',key: 'TelPart',       width: 16 },
+      { header: 'Tel. Comercial', key: 'TelCom',        width: 16 },
+      { header: 'Celular',        key: 'Celular',       width: 16 },
+      { header: 'Dirección',      key: 'Direccion',     width: 28 },
+      { header: 'Localidad',      key: 'Localidad',     width: 18 },
+      { header: 'Nacionalidad',   key: 'Nacionalidad',  width: 16 },
+      { header: 'Fecha Nac.',     key: 'FechaNac',      width: 13 },
+      { header: 'Sexo',           key: 'Sexo',          width: 8  },
+      { header: 'DNI',            key: 'DNI',           width: 13 },
+      { header: 'Vto. DNI',       key: 'VtoDNI',        width: 13 },
+      { header: 'Pasaporte',      key: 'Pasaporte',     width: 16 },
+      { header: 'Emisión Pas.',   key: 'EmisionPas',    width: 13 },
+      { header: 'Vto. Pas.',      key: 'VtoPas',        width: 13 },
+      { header: 'CUIL/CUIT',      key: 'CuilCuit',      width: 15 },
+      { header: 'Notas',          key: 'Notas',         width: 32 },
+    ];
+
+    clients.forEach(c => {
+      ws.addRow({
+        Nombre:       c.name,
+        Email:        c.email,
+        TelPart:      c.phone,
+        TelCom:       c.phone_work,
+        Celular:      c.phone_mobile,
+        Direccion:    c.address,
+        Localidad:    c.locality,
+        Nacionalidad: c.nationality,
+        FechaNac:     c.birth_date,
+        Sexo:         c.sex,
+        DNI:          c.dni,
+        VtoDNI:       c.dni_expiry,
+        Pasaporte:    c.passport,
+        EmisionPas:   c.passport_issue,
+        VtoPas:       c.passport_expiry,
+        CuilCuit:     c.cuil_cuit,
+        Notas:        c.notes,
+      });
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href       = url;
+    a.download   = 'clientes.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+
     toast.success('Clientes exportados');
   };
 
