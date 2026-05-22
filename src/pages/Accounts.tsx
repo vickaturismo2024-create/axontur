@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,17 +40,17 @@ export default function Accounts() {
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string; type: 'client' | 'supplier' } | null>(null);
 
   const { data: clients = [], isLoading: lc } = useQuery({
-    queryKey: ['accounts-clients', user?.id],
+    queryKey: queryKeys.accounts.clients(user?.id),
     queryFn: () => fetchAllPaged('clients', 'id, name'),
     enabled: !!user,
   });
   const { data: suppliers = [], isLoading: ls } = useQuery({
-    queryKey: ['accounts-suppliers', user?.id],
+    queryKey: queryKeys.accounts.suppliers(user?.id),
     queryFn: () => fetchAllPaged('suppliers', 'id, name'),
     enabled: !!user,
   });
   const { data: movements = [], isLoading: lm } = useQuery({
-    queryKey: ['accounts-movements', user?.id],
+    queryKey: queryKeys.accounts.movements(user?.id),
     queryFn: async () => {
       const { data } = await supabase.from('account_movements').select('*');
       return (data as any[]) || [];

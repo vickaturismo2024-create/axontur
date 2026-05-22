@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { AdminOnly } from '@/components/auth/AdminOnly';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { Header } from '@/components/layout/Header';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,7 +49,7 @@ const Suppliers = () => {
   const supplierStats = useSupplierAnalytics(quotes);
 
   const { data: suppliers, isLoading } = useQuery<Supplier[]>({
-    queryKey: ['suppliers', user?.id],
+    queryKey: queryKeys.suppliers.all(user?.id),
     queryFn: async () => {
       const all: any[] = [];
       let from = 0;
@@ -65,7 +66,7 @@ const Suppliers = () => {
     enabled: !!user,
   });
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ['suppliers', user?.id] });
+  const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.suppliers.all(user?.id) });
 
   const handleSave = async () => {
     if (!editing || !user || !editing.name?.trim()) return;
@@ -119,31 +120,52 @@ const Suppliers = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="font-serif text-3xl font-bold text-foreground">Proveedores</h1>
-            <p className="mt-1 text-muted-foreground">Gestiona tus operadores y mayoristas</p>
-          </div>
-          <div className="flex gap-2">
-            <Link to="/reportes">
-              <Button variant="outline" className="gap-2">
-                <BarChart3 className="h-4 w-4" /> Ver reportes
+      <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
+
+        {/* Encabezado */}
+        <div className="mb-4 sm:mb-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="font-serif text-xl font-bold text-foreground sm:text-3xl">
+                Proveedores
+              </h1>
+              <p className="mt-0.5 text-sm text-muted-foreground sm:mt-1">
+                Gestiona tus operadores y mayoristas
+              </p>
+            </div>
+            {/* Botones — apilados en mobile, en fila en desktop */}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link to="/reportes" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full gap-2 sm:w-auto" size="sm">
+                  <BarChart3 className="h-4 w-4" /> Ver reportes
+                </Button>
+              </Link>
+              <Button
+                onClick={() => { setEditing(emptySupplier); setIsDialogOpen(true); }}
+                className="w-full bg-primary sm:w-auto"
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Nuevo Proveedor
               </Button>
-            </Link>
-            <Button onClick={() => { setEditing(emptySupplier); setIsDialogOpen(true); }} className="bg-primary">
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Proveedor
-            </Button>
+            </div>
           </div>
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-2">
-          <div className="relative max-w-md flex-1">
+        {/* Filtros */}
+        <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por nombre o tipo..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-10" />
+            <Input
+              placeholder="Buscar por nombre o tipo..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(0); }}
+              className="pl-10 h-9 sm:h-10"
+            />
           </div>
           <Select value={typeFilter} onValueChange={v => { setTypeFilter(v); setPage(0); }}>
-            <SelectTrigger className="sm:max-w-[200px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectTrigger className="h-9 sm:h-10 sm:max-w-[200px]">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los tipos</SelectItem>
               {SUPPLIER_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -154,46 +176,95 @@ const Suppliers = () => {
           </Select>
         </div>
 
+        {/* Lista */}
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-44 w-full" />)}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-36 w-full sm:h-44" />)}
           </div>
         ) : filtered.length === 0 ? (
-          <Card><CardContent className="py-12 text-center text-muted-foreground">
-            <Store className="mx-auto h-12 w-12 mb-4 opacity-50" />
-            <p>{(suppliers?.length || 0) === 0 ? 'No tenés proveedores aún. ¡Creá el primero!' : 'No se encontraron resultados.'}</p>
-          </CardContent></Card>
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground sm:py-12">
+              <Store className="mx-auto h-10 w-10 mb-3 opacity-50 sm:h-12 sm:w-12 sm:mb-4" />
+              <p className="text-sm sm:text-base">
+                {(suppliers?.length || 0) === 0
+                  ? 'No tenés proveedores aún. ¡Creá el primero!'
+                  : 'No se encontraron resultados.'}
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* Grid — 1 col mobile, 2 tablet, 3 desktop */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
               {paginated.map(s => {
                 const stat = getStatForSupplier(s.name);
                 return (
-                  <Card key={s.id} className="group">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Store className="h-4 w-4 text-primary" /> {s.name}
+                  <Card key={s.id} className="group flex flex-col">
+                    <CardHeader className="pb-2 pt-3 px-3 sm:pt-4 sm:px-4">
+                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg leading-tight">
+                        <Store className="h-4 w-4 flex-shrink-0 text-primary" />
+                        <span className="truncate">{s.name}</span>
                       </CardTitle>
-                      {s.type && <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full w-fit">{s.type}</span>}
+                      {s.type && (
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full w-fit">
+                          {s.type}
+                        </span>
+                      )}
                     </CardHeader>
-                    <CardContent>
-                      <div className="space-y-1 text-sm text-muted-foreground mb-2">
-                        {s.email && <p className="flex items-center gap-1"><Mail className="h-3 w-3" />{s.email}</p>}
-                        {s.phone && <p className="flex items-center gap-1"><Phone className="h-3 w-3" />{s.phone}</p>}
-                        {s.notes && <p className="truncate">{s.notes}</p>}
+
+                    <CardContent className="flex flex-col flex-1 px-3 pb-3 sm:px-4 sm:pb-4">
+                      {/* Datos de contacto */}
+                      <div className="space-y-1 text-xs text-muted-foreground mb-2 sm:text-sm">
+                        {s.email && (
+                          <p className="flex items-center gap-1 truncate">
+                            <Mail className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{s.email}</span>
+                          </p>
+                        )}
+                        {s.phone && (
+                          <p className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 flex-shrink-0" />
+                            {s.phone}
+                          </p>
+                        )}
+                        {s.notes && (
+                          <p className="truncate text-xs">{s.notes}</p>
+                        )}
                       </div>
+
+                      {/* Badge de servicios */}
                       {stat && (
-                        <div className="flex gap-2 flex-wrap mb-2">
-                          <Badge variant="secondary" className="text-[10px]">{stat.services} servicio(s)</Badge>
+                        <div className="mb-2">
+                          <Badge variant="secondary" className="text-[10px]">
+                            {stat.services} servicio(s)
+                          </Badge>
                         </div>
                       )}
-                      <div className="flex gap-1 flex-wrap">
+
+                      {/* Acciones — al fondo de la card */}
+                      <div className="mt-auto flex gap-1 flex-wrap pt-1">
                         <Link to={`/suppliers/${s.id}`}>
-                          <Button variant="ghost" size="sm"><ExternalLink className="mr-1 h-4 w-4" />Ver</Button>
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs sm:px-3 sm:text-sm">
+                            <ExternalLink className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />Ver
+                          </Button>
                         </Link>
-                        <Button variant="ghost" size="sm" onClick={() => { setEditing(s); setIsDialogOpen(true); }}><Pencil className="mr-1 h-4 w-4" />Editar</Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-xs sm:px-3 sm:text-sm"
+                          onClick={() => { setEditing(s); setIsDialogOpen(true); }}
+                        >
+                          <Pencil className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />Editar
+                        </Button>
                         <AdminOnly>
-                          <Button variant="ghost" size="sm" onClick={() => setDeleteId(s.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-destructive sm:px-3"
+                            onClick={() => setDeleteId(s.id)}
+                          >
+                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </Button>
                         </AdminOnly>
                       </div>
                     </CardContent>
@@ -202,18 +273,35 @@ const Suppliers = () => {
               })}
             </div>
 
+            {/* Paginación */}
             {totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Mostrando {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
+              <div className="mt-4 flex items-center justify-between sm:mt-6">
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
                 </p>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={currentPage === 0}>
-                    <ChevronLeft className="h-4 w-4" /> Anterior
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(0, p - 1))}
+                    disabled={currentPage === 0}
+                    className="h-8 px-2 sm:px-3"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline ml-1">Anterior</span>
                   </Button>
-                  <span className="text-sm">{currentPage + 1} / {totalPages}</span>
-                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1}>
-                    Siguiente <ChevronRight className="h-4 w-4" />
+                  <span className="text-xs sm:text-sm px-1">
+                    {currentPage + 1} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={currentPage >= totalPages - 1}
+                    className="h-8 px-2 sm:px-3"
+                  >
+                    <span className="hidden sm:inline mr-1">Siguiente</span>
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -222,11 +310,14 @@ const Suppliers = () => {
         )}
       </main>
 
+      {/* Dialog crear/editar */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editing?.id ? 'Editar Proveedor' : 'Nuevo Proveedor'}</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md mx-3 sm:mx-auto">
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? 'Editar Proveedor' : 'Nuevo Proveedor'}</DialogTitle>
+          </DialogHeader>
           {editing && (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div><Label>Nombre *</Label><Input value={editing.name || ''} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
               <div>
                 <Label>Tipo de servicio</Label>
@@ -245,22 +336,32 @@ const Suppliers = () => {
               <div><Label>Notas</Label><Textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} rows={3} /></div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!editing?.name?.trim()}>Guardar</Button>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={!editing?.name?.trim()} className="w-full sm:w-auto">
+              Guardar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Alert eliminar */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="mx-3 sm:mx-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar proveedor?</AlertDialogTitle>
             <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">Eliminar</AlertDialogAction>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="w-full bg-destructive text-destructive-foreground sm:w-auto"
+            >
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

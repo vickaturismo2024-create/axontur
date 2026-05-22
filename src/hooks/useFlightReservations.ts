@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -20,7 +21,7 @@ export function useReservationsList() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['reservations', user?.id],
+    queryKey: queryKeys.reservations.all(user?.id),
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
@@ -40,7 +41,7 @@ export function useReservationDetails(id: string | undefined) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['reservation', id],
+    queryKey: queryKeys.reservations.detail(id),
     queryFn: async () => {
       if (!id || !user) return null;
 
@@ -84,7 +85,7 @@ export function useUpcomingFlights(limit = 10) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['upcoming-flights', user?.id, limit],
+    queryKey: queryKeys.reservations.upcomingFlights(user?.id, limit),
     queryFn: async () => {
       if (!user) return [];
       const now = new Date();
@@ -231,8 +232,8 @@ export function useCreateReservation() {
       return reservation;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['upcoming-flights'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
     },
   });
 }
@@ -263,8 +264,8 @@ export function useToggleCheckin() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation'] });
-      queryClient.invalidateQueries({ queryKey: ['upcoming-flights'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
     },
   });
 }
@@ -285,8 +286,8 @@ export function useUpdateReservation() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation'] });
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
     },
   });
 }
@@ -307,7 +308,7 @@ export function useUpdatePassenger() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
     },
   });
 }
@@ -332,8 +333,8 @@ export function useUpdateFlightSegment() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation'] });
-      queryClient.invalidateQueries({ queryKey: ['upcoming-flights'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
     },
   });
 }
@@ -350,9 +351,9 @@ export function useDeleteFlightSegment() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation'] });
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['upcoming-flights'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
     },
   });
 }
@@ -381,9 +382,9 @@ export function useDeleteReservation() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation'] });
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['upcoming-flights'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
     },
   });
 }
@@ -401,7 +402,7 @@ export function useResolveChange() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
     },
   });
 }
@@ -425,7 +426,7 @@ export function useFindReservationByLocator() {
 export function usePendingChangesCount() {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ['pending-changes-count', user?.id],
+    queryKey: queryKeys.reservations.pendingChangesCount(user?.id),
     queryFn: async () => {
       if (!user) return 0;
       const { data: reservations } = await supabase
@@ -565,10 +566,10 @@ export function useUpdateReservationFromPNR() {
       return { reservationId, changesCount: changes.length };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation'] });
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['upcoming-flights'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-changes-count'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.pendingChangesCount() });
     },
   });
 }
@@ -710,7 +711,7 @@ export function useBulkImportReservations() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
     },
   });
 }

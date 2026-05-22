@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -82,7 +83,7 @@ const Calendar = () => {
 
   // Fetch flight segments for the month
   const { data: flights = [] } = useQuery({
-    queryKey: ['calendar-flight-segments', user?.id, monthStart.toISOString(), monthEnd.toISOString()],
+    queryKey: queryKeys.calendar.flightSegments(user?.id, monthStart.toISOString(), monthEnd.toISOString()),
     queryFn: async () => {
       if (!user) return [] as CalendarFlight[];
       const { data, error } = await supabase

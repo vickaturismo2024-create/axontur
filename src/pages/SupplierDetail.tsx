@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { Header } from '@/components/layout/Header';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,7 +72,7 @@ export default function SupplierDetail() {
   const [notes, setNotes] = useState('');
 
   const { data: supplier, isLoading } = useQuery<Supplier | null>({
-    queryKey: ['supplier-detail', id],
+    queryKey: queryKeys.suppliers.detail(id),
     queryFn: async () => {
       if (!id) return null;
       const { data } = await supabase.from('suppliers').select('*').eq('id', id).maybeSingle();
@@ -89,7 +90,7 @@ export default function SupplierDetail() {
   });
 
   const { data: services = [] } = useQuery<ServiceRow[]>({
-    queryKey: ['supplier-services', id],
+    queryKey: queryKeys.suppliers.services(id),
     queryFn: async () => {
       const { data } = await supabase.from('file_services').select('*').eq('supplier_id', id!).order('service_date', { ascending: false });
       return (data as any[]) || [];
@@ -98,7 +99,7 @@ export default function SupplierDetail() {
   });
 
   const { data: payments = [] } = useQuery<PaymentRow[]>({
-    queryKey: ['supplier-payments', id],
+    queryKey: queryKeys.suppliers.payments(id),
     queryFn: async () => {
       const { data } = await supabase.from('file_supplier_payments').select('*').eq('supplier_id', id!).order('payment_date', { ascending: false });
       return (data as any[]) || [];
@@ -141,8 +142,8 @@ export default function SupplierDetail() {
     } as any).eq('id', id);
     if (error) { toast.error('Error al guardar'); return; }
     toast.success('Proveedor actualizado');
-    qc.invalidateQueries({ queryKey: ['supplier-detail', id] });
-    qc.invalidateQueries({ queryKey: ['suppliers', user?.id] });
+    qc.invalidateQueries({ queryKey: queryKeys.suppliers.detail(id) });
+    qc.invalidateQueries({ queryKey: queryKeys.suppliers.all(user?.id) });
   };
 
   // Autoguardado de notas con debounce
@@ -154,7 +155,7 @@ export default function SupplierDetail() {
       if (!id) return;
       await supabase.from('suppliers').update({ notes: val } as any).eq('id', id);
       setSavingNotes(false);
-      qc.invalidateQueries({ queryKey: ['supplier-detail', id] });
+      qc.invalidateQueries({ queryKey: queryKeys.suppliers.detail(id) });
     }, 1000);
   };
 

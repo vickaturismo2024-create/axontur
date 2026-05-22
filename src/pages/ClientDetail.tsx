@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { Header } from '@/components/layout/Header';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,7 +55,7 @@ export default function ClientDetail() {
   const [toDate, setToDate] = useState('');
 
   const { data: client, isLoading } = useQuery<Client | null>({
-    queryKey: ['client-detail', id],
+    queryKey: queryKeys.clients.detail(id),
     queryFn: async () => {
       if (!id) return null;
       const { data } = await supabase.from('clients').select('*').eq('id', id).maybeSingle();
@@ -64,7 +65,7 @@ export default function ClientDetail() {
   });
 
   const { data: movements = [] } = useQuery<Movement[]>({
-    queryKey: ['client-movements', id],
+    queryKey: queryKeys.clients.movements(id),
     queryFn: async () => {
       const { data } = await supabase
         .from('account_movements' as any)
@@ -78,7 +79,7 @@ export default function ClientDetail() {
   });
 
   const { data: fileNumbers = {} } = useQuery<Record<string, number>>({
-    queryKey: ['client-file-numbers', id],
+    queryKey: queryKeys.clients.fileNumbers(id),
     queryFn: async () => {
       const fileIds = Array.from(new Set(movements.map(m => m.file_id).filter(Boolean))) as string[];
       if (fileIds.length === 0) return {};
@@ -116,7 +117,7 @@ export default function ClientDetail() {
   }, [movements]);
 
   const handleSavedMovement = () => {
-    qc.invalidateQueries({ queryKey: ['client-movements', id] });
+    qc.invalidateQueries({ queryKey: queryKeys.clients.movements(id) });
   };
 
   if (isLoading) {

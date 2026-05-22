@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { supabase } from '@/integrations/supabase/client';
 
 export type DomainStatus = 'active' | 'awaiting_dns' | 'active_provisioning' | 'provisioning_failed' | 'unknown';
@@ -87,7 +88,7 @@ async function fetchInfraStatus(): Promise<InfraStatus> {
 
 export function useEmailInfraStatus() {
   return useQuery({
-    queryKey: ['email-infra-status'],
+    queryKey: queryKeys.infra.emailStatus(),
     queryFn: fetchInfraStatus,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettingsSafe } from '@/contexts/SettingsContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleWidget } from '@/components/dashboard/CollapsibleWidget';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -107,57 +107,54 @@ export function BirthdayWidget() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Cake className="h-5 w-5 text-pink-500" />
-            Cumpleaños
-            {total > 0 && <Badge variant="secondary">{total}</Badge>}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              {[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-          ) : total === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              Sin cumpleaños este mes
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {today.length > 0 && (
-                <Section
-                  icon={<PartyPopper className="h-4 w-4 text-pink-500" />}
-                  title="Hoy"
-                  items={today}
-                  highlight
-                  onWhatsApp={openWhatsApp}
-                  navigate={navigate}
-                />
-              )}
-              {week.length > 0 && (
-                <Section
-                  icon={<Cake className="h-4 w-4" />}
-                  title="Esta semana"
-                  items={week}
-                  onWhatsApp={openWhatsApp}
-                  navigate={navigate}
-                />
-              )}
-              {month.length > 0 && (
-                <Section
-                  icon={<Cake className="h-4 w-4" />}
-                  title="Próximos"
-                  items={month}
-                  onWhatsApp={openWhatsApp}
-                  navigate={navigate}
-                />
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <CollapsibleWidget
+        widgetKey="birthdays"
+        icon={<Cake className="h-4 w-4 text-pink-500" />}
+        title="Cumpleaños"
+        count={total}
+        badgeVariant={today.length > 0 ? 'destructive' : 'secondary'}
+      >
+        {isLoading ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : total === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Sin cumpleaños este mes
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {today.length > 0 && (
+              <Section
+                icon={<PartyPopper className="h-4 w-4 text-pink-500" />}
+                title="Hoy"
+                items={today}
+                highlight
+                onWhatsApp={openWhatsApp}
+                navigate={navigate}
+              />
+            )}
+            {week.length > 0 && (
+              <Section
+                icon={<Cake className="h-4 w-4" />}
+                title="Esta semana"
+                items={week}
+                onWhatsApp={openWhatsApp}
+                navigate={navigate}
+              />
+            )}
+            {month.length > 0 && (
+              <Section
+                icon={<Cake className="h-4 w-4" />}
+                title="Próximos"
+                items={month}
+                onWhatsApp={openWhatsApp}
+                navigate={navigate}
+              />
+            )}
+          </div>
+        )}
+      </CollapsibleWidget>
 
       <BirthdayWhatsAppDialog
         open={dialogOpen}

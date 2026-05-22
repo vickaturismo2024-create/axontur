@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 
 const navItems = [
   { label: 'Dashboard', href: '/' },
+  { label: 'Presupuestos', href: '/quotes' },
   { label: 'Plantillas', href: '/templates' },
   { label: 'Clientes', href: '/clients' },
   { label: 'Proveedores', href: '/suppliers' },

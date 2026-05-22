@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleWidget } from '@/components/dashboard/CollapsibleWidget';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, Clock, ShieldAlert, FileText, Receipt, ChevronRight } from 'lucide-react';
@@ -140,41 +140,40 @@ export function OperationalAlertsWidget() {
   const total = alerts?.length || 0;
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <AlertTriangle className="h-5 w-5 text-yellow-500" />
-          Alertas operativas
-          {total > 0 && <Badge variant="secondary">{total}</Badge>}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">
-            {[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-          </div>
-        ) : total === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            ✓ No hay alertas pendientes
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {grouped.service_due.length > 0 && (
-              <Section icon={<Clock className="h-4 w-4" />} title="Pagos a operadores" items={grouped.service_due} navigate={navigate} />
-            )}
-            {grouped.doc_expiring.length > 0 && (
-              <Section icon={<ShieldAlert className="h-4 w-4" />} title="Documentos" items={grouped.doc_expiring} navigate={navigate} />
-            )}
-            {grouped.file_to_close.length > 0 && (
-              <Section icon={<FileText className="h-4 w-4" />} title="Expedientes a cerrar" items={grouped.file_to_close} navigate={navigate} />
-            )}
-            {grouped.receipt_draft.length > 0 && (
-              <Section icon={<Receipt className="h-4 w-4" />} title="Recibos en borrador" items={grouped.receipt_draft} navigate={navigate} />
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <CollapsibleWidget
+      widgetKey="operational-alerts"
+      icon={<AlertTriangle className="h-4 w-4 text-yellow-500" />}
+      title="Alertas operativas"
+      count={total}
+      badgeVariant={
+        (alerts || []).some(a => a.severity === 'destructive') ? 'destructive' : 'warning'
+      }
+    >
+      {isLoading ? (
+        <div className="space-y-2">
+          {[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+        </div>
+      ) : total === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          ✓ No hay alertas pendientes
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {grouped.service_due.length > 0 && (
+            <Section icon={<Clock className="h-4 w-4" />} title="Pagos a operadores" items={grouped.service_due} navigate={navigate} />
+          )}
+          {grouped.doc_expiring.length > 0 && (
+            <Section icon={<ShieldAlert className="h-4 w-4" />} title="Documentos" items={grouped.doc_expiring} navigate={navigate} />
+          )}
+          {grouped.file_to_close.length > 0 && (
+            <Section icon={<FileText className="h-4 w-4" />} title="Expedientes a cerrar" items={grouped.file_to_close} navigate={navigate} />
+          )}
+          {grouped.receipt_draft.length > 0 && (
+            <Section icon={<Receipt className="h-4 w-4" />} title="Recibos en borrador" items={grouped.receipt_draft} navigate={navigate} />
+          )}
+        </div>
+      )}
+    </CollapsibleWidget>
   );
 }
 

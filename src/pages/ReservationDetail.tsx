@@ -47,6 +47,7 @@ import { EditReservationModal } from '@/components/reservations/EditReservationM
 import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendReservationConfirmation, isInfraReady } from '@/lib/emailService';
 import { toast } from 'sonner';
@@ -70,7 +71,7 @@ export default function ReservationDetail() {
   const [sendingEmail, setSendingEmail] = useState(false);
 
   const { data: linkedFile } = useQuery({
-    queryKey: ['reservation-file', reservation?.file_id],
+    queryKey: queryKeys.reservations.file(reservation?.file_id),
     queryFn: async () => {
       if (!reservation?.file_id) return null;
       const { data } = await supabase.from('files').select('id, file_number').eq('id', reservation.file_id).maybeSingle();

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -73,7 +74,7 @@ export function useOperationalReport(period: ReportPeriod, custom?: PeriodRange)
   const range = getPeriodRange(period, custom);
 
   return useQuery({
-    queryKey: ['operational-report', user?.id, period, range.from, range.to],
+    queryKey: queryKeys.reports.operational(user?.id, period, range.from, range.to),
     queryFn: async (): Promise<OperationalReportData> => {
       if (!user) {
         return {

@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Link, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, Link, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 interface ImageUploadProps {
   value: string;
@@ -15,6 +16,7 @@ interface ImageUploadProps {
   className?: string;
   previewClassName?: string;
   accept?: string;
+  folder?: string; // subcarpeta dentro del bucket, default 'logos'
 }
 
 export function ImageUpload({
@@ -25,30 +27,26 @@ export function ImageUpload({
   className,
   previewClassName = 'h-40',
   accept = 'image/*',
+  folder = 'logos',
 }: ImageUploadProps) {
-  const [activeTab, setActiveTab] = useState<string>(value?.startsWith('data:') ? 'file' : 'url');
+  const [activeTab, setActiveTab] = useState<string>(
+    value?.startsWith('data:') ? 'file' : 'url',
+  );
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploading, uploadImage, deleteImage } = useImageUpload();
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      convertToBase64(file);
+  const handleFile = async (file: File) => {
+    const url = await uploadImage(file, folder);
+    if (url) {
+      onChange(url);
+      setActiveTab('file');
     }
   };
 
-  const convertToBase64 = (file: File) => {
-    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-    if (file.size > MAX_SIZE) {
-      toast.error('La imagen es demasiado grande. Máximo 5MB.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      onChange(result);
-    };
-    reader.readAsDataURL(file);
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -65,23 +63,22 @@ export function ImageUpload({
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      convertToBase64(file);
-      setActiveTab('file');
-    }
+    if (file && file.type.startsWith('image/')) handleFile(file);
   };
 
-  const handleClear = () => {
-    onChange('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const handleClear = async () => {
+    // Si es una URL de nuestro bucket, borrar el archivo
+    if (value && !value.startsWith('data:') && value.includes('agency-assets')) {
+      await deleteImage(value);
     }
+    onChange('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
     <div className={cn('space-y-2', className)}>
       {label && <Label>{label}</Label>}
-      
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="file" className="flex items-center gap-2">
@@ -96,30 +93,42 @@ export function ImageUpload({
 
         <TabsContent value="file" className="mt-3">
           <div
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => !uploading && fileInputRef.current?.click()}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={cn(
               'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
-              isDragging
-                ? 'border-primary bg-primary/5'
-                : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
+              uploading
+                ? 'cursor-not-allowed opacity-60'
+                : isDragging
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50',
             )}
           >
-            <ImageIcon className="mb-2 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Arrastra una imagen o haz clic para seleccionar
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground/70">
-              JPG, PNG, GIF, WebP (máx. 5MB)
-            </p>
+            {uploading ? (
+              <>
+                <Loader2 className="mb-2 h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Subiendo imagen...</p>
+              </>
+            ) : (
+              <>
+                <ImageIcon className="mb-2 h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Arrastrá una imagen o hacé clic para seleccionar
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground/70">
+                  JPG, PNG, GIF, WebP (máx. 5MB)
+                </p>
+              </>
+            )}
             <input
               ref={fileInputRef}
               type="file"
               accept={accept}
               onChange={handleFileChange}
               className="hidden"
+              disabled={uploading}
             />
           </div>
         </TabsContent>
@@ -133,7 +142,6 @@ export function ImageUpload({
         </TabsContent>
       </Tabs>
 
-      {/* Preview */}
       {value && (
         <div className="relative mt-3">
           <div className={cn('overflow-hidden rounded-lg', previewClassName)}>
@@ -152,6 +160,7 @@ export function ImageUpload({
             size="icon"
             className="absolute right-2 top-2 h-8 w-8"
             onClick={handleClear}
+            disabled={uploading}
           >
             <X className="h-4 w-4" />
           </Button>

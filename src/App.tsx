@@ -26,6 +26,7 @@ import NotFound         from "./pages/NotFound";
 // Cada una genera su propio chunk. Las libs pesadas (recharts, ExcelJS,
 // jsPDF, pdfjs-dist) quedan fuera del bundle inicial.
 const Dashboard         = lazy(() => import("./pages/Dashboard"));
+const Quotes            = lazy(() => import("./pages/Quotes"));
 const QuoteEditor       = lazy(() => import("./pages/QuoteEditor"));
 const Templates         = lazy(() => import("./pages/Templates"));
 const ExportPDF         = lazy(() => import("./pages/ExportPDF"));
@@ -132,6 +133,7 @@ const App = () => (
 
                       {/* Protegidas — lazy */}
                       <Route path="/"                    element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                      <Route path="/quotes"              element={<ProtectedRoute><Quotes /></ProtectedRoute>} />
                       <Route path="/quote/:id"           element={<ProtectedRoute><QuoteEditor /></ProtectedRoute>} />
                       <Route path="/templates"           element={<ProtectedRoute><Templates /></ProtectedRoute>} />
                       <Route path="/export/:id"          element={<ProtectedRoute><ExportPDF /></ProtectedRoute>} />

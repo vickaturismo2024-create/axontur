@@ -1,210 +1,8 @@
-import { useState, useMemo } from 'react';
-import { AdminOnly } from '@/components/auth/AdminOnly';
-import { Link } from 'react-router-dom';
-import { Plane, Plus, Search, Trash2, AlertTriangle, Download, FileText } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Header } from '@/components/layout/Header';
-import { useReservationsList, useDeleteReservation } from '@/hooks/useFlightReservations';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '@/lib/queryKeys';
-import { useAuth } from '@/contexts/AuthContext';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { toast } from 'sonner';
-import { exportPassengersToExcel } from '@/lib/exportPassengersExcel';
-import type { ReservationPassenger, FlightSegment, ReservationChange } from '@/types/reservation';
+const fs = require('fs');
+const file = 'src/pages/Reservations.tsx';
+let content = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 
-type DateFilter = 'all' | 'upcoming' | 'past';
-
-export default function Reservations() {
-  const { user } = useAuth();
-  const { data: reservations, isLoading } = useReservationsList();
-  const deleteReservation = useDeleteReservation();
-  const [search, setSearch] = useState('');
-  const [airlineFilter, setAirlineFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
-  const [onlyChanges, setOnlyChanges] = useState(false);
-
-  const reservationIds = reservations?.map(r => r.id) || [];
-  const { data: allPassengers } = useQuery({
-    queryKey: queryKeys.reservations.allPassengers(reservationIds),
-    queryFn: async () => {
-      if (!reservationIds.length) return [];
-      const { data } = await supabase
-        .from('reservation_passengers')
-        .select('*')
-        .in('reservation_id', reservationIds);
-      return (data || []) as unknown as ReservationPassenger[];
-    },
-    enabled: reservationIds.length > 0,
-  });
-
-  const { data: allSegments } = useQuery({
-    queryKey: queryKeys.reservations.allSegments(reservationIds),
-    queryFn: async () => {
-      if (!reservationIds.length) return [];
-      const { data } = await supabase
-        .from('flight_segments')
-        .select('*')
-        .in('reservation_id', reservationIds)
-        .order('seq');
-      return (data || []) as unknown as FlightSegment[];
-    },
-    enabled: reservationIds.length > 0,
-  });
-
-  const { data: allChanges } = useQuery({
-    queryKey: queryKeys.reservations.allChanges(reservationIds),
-    queryFn: async () => {
-      if (!reservationIds.length) return [];
-      const { data } = await supabase
-        .from('reservation_changes')
-        .select('*')
-        .in('reservation_id', reservationIds)
-        .eq('status', 'pending');
-      return (data || []) as unknown as ReservationChange[];
-    },
-    enabled: reservationIds.length > 0,
-  });
-
-  // Fetch linked file numbers
-  const fileIds = (reservations || []).map(r => r.file_id).filter(Boolean) as string[];
-  const { data: linkedFiles } = useQuery({
-    queryKey: queryKeys.reservations.linkedFiles(fileIds),
-    queryFn: async () => {
-      if (!fileIds.length) return [];
-      const { data } = await supabase.from('files').select('id, file_number').in('id', fileIds);
-      return (data || []) as { id: string; file_number: number }[];
-    },
-    enabled: fileIds.length > 0,
-  });
-  const fileById = new Map((linkedFiles || []).map(f => [f.id, f]));
-
-  const passengersByRes = new Map<string, ReservationPassenger[]>();
-  (allPassengers || []).forEach(p => {
-    if (!passengersByRes.has(p.reservation_id)) passengersByRes.set(p.reservation_id, []);
-    passengersByRes.get(p.reservation_id)!.push(p);
-  });
-
-  const segmentsByRes = new Map<string, FlightSegment[]>();
-  (allSegments || []).forEach(s => {
-    if (!segmentsByRes.has(s.reservation_id)) segmentsByRes.set(s.reservation_id, []);
-    segmentsByRes.get(s.reservation_id)!.push(s);
-  });
-
-  const pendingChangesByRes = new Map<string, number>();
-  (allChanges || []).forEach(c => {
-    pendingChangesByRes.set(c.reservation_id, (pendingChangesByRes.get(c.reservation_id) || 0) + 1);
-  });
-
-  const airlineOptions = useMemo(() => {
-    const set = new Set<string>();
-    (allSegments || []).forEach(s => s.airline_code && set.add(s.airline_code.toUpperCase()));
-    return Array.from(set).sort();
-  }, [allSegments]);
-
-  // Earliest dep date per reservation (for sort & date filter)
-  const earliestDepByRes = useMemo(() => {
-    const map = new Map<string, number>();
-    (allSegments || []).forEach(s => {
-      if (!s.dep_datetime_local) return;
-      const t = new Date(s.dep_datetime_local).getTime();
-      const cur = map.get(s.reservation_id);
-      if (cur === undefined || t < cur) map.set(s.reservation_id, t);
-    });
-    return map;
-  }, [allSegments]);
-
-  const filtered = useMemo(() => {
-    const now = Date.now();
-    return (reservations || [])
-      .filter(r => {
-        const segs = segmentsByRes.get(r.id) || [];
-        const pax = passengersByRes.get(r.id) || [];
-        const pendingCount = pendingChangesByRes.get(r.id) || 0;
-
-        // Search
-        if (search) {
-          const q = search.toLowerCase();
-          const matches =
-            r.locator?.toLowerCase().includes(q) ||
-            pax.some(p => `${p.last_name} ${p.first_name}`.toLowerCase().includes(q)) ||
-            segs.some(s => `${s.airline_code}${s.flight_number} ${s.origin_iata} ${s.destination_iata}`.toLowerCase().includes(q));
-          if (!matches) return false;
-        }
-
-        // Airline filter
-        if (airlineFilter !== 'all') {
-          if (!segs.some(s => s.airline_code?.toUpperCase() === airlineFilter)) return false;
-        }
-
-        // Date filter
-        if (dateFilter !== 'all') {
-          const earliest = earliestDepByRes.get(r.id);
-          if (earliest === undefined) return false;
-          if (dateFilter === 'upcoming' && earliest < now) return false;
-          if (dateFilter === 'past' && earliest >= now) return false;
-        }
-
-        // Pending changes filter
-        if (onlyChanges && pendingCount === 0) return false;
-
-        return true;
-      })
-      .sort((a, b) => {
-        const ta = earliestDepByRes.get(a.id);
-        const tb = earliestDepByRes.get(b.id);
-        // Reservations with dep date come first, sorted ascending
-        if (ta !== undefined && tb !== undefined) return ta - tb;
-        if (ta !== undefined) return -1;
-        if (tb !== undefined) return 1;
-        // Fallback to created_at desc
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-  }, [reservations, search, airlineFilter, dateFilter, onlyChanges, segmentsByRes, passengersByRes, pendingChangesByRes, earliestDepByRes]);
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteReservation.mutateAsync(id);
-      toast.success('Vuelo eliminado');
-    } catch {
-      toast.error('Error al eliminar el vuelo');
-    }
-  };
-
-  const handleExportPassengers = async () => {
-    const rows = (allPassengers || []).map(p => ({
-      name: `${p.last_name || ''} ${p.first_name || ''}`.trim(),
-      dni: p.document || '',
-      passport: '',
-      passport_expiry: '',
-      birth_date: '',
-      nationality: '',
-      notes: '',
-    }));
-    if (rows.length === 0) { toast.error('No hay pasajeros para exportar'); return; }
-    await exportPassengersToExcel(rows, 'pasajeros-vuelos.xlsx');
-    toast.success(`${rows.length} pasajeros exportados`);
-  };
-
-  return (
+const newReturn = `return (
   <div className="min-h-screen bg-background">
     <Header />
     <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8 max-w-7xl">
@@ -366,14 +164,14 @@ export default function Reservations() {
                     <div className="flex items-start gap-2">
                       <span className="font-medium text-foreground w-12 shrink-0">Pax:</span>
                       <span className="truncate">
-                        {pax.length > 0 ? pax.map(p => `${p.last_name}/${p.first_name || ''}`).join(', ') : 'Sin pasajeros'}
+                        {pax.length > 0 ? pax.map(p => \`\${p.last_name}/\${p.first_name || ''}\`).join(', ') : 'Sin pasajeros'}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center border-t bg-muted/10 p-0">
-                  <Link to={`/reservations/${r.id}`} className="flex-1">
+                  <Link to={\`/reservations/\${r.id}\`} className="flex-1">
                     <Button variant="ghost" className="w-full h-9 rounded-none text-xs sm:h-10 sm:text-sm hover:bg-primary/5 hover:text-primary">
                       Ver detalles
                     </Button>
@@ -407,5 +205,14 @@ export default function Reservations() {
       )}
     </main>
   </div>
-);
+);`;
+
+const regex = /return \(\n\s*<div className="min-h-screen bg-background">[\s\S]*?\n\s*\);\n}/m;
+const newContent = content.replace(regex, newReturn + '\n}');
+
+if (newContent !== content) {
+  fs.writeFileSync(file, newContent);
+  console.log('Success');
+} else {
+  console.log('Failed to match regex');
 }

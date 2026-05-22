@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleWidget } from '@/components/dashboard/CollapsibleWidget';
 import { Bell, Plus, Trash2, Calendar, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, isPast, isToday, differenceInDays } from 'date-fns';
@@ -93,21 +93,35 @@ export function RemindersPanel({ quoteId, quoteName }: RemindersPanelProps) {
   const totalAlerts = pending.length + serviceDues.length;
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Bell className="h-4 w-4" />
-          Recordatorios {quoteName && `— ${quoteName}`}
-          {totalAlerts > 0 && (
-            <span className="ml-auto bg-destructive text-destructive-foreground text-xs rounded-full px-2 py-0.5">{totalAlerts}</span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <CollapsibleWidget
+      widgetKey="reminders"
+      icon={<Bell className="h-4 w-4" />}
+      title={quoteName ? `Recordatorios — ${quoteName}` : 'Recordatorios'}
+      count={totalAlerts}
+      badgeVariant={totalAlerts > 0 ? 'destructive' : 'secondary'}
+    >
+      <div className="space-y-3">
         <div className="flex gap-2">
-          <Input placeholder="Nuevo recordatorio..." value={newMessage} onChange={e => setNewMessage(e.target.value)} className="h-8 text-sm" onKeyDown={e => { if (e.key === 'Enter') addReminder(); }} />
-          <Input type="datetime-local" value={newDate} onChange={e => setNewDate(e.target.value)} className="h-8 text-sm w-auto" />
-          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={addReminder} disabled={!newMessage.trim() || !newDate}>
+          <Input
+            placeholder="Nuevo recordatorio..."
+            value={newMessage}
+            onChange={e => setNewMessage(e.target.value)}
+            className="h-8 text-sm"
+            onKeyDown={e => { if (e.key === 'Enter') addReminder(); }}
+          />
+          <Input
+            type="datetime-local"
+            value={newDate}
+            onChange={e => setNewDate(e.target.value)}
+            className="h-8 text-sm w-auto"
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2"
+            onClick={addReminder}
+            disabled={!newMessage.trim() || !newDate}
+          >
             <Plus className="h-3 w-3" />
           </Button>
         </div>
@@ -161,6 +175,7 @@ export function RemindersPanel({ quoteId, quoteName }: RemindersPanelProps) {
               </div>
             );
           })}
+
           {completed.length > 0 && (
             <>
               <p className="text-xs text-muted-foreground pt-2">Completados ({completed.length})</p>
@@ -175,11 +190,12 @@ export function RemindersPanel({ quoteId, quoteName }: RemindersPanelProps) {
               ))}
             </>
           )}
+
           {reminders.length === 0 && serviceDues.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Sin recordatorios</p>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </CollapsibleWidget>
   );
 }
