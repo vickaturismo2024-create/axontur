@@ -65,7 +65,7 @@ export default function ClientDetail() {
   });
 
   const { data: movements = [] } = useQuery<Movement[]>({
-    queryKey: queryKeys.clients.movements(id),
+    queryKey: queryKeys.clients.movements(id ?? ''),
     queryFn: async () => {
       const { data } = await supabase
         .from('account_movements' as any)
