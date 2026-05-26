@@ -79,7 +79,7 @@ export default function ClientDetail() {
   });
 
   const { data: fileNumbers = {} } = useQuery<Record<string, number>>({
-    queryKey: queryKeys.clients.fileNumbers(id),
+    queryKey: queryKeys.clients.fileNumbers(id ?? ''),
     queryFn: async () => {
       const fileIds = Array.from(new Set(movements.map(m => m.file_id).filter(Boolean))) as string[];
       if (fileIds.length === 0) return {};
