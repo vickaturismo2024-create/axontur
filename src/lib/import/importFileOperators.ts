@@ -128,7 +128,7 @@ export async function insertFileOperators(
       invoice_number: o.invoiceNumber || null,
       reference_number: o.referenceNumber || null,
     }));
-    const { error } = await supabase.from('file_operators').insert(batch as any);
+    const { error } = await (supabase as any).from('file_operators').insert(batch);
     if (error) {
       result.errors.push(`Lote ${Math.floor(i / BATCH) + 1}: ${error.message}`);
     } else {

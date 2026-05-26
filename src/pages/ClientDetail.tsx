@@ -55,7 +55,7 @@ export default function ClientDetail() {
   const [toDate, setToDate] = useState('');
 
   const { data: client, isLoading } = useQuery<Client | null>({
-    queryKey: queryKeys.clients.detail(id),
+    queryKey: queryKeys.clients.detail(id ?? ''),
     queryFn: async () => {
       if (!id) return null;
       const { data } = await supabase.from('clients').select('*').eq('id', id).maybeSingle();
@@ -65,7 +65,7 @@ export default function ClientDetail() {
   });
 
   const { data: movements = [] } = useQuery<Movement[]>({
-    queryKey: queryKeys.clients.movements(id),
+    queryKey: queryKeys.clients.movements(id ?? ''),
     queryFn: async () => {
       const { data } = await supabase
         .from('account_movements' as any)
@@ -79,7 +79,7 @@ export default function ClientDetail() {
   });
 
   const { data: fileNumbers = {} } = useQuery<Record<string, number>>({
-    queryKey: queryKeys.clients.fileNumbers(id),
+    queryKey: queryKeys.clients.fileNumbers(id ?? ''),
     queryFn: async () => {
       const fileIds = Array.from(new Set(movements.map(m => m.file_id).filter(Boolean))) as string[];
       if (fileIds.length === 0) return {};
