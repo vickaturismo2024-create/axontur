@@ -110,7 +110,7 @@ export async function insertFiles(
         const { data: created, error } = await supabase.from('files').insert({
           user_id: userId,
           agency_id: agencyId,
-          legacy_id: parseInt(r.legacyId, 10) || null,
+          legacy_id: r.legacyId || null,
           client_name: clientName,
           client_id: matchedClientId,
           destination: r.destination || '',
