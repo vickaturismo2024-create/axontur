@@ -55,7 +55,7 @@ export default function ClientDetail() {
   const [toDate, setToDate] = useState('');
 
   const { data: client, isLoading } = useQuery<Client | null>({
-    queryKey: queryKeys.clients.detail(id),
+    queryKey: queryKeys.clients.detail(id ?? ''),
     queryFn: async () => {
       if (!id) return null;
       const { data } = await supabase.from('clients').select('*').eq('id', id).maybeSingle();
