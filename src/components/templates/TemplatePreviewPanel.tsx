@@ -1,5 +1,6 @@
 import { Template } from '@/types/quote';
-import { Plane, Building2, Shield, Phone, MessageCircle, MapPin, Calendar, CheckCircle2, ChevronRight, Star, Circle } from 'lucide-react';
+import { Plane, Building2, Shield, Phone, MessageCircle, MapPin, Calendar, CheckCircle2, ChevronRight, Star, Circle, Instagram } from 'lucide-react';
+import { useSettingsSafe } from '@/contexts/SettingsContext';
 
 interface TemplatePreviewPanelProps {
   template: Template;
