@@ -276,6 +276,21 @@ const Templates = () => {
                         <Label>Nombre de la agencia</Label>
                         <Input value={editingTemplate.agencyName || ''} onChange={(e) => u({ agencyName: e.target.value })} placeholder="Ej: Mi Agencia de Viajes" />
                       </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label>Teléfono</Label>
+                          <Input value={editingTemplate.agencyPhone || ''} onChange={(e) => u({ agencyPhone: e.target.value })} placeholder="+54 11 1234-5678" />
+                        </div>
+                        <div>
+                          <Label>Instagram</Label>
+                          <Input value={editingTemplate.agencyInstagram || ''} onChange={(e) => u({ agencyInstagram: e.target.value.replace(/^@/, '') })} placeholder="miagencia" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Tagline (frase corta del banner)</Label>
+                        <Input value={editingTemplate.agencyTagline || ''} onChange={(e) => u({ agencyTagline: e.target.value })} placeholder="Tu viaje soñado, nuestra pasión" />
+                        <p className="text-[11px] text-muted-foreground mt-1">Si dejás estos campos vacíos, se usan los datos de Configuración → Agencia.</p>
+                      </div>
                       <ImageUpload label="Logo de la agencia" value={editingTemplate.logoUrl} onChange={(v) => u({ logoUrl: v })} placeholder="https://ejemplo.com/logo.png" previewClassName="h-20" />
                     </AccordionContent>
                   </AccordionItem>
