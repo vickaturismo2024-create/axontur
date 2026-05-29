@@ -269,43 +269,58 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
       });
     }
 
-    // Agency banner (fixed at end)
-    sections.push({
-      id: 'agency',
-      height: HEIGHTS.AGENCY_BANNER,
-      isFixed: true,
-      component: (
-        <div 
-          className="rounded-lg text-white"
-          style={{ 
-            marginTop: 'auto', 
-            padding: '16px',
-            backgroundColor: primaryColor,
-            WebkitPrintColorAdjust: 'exact',
-            printColorAdjust: 'exact'
-          }}
-        >
-          <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}`}>
-            <div>
-              <h3 className="font-serif font-bold" style={{ fontSize: isMobile ? '14px' : '16px' }}>{template.agencyName || template.name}</h3>
-              <p style={{ marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
-                Tu viaje soñado, nuestra pasión
-              </p>
-            </div>
-            <div className={`flex items-center ${isMobile ? 'flex-wrap gap-2' : ''}`} style={{ gap: isMobile ? '8px' : '16px' }}>
-              <div className="flex items-center" style={{ gap: '6px', fontSize: '11px' }}>
-                <Phone style={{ width: '12px', height: '12px' }} />
-                <span>+54 11 2345-6789</span>
-              </div>
-              <div className="flex items-center" style={{ gap: '6px', fontSize: '11px' }}>
-                <Instagram style={{ width: '12px', height: '12px' }} />
-                <span>@vickaturismo</span>
-              </div>
+    // Agency banner (fixed at end) — solo se muestra si hay info real
+    if (hasAgencyBanner) {
+      sections.push({
+        id: 'agency',
+        height: HEIGHTS.AGENCY_BANNER,
+        isFixed: true,
+        component: (
+          <div 
+            className="rounded-lg text-white"
+            style={{ 
+              marginTop: 'auto', 
+              padding: '16px',
+              backgroundColor: primaryColor,
+              WebkitPrintColorAdjust: 'exact',
+              printColorAdjust: 'exact'
+            }}
+          >
+            <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}`}>
+              {(agencyName || agencyTagline) && (
+                <div>
+                  {agencyName && (
+                    <h3 className="font-serif font-bold" style={{ fontSize: isMobile ? '14px' : '16px' }}>{agencyName}</h3>
+                  )}
+                  {agencyTagline && (
+                    <p style={{ marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
+                      {agencyTagline}
+                    </p>
+                  )}
+                </div>
+              )}
+              {(agencyPhone || agencyInstagram) && (
+                <div className={`flex items-center ${isMobile ? 'flex-wrap gap-2' : ''}`} style={{ gap: isMobile ? '8px' : '16px' }}>
+                  {agencyPhone && (
+                    <div className="flex items-center" style={{ gap: '6px', fontSize: '11px' }}>
+                      <Phone style={{ width: '12px', height: '12px' }} />
+                      <span>{agencyPhone}</span>
+                    </div>
+                  )}
+                  {agencyInstagram && (
+                    <div className="flex items-center" style={{ gap: '6px', fontSize: '11px' }}>
+                      <Instagram style={{ width: '12px', height: '12px' }} />
+                      <span>@{agencyInstagram}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )
-    });
+        )
+      });
+    }
+
 
     // Footer (fixed at end) — respeta footerStyle de la plantilla
     if (template.footerText) {
