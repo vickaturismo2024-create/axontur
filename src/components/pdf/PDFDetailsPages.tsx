@@ -166,7 +166,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'flights',
         height: HEIGHTS.SECTION_HEADER + (mainFlights.length * HEIGHTS.FLIGHT_ROW) + 40,
         component: (
-          <SectionCard icon={Plane} title="Vuelos">
+          <SectionCard icon={Plane} title={t(template, 'flights')}>
             <div 
               className={`${isMobile ? 'overflow-x-auto' : 'overflow-hidden'} rounded border`}
               style={{ borderColor: secondaryColor }}
@@ -409,7 +409,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'optionFlights',
         height: totalHeight,
         component: (
-          <SectionCard icon={Plane} title="Opciones de Vuelo">
+          <SectionCard icon={Plane} title={t(template, 'flightOptions')}>
             <p style={{ fontSize: '10px', marginBottom: '10px', color: `${primaryColor}80`, fontStyle: 'italic' }}>
               A continuación se presentan opciones alternativas de vuelo para su elección:
             </p>
@@ -500,7 +500,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
           id: `mainLodgings-${chunkIdx}`,
           height: (chunkIdx === 0 ? HEIGHTS.SECTION_HEADER : 0) + (chunk.length * HEIGHTS.LODGING_CARD),
           component: (
-            <SectionCard icon={Building2} title={mainLodgings.length > 1 ? "Alojamientos" : "Alojamiento"}>
+            <SectionCard icon={Building2} title={mainLodgings.length > 1 ? t(template, 'lodgings') : t(template, 'lodging')}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {chunk.map((lodging, index) => renderMainLodgingCard(lodging, chunkIdx * MAX_LODGINGS_PER_CHUNK + index))}
               </div>
@@ -679,7 +679,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
           id: `optionLodgings-${chunkIdx}`,
           height: HEIGHTS.SECTION_HEADER + 30 + chunk.reduce((sum, item) => sum + item.height, 0),
           component: (
-            <SectionCard icon={Building2} title="Opciones de Alojamiento">
+            <SectionCard icon={Building2} title={t(template, 'lodgingOptions')}>
               {chunkIdx === 0 && (
                 <p style={{ fontSize: '10px', marginBottom: '10px', color: `${primaryColor}80`, fontStyle: 'italic' }}>
                   A continuación se presentan opciones alternativas para su elección:
@@ -702,7 +702,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'cruise',
         height: HEIGHTS.CRUISE_BASE + (cruiseItineraryLength * HEIGHTS.CRUISE_ITINERARY_ROW),
         component: (
-          <SectionCard icon={Anchor} title="Crucero">
+          <SectionCard icon={Anchor} title={t(template, 'cruise')}>
             <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px' }}>
               <div>
                 <h4 className="font-semibold" style={{ fontSize: '12px', color: primaryColor }}>
@@ -817,7 +817,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'transfers',
         height: HEIGHTS.SECTION_HEADER + (quote.transfers.length * HEIGHTS.TRANSFER_ROW) + 20,
         component: (
-          <SectionCard icon={Car} title="Traslados">
+          <SectionCard icon={Car} title={t(template, 'transfers')}>
             <ul style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {quote.transfers.map((transfer) => (
                 <li key={transfer.id} className="flex items-center justify-between" style={{ fontSize: '11px' }}>
@@ -872,7 +872,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'trains',
         height: HEIGHTS.SECTION_HEADER + (quote.trains.length * HEIGHTS.TRAIN_ROW) + 40,
         component: (
-          <SectionCard icon={Train} title="Trenes">
+          <SectionCard icon={Train} title={t(template, 'trains')}>
             <div className={`${isMobile ? 'overflow-x-auto' : 'overflow-hidden'} rounded border`} style={{ borderColor: secondaryColor }}>
               <table className="w-full" style={{ fontSize: '11px', minWidth: isMobile ? '500px' : undefined }}>
                 <thead style={{ backgroundColor: cardBgColor }}>
@@ -942,7 +942,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'ferries',
         height: HEIGHTS.SECTION_HEADER + (quote.ferries.length * HEIGHTS.FERRY_ROW) + 40,
         component: (
-          <SectionCard icon={Ship} title="Ferrys">
+          <SectionCard icon={Ship} title={t(template, 'ferries')}>
             <div className={`${isMobile ? 'overflow-x-auto' : 'overflow-hidden'} rounded border`} style={{ borderColor: secondaryColor }}>
               <table className="w-full" style={{ fontSize: '11px', minWidth: isMobile ? '500px' : undefined }}>
                 <thead style={{ backgroundColor: cardBgColor }}>
@@ -1012,7 +1012,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'rentalCars',
         height: HEIGHTS.SECTION_HEADER + (quote.rentalCars.length * HEIGHTS.RENTAL_CAR),
         component: (
-          <SectionCard icon={Car} title="Autos de Alquiler">
+          <SectionCard icon={Car} title={t(template, 'rentalCars')}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {quote.rentalCars.map((car, index) => (
                 <div 
@@ -1074,7 +1074,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'activities',
         height: HEIGHTS.SECTION_HEADER + (quote.activities.length * HEIGHTS.ACTIVITY),
         component: (
-          <SectionCard icon={Compass} title="Actividades y Excursiones">
+          <SectionCard icon={Compass} title={t(template, 'activities')}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {quote.activities.map((activity, index) => (
                 <div 
@@ -1155,7 +1155,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'insurance',
         height: HEIGHTS.INSURANCE,
         component: (
-          <SectionCard icon={Shield} title="Asistencia al Viajero">
+          <SectionCard icon={Shield} title={t(template, 'insurance')}>
             <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px', fontSize: '11px' }}>
               <div>
                 <p><span style={{ color: `${primaryColor}99` }}>Compañía:</span> {quote.insurance.company}</p>
@@ -1295,7 +1295,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
         id: 'pricing',
         height: pricingHeight,
         component: (
-          <SectionCard icon={DollarSign} title="Valor del Viaje">
+          <SectionCard icon={DollarSign} title={t(template, 'pricing')}>
             {/* NEW: Flight Options Pricing - Show combined prices */}
             {hasFlightOptionsPricing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: hasOccupancyTypesWithOptions ? '16px' : '0' }}>
@@ -1680,7 +1680,7 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
       {pages.map((pageSections, pageIndex) => (
         <PDFPageWrapper
           key={`details-page-${pageIndex}`}
-          title="Detalles del Viaje"
+          title={t(template, 'detailsTitle')}
           continuation={pageIndex > 0}
           backgroundColor={cardBgColor}
           primaryColor={primaryColor}
