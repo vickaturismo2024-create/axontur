@@ -71,7 +71,7 @@ const Templates = () => {
         showCreationDate: true,
         preparedForLabel: 'Preparado para',
       },
-      whatsappAgents: [{ name: 'Victoria', phone: '5491123456789' }],
+      whatsappAgents: [{ name: '', phone: '' }],
       agencyName: '',
       footerText: '',
       sectionsToggles: {
@@ -641,7 +641,7 @@ const Templates = () => {
                       {editingTemplate.whatsappAgents.map((agent, index) => (
                         <div key={index} className="flex items-center gap-2">
                           <Input value={agent.name} onChange={(e) => updateWhatsAppAgent(index, { name: e.target.value })} placeholder="Nombre" className="flex-1 h-8 text-sm" />
-                          <Input value={agent.phone} onChange={(e) => updateWhatsAppAgent(index, { phone: e.target.value })} placeholder="5491123456789" className="flex-1 h-8 text-sm" />
+                          <Input value={agent.phone} onChange={(e) => updateWhatsAppAgent(index, { phone: e.target.value })} placeholder="Código país + número" className="flex-1 h-8 text-sm" />
                           <Button variant="ghost" size="icon" onClick={() => removeWhatsAppAgent(index)} className="text-destructive h-8 w-8"><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       ))}
