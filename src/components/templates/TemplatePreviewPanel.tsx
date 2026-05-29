@@ -146,7 +146,7 @@ export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
         <div style={{ width: '16px', height: '16px', backgroundColor: a, borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Plane style={{ width: '8px', height: '8px', color: p }} />
         </div>
-        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.9)', fontFamily: bodyFont }}>{template.agencyName || template.name}</span>
+        {agencyName && <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.9)', fontFamily: bodyFont }}>{agencyName}</span>}
       </div>
     );
 

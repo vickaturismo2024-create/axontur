@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plane } from 'lucide-react';
 import { t } from '@/lib/templateStyles';
+import { useSettingsSafe } from '@/contexts/SettingsContext';
 
 
 interface PDFCoverPageProps {
@@ -12,6 +13,9 @@ interface PDFCoverPageProps {
 }
 
 export function PDFCoverPage({ quote, template, isMobile = false }: PDFCoverPageProps) {
+  const settings = useSettingsSafe()?.settings;
+  const agencyName = (template.agencyName?.trim() || settings?.agency_name?.trim() || '').trim();
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
@@ -69,7 +73,7 @@ export function PDFCoverPage({ quote, template, isMobile = false }: PDFCoverPage
       <div className="flex items-center justify-center rounded" style={{ width: '24px', height: '24px', backgroundColor: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
         <Plane className="h-3 w-3" style={{ color: primaryColor }} />
       </div>
-      <span className="text-sm font-medium text-white/90">{template.agencyName || template.name}</span>
+      {agencyName && <span className="text-sm font-medium text-white/90">{agencyName}</span>}
     </div>
   );
 
