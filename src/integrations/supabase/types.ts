@@ -1816,7 +1816,10 @@ export type Database = {
       templates: {
         Row: {
           agency_id: string | null
+          agency_instagram: string | null
           agency_name: string | null
+          agency_phone: string | null
+          agency_tagline: string | null
           colors: Json
           created_at: string
           fonts: Json
@@ -1833,7 +1836,10 @@ export type Database = {
         }
         Insert: {
           agency_id?: string | null
+          agency_instagram?: string | null
           agency_name?: string | null
+          agency_phone?: string | null
+          agency_tagline?: string | null
           colors?: Json
           created_at?: string
           fonts?: Json
@@ -1850,7 +1856,10 @@ export type Database = {
         }
         Update: {
           agency_id?: string | null
+          agency_instagram?: string | null
           agency_name?: string | null
+          agency_phone?: string | null
+          agency_tagline?: string | null
           colors?: Json
           created_at?: string
           fonts?: Json
