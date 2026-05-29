@@ -2,6 +2,8 @@ import { Quote, Template, OccupancyPricing } from '@/types/quote';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plane } from 'lucide-react';
+import { t } from '@/lib/templateStyles';
+
 
 interface PDFCoverPageProps {
   quote: Quote;
@@ -33,7 +35,7 @@ export function PDFCoverPage({ quote, template, isMobile = false }: PDFCoverPage
   const logoPos = template.styles.logoPosition || 'top-right';
   const logoSize = template.styles.logoSize || 'medium';
   const showCreationDate = template.styles.showCreationDate !== false;
-  const preparedForLabel = template.styles.preparedForLabel || 'Preparado para';
+  const preparedForLabel = template.styles.preparedForLabel || t(template, 'preparedFor');
 
   const logoSizePx = logoSize === 'small' ? '60px' : logoSize === 'large' ? '150px' : '100px';
   const logoMaxWidth = logoSize === 'small' ? '120px' : logoSize === 'large' ? '300px' : '200px';
@@ -75,7 +77,7 @@ export function PDFCoverPage({ quote, template, isMobile = false }: PDFCoverPage
   const contentBlock = (
     <div className="flex flex-1 flex-col justify-center" style={{ padding: isMobile ? '24px 0' : '40px 0', textAlign: coverTextAlign, alignItems: textAlignItems }}>
       <p className="uppercase tracking-[0.25em]" style={{ marginBottom: isMobile ? '10px' : '16px', fontSize: isMobile ? '12px' : '14px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-        {quote.cover.title || 'PRESUPUESTO DE VIAJE'}
+        {quote.cover.title || t(template, 'coverEyebrow')}
       </p>
       <h1 className="font-serif font-bold leading-tight text-white" style={{ marginBottom: isMobile ? '12px' : '20px', fontSize: isMobile ? '28px' : '42px' }}>
         {quote.trip.destination}
@@ -87,17 +89,17 @@ export function PDFCoverPage({ quote, template, isMobile = false }: PDFCoverPage
       )}
       <div className={`flex items-center text-white/90 ${isMobile ? 'flex-wrap justify-center' : ''}`} style={{ gap: isMobile ? '12px' : '24px', justifyContent: isMobile ? 'center' : textAlignItems }}>
         <div className="text-center">
-          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Desde</p>
+          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>{t(template, 'from')}</p>
           <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: isMobile ? '12px' : '14px' }}>{formatDate(quote.trip.startDate)}</p>
         </div>
         <div style={{ height: '24px', width: '1px', backgroundColor: `${accentColor}80`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
         <div className="text-center">
-          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Hasta</p>
+          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>{t(template, 'to')}</p>
           <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: isMobile ? '12px' : '14px' }}>{formatDate(quote.trip.endDate)}</p>
         </div>
         <div style={{ height: '24px', width: '1px', backgroundColor: `${accentColor}80`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
         <div className="text-center">
-          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>Pasajeros</p>
+          <p className="uppercase tracking-wider" style={{ fontSize: isMobile ? '10px' : '11px', color: accentColor, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>{t(template, 'travelers')}</p>
           <p className="font-serif text-white" style={{ marginTop: '4px', fontSize: isMobile ? '12px' : '14px' }}>{quote.trip.travelers}</p>
           {quote.pricing?.useOccupancyPricing && quote.pricing?.occupancyPricing && quote.pricing.occupancyPricing.length > 0 && (
             <p style={{ marginTop: '2px', fontSize: '9px', color: 'rgba(255,255,255,0.7)' }}>
