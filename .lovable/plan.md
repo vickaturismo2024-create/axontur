@@ -1,102 +1,50 @@
+## Problema
 
-# Revisión y arreglo del sistema de plantillas
+En el banner final del PDF (`PDFContactPages.tsx`, sección "agency"):
 
-## Diagnóstico
+1. El título usa `template.agencyName || template.name` → cuando no se cargó nombre de agencia en la plantilla, se ve el nombre interno de la plantilla ("Plantilla Vicka Turismo Clasica"). Eso no debería verse nunca en el PDF del cliente.
+2. El teléfono `+54 11 2345-6789`, el Instagram `@vickaturismo` y el tagline `Tu viaje soñado, nuestra pasión` están **hardcodeados** en el JSX. No vienen de ningún lado configurable.
 
-El editor de Plantillas expone muchas opciones que **el PDF real no consume**. El preview del editor (`TemplatePreviewPanel`) sí las implementa, por eso "se ve" el cambio ahí pero no se refleja en el PDF generado / versión guardada. Hay además código muerto y campos de texto del PDF hardcodeados que no se pueden personalizar.
+La info real de contacto ya existe en Configuración → Agencia (`agency_name`, `phone`, `email`, `website`, etc. vía `SettingsContext`), pero el PDF no la consume.
 
-## Cambios
+## Solución
 
-### 1. Conectar al PDF las opciones huérfanas
+### 1. Extender `Template.styles` (opcional, backwards-compat)
+En `src/types/quote.ts` agregar campos opcionales al banner de contacto:
+- `agencyPhone?: string`
+- `agencyInstagram?: string` (handle sin `@`)
+- `agencyTagline?: string`
 
-Aplicar en `PDFCoverPage`, `PDFDetailsPages`, `PDFContactPages`, `PDFItineraryPages` y `PDFPageWrapper`:
+Quedan en `Template` (no en `styles`) junto a `agencyName` y `footerText`, que ya son nivel raíz.
 
-- **`styles.borderRadius`**: reemplazar los `6px / 8px / 10px` hardcodeados por el valor de la plantilla (con fallback).
-- **`styles.cardStyle`** (flat / elevated / outlined / glass): aplicar a las "tarjetas" de sección (Vuelos, Alojamiento, etc.).
-- **`styles.iconStyle`** (filled / outlined / none): respetar en los íconos de las secciones.
-- **`styles.tableStyle`** (striped / clean / bordered / minimal): aplicar a la tabla de vuelos y otras tablas (cabotaje del crucero, etc.).
-- **`styles.footerStyle`** (simple / banner / centered / minimal) + **`footerText`**: renderizarlo en `PDFContactPages` (hoy se guarda pero no se muestra).
-- **`colors.text`** y **`colors.background` / `colors.cardBackground`**: dejar de hardcodear `#fff` donde corresponda; respetar `text` para el cuerpo.
-- **`styles.separatorStyle`** y **`styles.borderStyle` / `borderWidth`**: aplicar a los separadores entre secciones.
+### 2. Editor en `src/pages/Templates.tsx`
+En la sección donde hoy se edita `agencyName` / `footerText`, agregar 3 inputs nuevos: Teléfono, Instagram, Tagline (frase corta del banner). Todos opcionales. Placeholder con el valor de la agencia (`settings.phone`, etc.) como hint visual.
 
-### 2. Quitar opciones que no aportan valor
+### 3. Defaults desde Configuración → Agencia
+En `PDFContactPages.tsx` usar este orden de precedencia para cada campo:
+1. Valor de la plantilla si está cargado
+2. Valor de `SettingsContext` (agencia) si existe
+3. Si no hay ninguno → **no renderizar** ese ítem (no mostrar placeholder ni icono)
 
-Eliminar del editor y del tipo `Template` (con migración suave):
-- `cardHoverEffect` (irrelevante en PDF).
-- `backgroundPattern` (degrada legibilidad, no se usa).
+Para el título del banner: `template.agencyName || settings.agency_name`. Si tampoco hay agency_name, ocultar el bloque de título (nunca caer a `template.name`).
 
-### 3. Sumar toggles de secciones faltantes
+### 4. Render condicional del banner
+- Si no hay título ni teléfono ni Instagram ni tagline → **omitir la sección "agency"** por completo.
+- Cada chip (Phone / Instagram) se renderiza sólo si su valor existe.
+- El tagline se muestra sólo si está definido.
 
-Agregar al editor (sección "Secciones") switches para:
-`trains`, `ferries`, `rentalCars`, `activities`, `cruise`.
-Defaults en `true` para retro-compat.
+### 5. Sincronizar preview
+`TemplatePreviewPanel.tsx` debe reflejar lo mismo (mismas precedencias, mismas omisiones) para que lo que se ve en el editor coincida con el PDF real.
 
-### 4. Textos editables desde la plantilla
+## Archivos a tocar
 
-Agregar al tipo `Template.styles` un objeto `labels` (opcional, con defaults) que controla las etiquetas fijas del PDF:
+- `src/types/quote.ts` — 3 campos opcionales nuevos en `Template`.
+- `src/pages/Templates.tsx` — 3 inputs nuevos + hints con valores de la agencia.
+- `src/components/pdf/PDFContactPages.tsx` — sacar hardcodes, usar template + settings con fallback, render condicional.
+- `src/components/templates/TemplatePreviewPanel.tsx` — espejar el mismo render condicional.
 
-```
-labels: {
-  coverEyebrow: 'PRESUPUESTO DE VIAJE',
-  from: 'Desde',
-  to: 'Hasta',
-  travelers: 'Pasajeros',
-  detailsTitle: 'Detalles del Viaje',
-  flights: 'Vuelos',
-  lodging: 'Alojamiento',
-  lodgings: 'Alojamientos',
-  insurance: 'Asistencia',
-  transfers: 'Traslados',
-  trains: 'Trenes',
-  ferries: 'Ferries',
-  rentalCars: 'Autos',
-  activities: 'Actividades',
-  cruise: 'Crucero',
-  itinerary: 'Itinerario',
-  checkIn: 'Check-in',
-  checkOut: 'Check-out',
-  regime: 'Régimen',
-  room: 'Habitación',
-  nights: 'Noches',
-  pricing: 'Valor del Viaje',
-  perPerson: 'por persona',
-}
-```
+## Lo que NO se toca
 
-Nueva sección **"Textos del PDF"** en el editor con inputs para cada label (acordeón colapsado por defecto para no abrumar). Helper `t(template, 'flights')` que devuelve el label custom o el default.
-
-### 5. Footer real
-
-- Mostrar `footerText` en `PDFContactPages` con el `footerStyle` elegido.
-- Variantes: `simple` (línea sola), `banner` (banda con color primary), `centered` (centrado con separador), `minimal` (texto chico gris).
-
-### 6. Sincronizar preview con el PDF real
-
-`TemplatePreviewPanel` y los componentes PDF comparten muchísima lógica duplicada. Extraer helpers compartidos en `src/lib/templateStyles.ts`:
-`getCardStyle()`, `getTableRowStyle()`, `getHeadingStyle()`, `getIconRender()`, `getOverlayStyle()`, `getFooterStyle()`, `t(template, key)`.
-
-Tanto el preview como los PDFs reales consumen esos helpers → lo que ves en el editor es exactamente lo que sale en el PDF.
-
-### 7. Limpieza de código muerto
-
-- Borrar `src/components/pdf/PDFDetailsPage.tsx` (no se importa en ningún lado relevante; el activo es `PDFDetailsPages.tsx`).
-- Verificar y borrar otros `*Page.tsx` singulares si están huérfanos (`PDFContactPage.tsx`, `PDFItineraryPage.tsx`).
-
-### 8. Backwards-compat
-
-Todos los nuevos campos (`labels`, toggles nuevos, etc.) son **opcionales** con defaults. Plantillas existentes en DB siguen funcionando sin migración SQL. La plantilla se guarda como JSON en la columna existente.
-
-## Archivos a tocar (estimado)
-
-- `src/types/quote.ts` — extender `Template.styles` con `labels` y toggles faltantes; quitar `cardHoverEffect`/`backgroundPattern`.
-- `src/pages/Templates.tsx` — secciones nuevas (Textos del PDF, toggles ampliados), remover controles de opciones eliminadas.
-- `src/components/templates/TemplatePreviewPanel.tsx` — consumir helpers compartidos.
-- `src/lib/templateStyles.ts` — nuevo, helpers compartidos + `t()`.
-- `src/components/pdf/PDFCoverPage.tsx`, `PDFDetailsPages.tsx`, `PDFContactPages.tsx`, `PDFItineraryPages.tsx`, `PDFPageWrapper.tsx` — usar helpers, respetar opciones, renderizar labels custom y footer.
-- Borrar: `src/components/pdf/PDFDetailsPage.tsx` (+ singulares huérfanos si aplica).
-
-## Qué NO toco
-
-- Datos del presupuesto (no se altera ningún cálculo, precio, ni dato del cliente).
-- Esquema de la base (los nuevos campos viven dentro del JSON existente de plantillas).
-- Lógica de envío de mail, edge functions, módulos de Expedientes / CRM / Reservas.
+- Schema de DB (los campos viven en el JSON de `template`, que ya es flexible).
+- Lógica de presupuestos, mails, edge functions.
+- Otros bloques del PDF (portada, detalles, itinerario).

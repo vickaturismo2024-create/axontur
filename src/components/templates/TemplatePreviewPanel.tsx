@@ -1,5 +1,6 @@
 import { Template } from '@/types/quote';
-import { Plane, Building2, Shield, Phone, MessageCircle, MapPin, Calendar, CheckCircle2, ChevronRight, Star, Circle } from 'lucide-react';
+import { Plane, Building2, Shield, Phone, MessageCircle, MapPin, Calendar, CheckCircle2, ChevronRight, Star, Circle, Instagram } from 'lucide-react';
+import { useSettingsSafe } from '@/contexts/SettingsContext';
 
 interface TemplatePreviewPanelProps {
   template: Template;
@@ -29,6 +30,13 @@ const mockData = {
 };
 
 export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
+  const settings = useSettingsSafe()?.settings;
+  const agencyName = (template.agencyName?.trim() || settings?.agency_name?.trim() || '').trim();
+  const agencyPhone = (template.agencyPhone?.trim() || settings?.phone?.trim() || '').trim();
+  const agencyInstagram = (template.agencyInstagram?.trim() || '').replace(/^@/, '');
+  const agencyTagline = (template.agencyTagline?.trim() || '').trim();
+  const hasAgencyInfo = !!(agencyName || agencyPhone || agencyInstagram || agencyTagline);
+
   const p = template.colors.primary;
   const s = template.colors.secondary;
   const a = template.colors.accent;
@@ -463,22 +471,45 @@ export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
 
   // Footer
   const renderFooter = () => {
-    const text = template.footerText || `${template.agencyName || template.name} · Tu viaje soñado`;
+    const text = template.footerText || (agencyName ? `${agencyName}${agencyTagline ? ' · ' + agencyTagline : ''}` : '');
+    const agencyBlock = (
+      <div>
+        {agencyName && (
+          <p style={{ fontFamily: headingFont, fontWeight: 700, fontSize: '11px' }}>{agencyName}</p>
+        )}
+        {agencyTagline && (
+          <p style={{ opacity: 0.8, marginTop: '2px' }}>{agencyTagline}</p>
+        )}
+      </div>
+    );
+    const contactBlock = (agencyPhone || agencyInstagram) ? (
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        {agencyPhone && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Phone style={{ width: '10px', height: '10px' }} />
+            <span>{agencyPhone}</span>
+          </span>
+        )}
+        {agencyInstagram && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Instagram style={{ width: '10px', height: '10px' }} />
+            <span>@{agencyInstagram}</span>
+          </span>
+        )}
+      </div>
+    ) : null;
+
     switch (footerStyle) {
       case 'banner':
+        if (!hasAgencyInfo) return null;
         return (
           <div style={{ backgroundColor: p, color: '#fff', padding: '10px 14px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px' }}>
-            <div>
-              <p style={{ fontFamily: headingFont, fontWeight: 700, fontSize: '11px' }}>{template.agencyName || template.name}</p>
-              <p style={{ opacity: 0.8, marginTop: '2px' }}>Tu viaje soñado, nuestra pasión</p>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <Phone style={{ width: '10px', height: '10px' }} />
-              <span>+54 11 2345-6789</span>
-            </div>
+            {agencyBlock}
+            {contactBlock}
           </div>
         );
       case 'centered':
+        if (!text) return null;
         return (
           <div style={{ textAlign: 'center', padding: '8px' }}>
             <div style={{ width: '40px', height: '1px', backgroundColor: a, margin: '0 auto 6px' }} />
@@ -486,19 +517,22 @@ export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
           </div>
         );
       case 'minimal':
+        if (!text) return null;
         return (
           <p style={{ fontSize: '8px', color: `${p}60`, textAlign: 'center', padding: '4px' }}>{text}</p>
         );
       case 'simple':
       default:
+        if (!hasAgencyInfo) return null;
         return (
           <div style={{ backgroundColor: p, color: '#fff', padding: '10px 14px', borderRadius: '6px', fontSize: '9px' }}>
-            <p style={{ fontFamily: headingFont, fontWeight: 700, fontSize: '11px' }}>{template.agencyName || template.name}</p>
-            <p style={{ opacity: 0.8, marginTop: '2px' }}>Tu viaje soñado, nuestra pasión</p>
+            {agencyBlock}
+            {contactBlock}
           </div>
         );
     }
   };
+
 
   return (
     <div 
