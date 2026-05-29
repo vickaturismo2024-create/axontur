@@ -117,7 +117,7 @@ export default function ClientDetail() {
   }, [movements]);
 
   const handleSavedMovement = () => {
-    qc.invalidateQueries({ queryKey: queryKeys.clients.movements(id) });
+    qc.invalidateQueries({ queryKey: queryKeys.clients.movements(id!) });
   };
 
   if (isLoading) {
