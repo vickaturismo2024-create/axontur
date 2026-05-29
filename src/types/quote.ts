@@ -447,6 +447,12 @@ export interface Template {
     itinerarySummaryStyle?: 'gradient-banner' | 'simple-text' | 'card' | 'none';
     itineraryShowDayDate?: boolean;
     itineraryActivityIcon?: 'checkmark' | 'bullet' | 'arrow' | 'star';
+    /**
+     * Etiquetas custom para textos fijos del PDF (cabeceras, "Desde", "Hasta",
+     * nombres de sección, etc.). Si una key está vacía o falta, se usa el
+     * valor por defecto definido en `src/lib/templateStyles.ts`.
+     */
+    labels?: Record<string, string>;
   };
   whatsappAgents: WhatsAppAgent[];
   footerText: string;
