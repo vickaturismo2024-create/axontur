@@ -30,6 +30,13 @@ const mockData = {
 };
 
 export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
+  const settings = useSettingsSafe()?.settings;
+  const agencyName = (template.agencyName?.trim() || settings?.agency_name?.trim() || '').trim();
+  const agencyPhone = (template.agencyPhone?.trim() || settings?.phone?.trim() || '').trim();
+  const agencyInstagram = (template.agencyInstagram?.trim() || '').replace(/^@/, '');
+  const agencyTagline = (template.agencyTagline?.trim() || '').trim();
+  const hasAgencyInfo = !!(agencyName || agencyPhone || agencyInstagram || agencyTagline);
+
   const p = template.colors.primary;
   const s = template.colors.secondary;
   const a = template.colors.accent;
