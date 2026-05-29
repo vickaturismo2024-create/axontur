@@ -352,15 +352,22 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       // Validate input before database operation
       const validatedTemplate = validateTemplate(template);
       const isDefault = defaultTemplateId === template.id;
-      const dbTemplate = templateToDb(validatedTemplate as Template, user.id, isDefault);
-      const { error } = await supabase
+      const dbTemplate: any = templateToDb(validatedTemplate as Template, user.id, isDefault);
+      // Don't override user_id of an existing row (vendedor editing admin's template)
+      delete dbTemplate.user_id;
+      delete dbTemplate.id;
+      const { data, error } = await supabase
         .from('templates')
-        .update(dbTemplate as any)
-        .eq('id', template.id);
+        .update(dbTemplate)
+        .eq('id', template.id)
+        .select();
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('No se actualizó ninguna plantilla. Verificá tus permisos.');
+      }
 
-      setTemplates((prev) => prev.map((t) => (t.id === template.id ? validatedTemplate as Template : t)));
+      setTemplates((prev) => prev.map((t) => (t.id === template.id ? dbToTemplate(data[0]) : t)));
       toast.success('Plantilla actualizada');
     } catch (error) {
       logError('updateTemplate', error);

@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const Templates = () => {
-  const { templates, addTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, defaultTemplateId, isLoading } = useQuotes();
+  const { templates, addTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, defaultTemplateId, isLoading, refreshData } = useQuotes();
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -127,13 +127,23 @@ const Templates = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingTemplate) return;
-    const exists = templates.find(t => t.id === editingTemplate.id);
-    if (exists) updateTemplate(editingTemplate);
-    else addTemplate(editingTemplate);
-    setIsDialogOpen(false);
-    setEditingTemplate(null);
+    try {
+      const exists = templates.find(t => t.id === editingTemplate.id);
+      if (exists) {
+        await updateTemplate(editingTemplate);
+      } else {
+        await addTemplate(editingTemplate);
+      }
+      // Re-fetch from DB so the UI reflects exactly what was persisted
+      await refreshData();
+      setIsDialogOpen(false);
+      setEditingTemplate(null);
+    } catch (err) {
+      console.error('[Templates] handleSave error:', err);
+      // toast already shown by context; keep dialog open so user doesn't lose changes
+    }
   };
 
   const u = (updates: Partial<Template>) => {
