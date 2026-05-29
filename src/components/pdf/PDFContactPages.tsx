@@ -3,6 +3,7 @@ import { MapPin, Phone, MessageCircle, Instagram, ExternalLink } from 'lucide-re
 import QRCode from 'react-qr-code';
 import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
+import { t, getFooterContainerStyle } from '@/lib/templateStyles';
 
 interface PDFContactPagesProps {
   quote: Quote;
@@ -197,7 +198,7 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
               style={{ marginBottom: '12px', fontSize: '14px', gap: '8px', color: primaryColor }}
             >
               <MessageCircle style={{ width: '16px', height: '16px', color: 'hsl(142 70% 35%)' }} />
-              Contactanos por WhatsApp
+              {t(template, 'whatsappTitle')}
             </h3>
 
             <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`} style={{ gap: '12px' }}>
@@ -294,19 +295,17 @@ export function PDFContactPages({ quote, template, isMobile = false }: PDFContac
       )
     });
 
-    // Footer (fixed at end)
+    // Footer (fixed at end) — respeta footerStyle de la plantilla
     if (template.footerText) {
+      const footerStyle = getFooterContainerStyle(template);
       sections.push({
         id: 'footer',
         height: HEIGHTS.FOOTER,
         isFixed: true,
         component: (
-          <p 
-            className="text-center"
-            style={{ marginTop: '12px', fontSize: '10px', color: `${primaryColor}99` }}
-          >
-            {template.footerText}
-          </p>
+          <div style={footerStyle.wrapper}>
+            <span style={{ color: footerStyle.textColor }}>{template.footerText}</span>
+          </div>
         )
       });
     }

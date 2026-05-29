@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { Calendar, CheckCircle2, ChevronRight, Star, Circle } from 'lucide-react';
 import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
+import { t } from '@/lib/templateStyles';
 
 interface PDFItineraryPagesProps {
   quote: Quote;
@@ -334,7 +335,7 @@ export function PDFItineraryPages({ quote, template, isMobile = false }: PDFItin
       {pages.map((pageSections, pageIndex) => (
         <PDFPageWrapper
           key={`itinerary-page-${pageIndex}`}
-          title="Itinerario día a día"
+          title={t(template, "itineraryTitle")}
           continuation={pageIndex > 0}
           backgroundColor={cardBgColor}
           primaryColor={primaryColor}
