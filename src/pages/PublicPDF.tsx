@@ -43,6 +43,10 @@ function mapDbRowToTemplate(row: any): Template {
   return {
     id: row.id,
     name: row.name,
+    agencyName: row.agency_name || '',
+    agencyPhone: row.agency_phone || '',
+    agencyInstagram: row.agency_instagram || '',
+    agencyTagline: row.agency_tagline || '',
     logoUrl: row.logo_url || '',
     colors: row.colors as any,
     fonts: row.fonts as any,

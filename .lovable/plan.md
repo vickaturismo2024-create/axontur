@@ -1,50 +1,25 @@
-## Problema
+Voy a corregirlo desde la causa real, no sólo desde la vista previa.
 
-En el banner final del PDF (`PDFContactPages.tsx`, sección "agency"):
+Plan:
 
-1. El título usa `template.agencyName || template.name` → cuando no se cargó nombre de agencia en la plantilla, se ve el nombre interno de la plantilla ("Plantilla Vicka Turismo Clasica"). Eso no debería verse nunca en el PDF del cliente.
-2. El teléfono `+54 11 2345-6789`, el Instagram `@vickaturismo` y el tagline `Tu viaje soñado, nuestra pasión` están **hardcodeados** en el JSX. No vienen de ningún lado configurable.
+1. **Alinear datos reales de plantilla y agencia**
+   - Hacer que el template cargue y guarde correctamente `agencyName`, `agencyPhone`, `agencyInstagram`, `agencyTagline` y `footerText`.
+   - Confirmar que los campos vacíos no vuelvan a rellenarse con textos demo ni con el nombre de la plantilla.
 
-La info real de contacto ya existe en Configuración → Agencia (`agency_name`, `phone`, `email`, `website`, etc. vía `SettingsContext`), pero el PDF no la consume.
+2. **Corregir el PDF privado y el PDF público**
+   - En la vista interna/exportación, el banner tomará: datos de plantilla → datos de Configuración → vacío.
+   - En el link público (`/pdf/:id`), agregar el mapeo que hoy falta para `agency_name`, `agency_phone`, `agency_instagram` y `agency_tagline`; ahora el público recibe esos datos desde la base pero el frontend no los convierte, por eso publicado puede verse viejo o incompleto.
 
-## Solución
+3. **Eliminar contenido viejo ya guardado en la base**
+   - Limpiar plantillas existentes que todavía tienen `footerText` con `+54 11 2345-6789`, `@vickaturismo` o textos heredados.
+   - Limpiar WhatsApp agents de prueba con `5491123456789` cuando sean datos placeholder, sin tocar los teléfonos reales ya cargados (`549223...`).
+   - Completar el teléfono del banner desde Configuración de agencia cuando la plantilla lo tenga vacío.
 
-### 1. Extender `Template.styles` (opcional, backwards-compat)
-En `src/types/quote.ts` agregar campos opcionales al banner de contacto:
-- `agencyPhone?: string`
-- `agencyInstagram?: string` (handle sin `@`)
-- `agencyTagline?: string`
+4. **Sincronizar la vista previa con el render real**
+   - Ajustar `TemplatePreviewPanel` para que no use `footerText` viejo como sustituto del banner si hay campos de agencia.
+   - Que el preview muestre/oculte exactamente lo mismo que el PDF real: chips sólo si hay valor, banner omitido si no hay datos.
 
-Quedan en `Template` (no en `styles`) junto a `agencyName` y `footerText`, que ya son nivel raíz.
-
-### 2. Editor en `src/pages/Templates.tsx`
-En la sección donde hoy se edita `agencyName` / `footerText`, agregar 3 inputs nuevos: Teléfono, Instagram, Tagline (frase corta del banner). Todos opcionales. Placeholder con el valor de la agencia (`settings.phone`, etc.) como hint visual.
-
-### 3. Defaults desde Configuración → Agencia
-En `PDFContactPages.tsx` usar este orden de precedencia para cada campo:
-1. Valor de la plantilla si está cargado
-2. Valor de `SettingsContext` (agencia) si existe
-3. Si no hay ninguno → **no renderizar** ese ítem (no mostrar placeholder ni icono)
-
-Para el título del banner: `template.agencyName || settings.agency_name`. Si tampoco hay agency_name, ocultar el bloque de título (nunca caer a `template.name`).
-
-### 4. Render condicional del banner
-- Si no hay título ni teléfono ni Instagram ni tagline → **omitir la sección "agency"** por completo.
-- Cada chip (Phone / Instagram) se renderiza sólo si su valor existe.
-- El tagline se muestra sólo si está definido.
-
-### 5. Sincronizar preview
-`TemplatePreviewPanel.tsx` debe reflejar lo mismo (mismas precedencias, mismas omisiones) para que lo que se ve en el editor coincida con el PDF real.
-
-## Archivos a tocar
-
-- `src/types/quote.ts` — 3 campos opcionales nuevos en `Template`.
-- `src/pages/Templates.tsx` — 3 inputs nuevos + hints con valores de la agencia.
-- `src/components/pdf/PDFContactPages.tsx` — sacar hardcodes, usar template + settings con fallback, render condicional.
-- `src/components/templates/TemplatePreviewPanel.tsx` — espejar el mismo render condicional.
-
-## Lo que NO se toca
-
-- Schema de DB (los campos viven en el JSON de `template`, que ya es flexible).
-- Lógica de presupuestos, mails, edge functions.
-- Otros bloques del PDF (portada, detalles, itinerario).
+5. **Verificación antes de terminar**
+   - Buscar en todo el código que no quede `1123456789`, `+54 11 2345-6789`, `@vickaturismo` ni `Tu viaje soñado...` como fallback visible del PDF/plantillas.
+   - Revisar una consulta de base para confirmar que la plantilla predeterminada ya no conserva el footer viejo ni teléfonos inventados.
+   - Indicar que después de aprobar e implementar hay que republicar para que la próxima publicación lleve el fix.

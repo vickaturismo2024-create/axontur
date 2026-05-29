@@ -471,7 +471,7 @@ export function TemplatePreviewPanel({ template }: TemplatePreviewPanelProps) {
 
   // Footer
   const renderFooter = () => {
-    const text = template.footerText || (agencyName ? `${agencyName}${agencyTagline ? ' · ' + agencyTagline : ''}` : '');
+    const text = template.footerText || '';
     const agencyBlock = (
       <div>
         {agencyName && (
