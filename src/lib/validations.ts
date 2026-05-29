@@ -487,6 +487,10 @@ const optionalColorSchema = z.string().optional().default('');
 export const templateSchema = z.object({
   id: z.string(),
   name: z.string(),
+  agencyName: z.string().optional().default(''),
+  agencyPhone: z.string().optional().default(''),
+  agencyInstagram: z.string().optional().default(''),
+  agencyTagline: z.string().optional().default(''),
   logoUrl: z.preprocess(
     (val) => (val === null || val === undefined ? '' : String(val)),
     z.string().refine(
@@ -511,7 +515,7 @@ export const templateSchema = z.object({
   fonts: z.object({
     heading: z.string().default('Playfair Display'),
     body: z.string().default('Inter'),
-  }),
+  }).passthrough(),
   styles: z.object({
     borderRadius: z.string().default('12px'),
     cardShadow: z.boolean().default(true),
@@ -520,7 +524,7 @@ export const templateSchema = z.object({
     borderWidth: z.string().default('1px'),
     backgroundPattern: z.enum(['none', 'dots', 'lines', 'grid', 'waves']).default('none'),
     cardStyle: z.enum(['flat', 'elevated', 'outlined', 'glass']).default('elevated'),
-  }),
+  }).passthrough(),
   whatsappAgents: z.array(whatsappAgentSchema).default([]),
   footerText: z.string().default(''),
   sectionsToggles: z.object({
@@ -534,8 +538,8 @@ export const templateSchema = z.object({
     rentalCars: z.boolean().optional().default(false),
     activities: z.boolean().optional().default(false),
     cruise: z.boolean().optional().default(false),
-  }),
-});
+  }).passthrough(),
+}).passthrough();
 
 // Validation helper that returns sanitized data or throws
 export function validateQuote(data: unknown) {
