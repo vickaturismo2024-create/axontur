@@ -31,11 +31,22 @@ interface Section {
 }
 
 export function PDFContactPages({ quote, template, isMobile = false }: PDFContactPagesProps) {
+  const settingsCtx = useSettingsSafe();
+  const settings = settingsCtx?.settings;
+
   // Template colors
   const primaryColor = template.colors.primary;
   const secondaryColor = template.colors.secondary;
   const bgColor = template.colors.background || '#ffffff';
   const cardBgColor = template.colors.cardBackground || '#f8f9fa';
+
+  // Agency info: template overrides → settings fallback → empty (never template.name)
+  const agencyName = (template.agencyName?.trim() || settings?.agency_name?.trim() || '').trim();
+  const agencyPhone = (template.agencyPhone?.trim() || settings?.phone?.trim() || '').trim();
+  const agencyInstagramRaw = (template.agencyInstagram?.trim() || '').replace(/^@/, '');
+  const agencyInstagram = agencyInstagramRaw;
+  const agencyTagline = (template.agencyTagline?.trim() || '').trim();
+  const hasAgencyBanner = !!(agencyName || agencyPhone || agencyInstagram || agencyTagline);
 
   // Get all lodgings
   const allLodgings = (quote.lodgings && quote.lodgings.length > 0) 
