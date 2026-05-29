@@ -4,6 +4,7 @@ import QRCode from 'react-qr-code';
 import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
 import { t, getFooterContainerStyle } from '@/lib/templateStyles';
+import { useSettingsSafe } from '@/contexts/SettingsContext';
 
 interface PDFContactPagesProps {
   quote: Quote;
