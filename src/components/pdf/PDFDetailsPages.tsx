@@ -20,6 +20,14 @@ import { PDFPageWrapper } from './PDFPageWrapper';
 import { ReactNode } from 'react';
 import { useLodgingGroups, organizeLodgingsByGroups } from '@/hooks/useLodgingGroups';
 import { useFlightGroups, organizeFlightsByGroups, FlightOptionDisplay } from '@/hooks/useFlightGroups';
+import {
+  t,
+  getCardContainerStyle,
+  getIconBadgeStyle,
+  getTableHeadStyle,
+  getTableRowStyle,
+  getBorderRadius,
+} from '@/lib/templateStyles';
 
 // Parse dates correctly - use parseISO for YYYY-MM-DD format to avoid timezone issues
 const formatDate = (dateString: string) => {
@@ -114,40 +122,31 @@ export function PDFDetailsPages({ quote, template, isMobile = false }: PDFDetail
   const { groups: flightGroups, flightOptions } = useFlightGroups(quote.flights);
   const { grouped: groupedFlights, ungrouped: ungroupedFlightOptions } = organizeFlightsByGroups(quote.flights, flightGroups);
 
-  // Section card component
-  const SectionCard = ({ 
-    icon: Icon, 
-    title, 
-    children 
-  }: { 
-    icon: React.ElementType; 
-    title: string; 
-    children: ReactNode 
+  // Section card component — respeta cardStyle, borderRadius, iconStyle de la plantilla
+  const cardContainer = getCardContainerStyle(template);
+  const iconBadge = getIconBadgeStyle(template);
+  const SectionCard = ({
+    icon: Icon,
+    title,
+    children,
+  }: {
+    icon: React.ElementType;
+    title: string;
+    children: ReactNode;
   }) => (
-    <div 
-      className="rounded-lg border"
-      style={{ 
-        marginBottom: '12px', 
+    <div
+      style={{
+        ...cardContainer,
+        marginBottom: '12px',
         padding: '12px',
-        backgroundColor: bgColor,
-        borderColor: secondaryColor,
-        WebkitPrintColorAdjust: 'exact',
-        printColorAdjust: 'exact'
       }}
     >
       <div className="flex items-center" style={{ marginBottom: '8px', gap: '8px' }}>
-        <div 
-          className="flex items-center justify-center rounded"
-          style={{ 
-            width: '24px', 
-            height: '24px',
-            backgroundColor: `${primaryColor}1a`,
-            WebkitPrintColorAdjust: 'exact',
-            printColorAdjust: 'exact'
-          }}
-        >
-          <Icon style={{ width: '12px', height: '12px', color: primaryColor }} />
-        </div>
+        {iconBadge.wrapper && (
+          <div style={iconBadge.wrapper}>
+            <Icon style={{ width: `${iconBadge.iconSize}px`, height: `${iconBadge.iconSize}px`, color: iconBadge.iconColor }} />
+          </div>
+        )}
         <h3 className="font-serif font-semibold" style={{ fontSize: '14px', color: primaryColor }}>{title}</h3>
       </div>
       {children}
