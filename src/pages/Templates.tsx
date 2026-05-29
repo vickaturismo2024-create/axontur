@@ -488,14 +488,8 @@ const Templates = () => {
                           { value: 'gradient', label: 'Degradado' },
                           { value: 'decorative', label: 'Decorativo' },
                         ]} />
-                        <StyleSelect label="Patrón de fondo" value={editingTemplate.styles.backgroundPattern} onChange={(v) => uStyles({ backgroundPattern: v as any })} options={[
-                          { value: 'none', label: 'Sin patrón' },
-                          { value: 'dots', label: 'Puntos' },
-                          { value: 'lines', label: 'Líneas diagonales' },
-                          { value: 'grid', label: 'Cuadrícula' },
-                          { value: 'waves', label: 'Ondas' },
-                        ]} />
                       </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <StyleSelect label="Estilo de borde" value={editingTemplate.styles.borderStyle} onChange={(v) => uStyles({ borderStyle: v as any })} options={[
                           { value: 'none', label: 'Sin borde' },
