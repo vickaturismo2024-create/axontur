@@ -391,14 +391,9 @@ const Templates = () => {
                         { value: 'normal', label: 'Normal — Balance estándar' },
                         { value: 'spacious', label: 'Espacioso — Más aire, texto más grande' },
                       ]} />
-                      <StyleSelect label="Efecto hover en cards (web)" value={editingTemplate.styles.cardHoverEffect || 'none'} onChange={(v) => uStyles({ cardHoverEffect: v as any })} options={[
-                        { value: 'none', label: 'Sin efecto' },
-                        { value: 'lift', label: 'Elevación (lift)' },
-                        { value: 'glow', label: 'Resplandor (glow)' },
-                        { value: 'border-accent', label: 'Borde de acento' },
-                      ]} />
                     </AccordionContent>
                   </AccordionItem>
+
 
                   {/* Headings & Icons */}
                   <AccordionItem value="headings">
