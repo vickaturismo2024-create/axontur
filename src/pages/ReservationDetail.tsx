@@ -71,7 +71,7 @@ export default function ReservationDetail() {
   const [sendingEmail, setSendingEmail] = useState(false);
 
   const { data: linkedFile } = useQuery({
-    queryKey: queryKeys.reservations.file(reservation?.file_id),
+    queryKey: queryKeys.reservations.file(reservation?.file_id ?? undefined),
     queryFn: async () => {
       if (!reservation?.file_id) return null;
       const { data } = await supabase.from('files').select('id, file_number').eq('id', reservation.file_id).maybeSingle();

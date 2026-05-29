@@ -254,7 +254,7 @@ export default function Reservations() {
               {airlineOptions.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={dateFilter} onValueChange={(v) => setDateFilter(v)}>
+          <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
             <SelectTrigger className="h-9 sm:h-10 w-[110px] sm:w-[140px]">
               <SelectValue />
             </SelectTrigger>

@@ -72,7 +72,7 @@ export default function SupplierDetail() {
   const [notes, setNotes] = useState('');
 
   const { data: supplier, isLoading } = useQuery<Supplier | null>({
-    queryKey: queryKeys.suppliers.detail(id),
+    queryKey: queryKeys.suppliers.detail(id!),
     queryFn: async () => {
       if (!id) return null;
       const { data } = await supabase.from('suppliers').select('*').eq('id', id).maybeSingle();
@@ -90,7 +90,7 @@ export default function SupplierDetail() {
   });
 
   const { data: services = [] } = useQuery<ServiceRow[]>({
-    queryKey: queryKeys.suppliers.services(id),
+    queryKey: queryKeys.suppliers.services(id!),
     queryFn: async () => {
       const { data } = await supabase.from('file_services').select('*').eq('supplier_id', id!).order('service_date', { ascending: false });
       return (data as any[]) || [];
@@ -99,7 +99,7 @@ export default function SupplierDetail() {
   });
 
   const { data: payments = [] } = useQuery<PaymentRow[]>({
-    queryKey: queryKeys.suppliers.payments(id),
+    queryKey: queryKeys.suppliers.payments(id!),
     queryFn: async () => {
       const { data } = await supabase.from('file_supplier_payments').select('*').eq('supplier_id', id!).order('payment_date', { ascending: false });
       return (data as any[]) || [];
