@@ -5,7 +5,7 @@ import parisHero from '@/assets/paris-hero.jpg';
 export const defaultTemplate: Template = {
   id: 'default',
   name: 'Elegante Clásico',
-  agencyName: 'Vicka Turismo',
+  agencyName: '',
   logoUrl: '',
   colors: {
     primary: '#1e3a5f',
@@ -28,10 +28,9 @@ export const defaultTemplate: Template = {
     cardStyle: 'elevated',
   },
   whatsappAgents: [
-    { name: 'Victoria', phone: '5491123456789' },
-    { name: 'Juan Cruz', phone: '5491198765432' },
+    { name: '', phone: '' },
   ],
-  footerText: 'Vicka Turismo | Tel: +54 11 2345-6789 | @vickaturismo',
+  footerText: '',
   sectionsToggles: {
     flights: true,
     lodging: true,
