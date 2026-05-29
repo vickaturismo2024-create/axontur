@@ -405,6 +405,9 @@ export interface Template {
   id: string;
   name: string;
   agencyName?: string;
+  agencyPhone?: string;
+  agencyInstagram?: string;
+  agencyTagline?: string;
   logoUrl: string;
   colors: {
     primary: string;
