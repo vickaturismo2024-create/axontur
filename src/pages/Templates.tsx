@@ -529,16 +529,94 @@ const Templates = () => {
                   <AccordionItem value="sections">
                     <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Eye className="h-4 w-4" /> Secciones Visibles</div></AccordionTrigger>
                     <AccordionContent className="pt-2">
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Activá u ocultá las secciones del PDF. Si una sección está apagada, no aparece aunque el presupuesto tenga datos cargados.
+                      </p>
                       <div className="grid grid-cols-2 gap-3">
-                        {Object.entries(editingTemplate.sectionsToggles).map(([key, value]) => (
-                          <div key={key} className="flex items-center justify-between">
-                            <Label className="capitalize text-xs">{key}</Label>
-                            <Switch checked={value} onCheckedChange={(checked) => u({ sectionsToggles: { ...editingTemplate.sectionsToggles, [key]: checked } })} />
-                          </div>
-                        ))}
+                        {([
+                          { key: 'flights', label: 'Vuelos' },
+                          { key: 'lodging', label: 'Alojamiento' },
+                          { key: 'transfers', label: 'Traslados' },
+                          { key: 'trains', label: 'Trenes' },
+                          { key: 'ferries', label: 'Ferrys' },
+                          { key: 'rentalCars', label: 'Autos de alquiler' },
+                          { key: 'activities', label: 'Actividades' },
+                          { key: 'cruise', label: 'Crucero' },
+                          { key: 'insurance', label: 'Asistencia' },
+                          { key: 'itinerary', label: 'Itinerario' },
+                        ] as const).map(({ key, label }) => {
+                          const value = (editingTemplate.sectionsToggles as any)[key] !== false;
+                          return (
+                            <div key={key} className="flex items-center justify-between">
+                              <Label className="text-xs">{label}</Label>
+                              <Switch checked={value} onCheckedChange={(checked) => u({ sectionsToggles: { ...editingTemplate.sectionsToggles, [key]: checked } as any })} />
+                            </div>
+                          );
+                        })}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
+
+                  {/* Textos del PDF */}
+                  <AccordionItem value="labels">
+                    <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Type className="h-4 w-4" /> Textos del PDF</div></AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      <p className="text-xs text-muted-foreground">
+                        Personalizá las etiquetas fijas del PDF (cabeceras, nombres de sección, sufijos). Dejá un campo vacío para usar el texto por defecto.
+                      </p>
+                      {([
+                        { group: 'Portada', items: [
+                          { key: 'coverEyebrow', label: 'Texto chico arriba de la portada', placeholder: 'PRESUPUESTO DE VIAJE' },
+                          { key: 'from', label: 'Etiqueta "Desde"', placeholder: 'Desde' },
+                          { key: 'to', label: 'Etiqueta "Hasta"', placeholder: 'Hasta' },
+                          { key: 'travelers', label: 'Etiqueta "Pasajeros"', placeholder: 'Pasajeros' },
+                        ]},
+                        { group: 'Secciones', items: [
+                          { key: 'detailsTitle', label: 'Título "Detalles del Viaje"', placeholder: 'Detalles del Viaje' },
+                          { key: 'flights', label: 'Vuelos', placeholder: 'Vuelos' },
+                          { key: 'lodging', label: 'Alojamiento', placeholder: 'Alojamiento' },
+                          { key: 'cruise', label: 'Crucero', placeholder: 'Crucero' },
+                          { key: 'transfers', label: 'Traslados', placeholder: 'Traslados' },
+                          { key: 'trains', label: 'Trenes', placeholder: 'Trenes' },
+                          { key: 'ferries', label: 'Ferrys', placeholder: 'Ferrys' },
+                          { key: 'rentalCars', label: 'Autos', placeholder: 'Autos de Alquiler' },
+                          { key: 'activities', label: 'Actividades', placeholder: 'Actividades y Excursiones' },
+                          { key: 'insurance', label: 'Asistencia', placeholder: 'Asistencia al Viajero' },
+                          { key: 'pricing', label: 'Valor del viaje', placeholder: 'Valor del Viaje' },
+                          { key: 'itineraryTitle', label: 'Título del itinerario', placeholder: 'Itinerario día a día' },
+                          { key: 'contactTitle', label: 'Título de contacto', placeholder: 'Ubicación y Contacto' },
+                          { key: 'whatsappTitle', label: 'Título WhatsApp', placeholder: 'Contactanos por WhatsApp' },
+                        ]},
+                        { group: 'Campos y sufijos', items: [
+                          { key: 'checkIn', label: 'Check-in', placeholder: 'Check-in' },
+                          { key: 'checkOut', label: 'Check-out', placeholder: 'Check-out' },
+                          { key: 'regime', label: 'Régimen', placeholder: 'Régimen' },
+                          { key: 'room', label: 'Habitación', placeholder: 'Habitación' },
+                          { key: 'nights', label: 'Noches', placeholder: 'Noches' },
+                          { key: 'luggage', label: 'Equipaje', placeholder: 'Equipaje' },
+                          { key: 'perPerson', label: 'Sufijo "por persona"', placeholder: 'por persona' },
+                        ]},
+                      ] as const).map(({ group, items }) => (
+                        <div key={group}>
+                          <p className="text-xs font-semibold text-muted-foreground mb-2">{group}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {items.map(({ key, label, placeholder }) => (
+                              <div key={key}>
+                                <Label className="text-[10px] text-muted-foreground">{label}</Label>
+                                <Input
+                                  value={(editingTemplate.styles.labels?.[key]) || ''}
+                                  onChange={(e) => uStyles({ labels: { ...(editingTemplate.styles.labels || {}), [key]: e.target.value } })}
+                                  placeholder={placeholder}
+                                  className="h-8 text-xs"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </AccordionContent>
+                  </AccordionItem>
+
 
                   {/* WhatsApp */}
                   <AccordionItem value="whatsapp">
