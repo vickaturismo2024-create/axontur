@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/Header';
+import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -294,16 +295,7 @@ export default function CashBox() {
             </Button>
           </div>
         ) : isLoading ? (
-          <div className="space-y-6">
-            {/* Skeletons for Wallets */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
-            </div>
-            {/* Skeleton for Table */}
-            <div className="space-y-2">
-              {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
-            </div>
-          </div>
+          <PageLoadingScreen message="Cargando caja y flujo financiero..." />
         ) : (
           <>
             {/* Primary Billeteras/Wallets */}

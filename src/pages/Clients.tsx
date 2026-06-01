@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight, MapPin, Calendar, FolderOpen, ChevronLeft, Wallet } from 'lucide-react';
@@ -321,11 +322,7 @@ const Clients = () => {
 
           {/* Lista */}
           {loading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full rounded-xl" />
-              ))}
-            </div>
+            <PageLoadingScreen message="Cargando clientes..." />
           ) : filtered.length === 0 ? (
             <div className="glass-card-premium py-16 text-center rounded-2xl">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 mb-4">

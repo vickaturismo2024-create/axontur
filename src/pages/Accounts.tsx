@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/Header';
+import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { Search, Users, Truck, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -192,9 +193,7 @@ export default function Accounts() {
         </div>
 
         {loading ? (
-          <div className="space-y-2">
-            {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 w-full" />)}
-          </div>
+          <PageLoadingScreen message="Cargando cuentas corrientes..." />
         ) : (
           <Tabs defaultValue="clients">
             <TabsList>

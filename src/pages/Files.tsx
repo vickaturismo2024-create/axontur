@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -142,9 +143,7 @@ const Files = () => {
 
         {/* Lista */}
         {isLoading ? (
-          <div className="grid gap-3">
-            {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full sm:h-24" />)}
-          </div>
+          <PageLoadingScreen message="Cargando expedientes..." />
         ) : filtered.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12 text-center sm:py-16">

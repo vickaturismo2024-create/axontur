@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
+import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
 import { defaultTemplate } from '@/data/demoData';
 
@@ -185,11 +186,8 @@ const Quotes = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container mx-auto flex items-center justify-center px-4 py-16">
-          <div className="text-center">
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <p className="mt-4 text-muted-foreground">Cargando...</p>
-          </div>
+        <main className="container mx-auto px-4 py-16">
+          <PageLoadingScreen message="Cargando presupuestos..." />
         </main>
       </div>
     );

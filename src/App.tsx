@@ -1,10 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import * as Sentry from "@sentry/react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { Plane } from "lucide-react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QuotesProvider } from "@/contexts/QuotesContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
@@ -52,24 +53,49 @@ const DataImport        = lazy(() => import("./pages/DataImport"));
 // Pantalla mínima mientras se descarga el chunk de la ruta.
 // Usa las mismas variables CSS del sistema para respetar dark mode.
 const PageLoader = () => (
-  <div style={{
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "hsl(var(--background))",
-  }}>
-    <div style={{
-      width: 32,
-      height: 32,
-      borderRadius: "50%",
-      border: "2.5px solid hsl(var(--border))",
-      borderTopColor: "hsl(var(--primary))",
-      animation: "spin 0.7s linear infinite",
-    }} />
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+  <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background/95 backdrop-blur-md animate-fadeIn transition-all duration-300">
+    <div className="relative flex flex-col items-center gap-4">
+      <div className="relative w-16 h-16 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-full border-[3px] border-primary/20 border-t-primary animate-spin" />
+        <Plane className="h-6 w-6 text-primary animate-pulse" />
+      </div>
+      <div className="text-center">
+        <h3 className="font-sans text-sm font-bold text-foreground tracking-widest uppercase">AxonTur</h3>
+        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider animate-pulse font-medium">Cargando aplicación...</p>
+      </div>
+    </div>
   </div>
 );
+
+const RouteTransitionIndicator = () => {
+  const location = useLocation();
+  const [transitioning, setTransitioning] = useState(false);
+
+  useEffect(() => {
+    setTransitioning(true);
+    const timer = setTimeout(() => setTransitioning(false), 250);
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
+
+  if (!transitioning) return null;
+
+  return (
+    <>
+      <div className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[hsl(var(--primary))] via-[hsl(var(--gold))] to-[hsl(var(--primary))] z-[9999] route-progress-bar" />
+      <style>{`
+        .route-progress-bar {
+          animation: routeProgress 0.25s ease-out forwards;
+          transform-origin: left;
+        }
+        @keyframes routeProgress {
+          0% { transform: scaleX(0); }
+          50% { transform: scaleX(0.7); }
+          100% { transform: scaleX(1); opacity: 0; }
+        }
+      `}</style>
+    </>
+  );
+};
 
 // ── QueryClient ──────────────────────────────────────────────────────────────
 const queryClient = new QueryClient({
@@ -124,6 +150,7 @@ const App = () => (
                 <TourProvider>
                   <TourOverlay />
                   <BirthdayNotifier />
+                  <RouteTransitionIndicator />
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       {/* Públicas — sin lazy, sin ProtectedRoute */}
