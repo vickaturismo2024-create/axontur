@@ -27,3 +27,6 @@ dist-ssr
 # Vite temporary config timestamp files
 vite.config.ts.timestamp-*
 
+dev-dist
+dist/bundle-stats.html
+
