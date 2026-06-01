@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuotesSafe } from '@/contexts/QuotesContext';
-import { Search, FileText, Users, Truck, MapPin } from 'lucide-react';
+import { Search, FileText, Users, Truck, ArrowRight } from 'lucide-react';
 
 interface SearchResult {
   type: 'quote' | 'client' | 'supplier';
@@ -117,10 +116,19 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'quote': return <FileText className="h-4 w-4 text-primary" />;
-      case 'client': return <Users className="h-4 w-4 text-blue-500" />;
-      case 'supplier': return <Truck className="h-4 w-4 text-orange-500" />;
+      case 'quote': return <FileText className="h-4 w-4" />;
+      case 'client': return <Users className="h-4 w-4" />;
+      case 'supplier': return <Truck className="h-4 w-4" />;
       default: return null;
+    }
+  };
+
+  const getIconStyle = (type: string) => {
+    switch (type) {
+      case 'quote': return 'bg-primary/10 text-primary group-hover:bg-primary/20';
+      case 'client': return 'bg-blue-500/10 text-blue-500 group-hover:bg-blue-500/20';
+      case 'supplier': return 'bg-orange-500/10 text-orange-500 group-hover:bg-orange-500/20';
+      default: return '';
     }
   };
 
@@ -140,49 +148,125 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
     return acc;
   }, {} as Record<string, SearchResult[]>);
 
+  const handleQuickNav = (path: string) => {
+    onOpenChange(false);
+    navigate(path);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 gap-0 max-w-lg top-[20%] translate-y-0">
-        <div className="flex items-center border-b px-3">
-          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-          <Input
+      <DialogContent hideClose className="p-0 gap-0 max-w-xl top-[15%] translate-y-0 border-border/30 bg-card/98 backdrop-blur-xl shadow-2xl overflow-hidden rounded-2xl">
+        <div className="flex items-center gap-3 border-b border-border/40 bg-muted/10 px-4 py-3.5">
+          <Search className="h-5 w-5 text-primary shrink-0" />
+          <input
             placeholder="Buscar presupuestos, clientes, proveedores..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="border-0 focus-visible:ring-0 h-12"
+            className="flex h-10 w-full bg-transparent text-base text-foreground placeholder:text-muted-foreground/50 border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0"
             autoFocus
           />
-          <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
+          <button 
+            type="button"
+            onClick={() => onOpenChange(false)} 
+            className="text-xs font-medium text-muted-foreground/60 hover:text-foreground md:hidden shrink-0 transition-colors px-1"
+          >
+            Cancelar
+          </button>
+          <kbd className="hidden md:inline-flex h-5 items-center gap-1 rounded border border-border/80 bg-muted/50 px-1.5 text-[9px] font-semibold text-muted-foreground select-none pointer-events-none">
             ESC
           </kbd>
         </div>
-        <div className="max-h-80 overflow-y-auto p-2">
+
+        <div className="max-h-[360px] overflow-y-auto p-3">
           {!q && (
-            <p className="text-center text-sm text-muted-foreground py-8">
-              Escribí para buscar...
-            </p>
+            <div className="py-2 space-y-4">
+              <p className="text-center text-xs text-muted-foreground/60 py-2">
+                Escribí para iniciar la búsqueda en toda la plataforma...
+              </p>
+              
+              <div className="space-y-1.5">
+                <div className="text-[10px] font-semibold text-muted-foreground/60 tracking-wider uppercase px-2 mb-1">
+                  Navegación Rápida
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickNav('/quotes')}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/20 bg-muted/5 hover:bg-primary/5 hover:border-primary/20 transition-all text-center group"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/25 transition-colors">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs font-medium text-foreground">Presupuestos</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickNav('/clients')}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/20 bg-muted/5 hover:bg-blue-500/5 hover:border-blue-500/20 transition-all text-center group"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 group-hover:bg-blue-500/25 transition-colors">
+                      <Users className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs font-medium text-foreground">Clientes</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickNav('/suppliers')}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border/20 bg-muted/5 hover:bg-orange-500/5 hover:border-orange-500/20 transition-all text-center group"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-500 group-hover:bg-orange-500/25 transition-colors">
+                      <Truck className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs font-medium text-foreground">Proveedores</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
+
           {q && results.length === 0 && (
-            <p className="text-center text-sm text-muted-foreground py-8">
-              Sin resultados para "{query}"
-            </p>
+            <div className="text-center py-12 space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Sin resultados para "<span className="text-foreground">{query}</span>"
+              </p>
+              <p className="text-xs text-muted-foreground/60">
+                Probá buscando por nombre de cliente, destino, email o tipo.
+              </p>
+            </div>
           )}
-          {Object.entries(grouped).map(([type, items]) => (
-            <div key={type} className="mb-2">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">{getLabel(type)}</p>
-              {items.map(item => (
-                <button
-                  key={`${item.type}-${item.id}`}
-                  onClick={() => handleSelect(item)}
-                  className="flex items-center gap-3 w-full rounded-md px-2 py-2 text-sm hover:bg-accent transition-colors"
-                >
-                  {getIcon(item.type)}
-                  <div className="flex-1 text-left">
-                    <p className="font-medium truncate">{item.title}</p>
-                    {item.subtitle && <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>}
-                  </div>
-                </button>
-              ))}
+
+          {q && Object.entries(grouped).map(([type, items]) => (
+            <div key={type} className="mb-4 last:mb-0">
+              <div className="text-[10px] font-semibold text-muted-foreground/60 tracking-wider uppercase px-2 py-1 mb-1">
+                {getLabel(type)}
+              </div>
+              <div className="space-y-1">
+                {items.map(item => (
+                  <button
+                    type="button"
+                    key={`${item.type}-${item.id}`}
+                    onClick={() => handleSelect(item)}
+                    className="flex items-center gap-3.5 w-full rounded-xl px-3 py-2.5 text-sm text-left hover:bg-muted/60 transition-all duration-150 group"
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-colors ${getIconStyle(item.type)}`}>
+                      {getIcon(item.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                        {item.title}
+                      </p>
+                      {item.subtitle && (
+                        <p className="text-xs text-muted-foreground/80 truncate mt-0.5">
+                          {item.subtitle}
+                        </p>
+                      )}
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground/30 opacity-0 group-hover:opacity-100 group-hover:text-primary translate-x-[-4px] group-hover:translate-x-0 transition-all shrink-0" />
+                  </button>
+                ))}
+              </div>
             </div>
           ))}
         </div>
