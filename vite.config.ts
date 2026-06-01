@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => ({
     visualizer({ open: true, filename: "dist/bundle-stats.html", gzipSize: true }),
     VitePWA({
       registerType: "autoUpdate",
+      devOptions: {
+        enabled: true
+      },
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
 
       // Service Worker — estrategia de cache
