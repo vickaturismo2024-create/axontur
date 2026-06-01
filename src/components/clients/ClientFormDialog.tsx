@@ -53,7 +53,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
           <DialogTitle>{client.id ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="personal" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto p-1">
             <TabsTrigger value="personal">Personal</TabsTrigger>
             <TabsTrigger value="documents">Documentos</TabsTrigger>
             <TabsTrigger value="contact">Contacto</TabsTrigger>
@@ -61,7 +61,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
           </TabsList>
 
           <TabsContent value="personal" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Nombre completo</Label>
                 <Input value={client.name} onChange={(e) => upd('name', e.target.value)} placeholder="Apellido Nombre" />
@@ -78,7 +78,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Fecha de nacimiento</Label>
                 <Input type="date" value={client.birth_date} onChange={(e) => upd('birth_date', e.target.value)} />
@@ -95,7 +95,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
           </TabsContent>
 
           <TabsContent value="documents" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>DNI</Label>
                 <Input value={client.dni} onChange={(e) => upd('dni', e.target.value)} placeholder="12345678" />
@@ -105,7 +105,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
                 <Input type="date" value={client.dni_expiry} onChange={(e) => upd('dni_expiry', e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label>Pasaporte</Label>
                 <Input value={client.passport} onChange={(e) => upd('passport', e.target.value)} placeholder="AAA123456" />
@@ -130,7 +130,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
               <Label>Email</Label>
               <Input type="email" value={client.email} onChange={(e) => upd('email', e.target.value)} />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label>Tel. Particular</Label>
                 <Input value={client.phone} onChange={(e) => upd('phone', e.target.value)} />
@@ -144,7 +144,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
                 <Input value={client.phone_mobile} onChange={(e) => upd('phone_mobile', e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Dirección</Label>
                 <Input value={client.address} onChange={(e) => upd('address', e.target.value)} />

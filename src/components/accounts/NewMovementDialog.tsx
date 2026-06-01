@@ -58,7 +58,7 @@ export function NewMovementDialog({ open, onClose, accountId, accountType, onSav
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Nuevo movimiento</DialogTitle></DialogHeader>
         <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium">Tipo</label>
               <Select value={form.movement_type} onValueChange={v => setForm({ ...form, movement_type: v })}>
@@ -74,7 +74,7 @@ export function NewMovementDialog({ open, onClose, accountId, accountType, onSav
               <Input type="date" value={form.movement_date} onChange={e => setForm({ ...form, movement_date: e.target.value })} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium">Monto *</label>
               <Input type="number" min={0} step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: Number(e.target.value) })} />

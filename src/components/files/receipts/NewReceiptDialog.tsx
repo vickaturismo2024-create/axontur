@@ -66,7 +66,7 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
           <DialogTitle>Nuevo recibo</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium">Cliente</label>
               <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
@@ -104,7 +104,7 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
             {items.map((item, idx) => (
               <Card key={idx} className="p-3">
                 <div className="grid gap-3">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <label className="mb-1 block text-xs font-medium">Monto *</label>
                       <Input
@@ -149,7 +149,7 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <label className="mb-1 block text-xs font-medium">Moneda servicio</label>
                       <Select
