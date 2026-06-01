@@ -521,7 +521,7 @@ export default function ReservationImport() {
               <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Importar Vuelo</h1>
+              <h1 className="font-serif text-2xl font-bold">Importar Vuelo</h1>
               <p className="text-muted-foreground">Pegá el texto del PNR o subí un PDF para extraer los vuelos</p>
             </div>
           </div>

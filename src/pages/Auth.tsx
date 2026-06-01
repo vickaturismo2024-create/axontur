@@ -83,7 +83,7 @@ export default function Auth() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(var(--gold))]/20 border border-[hsl(var(--gold))]/40 mb-6 text-[hsl(var(--gold))]">
             <Compass className="h-6 w-6 animate-pulse" />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+          <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight mb-4">
             AxonTur V2
           </h1>
           <p className="text-white/80 text-sm leading-relaxed mb-6 font-light">
@@ -111,7 +111,7 @@ export default function Auth() {
               <Compass className="h-7 w-7 text-[hsl(var(--gold))] animate-pulse" />
             </div>
             
-            <CardTitle className="text-2xl sm:text-3xl text-white font-bold">
+            <CardTitle className="text-2xl sm:text-3xl text-white font-serif font-bold">
               Bienvenido a AxonTur
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm text-white/70 mt-1">

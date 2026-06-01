@@ -270,7 +270,7 @@ export default function ReservationDetail() {
               </Button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl font-bold truncate">
+                  <h1 className="font-serif text-xl sm:text-2xl font-bold truncate">
                     {reservation.locator ? `Vuelo ${reservation.locator}` : 'Vuelo'}
                   </h1>
                   {pendingChanges.length > 0 && (
