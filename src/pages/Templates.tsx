@@ -705,7 +705,7 @@ const Templates = () => {
                       <div key={j} className="h-6 w-6 rounded-full border" style={{ backgroundColor: c }} />
                     ))}
                   </div>
-                  <CardTitle className="text-base">{preset.name}</CardTitle>
+                  <CardTitle className="font-serif text-base font-semibold">{preset.name}</CardTitle>
                   <p className="text-xs text-muted-foreground">{preset.fonts.heading} / {preset.fonts.body}</p>
                 </CardHeader>
                 <CardContent>

@@ -201,7 +201,7 @@ const Suppliers = () => {
                 return (
                   <Card key={s.id} className="group flex flex-col">
                     <CardHeader className="pb-2 pt-3 px-3 sm:pt-4 sm:px-4">
-                      <CardTitle className="flex items-center gap-2 text-base sm:text-lg leading-tight">
+                      <CardTitle className="font-serif flex items-center gap-2 text-base sm:text-lg leading-tight">
                         <Store className="h-4 w-4 flex-shrink-0 text-primary" />
                         <span className="truncate">{s.name}</span>
                       </CardTitle>

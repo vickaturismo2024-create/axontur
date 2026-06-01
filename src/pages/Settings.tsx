@@ -81,7 +81,7 @@ const Settings = () => {
 
             <Card className="mt-4">
               <CardHeader>
-                <CardTitle>
+                <CardTitle className="font-serif text-xl font-bold text-primary">
                   {tab === 'account' && 'Cuenta y seguridad'}
                   {tab === 'agency' && 'Datos de tu agencia'}
                   {tab === 'team' && 'Miembros del equipo'}

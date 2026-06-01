@@ -202,7 +202,7 @@ export default function DataImport() {
         {/* Orden recomendado */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground">Orden automático de procesamiento</CardTitle>
+            <CardTitle className="font-serif text-sm font-bold text-muted-foreground">Orden automático de procesamiento</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-2">

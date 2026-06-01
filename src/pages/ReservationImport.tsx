@@ -304,7 +304,7 @@ export default function ReservationImport() {
       )}
 
       <Card>
-        <CardHeader><CardTitle className="text-lg">Datos de la Reserva</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="font-serif text-lg font-bold text-primary">Datos de la Reserva</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -329,7 +329,7 @@ export default function ReservationImport() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Pasajeros ({passengers.length})</CardTitle>
+          <CardTitle className="font-serif text-lg font-bold text-primary">Pasajeros ({passengers.length})</CardTitle>
           <Button variant="outline" size="sm" onClick={addPassenger}><Plus className="h-4 w-4 mr-1" />Agregar</Button>
         </CardHeader>
         <CardContent>
@@ -354,7 +354,7 @@ export default function ReservationImport() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Segmentos de Vuelo ({segments.length})</CardTitle>
+          <CardTitle className="font-serif text-lg font-bold text-primary">Segmentos de Vuelo ({segments.length})</CardTitle>
           <Button variant="outline" size="sm" onClick={addSegment}><Plus className="h-4 w-4 mr-1" />Agregar</Button>
         </CardHeader>
         <CardContent>

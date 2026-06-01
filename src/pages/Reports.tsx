@@ -74,7 +74,7 @@ const Reports = () => {
             </div>
 
             <div>
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Análisis general</h2>
+              <h2 className="font-serif text-xl font-semibold mb-4 text-foreground">Análisis general</h2>
               <DashboardCharts quotes={quotes} currency={activeCurrency} />
             </div>
 
@@ -88,11 +88,11 @@ const Reports = () => {
               </Card>
             ) : (
               <>
-                <h2 className="text-xl font-semibold mb-4 text-foreground">Rentabilidad por proveedor ({activeCurrency})</h2>
+                <h2 className="font-serif text-xl font-semibold mb-4 text-foreground">Rentabilidad por proveedor ({activeCurrency})</h2>
                 <div className="grid gap-6 lg:grid-cols-2 mb-6">
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Top proveedores por volumen</CardTitle>
+                      <CardTitle className="font-serif text-base font-semibold">Top proveedores por volumen</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <ResponsiveContainer width="100%" height={300}>
@@ -111,7 +111,7 @@ const Reports = () => {
 
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Distribución de uso</CardTitle>
+                      <CardTitle className="font-serif text-base font-semibold">Distribución de uso</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <ResponsiveContainer width="100%" height={300}>
@@ -130,7 +130,7 @@ const Reports = () => {
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Resumen por proveedor</CardTitle>
+                    <CardTitle className="font-serif text-base font-semibold">Resumen por proveedor</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
