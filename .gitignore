@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+ 
+# Vite temporary config timestamp files
+vite.config.ts.timestamp-*
+
