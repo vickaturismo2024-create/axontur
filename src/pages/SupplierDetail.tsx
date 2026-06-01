@@ -193,7 +193,7 @@ export default function SupplierDetail() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/suppliers')} className="mb-2">
               <ArrowLeft className="mr-1 h-4 w-4" /> Volver
             </Button>
-            <h1 className="font-serif text-3xl font-bold flex items-center gap-2">
+            <h1 className="font-sans text-3xl font-bold flex items-center gap-2">
               <Store className="h-7 w-7 text-primary" /> {supplier.name}
             </h1>
             {supplier.type && <Badge variant="secondary" className="mt-1">{supplier.type}</Badge>}
@@ -203,11 +203,11 @@ export default function SupplierDetail() {
         {/* Métricas YTD */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="font-serif text-sm font-semibold flex items-center gap-1"><Briefcase className="h-4 w-4" /> Expedientes asociados</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="font-sans text-sm font-semibold flex items-center gap-1"><Briefcase className="h-4 w-4" /> Expedientes asociados</CardTitle></CardHeader>
             <CardContent><p className="text-2xl font-bold">{ytdMetrics.fileCount}</p></CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="font-serif text-sm font-semibold flex items-center gap-1"><DollarSign className="h-4 w-4" /> Facturación YTD</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="font-sans text-sm font-semibold flex items-center gap-1"><DollarSign className="h-4 w-4" /> Facturación YTD</CardTitle></CardHeader>
             <CardContent>
               {Object.keys(ytdMetrics.totalsByCurr).length === 0 ? (
                 <p className="text-sm text-muted-foreground">Sin actividad este año</p>
@@ -221,7 +221,7 @@ export default function SupplierDetail() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="font-serif text-sm font-semibold">Saldo por moneda</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="font-sans text-sm font-semibold">Saldo por moneda</CardTitle></CardHeader>
             <CardContent>
               {Object.keys(balancesByCurrency).length === 0 ? (
                 <p className="text-sm text-muted-foreground">Sin movimientos</p>

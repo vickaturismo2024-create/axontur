@@ -34,7 +34,7 @@ export function TemplateStep({ quote, templates, onUpdate }: TemplateStepProps) 
               <div className="h-8 w-8 rounded-full border" style={{ backgroundColor: template.colors.secondary }} />
               <div className="h-8 w-8 rounded-full border" style={{ backgroundColor: template.colors.accent }} />
             </div>
-            <h4 className="font-serif font-medium">{template.name}</h4>
+            <h4 className="font-sans font-medium">{template.name}</h4>
             <p className="mt-1 text-xs text-muted-foreground">
               {template.fonts.heading} / {template.fonts.body}
             </p>

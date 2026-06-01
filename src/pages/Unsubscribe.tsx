@@ -70,7 +70,7 @@ export default function Unsubscribe() {
           <div className="mx-auto mb-2 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
             <MailX className="h-6 w-6 text-muted-foreground" />
           </div>
-          <CardTitle className="font-serif font-bold text-primary">Cancelar suscripción</CardTitle>
+          <CardTitle className="font-sans font-bold text-primary">Cancelar suscripción</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
           {state.kind === 'loading' && (

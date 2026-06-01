@@ -224,7 +224,7 @@ export default function Reservations() {
       <div className="mb-4 sm:mb-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-serif text-xl font-bold text-foreground flex items-center gap-2 sm:text-3xl">
+            <h1 className="font-sans text-xl font-bold text-foreground flex items-center gap-2 sm:text-3xl">
               <Plane className="h-6 w-6 text-primary sm:h-8 sm:w-8" />
               Vuelos
             </h1>

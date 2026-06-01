@@ -154,7 +154,7 @@ export default function ClientDetail() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/clients')} className="mb-2">
               <ArrowLeft className="mr-1 h-4 w-4" /> Volver
             </Button>
-            <h1 className="font-serif text-3xl font-bold flex items-center gap-2">
+            <h1 className="font-sans text-3xl font-bold flex items-center gap-2">
               <User className="h-7 w-7 text-primary" /> {client.name}
             </h1>
             <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted-foreground">
@@ -171,7 +171,7 @@ export default function ClientDetail() {
         {/* Saldo por moneda */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="font-serif text-base font-bold text-primary flex items-center gap-2">
+            <CardTitle className="font-sans text-base font-bold text-primary flex items-center gap-2">
               <Wallet className="h-5 w-5" /> Saldo cuenta corriente
             </CardTitle>
           </CardHeader>
@@ -202,7 +202,7 @@ export default function ClientDetail() {
         {/* Filtros + tabla de movimientos */}
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif text-base font-bold text-primary">Movimientos ({filtered.length})</CardTitle>
+            <CardTitle className="font-sans text-base font-bold text-primary">Movimientos ({filtered.length})</CardTitle>
             <div className="grid gap-2 mt-3 sm:grid-cols-3">
               <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
                 <SelectTrigger><SelectValue placeholder="Moneda" /></SelectTrigger>

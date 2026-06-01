@@ -203,7 +203,7 @@ const Quotes = () => {
         {/* Encabezado */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-serif text-2xl font-bold sm:text-3xl">Presupuestos</h1>
+            <h1 className="font-sans text-2xl font-bold sm:text-3xl">Presupuestos</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {filteredQuotes.length} presupuesto{filteredQuotes.length !== 1 ? 's' : ''}
             </p>
@@ -361,7 +361,7 @@ const Quotes = () => {
             <div className="mb-4 rounded-full bg-muted p-6">
               <Plane className="h-12 w-12 text-muted-foreground" />
             </div>
-            <h3 className="font-serif text-xl font-semibold">No hay presupuestos</h3>
+            <h3 className="font-sans text-xl font-semibold">No hay presupuestos</h3>
             <p className="mt-2 text-muted-foreground">
               {searchQuery
                 ? 'No se encontraron resultados'
@@ -383,7 +383,7 @@ const Quotes = () => {
       <Dialog open={!!previewQuote} onOpenChange={() => setPreviewQuote(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle className="font-serif">Vista Previa — {previewQuote?.trip.destination}</DialogTitle>
+            <DialogTitle className="font-sans">Vista Previa — {previewQuote?.trip.destination}</DialogTitle>
           </DialogHeader>
           {previewQuote && <PDFPreview quote={previewQuote} template={getTemplate(previewQuote.templateId)} />}
         </DialogContent>

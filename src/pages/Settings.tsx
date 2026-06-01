@@ -58,7 +58,7 @@ const Settings = () => {
       <Header />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="font-serif text-3xl font-bold text-foreground flex items-center gap-3">
+          <h1 className="font-sans text-3xl font-bold text-foreground flex items-center gap-3">
             <SettingsIcon className="h-8 w-8" /> Configuración
           </h1>
           <p className="mt-1 text-muted-foreground">
@@ -81,7 +81,7 @@ const Settings = () => {
 
             <Card className="mt-4">
               <CardHeader>
-                <CardTitle className="font-serif text-xl font-bold text-primary">
+                <CardTitle className="font-sans text-xl font-bold text-primary">
                   {tab === 'account' && 'Cuenta y seguridad'}
                   {tab === 'agency' && 'Datos de tu agencia'}
                   {tab === 'team' && 'Miembros del equipo'}

@@ -304,7 +304,7 @@ export default function ReservationImport() {
       )}
 
       <Card>
-        <CardHeader><CardTitle className="font-serif text-lg font-bold text-primary">Datos de la Reserva</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="font-sans text-lg font-bold text-primary">Datos de la Reserva</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -329,7 +329,7 @@ export default function ReservationImport() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="font-serif text-lg font-bold text-primary">Pasajeros ({passengers.length})</CardTitle>
+          <CardTitle className="font-sans text-lg font-bold text-primary">Pasajeros ({passengers.length})</CardTitle>
           <Button variant="outline" size="sm" onClick={addPassenger}><Plus className="h-4 w-4 mr-1" />Agregar</Button>
         </CardHeader>
         <CardContent>
@@ -354,7 +354,7 @@ export default function ReservationImport() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="font-serif text-lg font-bold text-primary">Segmentos de Vuelo ({segments.length})</CardTitle>
+          <CardTitle className="font-sans text-lg font-bold text-primary">Segmentos de Vuelo ({segments.length})</CardTitle>
           <Button variant="outline" size="sm" onClick={addSegment}><Plus className="h-4 w-4 mr-1" />Agregar</Button>
         </CardHeader>
         <CardContent>
@@ -521,7 +521,7 @@ export default function ReservationImport() {
               <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
             </Button>
             <div>
-              <h1 className="font-serif text-2xl font-bold">Importar Vuelo</h1>
+              <h1 className="font-sans text-2xl font-bold">Importar Vuelo</h1>
               <p className="text-muted-foreground">Pegá el texto del PNR o subí un PDF para extraer los vuelos</p>
             </div>
           </div>

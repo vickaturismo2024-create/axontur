@@ -104,7 +104,7 @@ export function TourOverlay() {
           </span>
         </div>
 
-        <h4 className="font-serif text-base font-semibold text-foreground mb-1">
+        <h4 className="font-sans text-base font-semibold text-foreground mb-1">
           {currentStep?.title}
         </h4>
         <p className="text-sm text-muted-foreground mb-4">

@@ -178,7 +178,7 @@ export default function Accounts() {
       <Header />
       <div className="container mx-auto p-4 md:p-6 space-y-4">
         <div className="mb-4 sm:mb-6">
-          <h1 className="font-serif text-2xl font-bold text-foreground flex items-center gap-2 sm:text-3xl tracking-tight">
+          <h1 className="font-sans text-2xl font-bold text-foreground flex items-center gap-2 sm:text-3xl tracking-tight">
             <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" /> Cuentas Corrientes
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">

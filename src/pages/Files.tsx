@@ -94,7 +94,7 @@ const Files = () => {
         {/* Encabezado */}
         <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-serif text-xl font-bold text-foreground sm:text-2xl md:text-3xl">
+            <h1 className="font-sans text-xl font-bold text-foreground sm:text-2xl md:text-3xl">
               Expedientes
             </h1>
             <p className="text-sm text-muted-foreground">Gestión de reservas operativas</p>

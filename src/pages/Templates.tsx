@@ -205,7 +205,7 @@ const Templates = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="font-serif text-3xl font-bold text-foreground">Plantillas</h1>
+            <h1 className="font-sans text-3xl font-bold text-foreground">Plantillas</h1>
             <p className="mt-1 text-muted-foreground">Personaliza el diseño de tus presupuestos</p>
           </div>
           <div className="flex gap-2">
@@ -227,7 +227,7 @@ const Templates = () => {
                     <div key={i} className="h-8 w-8 rounded-full border" style={{ backgroundColor: c }} />
                   ))}
                 </div>
-                <CardTitle className="flex items-center gap-2 font-serif text-lg">
+                <CardTitle className="flex items-center gap-2 font-sans text-lg">
                   {template.name}
                   {defaultTemplateId === template.id && (
                     <span className="flex items-center gap-1 rounded-full bg-gold/20 px-2 py-0.5 text-xs text-gold-dark">
@@ -263,7 +263,7 @@ const Templates = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-h-[95vh] max-w-7xl p-0 overflow-hidden">
           <DialogHeader className="px-6 pt-4 pb-2 border-b">
-            <DialogTitle className="font-serif">
+            <DialogTitle className="font-sans">
               {editingTemplate && templates.find(t => t.id === editingTemplate.id) ? 'Editar Plantilla' : 'Nueva Plantilla'}
             </DialogTitle>
           </DialogHeader>
@@ -694,7 +694,7 @@ const Templates = () => {
       <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="font-serif">Galería de plantillas prediseñadas</DialogTitle>
+            <DialogTitle className="font-sans">Galería de plantillas prediseñadas</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 md:grid-cols-2">
             {presetTemplates.map((preset, i) => (
@@ -705,7 +705,7 @@ const Templates = () => {
                       <div key={j} className="h-6 w-6 rounded-full border" style={{ backgroundColor: c }} />
                     ))}
                   </div>
-                  <CardTitle className="font-serif text-base font-semibold">{preset.name}</CardTitle>
+                  <CardTitle className="font-sans text-base font-semibold">{preset.name}</CardTitle>
                   <p className="text-xs text-muted-foreground">{preset.fonts.heading} / {preset.fonts.body}</p>
                 </CardHeader>
                 <CardContent>

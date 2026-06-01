@@ -37,7 +37,7 @@ export default function Tutorials() {
       <Header />
       <main className="container mx-auto max-w-3xl px-4 py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-serif font-bold text-foreground">Guía del Sistema</h1>
+          <h1 className="text-3xl font-sans font-bold text-foreground">Guía del Sistema</h1>
           <p className="mt-2 text-muted-foreground">
             Todo lo que necesitás saber para crear presupuestos de viaje profesionales.
           </p>

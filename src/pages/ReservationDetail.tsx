@@ -270,7 +270,7 @@ export default function ReservationDetail() {
               </Button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="font-serif text-xl sm:text-2xl font-bold truncate">
+                  <h1 className="font-sans text-xl sm:text-2xl font-bold truncate">
                     {reservation.locator ? `Vuelo ${reservation.locator}` : 'Vuelo'}
                   </h1>
                   {pendingChanges.length > 0 && (
@@ -334,7 +334,7 @@ export default function ReservationDetail() {
           <Card>
             <CardHeader className="flex flex-row items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
-              <CardTitle className="font-serif text-lg font-bold text-primary">Pasajeros ({reservation.passengers.length})</CardTitle>
+              <CardTitle className="font-sans text-lg font-bold text-primary">Pasajeros ({reservation.passengers.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {reservation.passengers.length === 0 ? (
@@ -360,7 +360,7 @@ export default function ReservationDetail() {
           <Card>
             <CardHeader className="flex flex-row items-center gap-2">
               <Plane className="h-5 w-5 text-primary" />
-              <CardTitle className="font-serif text-lg font-bold text-primary">Vuelos ({reservation.flight_segments.length})</CardTitle>
+              <CardTitle className="font-sans text-lg font-bold text-primary">Vuelos ({reservation.flight_segments.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {reservation.flight_segments.length === 0 ? (
@@ -467,7 +467,7 @@ export default function ReservationDetail() {
               <CardHeader className="flex flex-row items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-destructive" />
-                  <CardTitle className="font-serif text-lg font-bold text-primary">Cambios Detectados ({reservation.changes.length})</CardTitle>
+                  <CardTitle className="font-sans text-lg font-bold text-primary">Cambios Detectados ({reservation.changes.length})</CardTitle>
                 </div>
                 {pendingChanges.length > 0 && (
                   <Button variant="outline" size="sm" onClick={handleResolveAll} disabled={resolveChange.isPending}>

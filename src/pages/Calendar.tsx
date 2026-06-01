@@ -112,7 +112,7 @@ const Calendar = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="font-serif text-3xl font-bold text-foreground flex items-center gap-3">
+            <h1 className="font-sans text-3xl font-bold text-foreground flex items-center gap-3">
               <CalendarDays className="h-8 w-8" /> Calendario de Viajes
             </h1>
             <p className="mt-1 text-muted-foreground">Vista mensual de viajes aprobados y vuelos</p>
@@ -124,7 +124,7 @@ const Calendar = () => {
             <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <CardTitle className="font-serif text-xl capitalize">
+            <CardTitle className="font-sans text-xl capitalize">
               {format(currentMonth, 'MMMM yyyy', { locale: es })}
             </CardTitle>
             <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>

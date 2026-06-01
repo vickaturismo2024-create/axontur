@@ -58,7 +58,7 @@ const Dashboard = () => {
             {/* Título + bienvenida */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6">
               <div>
-                <h1 className="font-serif text-2xl font-bold text-white sm:text-3xl md:text-4xl tracking-tight animate-fadeIn">
+                <h1 className="font-sans text-2xl font-bold text-white sm:text-3xl md:text-4xl tracking-tight animate-fadeIn">
                   AxonTur
                 </h1>
                 <p className="text-sm text-white/70 mt-0.5 font-light">

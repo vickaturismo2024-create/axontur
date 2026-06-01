@@ -126,7 +126,7 @@ const Suppliers = () => {
         <div className="mb-4 sm:mb-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="font-serif text-xl font-bold text-foreground sm:text-3xl">
+              <h1 className="font-sans text-xl font-bold text-foreground sm:text-3xl">
                 Proveedores
               </h1>
               <p className="mt-0.5 text-sm text-muted-foreground sm:mt-1">
@@ -201,7 +201,7 @@ const Suppliers = () => {
                 return (
                   <Card key={s.id} className="group flex flex-col">
                     <CardHeader className="pb-2 pt-3 px-3 sm:pt-4 sm:px-4">
-                      <CardTitle className="font-serif flex items-center gap-2 text-base sm:text-lg leading-tight">
+                      <CardTitle className="font-sans flex items-center gap-2 text-base sm:text-lg leading-tight">
                         <Store className="h-4 w-4 flex-shrink-0 text-primary" />
                         <span className="truncate">{s.name}</span>
                       </CardTitle>

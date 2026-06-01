@@ -262,7 +262,7 @@ export default function CashBox() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <h1 className="font-sans text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <Wallet className="h-6 w-6 sm:h-8 sm:w-8 text-[hsl(var(--gold))]" />
               Caja de la Agencia
             </h1>

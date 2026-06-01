@@ -176,7 +176,7 @@ const QuoteEditor = () => {
       <main className="container mx-auto flex flex-1 flex-col overflow-hidden px-4 py-8">
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="font-serif text-2xl font-bold text-foreground md:text-3xl">
+            <h1 className="font-sans text-2xl font-bold text-foreground md:text-3xl">
               {existingQuote ? 'Editar Presupuesto' : importedQuote ? 'Presupuesto Importado' : 'Nuevo Presupuesto'}
             </h1>
             <p className="mt-1 text-muted-foreground">

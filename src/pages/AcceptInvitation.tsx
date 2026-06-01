@@ -83,7 +83,7 @@ export default function AcceptInvitation() {
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <XCircle className="h-12 w-12 text-destructive mx-auto mb-2" />
-            <CardTitle className="font-serif font-bold text-primary">Invitación no válida</CardTitle>
+            <CardTitle className="font-sans font-bold text-primary">Invitación no válida</CardTitle>
             <CardDescription>El link de invitación no existe o fue eliminado.</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
@@ -104,7 +104,7 @@ export default function AcceptInvitation() {
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
           <Mail className="h-12 w-12 text-primary mx-auto mb-2" />
-          <CardTitle className="font-serif font-bold text-primary">Invitación a {preview.agency_name}</CardTitle>
+          <CardTitle className="font-sans font-bold text-primary">Invitación a {preview.agency_name}</CardTitle>
           <CardDescription>
             Te invitaron a unirte como{' '}
             <Badge variant="outline" className="ml-1">

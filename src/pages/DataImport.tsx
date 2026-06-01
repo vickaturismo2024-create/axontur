@@ -190,7 +190,7 @@ export default function DataImport() {
       <Header />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
-          <h1 className="font-serif text-3xl font-bold text-foreground flex items-center gap-3">
+          <h1 className="font-sans text-3xl font-bold text-foreground flex items-center gap-3">
             <FileSpreadsheet className="h-8 w-8 text-primary" />
             Importación de Datos
           </h1>
@@ -202,7 +202,7 @@ export default function DataImport() {
         {/* Orden recomendado */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
-            <CardTitle className="font-serif text-sm font-bold text-muted-foreground">Orden automático de procesamiento</CardTitle>
+            <CardTitle className="font-sans text-sm font-bold text-muted-foreground">Orden automático de procesamiento</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-2">
