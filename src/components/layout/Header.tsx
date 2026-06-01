@@ -123,8 +123,8 @@ export function Header() {
             <SheetContent side="left" className="w-72 p-0 flex flex-col">
               <div className="px-4 pt-6 pb-4 border-b">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shrink-0">
-                    <Plane className="h-4 w-4 text-primary-foreground" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden shrink-0 border border-primary/20">
+                    <img src="/pwa-192x192.png" alt="Logo" className="h-full w-full object-cover" />
                   </div>
                   <SheetTitle className="text-base font-semibold text-foreground truncate m-0">
                     {agencyName}
@@ -180,8 +180,8 @@ export function Header() {
 
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary shrink-0">
-                <Plane className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg overflow-hidden shrink-0 border border-primary/20">
+                <img src="/pwa-192x192.png" alt="Logo" className="h-full w-full object-cover" />
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-base sm:text-lg font-semibold text-foreground truncate">
