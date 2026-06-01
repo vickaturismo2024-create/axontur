@@ -31,6 +31,7 @@ const navItems = [
   { label: 'Expedientes', href: '/files' },
   { label: 'Vuelos', href: '/reservations' },
   { label: 'Cuentas Ctes.', href: '/accounts' },
+  { label: 'Caja', href: '/caja' },
   { label: 'Reportes', href: '/reportes' },
   { label: 'Importación', href: '/importar' },
   { label: 'Configuración', href: '/settings' },

@@ -35,7 +35,7 @@ const ACTIONS: Action[] = [
   {
     label: 'Caja',
     icon: <Wallet className="h-5 w-5" />,
-    href: '/accounts',
+    href: '/caja',
     color: 'text-amber-600 dark:text-amber-400',
     bgColor: 'bg-amber-500/10 hover:bg-amber-500/20',
   },

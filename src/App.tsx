@@ -42,6 +42,7 @@ const Calendar          = lazy(() => import("./pages/Calendar"));
 const Files             = lazy(() => import("./pages/Files"));
 const FileDetail        = lazy(() => import("./pages/FileDetail"));
 const Accounts          = lazy(() => import("./pages/Accounts"));
+const CashBox           = lazy(() => import("./pages/CashBox"));
 const Reservations      = lazy(() => import("./pages/Reservations"));
 const ReservationImport = lazy(() => import("./pages/ReservationImport"));
 const ReservationDetail = lazy(() => import("./pages/ReservationDetail"));
@@ -146,6 +147,7 @@ const App = () => (
                       <Route path="/files"               element={<ProtectedRoute><Files /></ProtectedRoute>} />
                       <Route path="/files/:id"           element={<ProtectedRoute><FileDetail /></ProtectedRoute>} />
                       <Route path="/accounts"            element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+                      <Route path="/caja"                element={<ProtectedRoute><CashBox /></ProtectedRoute>} />
                       <Route path="/reportes"            element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                       <Route path="/tutoriales"          element={<ProtectedRoute><Tutorials /></ProtectedRoute>} />
                       <Route path="/calendar"            element={<ProtectedRoute><Calendar /></ProtectedRoute>} />

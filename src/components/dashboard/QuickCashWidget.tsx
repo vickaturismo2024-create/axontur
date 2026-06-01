@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Wallet, RefreshCw, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -94,6 +95,7 @@ async function fetchCashBalances(): Promise<Balances> {
 
 export function QuickCashWidget({ raw }: { raw?: boolean }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['quick-cash', user?.id],
@@ -172,7 +174,10 @@ export function QuickCashWidget({ raw }: { raw?: boolean }) {
       ) : (
         <div className={raw ? "flex flex-col gap-3.5 flex-grow" : "grid grid-cols-1 gap-3 sm:grid-cols-2"}>
           {/* ARS Balance */}
-          <div className={`rounded-xl border border-emerald-500/10 bg-gradient-to-br from-emerald-500/[0.04] to-emerald-500/[0.005] hover:bg-emerald-500/[0.06] p-4 transition-all duration-300 hover:scale-[1.02] relative overflow-hidden group flex flex-col justify-between ${raw ? 'flex-1 min-h-[120px]' : ''}`}>
+          <div 
+            onClick={() => navigate('/caja')}
+            className={`cursor-pointer rounded-xl border border-emerald-500/10 bg-gradient-to-br from-emerald-500/[0.04] to-emerald-500/[0.005] hover:bg-emerald-500/[0.06] hover:border-emerald-500/25 p-4 transition-all duration-300 hover:scale-[1.02] relative overflow-hidden group flex flex-col justify-between ${raw ? 'flex-1 min-h-[120px]' : ''}`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Caja ARS</span>
               <span className="flex h-5 items-center justify-center rounded-md bg-emerald-500/10 px-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -198,7 +203,10 @@ export function QuickCashWidget({ raw }: { raw?: boolean }) {
           </div>
  
           {/* USD Balance */}
-          <div className={`rounded-xl border border-amber-500/10 bg-gradient-to-br from-amber-500/[0.04] to-amber-500/[0.005] hover:bg-amber-500/[0.06] p-4 transition-all duration-300 hover:scale-[1.02] relative overflow-hidden group flex flex-col justify-between ${raw ? 'flex-1 min-h-[120px]' : ''}`}>
+          <div 
+            onClick={() => navigate('/caja')}
+            className={`cursor-pointer rounded-xl border border-amber-500/10 bg-gradient-to-br from-amber-500/[0.04] to-amber-500/[0.005] hover:bg-amber-500/[0.06] hover:border-amber-500/25 p-4 transition-all duration-300 hover:scale-[1.02] relative overflow-hidden group flex flex-col justify-between ${raw ? 'flex-1 min-h-[120px]' : ''}`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Caja USD</span>
               <span className="flex h-5 items-center justify-center rounded-md bg-amber-500/10 px-1.5 text-[10px] font-bold text-amber-600 dark:text-emerald-400">
