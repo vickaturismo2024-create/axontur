@@ -142,7 +142,7 @@ export default function Auth() {
                       value={loginData.email}
                       onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                       disabled={isLoading}
-                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
+                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -157,7 +157,7 @@ export default function Auth() {
                         value={loginData.password}
                         onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                         disabled={isLoading}
-                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
+                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
                       />
                       <button
                         type="button"
@@ -198,7 +198,7 @@ export default function Auth() {
                       value={registerData.email}
                       onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                       disabled={isLoading}
-                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
+                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -211,7 +211,7 @@ export default function Auth() {
                         value={registerData.password}
                         onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                         disabled={isLoading}
-                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
+                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
                       />
                       <button
                         type="button"
@@ -234,7 +234,7 @@ export default function Auth() {
                         value={registerData.confirmPassword}
                         onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
                         disabled={isLoading}
-                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
+                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
                       />
                       <button
                         type="button"

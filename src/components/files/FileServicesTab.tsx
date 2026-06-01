@@ -161,7 +161,7 @@ export function FileServicesTab({ fileId, currency }: Props) {
   const lblFor       = (type: string) => LABELS[type] || LABELS.other;
 
   const getStatusBadge = (s: string) => {
-    if (s === 'confirmed') return <Badge variant="default" className="bg-emerald-100 text-emerald-800 border-emerald-200">Confirmado</Badge>;
+    if (s === 'confirmed') return <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">Confirmado</Badge>;
     if (s === 'cancelled') return <Badge variant="destructive">Cancelado</Badge>;
     return <Badge variant="secondary">Pendiente</Badge>;
   };
@@ -172,7 +172,7 @@ export function FileServicesTab({ fileId, currency }: Props) {
     if (isPast(d) && !isToday(d))
       return <Badge variant="destructive" className="text-[10px] font-bold"><AlertTriangle className="mr-1 h-3 w-3" />Vencido</Badge>;
     if (differenceInDays(d, new Date()) <= 3)
-      return <Badge variant="secondary" className="text-[10px] font-semibold bg-amber-100 text-amber-800 border-amber-200"><AlertTriangle className="mr-1 h-3 w-3" />Vence pronto</Badge>;
+      return <Badge variant="outline" className="text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"><AlertTriangle className="mr-1 h-3 w-3" />Vence pronto</Badge>;
     return null;
   };
 
@@ -339,7 +339,7 @@ export function FileServicesTab({ fileId, currency }: Props) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-sm text-slate-800 uppercase tracking-wider">Servicios ({services.length})</h3>
+        <h3 className="font-semibold text-sm text-foreground uppercase tracking-wider">Servicios ({services.length})</h3>
         <Button size="sm" onClick={openNew} className="shadow-sm"><Plus className="mr-2 h-4 w-4" />Agregar servicio</Button>
       </div>
 
@@ -691,20 +691,20 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <Card className="border border-slate-200 shadow-sm overflow-hidden bg-white">
+      <Card className="border border-border/80 shadow-sm overflow-hidden bg-card">
         <CollapsibleTrigger asChild>
-          <button className="flex w-full items-center gap-3 p-3.5 text-left hover:bg-slate-50 transition-colors rounded-t-lg">
+          <button className="flex w-full items-center gap-3 p-3.5 text-left hover:bg-muted/50 transition-colors rounded-t-lg">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               {getIcon(type)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm text-slate-800 uppercase tracking-tight">{getTypeLabel(type)}{supplier ? ` — ${supplier}` : ''}</p>
+              <p className="font-bold text-sm text-foreground uppercase tracking-tight">{getTypeLabel(type)}{supplier ? ` — ${supplier}` : ''}</p>
               <p className="text-xs text-muted-foreground font-medium">{items.length} servicio{items.length > 1 ? 's' : ''}</p>
             </div>
             <div className="hidden gap-3 text-right sm:flex sm:flex-col shrink-0">
               {Object.entries(subtotals).map(([cur, { cost, price }]) => (
                 <div key={cur} className="text-xs font-mono">
-                  <span className="font-bold text-slate-800">{cur} {price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                  <span className="font-bold text-foreground">{cur} {price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                   <span className="text-muted-foreground ml-2">Costo: {cur} {cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                 </div>
               ))}
@@ -713,24 +713,24 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="border-t border-slate-100 bg-white">
+          <div className="border-t border-border bg-card">
             {items.map(s => (
-              <div key={s.id} className="flex items-start gap-4 p-4 border-b border-slate-100 last:border-b-0">
+              <div key={s.id} className="flex items-start gap-4 p-4 border-b border-border/50 last:border-b-0">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
                     {getStatusBadge(s.status)}
                     {getDueBadge(s.payment_due_date, s.status)}
                     {s.confirmation_number && (
-                      <span className="font-mono text-xs text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-semibold border border-slate-200/50">
+                      <span className="font-mono text-xs text-muted-foreground bg-muted border border-border/50 px-1.5 py-0.5 rounded font-semibold">
                         #{s.confirmation_number}
                       </span>
                     )}
                   </div>
-                  <p className="font-semibold text-slate-800 text-sm mt-0.5">{s.description}</p>
+                  <p className="font-semibold text-foreground text-sm mt-0.5">{s.description}</p>
                   
                   {/* METADATOS ESPECÍFICOS DE ALTO CONTRASTE */}
                   {s.service_type === 'flight' && (s.origin || s.destination || s.airline || s.flight_number || s.cabin_class || s.departure_time || s.arrival_time) && (
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700 bg-slate-50 border border-slate-150 p-2.5 rounded-md font-medium">
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/80 bg-muted/30 border border-border/50 p-2.5 rounded-md font-medium">
                       {s.airline && <span>✈️ <strong className="font-bold">{s.airline}</strong> {s.flight_number}</span>}
                       {(s.origin || s.destination) && <span>Ruta: <strong className="font-bold">{s.origin || 'N/D'} → {s.destination || 'N/D'}</strong></span>}
                       {(s.departure_time || s.arrival_time) && <span>Horas: <strong className="font-bold">{s.departure_time || 'N/D'} - {s.arrival_time || 'N/D'}</strong></span>}
@@ -740,7 +740,7 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
                   )}
 
                   {s.service_type === 'lodging' && (s.room_type || s.regime || s.hotel_category) && (
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700 bg-slate-50 border border-slate-150 p-2.5 rounded-md font-medium">
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/80 bg-muted/30 border border-border/50 p-2.5 rounded-md font-medium">
                       {s.room_type && <span>Habitación: <strong className="font-bold">{s.room_type}</strong></span>}
                       {s.regime && <span>Régimen: <strong className="font-bold">{s.regime}</strong></span>}
                       {s.hotel_category && <span>Categoría: <strong className="font-bold">{s.hotel_category}</strong></span>}
@@ -748,7 +748,7 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
                   )}
 
                   {s.service_type === 'rental_car' && (s.company || s.pickup_location || s.dropoff_location || s.room_type) && (
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700 bg-slate-50 border border-slate-150 p-2.5 rounded-md font-medium">
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/80 bg-muted/30 border border-border/50 p-2.5 rounded-md font-medium">
                       {s.company && <span>Rentadora: <strong className="font-bold">{s.company}</strong></span>}
                       {s.room_type && <span>Auto: <strong className="font-bold">{s.room_type}</strong></span>}
                       {s.pickup_location && <span>Retiro: <strong className="font-bold">{s.pickup_location}</strong></span>}
@@ -757,14 +757,14 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
                   )}
 
                   {s.service_type === 'insurance' && (s.insurance_plan || s.coverage) && (
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700 bg-slate-50 border border-slate-150 p-2.5 rounded-md font-medium">
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/80 bg-muted/30 border border-border/50 p-2.5 rounded-md font-medium">
                       {s.insurance_plan && <span>Plan: <strong className="font-bold">{s.insurance_plan}</strong></span>}
                       {s.coverage && <span>Cobertura: <strong className="font-bold">{s.coverage}</strong></span>}
                     </div>
                   )}
 
                   {s.service_type === 'cruise' && (s.ship_name || s.company || s.cabin_number || s.deck || s.embarkation_port || s.disembarkation_port) && (
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700 bg-slate-50 border border-slate-150 p-2.5 rounded-md font-medium">
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/80 bg-muted/30 border border-border/50 p-2.5 rounded-md font-medium">
                       {s.ship_name && <span>Barco: <strong className="font-bold">{s.ship_name}</strong> {s.company ? `(${s.company})` : ''}</span>}
                       {s.cabin_number && <span>Cabina: <strong className="font-bold">{s.cabin_number}</strong> {s.deck ? `Deck ${s.deck}` : ''}</span>}
                       {(s.embarkation_port || s.disembarkation_port) && <span>Puertos: <strong className="font-bold">{s.embarkation_port || 'N/D'} → {s.disembarkation_port || 'N/D'}</strong></span>}
@@ -772,7 +772,7 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
                   )}
 
                   {(s.service_type === 'train' || s.service_type === 'ferry') && (s.company || s.ship_name || s.origin || s.destination || s.cabin_class || s.cabin_number) && (
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700 bg-slate-50 border border-slate-150 p-2.5 rounded-md font-medium">
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/80 bg-muted/30 border border-border/50 p-2.5 rounded-md font-medium">
                       {s.company && <span>Operador: <strong className="font-bold">{s.company}</strong></span>}
                       {s.ship_name && <span>{s.service_type === 'train' ? 'Tren' : 'Barco'}: <strong className="font-bold">{s.ship_name}</strong></span>}
                       {(s.origin || s.destination) && <span>Ruta: <strong className="font-bold">{s.origin || 'N/D'} → {s.destination || 'N/D'}</strong></span>}
@@ -780,7 +780,7 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-x-3.5 gap-y-1.5 text-xs text-slate-500 font-medium mt-2 border-t border-slate-100/70 pt-2">
+                  <div className="flex flex-wrap gap-x-3.5 gap-y-1.5 text-xs text-muted-foreground font-medium mt-2 border-t border-border/50 pt-2">
                     {s.service_date && (
                       <span>{lbl.dateFrom}: {new Date(s.service_date).toLocaleDateString('es-AR')}</span>
                     )}
@@ -788,19 +788,19 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
                       <span>{lbl.dateTo || 'Hasta'}: {new Date(s.end_date).toLocaleDateString('es-AR')}</span>
                     )}
                     {s.payment_due_date && (
-                      <span>Venc. pago: <strong className="text-slate-600 font-semibold">{new Date(s.payment_due_date).toLocaleDateString('es-AR')}</strong></span>
+                      <span>Venc. pago: <strong className="text-foreground/80 font-semibold">{new Date(s.payment_due_date).toLocaleDateString('es-AR')}</strong></span>
                     )}
                     {s.notes && (
-                      <span className="w-full text-[11px] text-slate-500 mt-1 italic block">Notas: {s.notes}</span>
+                      <span className="w-full text-[11px] text-muted-foreground mt-1 italic block">Notas: {s.notes}</span>
                     )}
                   </div>
                 </div>
                 <div className="hidden text-right sm:block shrink-0 min-w-32 font-mono">
-                  <p className="font-bold text-sm text-slate-800">{s.currency} {s.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+                  <p className="font-bold text-sm text-foreground">{s.currency} {s.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Costo: {s.currency} {s.cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" onClick={() => onEdit(s)} className="text-slate-500 hover:text-slate-800 hover:bg-slate-100"><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => onEdit(s)} className="text-muted-foreground hover:text-foreground hover:bg-muted"><Pencil className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => onDelete(s.id)} className="text-destructive/80 hover:text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
