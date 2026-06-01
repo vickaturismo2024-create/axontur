@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Compass } from 'lucide-react';
+import { Loader2, Compass, Eye, EyeOff } from 'lucide-react';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -15,6 +15,9 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ email: '', password: '', confirmPassword: '' });
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,15 +149,26 @@ export default function Auth() {
                     <div className="flex items-center justify-between">
                       <Label htmlFor="login-password" className="text-xs font-medium text-white/80">Contraseña</Label>
                     </div>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={loginData.password}
-                      onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                      disabled={isLoading}
-                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="login-password"
+                        type={showLoginPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={loginData.password}
+                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                        disabled={isLoading}
+                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        disabled={isLoading}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                        title={showLoginPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      >
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter className="pt-2">
@@ -189,27 +203,49 @@ export default function Auth() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="register-password" className="text-xs font-medium text-white/80">Contraseña</Label>
-                    <Input
-                      id="register-password"
-                      type="password"
-                      placeholder="Mínimo 6 caracteres"
-                      value={registerData.password}
-                      onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                      disabled={isLoading}
-                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="register-password"
+                        type={showRegisterPassword ? "text" : "password"}
+                        placeholder="Mínimo 6 caracteres"
+                        value={registerData.password}
+                        onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                        disabled={isLoading}
+                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                        disabled={isLoading}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                        title={showRegisterPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      >
+                        {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="register-confirm" className="text-xs font-medium text-white/80">Confirmar Contraseña</Label>
-                    <Input
-                      id="register-confirm"
-                      type="password"
-                      placeholder="Repetir contraseña"
-                      value={registerData.confirmPassword}
-                      onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                      disabled={isLoading}
-                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="register-confirm"
+                        type={showRegisterConfirmPassword ? "text" : "password"}
+                        placeholder="Repetir contraseña"
+                        value={registerData.confirmPassword}
+                        onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                        disabled={isLoading}
+                        className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegisterConfirmPassword(!showRegisterConfirmPassword)}
+                        disabled={isLoading}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                        title={showRegisterConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      >
+                        {showRegisterConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter className="pt-2">
