@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/Header';
-import { Search, Users, Truck, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Search, Users, Truck, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AccountDetail } from '@/components/accounts/AccountDetail';
@@ -18,6 +18,7 @@ interface AccountSummary {
   name: string;
   type: 'client' | 'supplier';
   balances: Record<string, number>;
+  dni?: string;
 }
 
 async function fetchAllPaged(table: 'clients' | 'suppliers', fields: string) {
@@ -39,9 +40,18 @@ export default function Accounts() {
   const [search, setSearch] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string; type: 'client' | 'supplier' } | null>(null);
 
+  const [clientPage, setClientPage] = useState(1);
+  const [supplierPage, setSupplierPage] = useState(1);
+  const PAGE_SIZE = 25;
+
+  useEffect(() => {
+    setClientPage(1);
+    setSupplierPage(1);
+  }, [search]);
+
   const { data: clients = [], isLoading: lc } = useQuery({
     queryKey: queryKeys.accounts.clients(user?.id),
-    queryFn: () => fetchAllPaged('clients', 'id, name'),
+    queryFn: () => fetchAllPaged('clients', 'id, name, dni'),
     enabled: !!user,
   });
   const { data: suppliers = [], isLoading: ls } = useQuery({
@@ -69,41 +79,96 @@ export default function Accounts() {
         if (!balances[curr]) balances[curr] = 0;
         balances[curr] += m.movement_type === 'credit' ? Number(m.amount) : -Number(m.amount);
       });
-      return { id: e.id, name: e.name, type, balances };
+      return { id: e.id, name: e.name, type, balances, dni: e.dni };
     });
   };
 
   const clientSummaries = useMemo(() => buildSummaries('client', clients), [clients, movements]);
   const supplierSummaries = useMemo(() => buildSummaries('supplier', suppliers), [suppliers, movements]);
 
-  const filterBySearch = (list: AccountSummary[]) =>
-    list.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
+  const filterBySearch = (list: AccountSummary[]) => {
+    const q = search.toLowerCase();
+    return list.filter(a =>
+      a.name.toLowerCase().includes(q) ||
+      (a.dni && a.dni.toLowerCase().includes(q))
+    );
+  };
 
-  const renderList = (list: AccountSummary[]) => {
-    const filtered = filterBySearch(list);
+  const filteredClients = useMemo(() => filterBySearch(clientSummaries), [clientSummaries, search]);
+  const filteredSuppliers = useMemo(() => filterBySearch(supplierSummaries), [supplierSummaries, search]);
+
+  const renderList = (
+    filtered: AccountSummary[],
+    page: number,
+    setPage: React.Dispatch<React.SetStateAction<number>>
+  ) => {
     if (filtered.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">Sin resultados</p>;
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages);
+    const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
     return (
-      <div className="space-y-2">
-        {filtered.map(a => {
-          const currencies = Object.entries(a.balances);
-          const hasBalance = currencies.some(([, v]) => v !== 0);
-          return (
-            <Card key={a.id} className="cursor-pointer transition-colors hover:bg-accent/50" onClick={() => setSelectedAccount({ id: a.id, name: a.name, type: a.type })}>
-              <CardContent className="flex items-center justify-between p-3">
-                <span className="font-medium">{a.name}</span>
-                <div className="flex items-center gap-2">
-                  {!hasBalance && currencies.length === 0 && <span className="text-xs text-muted-foreground">Sin movimientos</span>}
-                  {currencies.map(([curr, bal]) => (
-                    <Badge key={curr} variant={bal > 0 ? 'default' : bal < 0 ? 'destructive' : 'secondary'} className="flex items-center gap-1">
-                      {bal > 0 ? <ArrowUpRight className="h-3 w-3" /> : bal < 0 ? <ArrowDownRight className="h-3 w-3" /> : null}
-                      {curr} {Math.abs(bal).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          {paginated.map(a => {
+            const currencies = Object.entries(a.balances);
+            const hasBalance = currencies.some(([, v]) => v !== 0);
+            return (
+              <Card key={a.id} className="cursor-pointer transition-colors hover:bg-accent/50" onClick={() => setSelectedAccount({ id: a.id, name: a.name, type: a.type })}>
+                <CardContent className="flex items-center justify-between p-3">
+                  <div className="flex flex-col">
+                    <span className="font-medium">{a.name}</span>
+                    {a.dni && <span className="text-[10px] text-muted-foreground font-mono">DNI: {a.dni}</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!hasBalance && currencies.length === 0 && <span className="text-xs text-muted-foreground">Sin movimientos</span>}
+                    {currencies.map(([curr, bal]) => (
+                      <Badge key={curr} variant={bal > 0 ? 'default' : bal < 0 ? 'destructive' : 'secondary'} className="flex items-center gap-1">
+                        {bal > 0 ? <ArrowUpRight className="h-3 w-3" /> : bal < 0 ? <ArrowDownRight className="h-3 w-3" /> : null}
+                        {curr} {Math.abs(bal).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground sm:text-sm">
+              {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} de {filtered.length}
+            </p>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 px-2 sm:px-3"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline ml-1">Anterior</span>
+              </Button>
+              <span className="text-xs sm:text-sm px-1">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="h-8 px-2 sm:px-3"
+              >
+                <span className="hidden sm:inline mr-1">Siguiente</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -118,7 +183,7 @@ export default function Accounts() {
 
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar por nombre o DNI..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
 
         {loading ? (
@@ -131,8 +196,8 @@ export default function Accounts() {
               <TabsTrigger value="clients" className="gap-2"><Users className="h-4 w-4" />Clientes</TabsTrigger>
               <TabsTrigger value="suppliers" className="gap-2"><Truck className="h-4 w-4" />Proveedores</TabsTrigger>
             </TabsList>
-            <TabsContent value="clients">{renderList(clientSummaries)}</TabsContent>
-            <TabsContent value="suppliers">{renderList(supplierSummaries)}</TabsContent>
+            <TabsContent value="clients">{renderList(filteredClients, clientPage, setClientPage)}</TabsContent>
+            <TabsContent value="suppliers">{renderList(filteredSuppliers, supplierPage, setSupplierPage)}</TabsContent>
           </Tabs>
         )}
       </div>

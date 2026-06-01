@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Plus, Search, Plane, Link, GitCompare,
+  Plus, Search, Plane, Link, GitCompare, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -107,6 +107,19 @@ const Quotes = () => {
       }
     });
   }, [quotes, searchQuery, statusFilter, viewFilter, filters, tagFilter, tagAssignments]);
+
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 12;
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, viewFilter, filters, tagFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredQuotes.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedQuotes = useMemo(() => {
+    return filteredQuotes.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  }, [filteredQuotes, currentPage]);
 
   const handleEdit = (quote: Quote) => navigate(`/quote/${quote.id}`);
   const handleDuplicate = async (id: string) => {
@@ -283,29 +296,65 @@ const Quotes = () => {
         </div>
 
         {/* Grid de presupuestos */}
-        {filteredQuotes.length > 0 ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredQuotes.map((quote) => (
-              <QuoteCard
-                key={quote.id}
-                quote={quote}
-                onEdit={handleEdit}
-                onDuplicate={handleDuplicate}
-                onDelete={handleDelete}
-                onPreview={handlePreview}
-                onExport={handleExport}
-                onStatusChange={handleStatusChange}
-                onToggleArchive={handleToggleArchive}
-                onToggleFavorite={handleToggleFavorite}
-                onDuplicateForClient={handleDuplicateForClient}
-                compareMode={compareMode}
-                isSelectedForCompare={selectedForCompare.includes(quote.id)}
-                onToggleCompare={handleToggleCompare}
-                assignedTags={tagAssignments[quote.id] || []}
-                allTags={allTags}
-                onTagsChanged={fetchTags}
-              />
-            ))}
+        {paginatedQuotes.length > 0 ? (
+          <div className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {paginatedQuotes.map((quote) => (
+                <QuoteCard
+                  key={quote.id}
+                  quote={quote}
+                  onEdit={handleEdit}
+                  onDuplicate={handleDuplicate}
+                  onDelete={handleDelete}
+                  onPreview={handlePreview}
+                  onExport={handleExport}
+                  onStatusChange={handleStatusChange}
+                  onToggleArchive={handleToggleArchive}
+                  onToggleFavorite={handleToggleFavorite}
+                  onDuplicateForClient={handleDuplicateForClient}
+                  compareMode={compareMode}
+                  isSelectedForCompare={selectedForCompare.includes(quote.id)}
+                  onToggleCompare={handleToggleCompare}
+                  assignedTags={tagAssignments[quote.id] || []}
+                  allTags={allTags}
+                  onTagsChanged={fetchTags}
+                />
+              ))}
+            </div>
+
+            {/* Paginación */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between border-t border-border/40 pt-4">
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredQuotes.length)} de {filteredQuotes.length}
+                </p>
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 px-2 sm:px-3"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline ml-1">Anterior</span>
+                  </Button>
+                  <span className="text-xs sm:text-sm px-1">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 px-2 sm:px-3"
+                  >
+                    <span className="hidden sm:inline mr-1">Siguiente</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">

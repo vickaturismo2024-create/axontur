@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -13,7 +13,9 @@ import {
   DollarSign,
   Activity,
   Calendar,
-  FileText
+  FileText,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -147,6 +149,13 @@ export default function CashBox() {
   const [currencyFilter, setCurrencyFilter] = useState('all');
   const [walletFilter, setWalletFilter] = useState('all');
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 30;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter, currencyFilter, walletFilter]);
+
   const { data: ledger = [], isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['caja-ledger', user?.id],
     queryFn: fetchCajaData,
@@ -221,6 +230,12 @@ export default function CashBox() {
       return matchesSearch && matchesType && matchesCurrency && matchesWallet;
     });
   }, [ledger, search, typeFilter, currencyFilter, walletFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLedger.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedLedger = useMemo(() => {
+    return filteredLedger.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  }, [filteredLedger, currentPage]);
 
   const formatMoney = (val: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -540,75 +555,111 @@ export default function CashBox() {
                   <p className="text-sm text-muted-foreground">No se encontraron movimientos con los filtros aplicados.</p>
                 </div>
               ) : (
-                <div className="rounded-xl border bg-card/35 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left border-collapse stack-table">
-                      <thead>
-                        <tr className="border-b bg-muted/30 text-muted-foreground font-semibold">
-                          <th className="p-3 w-36">Fecha</th>
-                          <th className="p-3">Detalle / Concepto</th>
-                          <th className="p-3 w-40">Medio / Caja</th>
-                          <th className="p-3 text-right w-44">Monto</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredLedger.map((item) => (
-                          <tr key={item.id} className="border-b hover:bg-muted/20 transition-colors">
-                            {/* Date */}
-                            <td className="p-3 text-muted-foreground whitespace-nowrap" data-label="Fecha">
-                              <span className="flex items-center gap-1.5">
-                                <Calendar className="h-3 w-3 text-muted-foreground/60" />
-                                {new Date(item.date + 'T12:00:00').toLocaleDateString('es-AR')}
-                              </span>
-                            </td>
-
-                            {/* Concept & Notes */}
-                            <td className="p-3 font-medium" data-label="Concepto">
-                              <div className="flex flex-col gap-0.5 max-w-lg">
-                                <span className="text-foreground">{item.concept}</span>
-                                {item.notes && (
-                                  <span className="text-[10px] text-muted-foreground font-light truncate" title={item.notes}>
-                                    {item.notes}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* Wallet / Medium */}
-                            <td className="p-3" data-label="Medio">
-                              <Badge variant="secondary" className="font-semibold text-[10px] flex items-center gap-1 w-fit">
-                                {item.payment_method === 'cash' && <Wallet className="h-2.5 w-2.5" />}
-                                {item.payment_method === 'transfer' && <PiggyBank className="h-2.5 w-2.5" />}
-                                {(item.payment_method === 'credit_card' || item.payment_method === 'debit_card') && <CreditCard className="h-2.5 w-2.5" />}
-                                {getMethodLabel(item.payment_method)}
-                              </Badge>
-                            </td>
-
-                            {/* Amount */}
-                            <td className="p-3 text-right" data-label="Monto">
-                              <div className="flex items-center justify-end gap-1 font-bold text-sm">
-                                {item.type === 'ingreso' ? (
-                                  <>
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                    <span className="text-emerald-600 dark:text-emerald-400">
-                                      + {getCurrencySymbol(item.currency)} {formatMoney(item.amount)}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <ArrowDownRight className="h-3.5 w-3.5 text-destructive shrink-0" />
-                                    <span className="text-destructive">
-                                      - {getCurrencySymbol(item.currency)} {formatMoney(item.amount)}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            </td>
+                <div className="space-y-4">
+                  <div className="rounded-xl border bg-card/35 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse stack-table">
+                        <thead>
+                          <tr className="border-b bg-muted/30 text-muted-foreground font-semibold">
+                            <th className="p-3 w-36">Fecha</th>
+                            <th className="p-3">Detalle / Concepto</th>
+                            <th className="p-3 w-40">Medio / Caja</th>
+                            <th className="p-3 text-right w-44">Monto</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {paginatedLedger.map((item) => (
+                            <tr key={item.id} className="border-b hover:bg-muted/20 transition-colors">
+                              {/* Date */}
+                              <td className="p-3 text-muted-foreground whitespace-nowrap" data-label="Fecha">
+                                <span className="flex items-center gap-1.5">
+                                  <Calendar className="h-3 w-3 text-muted-foreground/60" />
+                                  {new Date(item.date + 'T12:00:00').toLocaleDateString('es-AR')}
+                                </span>
+                              </td>
+
+                              {/* Concept & Notes */}
+                              <td className="p-3 font-medium" data-label="Concepto">
+                                <div className="flex flex-col gap-0.5 max-w-lg">
+                                  <span className="text-foreground">{item.concept}</span>
+                                  {item.notes && (
+                                    <span className="text-[10px] text-muted-foreground font-light truncate" title={item.notes}>
+                                      {item.notes}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Wallet / Medium */}
+                              <td className="p-3" data-label="Medio">
+                                <Badge variant="secondary" className="font-semibold text-[10px] flex items-center gap-1 w-fit">
+                                  {item.payment_method === 'cash' && <Wallet className="h-2.5 w-2.5" />}
+                                  {item.payment_method === 'transfer' && <PiggyBank className="h-2.5 w-2.5" />}
+                                  {(item.payment_method === 'credit_card' || item.payment_method === 'debit_card') && <CreditCard className="h-2.5 w-2.5" />}
+                                  {getMethodLabel(item.payment_method)}
+                                </Badge>
+                              </td>
+
+                              {/* Amount */}
+                              <td className="p-3 text-right" data-label="Monto">
+                                <div className="flex items-center justify-end gap-1 font-bold text-sm">
+                                  {item.type === 'ingreso' ? (
+                                    <>
+                                      <ArrowUpRight className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                      <span className="text-emerald-600 dark:text-emerald-400">
+                                        + {getCurrencySymbol(item.currency)} {formatMoney(item.amount)}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ArrowDownRight className="h-3.5 w-3.5 text-destructive shrink-0" />
+                                      <span className="text-destructive">
+                                        - {getCurrencySymbol(item.currency)} {formatMoney(item.amount)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
+
+                  {/* Paginación */}
+                  {totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground sm:text-sm">
+                        {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredLedger.length)} de {filteredLedger.length}
+                      </p>
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="h-8 px-2 sm:px-3"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          <span className="hidden sm:inline ml-1">Anterior</span>
+                        </Button>
+                        <span className="text-xs sm:text-sm px-1">
+                          {currentPage} / {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage >= totalPages}
+                          className="h-8 px-2 sm:px-3"
+                        >
+                          <span className="hidden sm:inline mr-1">Siguiente</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
