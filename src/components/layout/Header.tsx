@@ -62,6 +62,7 @@ export function Header() {
   // PWA installation helper
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showIOSInstallInfo, setShowIOSInstallInfo] = useState(false);
+  const [showGenericInstallInfo, setShowGenericInstallInfo] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -85,25 +86,27 @@ export function Header() {
   }, []);
 
   const showInstallButton = useMemo(() => {
-    if (isStandalone) return false;
-    return !!deferredPrompt || isIOS;
-  }, [deferredPrompt, isIOS, isStandalone]);
+    return !isStandalone;
+  }, [isStandalone]);
 
   const handleInstallClick = async () => {
-    if (isIOS) {
-      setShowIOSInstallInfo(true);
-      setMenuOpen(false);
+    setMenuOpen(false);
+    
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
       return;
     }
 
-    if (!deferredPrompt) return;
-    
-    setMenuOpen(false);
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
+    if (isIOS) {
+      setShowIOSInstallInfo(true);
+      return;
     }
+
+    setShowGenericInstallInfo(true);
   };
 
   return (
@@ -271,6 +274,44 @@ export function Header() {
           </div>
           <div className="flex justify-center mt-2">
             <Button className="w-full rounded-xl" onClick={() => setShowIOSInstallInfo(false)}>
+              Entendido
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showGenericInstallInfo} onOpenChange={setShowGenericInstallInfo}>
+        <DialogContent className="max-w-xs sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-center font-serif text-lg text-primary flex items-center justify-center gap-2">
+              <Plane className="h-5 w-5 text-primary" /> Instalar AxonTur
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs mt-2">
+              Puedes instalar AxonTur en tu dispositivo para usarlo como una aplicación nativa:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-3 text-sm">
+            <div className="flex items-start gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">🖥️</span>
+              <div>
+                <h4 className="font-semibold text-xs text-foreground">En Computadora (PC/Mac):</h4>
+                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                  Busca el ícono de instalación (un monitor con una flecha hacia abajo ⬇️) en la barra de direcciones arriba a la derecha, o abre el menú del navegador (tres puntos) y haz clic en <strong>"Instalar AxonTur"</strong>.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">📱</span>
+              <div>
+                <h4 className="font-semibold text-xs text-foreground">En Celular (Android):</h4>
+                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                  Abre el menú de opciones de tu navegador (los tres puntos arriba a la derecha) y selecciona <strong>"Instalar aplicación"</strong> o <strong>"Agregar a la pantalla principal"</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-center mt-2">
+            <Button className="w-full rounded-xl" onClick={() => setShowGenericInstallInfo(false)}>
               Entendido
             </Button>
           </div>
