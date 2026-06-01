@@ -24,7 +24,7 @@ import { ImportExcelDialog } from '@/components/clients/ImportExcelDialog';
 import { GroupsManager } from '@/components/clients/GroupsManager';
 import { Quote } from '@/types/quote';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 function mapRow(c: any): ClientRecord {
   return {

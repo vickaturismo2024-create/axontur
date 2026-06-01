@@ -109,7 +109,7 @@ const Quotes = () => {
   }, [quotes, searchQuery, statusFilter, viewFilter, filters, tagFilter, tagAssignments]);
 
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 6;
 
   useEffect(() => {
     setPage(1);

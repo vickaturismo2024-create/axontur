@@ -33,7 +33,7 @@ interface Supplier {
 }
 
 const emptySupplier = { name: '', email: '', phone: '', type: '', notes: '' };
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 15;
 
 const Suppliers = () => {
   const { user } = useAuth();

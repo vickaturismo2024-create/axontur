@@ -42,7 +42,7 @@ export default function Reservations() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [onlyChanges, setOnlyChanges] = useState(false);
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 6;
 
   useEffect(() => {
     setPage(1);

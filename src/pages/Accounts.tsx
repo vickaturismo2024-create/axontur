@@ -42,7 +42,7 @@ export default function Accounts() {
 
   const [clientPage, setClientPage] = useState(1);
   const [supplierPage, setSupplierPage] = useState(1);
-  const PAGE_SIZE = 25;
+  const PAGE_SIZE = 12;
 
   useEffect(() => {
     setClientPage(1);

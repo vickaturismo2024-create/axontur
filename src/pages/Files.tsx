@@ -39,7 +39,7 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
   cancelled: { label: 'Cancelado', variant: 'destructive' },
 };
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 const Files = () => {
   const { user } = useAuth();

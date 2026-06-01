@@ -150,7 +150,7 @@ export default function CashBox() {
   const [walletFilter, setWalletFilter] = useState('all');
 
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 30;
+  const PAGE_SIZE = 15;
 
   useEffect(() => {
     setPage(1);
