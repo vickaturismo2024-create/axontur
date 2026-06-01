@@ -9,20 +9,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, Save, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText, Mail, Send, Plane } from 'lucide-react';
+import { ArrowLeft, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText, Mail, Send, Plane } from 'lucide-react';
 import { syncQuoteFlightsToReservation } from '@/lib/quoteFlightsToReservation';
 import type { Quote } from '@/types/quote';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
 import { FileReceiptsTab } from '@/components/files/FileReceiptsTab';
 import { FileSuppliersTab } from '@/components/files/FileSuppliersTab';
 import { FileFinancialSummary } from '@/components/files/FileFinancialSummary';
 import { FileCommunicationsTab } from '@/components/files/FileCommunicationsTab';
+import { FileDetailEmailDialogs } from '@/components/files/FileDetailEmailDialogs';
+import { FileAttachmentsTab } from '@/components/files/FileAttachmentsTab';
+import { FileIncidenciasTab } from '@/components/files/FileIncidenciasTab';
+import { FileTarjetasTab } from '@/components/files/FileTarjetasTab';
+import { FileDebtsTab } from '@/components/files/FileDebtsTab';
+import { FileVouchersTab } from '@/components/files/FileVouchersTab';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendReservationConfirmation, sendSupplierVoucher, isInfraReady } from '@/lib/emailService';
@@ -30,6 +35,7 @@ import { toast } from 'sonner';
 
 interface FileRecord {
   id: string;
+  agency_id: string;
   file_number: number;
   status: string;
   client_name: string;
@@ -94,7 +100,6 @@ const FileDetail = () => {
       setStatus(f.status);
       setLoading(false);
 
-      // Cargar email del cliente vinculado
       if (f.client_id) {
         const { data: c } = await supabase.from('clients').select('email').eq('id', f.client_id).maybeSingle();
         if (c?.email) setClientEmail(c.email);
@@ -103,7 +108,6 @@ const FileDetail = () => {
     load();
   }, [user, id]);
 
-  // Autosave de notas con debounce 1s
   useEffect(() => {
     if (loading || !file || isInitialLoad.current) {
       isInitialLoad.current = false;
@@ -117,7 +121,6 @@ const FileDetail = () => {
     return () => { if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current); };
   }, [notes, file?.id, loading]);
 
-  // Guardado inmediato del estado
   useEffect(() => {
     if (loading || !file || file.status === status) return;
     supabase.from('files').update({ status }).eq('id', file.id).then(({ error }) => {
@@ -130,13 +133,10 @@ const FileDetail = () => {
     });
   }, [status]);
 
-  const openConfirmEmail = () => {
-    setConfirmEmailOpen(true);
-  };
+  const openConfirmEmail = () => setConfirmEmailOpen(true);
 
   const openVoucherEmail = async () => {
     if (!file) return;
-    // Cargar servicios del expediente para elegir cuáles incluir en el voucher
     const { data: services } = await supabase
       .from('file_services')
       .select('description, supplier_name, service_date, confirmation_number, supplier_id')
@@ -150,7 +150,6 @@ const FileDetail = () => {
     }));
     setVoucherServices(list);
 
-    // Pre-cargar primer proveedor con email
     const firstSupplierId = (services || []).find((s: any) => s.supplier_id)?.supplier_id;
     if (firstSupplierId) {
       const { data: sup } = await supabase.from('suppliers').select('name, email').eq('id', firstSupplierId).maybeSingle();
@@ -233,30 +232,18 @@ const FileDetail = () => {
     }
   };
 
-  const handleSave = async () => {
-    if (!file) return;
-    setSaving(true);
-    const { error } = await supabase.from('files').update({ status, internal_notes: notes }).eq('id', file.id);
-    if (error) toast.error('Error al guardar');
-    else { toast.success('Expediente actualizado'); setFile({ ...file, status, internal_notes: notes }); }
-    setSaving(false);
-  };
-
   const handleDelete = async () => {
     if (!file) return;
     setDeleting(true);
     try {
-      // Cascade delete related records
       const fileId = file.id;
 
-      // Get receipt IDs to delete receipt items
       const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fileId);
       if (receipts && receipts.length > 0) {
         const receiptIds = receipts.map(r => r.id);
         await supabase.from('file_receipt_items').delete().in('receipt_id', receiptIds);
       }
 
-      // Delete related tables
       await Promise.all([
         supabase.from('file_services').delete().eq('file_id', fileId),
         supabase.from('file_passengers').delete().eq('file_id', fileId),
@@ -264,7 +251,6 @@ const FileDetail = () => {
         supabase.from('file_supplier_payments').delete().eq('file_id', fileId),
       ]);
 
-      // Delete the file itself
       const { error } = await supabase.from('files').delete().eq('id', fileId);
       if (error) throw error;
 
@@ -283,39 +269,45 @@ const FileDetail = () => {
         <Header />
         <main className="container mx-auto px-4 py-8 space-y-6">
           <Skeleton className="h-9 w-48" />
-          <div className="space-y-3">
-            <Skeleton className="h-10 w-72" />
-            <Skeleton className="h-5 w-96" />
-          </div>
-          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-24 w-full" />
           <Skeleton className="h-10 w-full max-w-2xl" />
           <Skeleton className="h-64 w-full" />
         </main>
       </div>
     );
   }
-
   if (!file) return null;
 
-  const fileLabel = `FILE-${String(file.file_number).padStart(3, '0')}`;
+  const fileLabel  = `FILE-${String(file.file_number).padStart(3, '0')}`;
   const statusInfo = STATUS_OPTIONS.find(s => s.value === status);
 
+  const STATUS_PILL_CLASS: Record<string, string> = {
+    confirmed:   'status-pill confirmed',
+    in_progress: 'status-pill pending',
+    completed:   'status-pill cerrado',
+    cancelled:   'status-pill cancelado',
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background animate-fadeInUp">
       <Header />
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-4 flex items-center justify-between">
-          <Button variant="ghost" onClick={() => navigate('/files')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Expedientes
+      <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8 max-w-7xl">
+
+        {/* ── Topbar ──────────────────────────────────────────── */}
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/files')} className="gap-1.5">
+            <ArrowLeft className="h-4 w-4" /> Expedientes
           </Button>
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Mail className="mr-2 h-4 w-4" /> Enviar email
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Mail className="h-4 w-4" />
+                  <span className="hidden sm:inline">Enviar email</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={openConfirmEmail}>
                   <Send className="mr-2 h-4 w-4" /> Confirmación al cliente
                 </DropdownMenuItem>
@@ -327,20 +319,21 @@ const FileDetail = () => {
             <AdminOnly>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm" disabled={deleting}>
-                    <Trash2 className="mr-2 h-4 w-4" />{deleting ? 'Eliminando...' : 'Eliminar'}
+                  <Button variant="destructive" size="sm" disabled={deleting} className="gap-1.5">
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">{deleting ? 'Eliminando...' : 'Eliminar'}</span>
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar expediente {fileLabel}?</AlertDialogTitle>
+                    <AlertDialogTitle>¿Eliminar {fileLabel}?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta acción eliminará el expediente y todos sus datos asociados (servicios, pasajeros, recibos y pagos a operadores). No se puede deshacer.
+                      Se eliminarán todos los datos asociados (servicios, pasajeros, recibos y pagos). Esta acción no se puede deshacer.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
                       Eliminar
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -350,192 +343,220 @@ const FileDetail = () => {
           </div>
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <FolderOpen className="h-8 w-8 text-primary" />
-              <h1 className="font-serif text-2xl font-bold text-foreground md:text-3xl">{fileLabel}</h1>
-              <Badge variant={STATUS_COLORS[status]}>{statusInfo?.label}</Badge>
+        {/* ── Hero del expediente ──────────────────────────────── */}
+        <div className="mb-5 overflow-hidden rounded-2xl border bg-card shadow-sm">
+          {/* Barra de color según estado */}
+          <div className={`h-1 w-full ${
+            status === 'confirmed'   ? 'bg-primary' :
+            status === 'in_progress' ? 'bg-amber-500' :
+            status === 'completed'   ? 'bg-emerald-500' :
+            'bg-destructive'
+          }`} />
+
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              {/* Lado izquierdo */}
+              <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <FolderOpen className="h-6 w-6 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="font-mono text-2xl font-bold text-foreground sm:text-3xl tracking-tight">
+                      {fileLabel}
+                    </h1>
+                    <span className={STATUS_PILL_CLASS[status] || 'status-pill'}>
+                      {statusInfo?.label}
+                    </span>
+                  </div>
+
+                  {/* Metadatos */}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
+                    <button
+                      onClick={() => navigate(`/clients?highlight=${encodeURIComponent(file.client_name)}`)}
+                      className="flex items-center gap-1 font-semibold text-foreground hover:text-primary transition-colors"
+                    >
+                      {file.client_name || 'Sin cliente'}
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+
+                    {file.destination && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />{file.destination}
+                      </span>
+                    )}
+
+                    {file.start_date && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {new Date(file.start_date).toLocaleDateString('es-AR')}
+                        {file.end_date && ` → ${new Date(file.end_date).toLocaleDateString('es-AR')}`}
+                      </span>
+                    )}
+
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />{file.travelers} pax
+                    </span>
+
+                    {file.quote_id && (
+                      <button
+                        onClick={() => navigate(`/quote/${file.quote_id}`)}
+                        className="flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <FileText className="h-3.5 w-3.5" />Presupuesto
+                      </button>
+                    )}
+
+                    {file.quote_id && (
+                      <button
+                        onClick={async () => {
+                          if (!user || !file.quote_id) return;
+                          const { data: q, error } = await supabase
+                            .from('quotes').select('*').eq('id', file.quote_id).maybeSingle();
+                          if (error || !q) { toast.error('No se pudo leer el presupuesto'); return; }
+                          const result = await syncQuoteFlightsToReservation(q as unknown as Quote, file.id, user.id);
+                          if (result.created) toast.success(`${result.segmentsCreated} vuelo(s) sincronizados`);
+                          else if (result.reason === 'already_exists') toast.info('Vuelos ya sincronizados');
+                          else if (result.reason === 'no_valid_flights') toast.info('Sin vuelos con fecha y horario');
+                          else toast.error('No se pudieron sincronizar los vuelos');
+                        }}
+                        className="flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <Plane className="h-3.5 w-3.5" />Sincronizar vuelos
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Lado derecho — precio */}
+              <div className="flex flex-row items-center justify-between sm:flex-col sm:items-end sm:text-right gap-2 border-t sm:border-0 pt-3 sm:pt-0">
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Costo: {file.currency} {file.total_cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  </p>
+                  {file.total_price > 0 && file.total_cost > 0 && (
+                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      Margen: {(((file.total_price - file.total_cost) / file.total_cost) * 100).toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <button
-                onClick={() => navigate(`/clients?highlight=${encodeURIComponent(file.client_name)}`)}
-                className="font-medium text-foreground hover:text-primary hover:underline flex items-center gap-1"
-              >
-                {file.client_name || 'Sin cliente'}
-                <ExternalLink className="h-3 w-3" />
-              </button>
-              {file.quote_id && (
-                <>
-                  <button
-                    onClick={() => navigate(`/quote/${file.quote_id}`)}
-                    className="flex items-center gap-1 text-primary hover:underline"
-                  >
-                    <FileText className="h-3.5 w-3.5" />Ver presupuesto
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!user || !file.quote_id) return;
-                      const { data: q, error } = await supabase
-                        .from('quotes').select('*').eq('id', file.quote_id).maybeSingle();
-                      if (error || !q) { toast.error('No se pudo leer el presupuesto'); return; }
-                      const result = await syncQuoteFlightsToReservation(q as unknown as Quote, file.id, user.id);
-                      if (result.created) {
-                        toast.success(`${result.segmentsCreated} vuelo(s) sincronizados al calendario`);
-                      } else if (result.reason === 'already_exists') {
-                        toast.info('Los vuelos ya estaban sincronizados');
-                      } else if (result.reason === 'no_valid_flights') {
-                        toast.info('Este presupuesto no tiene vuelos con fecha y horario');
-                      } else {
-                        toast.error('No se pudieron sincronizar los vuelos');
-                      }
-                    }}
-                    className="flex items-center gap-1 text-primary hover:underline"
-                    title="Sincronizar vuelos del presupuesto al calendario y alertas"
-                  >
-                    <Plane className="h-3.5 w-3.5" />Sincronizar vuelos al calendario
-                  </button>
-                </>
-              )}
-              {file.destination && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{file.destination}</span>}
-              {file.start_date && <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(file.start_date).toLocaleDateString('es-AR')}{file.end_date ? ` - ${new Date(file.end_date).toLocaleDateString('es-AR')}` : ''}</span>}
-              <span className="flex items-center gap-1"><Users className="h-4 w-4" />{file.travelers} pax</span>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold">{file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
-            <p className="text-sm text-muted-foreground">Costo: {file.currency} {file.total_cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
           </div>
         </div>
 
-        {/* Status + Notes */}
-        <Card className="mb-6">
-          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end">
-            <div className="flex-shrink-0">
-              <label className="mb-1 block text-sm font-medium">Estado</label>
+        {/* ── Estado + Notas ───────────────────────────────────── */}
+        <div className="mb-5 rounded-xl border bg-card p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="shrink-0">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Estado del expediente
+              </label>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  {STATUS_OPTIONS.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+
             <div className="flex-1">
-              <div className="mb-1 flex items-center justify-between">
-                <label className="block text-sm font-medium">Notas internas</label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Notas internas
+                </label>
                 {lastSaved && (
-                  <span className="text-xs text-muted-foreground">Guardado {lastSaved.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ✓ Guardado {lastSaved.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 )}
               </div>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Notas privadas sobre este expediente... (autoguardado)" />
+              <Textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Notas privadas sobre este expediente... (autoguardado)"
+                className="resize-none"
+              />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Tabs */}
+        {/* ── Tabs ─────────────────────────────────────────────── */}
         <Tabs defaultValue="summary">
-          <TabsList className="mb-4 flex-wrap h-auto">
-            <TabsTrigger value="summary">Resumen</TabsTrigger>
-            <TabsTrigger value="services">Servicios</TabsTrigger>
-            <TabsTrigger value="passengers">Pasajeros</TabsTrigger>
-            <TabsTrigger value="suppliers">Operadores</TabsTrigger>
-            <TabsTrigger value="receipts">Recibos</TabsTrigger>
-            <TabsTrigger value="communications">Comunicaciones</TabsTrigger>
-          </TabsList>
+          <div className="mb-4 overflow-x-auto">
+            <TabsList className="flex-wrap h-auto gap-0.5 w-full sm:w-auto">
+              <TabsTrigger value="summary"       className="text-xs sm:text-sm">Info</TabsTrigger>
+              <TabsTrigger value="services"      className="text-xs sm:text-sm">Servicios</TabsTrigger>
+              <TabsTrigger value="payments"      className="text-xs sm:text-sm">Pagos</TabsTrigger>
+              <TabsTrigger value="deudas"        className="text-xs sm:text-sm">Deudas</TabsTrigger>
+              <TabsTrigger value="attachments"   className="text-xs sm:text-sm">Archivos</TabsTrigger>
+              <TabsTrigger value="receipts"      className="text-xs sm:text-sm">Recibos</TabsTrigger>
+              <TabsTrigger value="tarjetas"      className="text-xs sm:text-sm">Tarjetas</TabsTrigger>
+              <TabsTrigger value="incidencias"   className="text-xs sm:text-sm">Incidencias</TabsTrigger>
+              <TabsTrigger value="vouchers"      className="text-xs sm:text-sm">Vouchers</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="summary">
-            <FileFinancialSummary fileId={file.id} />
+            <div className="space-y-6">
+              <FileFinancialSummary fileId={file.id} />
+              <div className="grid gap-6 md:grid-cols-2">
+                <FilePassengersTab fileId={file.id} />
+                <FileCommunicationsTab fileId={file.id} />
+              </div>
+            </div>
           </TabsContent>
           <TabsContent value="services">
             <FileServicesTab fileId={file.id} currency={file.currency} />
           </TabsContent>
-          <TabsContent value="passengers">
-            <FilePassengersTab fileId={file.id} />
-          </TabsContent>
-          <TabsContent value="suppliers">
+          <TabsContent value="payments">
             <FileSuppliersTab fileId={file.id} currency={file.currency} />
+          </TabsContent>
+          <TabsContent value="deudas">
+            <FileDebtsTab fileId={file.id} currency={file.currency} />
+          </TabsContent>
+          <TabsContent value="attachments">
+            <FileAttachmentsTab fileId={file.id} agencyId={file.agency_id} />
           </TabsContent>
           <TabsContent value="receipts">
             <FileReceiptsTab fileId={file.id} clientName={file.client_name} currency={file.currency} clientId={file.client_id} />
           </TabsContent>
-          <TabsContent value="communications">
-            <FileCommunicationsTab fileId={file.id} />
+          <TabsContent value="tarjetas">
+            <FileTarjetasTab fileId={file.id} />
+          </TabsContent>
+          <TabsContent value="incidencias">
+            <FileIncidenciasTab fileId={file.id} agencyId={file.agency_id} />
+          </TabsContent>
+          <TabsContent value="vouchers">
+            <FileVouchersTab fileId={file.id} clientName={file.client_name} />
           </TabsContent>
         </Tabs>
+
       </main>
 
-      {/* Diálogo: Confirmación al cliente */}
-      <Dialog open={confirmEmailOpen} onOpenChange={setConfirmEmailOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enviar confirmación al cliente</DialogTitle>
-            <DialogDescription>
-              Se enviará un email con los datos del expediente {fileLabel}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label htmlFor="client-email">Email del cliente</Label>
-              <Input
-                id="client-email"
-                type="email"
-                value={clientEmail}
-                onChange={e => setClientEmail(e.target.value)}
-                placeholder="cliente@ejemplo.com"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmEmailOpen(false)} disabled={sendingEmail}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSendConfirmation} disabled={sendingEmail || !clientEmail}>
-              <Send className="mr-2 h-4 w-4" />{sendingEmail ? 'Enviando...' : 'Enviar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Diálogo: Voucher a operador */}
-      <Dialog open={voucherEmailOpen} onOpenChange={setVoucherEmailOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enviar voucher a operador</DialogTitle>
-            <DialogDescription>
-              Se enviará un voucher con los datos del servicio del expediente {fileLabel}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label htmlFor="voucher-supplier">Nombre del operador</Label>
-              <Input
-                id="voucher-supplier"
-                value={voucherSupplier}
-                onChange={e => setVoucherSupplier(e.target.value)}
-                placeholder="Operador / Mayorista"
-              />
-            </div>
-            <div>
-              <Label htmlFor="voucher-email">Email del operador</Label>
-              <Input
-                id="voucher-email"
-                type="email"
-                value={voucherEmail}
-                onChange={e => setVoucherEmail(e.target.value)}
-                placeholder="operador@ejemplo.com"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVoucherEmailOpen(false)} disabled={sendingEmail}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSendVoucher} disabled={sendingEmail || !voucherEmail || !voucherSupplier}>
-              <Send className="mr-2 h-4 w-4" />{sendingEmail ? 'Enviando...' : 'Enviar voucher'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FileDetailEmailDialogs
+        fileLabel={fileLabel}
+        confirmEmailOpen={confirmEmailOpen}
+        setConfirmEmailOpen={setConfirmEmailOpen}
+        clientEmail={clientEmail}
+        setClientEmail={setClientEmail}
+        sendingEmail={sendingEmail}
+        handleSendConfirmation={handleSendConfirmation}
+        voucherEmailOpen={voucherEmailOpen}
+        setVoucherEmailOpen={setVoucherEmailOpen}
+        voucherSupplier={voucherSupplier}
+        setVoucherSupplier={setVoucherSupplier}
+        voucherEmail={voucherEmail}
+        setVoucherEmail={setVoucherEmail}
+        handleSendVoucher={handleSendVoucher}
+      />
     </div>
   );
 };

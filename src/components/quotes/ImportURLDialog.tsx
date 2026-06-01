@@ -186,7 +186,7 @@ export function ImportURLDialog({ open, onOpenChange, onImport }: ImportURLDialo
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-serif">
+          <DialogTitle className="flex items-center gap-2">
             <Link className="h-5 w-5" />
             Importar desde URL
           </DialogTitle>

@@ -30,18 +30,20 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-                     req.headers.get("cf-connecting-ip") || "unknown";
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("cf-connecting-ip") ||
+      "unknown";
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check quote exists and isn't already approved
+    // ── Verificar que el quote existe y no está ya aprobado ──
     const { data: quote, error: fetchError } = await supabase
       .from("quotes")
-      .select("id, status, approved_at, pricing")
+      .select("id, status, approved_at, pricing, client, trip, user_id")
       .eq("id", id)
       .single();
 
@@ -51,18 +53,20 @@ Deno.serve(async (req) => {
     }
 
     if (quote.approved_at) {
-      return new Response(JSON.stringify({ error: "Already approved", approved_at: quote.approved_at }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({ error: "Already approved", approved_at: quote.approved_at }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Reject approvals on expired public links
+    // ── Verificar expiración del link ────────────────────────
     const publicLinkExpiry = (quote.pricing as { publicLinkExpiry?: string } | null)?.publicLinkExpiry;
     if (publicLinkExpiry && new Date(publicLinkExpiry) < new Date()) {
       return new Response(JSON.stringify({ error: "Este enlace ha expirado" }),
         { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Update quote with approval
+    // ── Aprobar el quote ─────────────────────────────────────
     const { error: updateError } = await supabase
       .from("quotes")
       .update({
@@ -78,10 +82,66 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // ── Notificar a la agencia por email ─────────────────────
+    try {
+      const userId = quote.user_id;
+
+      if (userId) {
+        const { data: userData } = await supabase.auth.admin.getUserById(userId);
+        const agencyEmail = userData?.user?.email;
+
+        if (agencyEmail) {
+          const clientName  = (quote.client as any)?.name  || "Cliente";
+          const destination = (quote.trip   as any)?.destination || "Sin destino";
+
+          await supabase.rpc("enqueue_email", {
+            queue_name: "transactional_emails",
+            payload: {
+              to:      agencyEmail,
+              subject: `✅ Presupuesto aprobado — ${clientName} · ${destination}`,
+              label:   "quote_approved_notification",
+              purpose: "transactional",
+              html: `
+                <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+                  <h2 style="color:#1e3a5f;margin-bottom:8px;">¡Presupuesto aprobado!</h2>
+                  <p style="color:#475569;font-size:15px;line-height:1.6;">
+                    Tu cliente <strong>${clientName}</strong> aprobó el presupuesto de
+                    <strong>${destination}</strong>.
+                  </p>
+                  <div style="background:#f1f5f9;border-radius:12px;padding:16px;margin:20px 0;">
+                    <p style="margin:0 0 6px;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">Aprobado por</p>
+                    <p style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">${name.trim()}</p>
+                    <p style="margin:4px 0 0;font-size:12px;color:#94a3b8;">
+                      ${new Date().toLocaleDateString("es-AR", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
+                      · IP: ${clientIp}
+                    </p>
+                  </div>
+                  <p style="color:#475569;font-size:14px;">
+                    Ingresá al sistema para crear el expediente y continuar con la operación.
+                  </p>
+                  <a href="https://axontur.vercel.app"
+                     style="display:inline-block;margin-top:8px;background:#1e3a5f;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+                    Ir a AxonTur
+                  </a>
+                </div>
+              `,
+            },
+          });
+        }
+      }
+    } catch (emailErr) {
+      console.error("quote_approved notification failed:", emailErr);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
   } catch (error) {
-    return new Response(JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

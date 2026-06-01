@@ -72,7 +72,7 @@ export function DuplicateForClientDialog({ open, onOpenChange, onConfirm }: Dupl
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-serif">Duplicar para otro cliente</DialogTitle>
+          <DialogTitle>Duplicar para otro cliente</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="relative">

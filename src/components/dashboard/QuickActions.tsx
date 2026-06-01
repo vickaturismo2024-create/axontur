@@ -50,16 +50,14 @@ export function QuickActions() {
         <button
           key={action.href}
           onClick={() => navigate(action.href)}
-          className={cn(
-            'flex flex-col items-center justify-center gap-2 rounded-xl border p-4',
-            'transition-all duration-150 active:scale-[0.97]',
-            'text-center cursor-pointer',
-            action.bgColor,
-          )}
+          className="group flex flex-col items-center justify-center gap-2.5 rounded-xl border border-border bg-card p-4 text-center transition-all duration-200 hover:border-primary/30 hover:shadow-md active:scale-[0.97] cursor-pointer"
         >
-          <span className={cn('rounded-lg p-2', action.bgColor, action.color)}>
-            {action.icon}
-          </span>
+          <div className={cn(
+            'flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110',
+            action.bgColor,
+          )}>
+            <span className={action.color}>{action.icon}</span>
+          </div>
           <span className={cn('text-xs font-semibold leading-tight', action.color)}>
             {action.label}
           </span>

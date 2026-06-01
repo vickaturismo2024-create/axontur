@@ -1,7 +1,6 @@
 import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
-import { parseEmailWebhookPayload } from 'npm:@lovable.dev/email-js'
-import { WebhookError, verifyWebhookRequest } from 'npm:@lovable.dev/webhooks-js'
+import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { SignupEmail } from '../_shared/email-templates/signup.tsx'
 import { InviteEmail } from '../_shared/email-templates/invite.tsx'
@@ -37,16 +36,16 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 
 // Configuration
 const SITE_NAME = "axontur"
-const SENDER_DOMAIN = "notify.vickaturismo.tur.ar"
+const SENDER_DOMAIN = "mail.vickaturismo.tur.ar"
 const ROOT_DOMAIN = "vickaturismo.tur.ar"
-const FROM_DOMAIN = "vickaturismo.tur.ar" // Domain shown in From address (may be root or sender subdomain)
+const FROM_DOMAIN = "mail.vickaturismo.tur.ar" // Domain shown in From address (may be root or sender subdomain)
 
 // Sample data for preview mode ONLY (not used in actual email sending).
 // URLs are baked in at scaffold time from the project's real data.
 // The sample email uses a fixed placeholder (RFC 6761 .test TLD) so the Go backend
 // can always find-and-replace it with the actual recipient when sending test emails,
 // even if the project's domain has changed since the template was scaffolded.
-const SAMPLE_PROJECT_URL = "https://axontur.lovable.app"
+const SAMPLE_PROJECT_URL = "https://vickaturismo.tur.ar"
 const SAMPLE_EMAIL = "user@example.test"
 const SAMPLE_DATA: Record<string, object> = {
   signup: {
@@ -90,10 +89,10 @@ async function handlePreview(req: Request): Promise<Response> {
     return new Response(null, { headers: previewCorsHeaders })
   }
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const authHeader = req.headers.get('Authorization')
 
-  if (!apiKey || authHeader !== `Bearer ${apiKey}`) {
+  if (!serviceKey || authHeader !== `Bearer ${serviceKey}`) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...previewCorsHeaders, 'Content-Type': 'application/json' },
@@ -131,82 +130,91 @@ async function handlePreview(req: Request): Promise<Response> {
 
 // Webhook handler - verifies signature and sends email
 async function handleWebhook(req: Request): Promise<Response> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET')
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
 
-  if (!apiKey) {
-    console.error('LOVABLE_API_KEY not configured')
-    return new Response(
-      JSON.stringify({ error: 'Server configuration error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  }
-
-  // Verify signature + timestamp, then parse payload.
-  let payload: any
+  let verifiedPayload: any
   let run_id = ''
-  try {
-    const verified = await verifyWebhookRequest({
-      req,
-      secret: apiKey,
-      parser: parseEmailWebhookPayload,
-    })
-    payload = verified.payload
-    run_id = payload.run_id
-  } catch (error) {
-    if (error instanceof WebhookError) {
-      switch (error.code) {
-        case 'invalid_signature':
-        case 'missing_timestamp':
-        case 'invalid_timestamp':
-        case 'stale_timestamp':
-          console.error('Invalid webhook signature', { error: error.message })
-          return new Response(JSON.stringify({ error: 'Invalid signature' }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          })
-        case 'invalid_payload':
-        case 'invalid_json':
-          console.error('Invalid webhook payload', { error: error.message })
-          return new Response(
-            JSON.stringify({ error: 'Invalid webhook payload' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-      }
+
+  if (hookSecret) {
+    // Verify using standardwebhooks
+    const payloadText = await req.text()
+    const headers = Object.fromEntries(req.headers)
+    const secretClean = hookSecret.startsWith('v1,whsec_')
+      ? hookSecret.replace('v1,whsec_', '')
+      : hookSecret
+    const wh = new Webhook(secretClean)
+
+    try {
+      verifiedPayload = wh.verify(payloadText, headers)
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err)
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+  } else {
+    // Webhook secret is not set, verify client is service role
+    const authHeader = req.headers.get('Authorization')
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : ''
+    const claims = parseJwtClaims(token)
+
+    if (token !== serviceKey && claims?.role !== 'service_role') {
+      console.error('Unauthorized hook invocation: missing correct SEND_EMAIL_HOOK_SECRET or service role authorization')
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    console.error('Webhook verification failed', { error })
-    return new Response(
-      JSON.stringify({ error: 'Invalid webhook payload' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  }
-
-  if (!run_id) {
-    console.error('Webhook payload missing run_id')
-    return new Response(
-      JSON.stringify({ error: 'Invalid webhook payload' }),
-      {
+    const payloadText = await req.text()
+    try {
+      verifiedPayload = JSON.parse(payloadText)
+    } catch (err) {
+      console.error('Failed to parse webhook JSON payload:', err)
+      return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
+      })
+    }
   }
 
-  if (payload.version !== '1') {
-    console.error('Unsupported payload version', { version: payload.version, run_id })
-    return new Response(
-      JSON.stringify({ error: `Unsupported payload version: ${payload.version}` }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
+  // Parse payload, support both native Supabase format and old Lovable format
+  let emailType: string
+  let recipient: string
+  let token: string | null = null
+  let tokenHash: string | null = null
+  let newEmail: string | null = null
+  run_id = verifiedPayload.run_id || crypto.randomUUID()
+
+  if (verifiedPayload.email_data && verifiedPayload.user) {
+    // Native Supabase hook format
+    const emailData = verifiedPayload.email_data
+    const user = verifiedPayload.user
+    emailType = emailData.email_action_type
+    recipient = user.email
+    token = emailData.token
+    tokenHash = emailData.token_hash
+    newEmail = user.new_email || emailData.new_email
+  } else if (verifiedPayload.data) {
+    // Old Lovable webhook format
+    const data = verifiedPayload.data
+    emailType = data.action_type
+    recipient = data.email
+    token = data.token
+    tokenHash = data.token_hash
+    newEmail = data.new_email
+  } else {
+    console.error('Unknown webhook payload structure:', verifiedPayload)
+    return new Response(JSON.stringify({ error: 'Unknown webhook payload structure' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
-  // The email action type is in payload.data.action_type (e.g., "signup", "recovery")
-  // payload.type is the hook event type ("auth")
-  const emailType = payload.data.action_type
-  console.log('Received auth event', { emailType, email: payload.data.email, run_id })
+  console.log('Received auth event', { emailType, email: recipient, run_id })
 
   const EmailTemplate = EMAIL_TEMPLATES[emailType]
   if (!EmailTemplate) {
@@ -217,15 +225,25 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
-  // Build template props from payload.data (HookData structure)
+  // Construct confirmation URL:
+  let confirmationUrl = ''
+  if (tokenHash) {
+    const redirectUrl = verifiedPayload.email_data?.redirect_to || verifiedPayload.email_data?.site_url || `https://${ROOT_DOMAIN}`
+    const typeParam = emailType === 'magiclink' ? 'magiclink' : emailType
+    confirmationUrl = `${supabaseUrl}/auth/v1/verify?token=${tokenHash}&type=${typeParam}&redirect_to=${encodeURIComponent(redirectUrl)}`
+  } else {
+    confirmationUrl = verifiedPayload.data?.url || verifiedPayload.url || `https://${ROOT_DOMAIN}`
+  }
+
+  // Build template props from payload
   const templateProps = {
     siteName: SITE_NAME,
     siteUrl: `https://${ROOT_DOMAIN}`,
-    recipient: payload.data.email,
-    confirmationUrl: payload.data.url,
-    token: payload.data.token,
-    email: payload.data.email,
-    newEmail: payload.data.new_email,
+    recipient,
+    confirmationUrl,
+    token,
+    email: recipient,
+    newEmail,
   }
 
   // Render React Email to HTML and plain text
@@ -246,7 +264,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   await supabase.from('email_send_log').insert({
     message_id: messageId,
     template_name: emailType,
-    recipient_email: payload.data.email,
+    recipient_email: recipient,
     status: 'pending',
   })
 
@@ -255,7 +273,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     payload: {
       run_id,
       message_id: messageId,
-      to: payload.data.email,
+      to: recipient,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
       subject: EMAIL_SUBJECTS[emailType] || 'Notification',
@@ -272,7 +290,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     await supabase.from('email_send_log').insert({
       message_id: messageId,
       template_name: emailType,
-      recipient_email: payload.data.email,
+      recipient_email: recipient,
       status: 'failed',
       error_message: 'Failed to enqueue email',
     })
@@ -282,7 +300,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     })
   }
 
-  console.log('Auth email enqueued', { emailType, email: payload.data.email, run_id })
+  console.log('Auth email enqueued', { emailType, email: recipient, run_id })
 
   return new Response(
     JSON.stringify({ success: true, queued: true }),

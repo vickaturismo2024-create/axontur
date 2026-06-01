@@ -25,6 +25,7 @@ export type Database = {
           currency: string
           file_id: string | null
           id: string
+          incidence_id: string | null
           movement_date: string
           movement_type: string
           notes: string | null
@@ -43,6 +44,7 @@ export type Database = {
           currency?: string
           file_id?: string | null
           id?: string
+          incidence_id?: string | null
           movement_date?: string
           movement_type: string
           notes?: string | null
@@ -61,6 +63,7 @@ export type Database = {
           currency?: string
           file_id?: string | null
           id?: string
+          incidence_id?: string | null
           movement_date?: string
           movement_type?: string
           notes?: string | null
@@ -82,6 +85,13 @@ export type Database = {
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "file_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_movements_incidence_id_fkey"
+            columns: ["incidence_id"]
+            isOneToOne: true
+            referencedRelation: "file_incidencias"
             referencedColumns: ["id"]
           },
         ]
@@ -127,6 +137,50 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      agency_cards: {
+        Row: {
+          agency_id: string
+          alias: string
+          banco: string | null
+          created_at: string
+          id: string
+          nro_tarjeta: string | null
+          ultimos_4: string | null
+          updated_at: string
+          vencimiento: string | null
+        }
+        Insert: {
+          agency_id: string
+          alias: string
+          banco?: string | null
+          created_at?: string
+          id?: string
+          nro_tarjeta?: string | null
+          ultimos_4?: string | null
+          updated_at?: string
+          vencimiento?: string | null
+        }
+        Update: {
+          agency_id?: string
+          alias?: string
+          banco?: string | null
+          created_at?: string
+          id?: string
+          nro_tarjeta?: string | null
+          ultimos_4?: string | null
+          updated_at?: string
+          vencimiento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_cards_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       agency_invitations: {
         Row: {
@@ -615,6 +669,66 @@ export type Database = {
           },
         ]
       }
+      file_incidencias: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          descripcion: string
+          estado_gestion: string
+          fecha: string
+          file_id: string
+          id: string
+          impacto_caja: boolean
+          moneda: string
+          monto: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          descripcion: string
+          estado_gestion?: string
+          fecha?: string
+          file_id: string
+          id?: string
+          impacto_caja?: boolean
+          moneda?: string
+          monto?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string
+          estado_gestion?: string
+          fecha?: string
+          file_id?: string
+          id?: string
+          impacto_caja?: boolean
+          moneda?: string
+          monto?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_incidencias_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_incidencias_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       file_passengers: {
         Row: {
           agency_id: string | null
@@ -824,6 +938,29 @@ export type Database = {
           supplier_name: string | null
           updated_at: string
           user_id: string
+          end_date: string | null
+          origin: string | null
+          destination: string | null
+          airline: string | null
+          flight_number: string | null
+          cabin_class: string | null
+          regime: string | null
+          room_type: string | null
+          pickup_location: string | null
+          dropoff_location: string | null
+          company: string | null
+          departure_time: string | null
+          arrival_time: string | null
+          luggage: string | null
+          luggage_type: string | null
+          hotel_category: string | null
+          ship_name: string | null
+          embarkation_port: string | null
+          disembarkation_port: string | null
+          deck: string | null
+          cabin_number: string | null
+          coverage: string | null
+          insurance_plan: string | null
         }
         Insert: {
           agency_id?: string | null
@@ -844,6 +981,29 @@ export type Database = {
           supplier_name?: string | null
           updated_at?: string
           user_id: string
+          end_date?: string | null
+          origin?: string | null
+          destination?: string | null
+          airline?: string | null
+          flight_number?: string | null
+          cabin_class?: string | null
+          regime?: string | null
+          room_type?: string | null
+          pickup_location?: string | null
+          dropoff_location?: string | null
+          company?: string | null
+          departure_time?: string | null
+          arrival_time?: string | null
+          luggage?: string | null
+          luggage_type?: string | null
+          hotel_category?: string | null
+          ship_name?: string | null
+          embarkation_port?: string | null
+          disembarkation_port?: string | null
+          deck?: string | null
+          cabin_number?: string | null
+          coverage?: string | null
+          insurance_plan?: string | null
         }
         Update: {
           agency_id?: string | null
@@ -864,6 +1024,29 @@ export type Database = {
           supplier_name?: string | null
           updated_at?: string
           user_id?: string
+          end_date?: string | null
+          origin?: string | null
+          destination?: string | null
+          airline?: string | null
+          flight_number?: string | null
+          cabin_class?: string | null
+          regime?: string | null
+          room_type?: string | null
+          pickup_location?: string | null
+          dropoff_location?: string | null
+          company?: string | null
+          departure_time?: string | null
+          arrival_time?: string | null
+          luggage?: string | null
+          luggage_type?: string | null
+          hotel_category?: string | null
+          ship_name?: string | null
+          embarkation_port?: string | null
+          disembarkation_port?: string | null
+          deck?: string | null
+          cabin_number?: string | null
+          coverage?: string | null
+          insurance_plan?: string | null
         }
         Relationships: [
           {

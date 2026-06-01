@@ -120,7 +120,7 @@ export function QuoteComparator({ quotes, open, onOpenChange }: QuoteComparatorP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">Comparador de Presupuestos</DialogTitle>
+          <DialogTitle className="text-xl">Comparador de Presupuestos</DialogTitle>
         </DialogHeader>
 
         {/* Trip Info */}

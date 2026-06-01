@@ -157,7 +157,79 @@ const Files = () => {
           </Card>
         ) : (
           <>
-            <div className="grid gap-2 sm:gap-4">
+            {/* Desktop Table View */}
+            <div className="hidden sm:block glass-card-premium overflow-hidden rounded-2xl border bg-card/40 shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold tracking-wider">Expediente</th>
+                      <th className="px-6 py-4 font-semibold tracking-wider">Cliente</th>
+                      <th className="px-6 py-4 font-semibold tracking-wider">Destino</th>
+                      <th className="px-6 py-4 font-semibold tracking-wider">Fechas</th>
+                      <th className="px-6 py-4 font-semibold tracking-wider">Pasajeros</th>
+                      <th className="px-6 py-4 font-semibold tracking-wider">Precio / Costo</th>
+                      <th className="px-6 py-4 font-semibold tracking-wider">Estado</th>
+                      <th className="px-6 py-4 font-semibold tracking-wider text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {paginated.map(file => {
+                      const st = STATUS_MAP[file.status] || STATUS_MAP.confirmed;
+                      return (
+                        <tr
+                          key={file.id}
+                          onClick={() => navigate(`/files/${file.id}`)}
+                          className="group hover:bg-muted/40 cursor-pointer transition-colors"
+                        >
+                          <td className="px-6 py-4 font-mono font-bold text-primary text-sm">
+                            FILE-{String(file.file_number).padStart(3, '0')}
+                          </td>
+                          <td className="px-6 py-4 font-medium text-foreground">
+                            {file.client_name || 'Sin cliente'}
+                          </td>
+                          <td className="px-6 py-4 text-muted-foreground">
+                            {file.destination || '-'}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-muted-foreground">
+                            {file.start_date ? (
+                              <span>
+                                {new Date(file.start_date).toLocaleDateString('es-AR')}
+                                {file.end_date && ` → ${new Date(file.end_date).toLocaleDateString('es-AR')}`}
+                              </span>
+                            ) : '-'}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-muted-foreground">
+                            {file.travelers} pax
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="font-semibold text-sm">
+                              {file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Costo: {file.currency} {file.total_cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge variant={st.variant} className="text-xs">
+                              {st.label}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-background shadow-sm hover:text-primary transition-colors">
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="sm:hidden grid gap-2">
               {paginated.map(file => {
                 const st = STATUS_MAP[file.status] || STATUS_MAP.confirmed;
                 return (
@@ -166,12 +238,7 @@ const Files = () => {
                     className="cursor-pointer transition-shadow hover:shadow-md active:scale-[0.99]"
                     onClick={() => navigate(`/files/${file.id}`)}
                   >
-                    <CardContent className="flex items-center gap-3 p-3 sm:p-4">
-                      {/* Ícono — se oculta en mobile para ganar espacio */}
-                      <div className="hidden sm:flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <FolderOpen className="h-6 w-6 text-primary" />
-                      </div>
-
+                    <CardContent className="flex items-center gap-3 p-3">
                       {/* Contenido principal */}
                       <div className="flex-1 min-w-0">
                         {/* Fila superior: número + badge + precio (mobile) */}
@@ -191,7 +258,7 @@ const Files = () => {
                         </div>
 
                         {/* Nombre cliente */}
-                        <p className="mt-0.5 truncate text-sm font-medium sm:text-base">
+                        <p className="mt-0.5 truncate text-sm font-medium">
                           {file.client_name || 'Sin cliente'}
                         </p>
 
@@ -200,7 +267,7 @@ const Files = () => {
                           {file.destination && (
                             <span className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate max-w-[120px] sm:max-w-none">
+                              <span className="truncate max-w-[120px]">
                                 {file.destination}
                               </span>
                             </span>
@@ -216,16 +283,6 @@ const Files = () => {
                             {file.travelers} pax
                           </span>
                         </div>
-                      </div>
-
-                      {/* Precio desktop */}
-                      <div className="hidden sm:block flex-shrink-0 text-right">
-                        <p className="text-lg font-bold">
-                          {file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Costo: {file.currency} {file.total_cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                        </p>
                       </div>
 
                       <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />

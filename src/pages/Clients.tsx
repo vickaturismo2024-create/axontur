@@ -223,123 +223,158 @@ const Clients = () => {
   };
 
   return (
-  <div className="min-h-screen bg-background">
+  <div className="min-h-screen bg-background animate-fadeInUp">
     <Header />
-    <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
+    <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8 max-w-7xl">
 
-      {/* Encabezado */}
+      {/* ── Encabezado ───────────────────────────────────────── */}
       <div className="mb-4 sm:mb-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-serif text-xl font-bold text-foreground flex items-center gap-2 sm:text-3xl">
-              <Users className="h-6 w-6 sm:h-8 sm:w-8" /> Clientes
+            <h1 className="font-serif text-2xl font-bold text-foreground flex items-center gap-2 sm:text-3xl tracking-tight">
+              <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" /> Clientes
             </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground sm:mt-1">
-              Gestioná tus clientes, importá desde Excel y organizalos en grupos
+            <p className="mt-1 text-sm text-muted-foreground">
+              Gestioná tu cartera de clientes, importá contactos y organizalos en grupos
             </p>
           </div>
           {/* Botones — 2x2 en mobile, fila en desktop */}
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row">
-            <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="w-full sm:w-auto">
+            <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="w-full sm:w-auto hover:bg-muted/50">
               <Upload className="mr-2 h-4 w-4" /> Importar
             </Button>
             {clients.length > 0 && (
-              <Button variant="outline" size="sm" onClick={handleExport} className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" onClick={handleExport} className="w-full sm:w-auto hover:bg-muted/50">
                 <Download className="mr-2 h-4 w-4" /> Exportar
               </Button>
             )}
-            <Button size="sm" onClick={handleNew} className="col-span-2 sm:col-span-1 sm:w-auto">
+            <Button size="sm" onClick={handleNew} className="col-span-2 sm:col-span-1 sm:w-auto btn-premium">
               <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
             </Button>
           </div>
         </div>
       </div>
 
-      <Tabs defaultValue="clients">
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="clients" className="flex-1 sm:flex-none">
-            Clientes ({clients.length})
-          </TabsTrigger>
-          <TabsTrigger value="groups" className="flex-1 sm:flex-none">
-            Grupos
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="clients" className="space-y-6">
+        <div className="border-b">
+          <TabsList className="bg-transparent h-12 p-0 w-full justify-start gap-6 rounded-none">
+            <TabsTrigger 
+              value="clients" 
+              className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-1 font-medium text-muted-foreground data-[state=active]:text-foreground"
+            >
+              Clientes ({clients.length})
+            </TabsTrigger>
+            <TabsTrigger 
+              value="groups" 
+              className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-1 font-medium text-muted-foreground data-[state=active]:text-foreground"
+            >
+              Grupos
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="clients" className="mt-4 sm:mt-6">
+        <TabsContent value="clients" className="m-0 focus-visible:outline-none">
           {/* Alerta documentos */}
           {docAlerts.total > 0 && (
-            <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950 sm:items-center sm:gap-3">
-              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5 sm:mt-0 sm:h-5 sm:w-5" />
-              <p className="text-xs flex-1 sm:text-sm">
-                {docAlerts.expired > 0 && (
-                  <span className="font-semibold text-destructive">{docAlerts.expired} vencido(s)</span>
-                )}
-                {docAlerts.expired > 0 && docAlerts.expiring > 0 && ' · '}
-                {docAlerts.expiring > 0 && (
-                  <span className="font-semibold text-yellow-700 dark:text-yellow-400">
-                    {docAlerts.expiring} por vencer
-                  </span>
-                )}
-              </p>
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20 shadow-sm backdrop-blur-sm sm:items-center">
+              <div className="rounded-full bg-amber-100 p-2 dark:bg-amber-900/50 shrink-0">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">Atención con los documentos</p>
+                <p className="text-xs text-amber-700/80 dark:text-amber-400/80 mt-0.5">
+                  {docAlerts.expired > 0 && (
+                    <span className="font-semibold text-destructive">{docAlerts.expired} vencido(s)</span>
+                  )}
+                  {docAlerts.expired > 0 && docAlerts.expiring > 0 && ' · '}
+                  {docAlerts.expiring > 0 && (
+                    <span className="font-semibold text-amber-700 dark:text-amber-400">
+                      {docAlerts.expiring} por vencer pronto
+                    </span>
+                  )}
+                </p>
+              </div>
               <Button
                 variant={docFilter ? 'default' : 'outline'}
                 size="sm"
-                className="shrink-0 h-7 text-xs sm:h-8 sm:text-sm"
+                className="shrink-0 h-9"
                 onClick={() => setDocFilter(!docFilter)}
               >
-                <ShieldAlert className="mr-1 h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                {docFilter ? 'Todos' : 'Filtrar'}
+                <ShieldAlert className="mr-2 h-4 w-4" />
+                {docFilter ? 'Ver Todos' : 'Filtrar Riesgos'}
               </Button>
             </div>
           )}
 
           {/* Buscador */}
-          <div className="mb-4 sm:mb-6">
-            <div className="relative">
+          <div className="mb-6">
+            <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre, email, teléfono o DNI..."
-                className="pl-10 h-9 sm:h-10"
+                className="pl-10 h-11 rounded-xl bg-card/50 backdrop-blur-sm border-muted-foreground/20 focus-visible:ring-primary/30"
               />
             </div>
           </div>
 
           {/* Lista */}
           {loading ? (
-            <div className="space-y-2 sm:space-y-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Card key={i}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="h-4 w-4" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-5 w-48" />
-                        <Skeleton className="h-4 w-56 sm:w-72" />
-                      </div>
-                      <Skeleton className="h-6 w-16 sm:w-20" />
-                    </div>
-                  </CardHeader>
-                </Card>
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-xl" />
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <Card className="py-10 text-center sm:py-12">
-              <CardContent>
-                <Users className="mx-auto h-10 w-10 text-muted-foreground/50 sm:h-12 sm:w-12" />
-                <p className="mt-3 text-sm text-muted-foreground sm:mt-4">
-                  {search
-                    ? 'No se encontraron clientes'
-                    : 'Aún no tenés clientes. ¡Creá el primero o importá desde Excel!'}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="glass-card-premium py-16 text-center rounded-2xl">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 mb-4">
+                <Users className="h-10 w-10 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">
+                {search ? 'No se encontraron resultados' : 'Sin clientes registrados'}
+              </h3>
+              <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
+                {search
+                  ? 'Intentá con otros términos de búsqueda.'
+                  : 'Comenzá agregando tu primer cliente o importá tu base de datos desde un archivo Excel.'}
+              </p>
+            </div>
           ) : (
             <>
-              <div className="space-y-2 sm:space-y-3">
+              {/* Desktop Table View */}
+              <div className="hidden sm:block glass-card-premium overflow-hidden rounded-2xl border bg-card/40 shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold tracking-wider">Cliente</th>
+                        <th className="px-6 py-4 font-semibold tracking-wider">Contacto</th>
+                        <th className="px-6 py-4 font-semibold tracking-wider">Documentos</th>
+                        <th className="px-6 py-4 font-semibold tracking-wider text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {paginated.map(client => (
+                        <ClientTableRow
+                          key={client.id}
+                          client={client}
+                          quotes={getClientQuotes(client)}
+                          onEdit={() => handleEdit(client)}
+                          onDelete={() => setDeleteTargetId(client.id)}
+                          navigate={navigate}
+                          defaultOpen={!!highlightName && client.name === highlightName}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="sm:hidden space-y-3">
                 {paginated.map(client => (
-                  <ExpandableClientCard
+                  <ClientMobileCard
                     key={client.id}
                     client={client}
                     quotes={getClientQuotes(client)}
@@ -353,29 +388,27 @@ const Clients = () => {
 
               {/* Paginación */}
               {totalPages > 1 && (
-                <div className="mt-4 flex items-center justify-between gap-2 sm:mt-6">
-                  <p className="text-xs text-muted-foreground sm:text-sm">
-                    Pág. {currentPage}/{totalPages} · {filtered.length} clientes
+                <div className="mt-6 flex items-center justify-between gap-2 px-1">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Pág. <span className="text-foreground">{currentPage}</span> de {totalPages} <span className="mx-1 text-border">|</span> {filtered.length} clientes
                   </p>
-                  <div className="flex items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       disabled={currentPage <= 1}
                       onClick={() => setPage(p => Math.max(1, p - 1))}
-                      className="h-8 px-2 sm:px-3"
+                      className="h-9 hover:bg-muted/50 rounded-lg"
                     >
                       <ChevronLeft className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-1">Anterior</span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       disabled={currentPage >= totalPages}
                       onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      className="h-8 px-2 sm:px-3"
+                      className="h-9 hover:bg-muted/50 rounded-lg"
                     >
-                      <span className="hidden sm:inline mr-1">Siguiente</span>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
@@ -385,7 +418,7 @@ const Clients = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="groups" className="mt-4 sm:mt-6">
+        <TabsContent value="groups" className="m-0 focus-visible:outline-none">
           <GroupsManager clients={clients} />
         </TabsContent>
       </Tabs>
@@ -407,14 +440,14 @@ const Clients = () => {
     />
 
     <AlertDialog open={!!deleteTargetId} onOpenChange={() => setDeleteTargetId(null)}>
-      <AlertDialogContent className="mx-3 sm:mx-auto">
+      <AlertDialogContent className="mx-3 sm:mx-auto rounded-2xl">
         <AlertDialogHeader>
           <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
-          <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+          <AlertDialogDescription>Esta acción no se puede deshacer y borrará permanentemente sus datos.</AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
-          <AlertDialogCancel className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete} className="w-full sm:w-auto bg-destructive text-destructive-foreground">
+        <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0 mt-4">
+          <AlertDialogCancel className="w-full sm:w-auto rounded-xl">Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} className="w-full sm:w-auto rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Eliminar
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -453,30 +486,13 @@ const FILE_FILTERS = [
 
 interface FileRecord { id: string; file_number: number; destination: string; status: string; start_date: string | null; }
 
-function ExpandableClientCard({ client, quotes, onEdit, onDelete, navigate, defaultOpen }: {
-  client: ClientRecord;
-  quotes: Quote[];
-  onEdit: () => void;
-  onDelete: () => void;
-  navigate: ReturnType<typeof useNavigate>;
-  defaultOpen?: boolean;
-}) {
+function useClientExpandable(client: ClientRecord, quotes: Quote[], defaultOpen: boolean) {
   const { user } = useAuth();
-  const [open, setOpen] = useState(defaultOpen || false);
+  const [open, setOpen] = useState(defaultOpen);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [filesLoaded, setFilesLoaded] = useState(false);
   const [quoteFilter, setQuoteFilter] = useState('all');
   const [fileFilter, setFileFilter] = useState('all');
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll when defaultOpen
-  useEffect(() => {
-    if (defaultOpen && cardRef.current) {
-      setTimeout(() => {
-        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
-    }
-  }, [defaultOpen]);
 
   useEffect(() => {
     if (!open || filesLoaded || !user) return;
@@ -509,245 +525,250 @@ function ExpandableClientCard({ client, quotes, onEdit, onDelete, navigate, defa
     return files.filter(f => filter.statuses!.includes(f.status)).length;
   }, [files]);
 
+  return { open, setOpen, files, filesLoaded, quoteFilter, setQuoteFilter, fileFilter, setFileFilter, filteredQuotes, filteredFiles, quoteCountByFilter, fileCountByFilter };
+}
+
+function ClientDetailsExpanded({ client, quotes, hookState, navigate, onEdit, onDelete }: {
+  client: ClientRecord; quotes: Quote[]; hookState: ReturnType<typeof useClientExpandable>; navigate: any; onEdit: () => void; onDelete: () => void;
+}) {
+  const { files, filesLoaded, quoteFilter, setQuoteFilter, fileFilter, setFileFilter, filteredQuotes, filteredFiles, quoteCountByFilter, fileCountByFilter } = hookState;
   const detail = (label: string, value: string | undefined | null) =>
-    value ? <span className="text-xs"><span className="font-medium text-foreground">{label}:</span> {value}</span> : null;
+    value ? <div className="text-sm"><span className="text-slate-600 font-semibold mr-1">{label}:</span> <span className="text-foreground font-medium">{value}</span></div> : null;
 
   return (
-  <Collapsible open={open} onOpenChange={setOpen}>
-    <Card ref={cardRef} className={defaultOpen ? 'ring-2 ring-primary' : ''}>
-
-      {/* Header expandible */}
-      <CollapsibleTrigger asChild>
-        <CardHeader className="cursor-pointer pb-2 hover:bg-muted/50 transition-colors px-3 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            {open
-              ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-              : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-            }
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-base sm:text-lg truncate">{client.name}</CardTitle>
-              {/* Datos de contacto — ocultos en mobile si hay badges */}
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground sm:text-sm sm:mt-1">
-                {client.dni && (
-                  <span className="hidden sm:flex items-center gap-1">
-                    <FileText className="h-3 w-3" />DNI: {client.dni}
-                  </span>
-                )}
-                {client.email && (
-                  <span className="hidden sm:flex items-center gap-1 max-w-[200px] truncate">
-                    <Mail className="h-3 w-3 shrink-0" />{client.email}
-                  </span>
-                )}
-                {(client.phone || client.phone_mobile) && (
-                  <span className="flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    {client.phone_mobile || client.phone}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Badges — compactos en mobile */}
-            <div className="flex items-center gap-1 shrink-0 sm:gap-2">
-              <DocumentAlertBadge label="DNI" dateStr={client.dni_expiry} compact />
-              <DocumentAlertBadge label="Pas." dateStr={client.passport_expiry} compact />
-              {quotes.length > 0 && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 sm:text-xs sm:px-2">
-                  {quotes.length}p
-                </Badge>
-              )}
-            </div>
+    <div className="grid gap-6 md:grid-cols-12 animate-fadeInUp">
+      {/* Columna Izquierda: Datos */}
+      <div className="md:col-span-4 space-y-4">
+        <div className="rounded-xl bg-background/50 border p-4 backdrop-blur-sm">
+          <h4 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Datos Personales</h4>
+          <div className="space-y-2">
+            {detail('Dirección', client.address)}
+            {detail('Localidad', client.locality)}
+            {detail('Nacionalidad', client.nationality)}
+            {detail('Nacimiento', client.birth_date)}
+            {detail('Sexo', client.sex)}
+            {detail('CUIL/CUIT', client.cuil_cuit)}
+            {detail('DNI', client.dni)}
+            {detail('Emisión DNI', client.dni_expiry ? '...' : null) /* simplified */}
+            {detail('Vto. DNI', client.dni_expiry)}
+            {detail('Pasaporte', client.passport)}
+            {detail('Vto. Pasaporte', client.passport_expiry)}
           </div>
-        </CardHeader>
-      </CollapsibleTrigger>
-
-      {/* Contenido expandido */}
-      <CollapsibleContent>
-        <CardContent className="pt-0 pb-3 px-3 space-y-3 sm:pb-4 sm:px-6 sm:space-y-4">
-
-          {/* Datos personales */}
-          <div className="rounded-md border p-2 sm:p-3 space-y-1.5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Datos personales
-            </p>
-            {/* 1 col mobile, 2 tablet, 3 desktop */}
-            <div className="grid grid-cols-1 gap-y-1 gap-x-4 sm:grid-cols-2 md:grid-cols-3">
-              {detail('Dirección',    client.address)}
-              {detail('Localidad',   client.locality)}
-              {detail('Nac.',        client.nationality)}
-              {detail('Fecha Nac.',  client.birth_date)}
-              {detail('Sexo',        client.sex)}
-              {detail('CUIL/CUIT',   client.cuil_cuit)}
-              {detail('DNI',         client.dni)}
-              {detail('Vto. DNI',    client.dni_expiry)}
-              {detail('Pasaporte',   client.passport)}
-              {detail('Emisión Pas.',client.passport_issue)}
-              {detail('Vto. Pas.',   client.passport_expiry)}
-              {detail('Tel. Part.',  client.phone)}
-              {detail('Tel. Com.',   client.phone_work)}
-              {detail('Celular',     client.phone_mobile)}
+          {client.notes && (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <h4 className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">Notas Privadas</h4>
+              <p className="text-sm text-slate-700 font-medium italic">{client.notes}</p>
             </div>
-            {client.notes && (
-              <p className="text-xs text-muted-foreground mt-2">📝 {client.notes}</p>
-            )}
-          </div>
-
-          {/* Tabs presupuestos / expedientes */}
-          {(quotes.length > 0 || (filesLoaded && files.length > 0)) && (
-            <Tabs defaultValue="quotes" className="rounded-md border p-2 sm:p-3">
-              <TabsList className="mb-2 w-full sm:w-auto">
-                <TabsTrigger value="quotes" className="flex-1 sm:flex-none text-xs sm:text-sm">
-                  Presupuestos ({quotes.length})
-                </TabsTrigger>
-                <TabsTrigger value="files" className="flex-1 sm:flex-none text-xs sm:text-sm">
-                  Expedientes ({files.length})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="quotes">
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {QUOTE_FILTERS.map(f => {
-                    const count = quoteCountByFilter(f.key);
-                    return (
-                      <Button
-                        key={f.key}
-                        variant={quoteFilter === f.key ? 'default' : 'outline'}
-                        size="sm"
-                        className="h-6 text-[10px] px-2 sm:h-7 sm:text-xs sm:px-3"
-                        onClick={() => setQuoteFilter(f.key)}
-                      >
-                        {f.label}
-                        {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
-                      </Button>
-                    );
-                  })}
-                </div>
-                {filteredQuotes.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2 text-center">
-                    Sin presupuestos en esta categoría
-                  </p>
-                ) : (
-                  <div className="space-y-1 max-h-48 overflow-y-auto sm:max-h-60">
-                    {filteredQuotes.map(q => (
-                      <button
-                        key={q.id}
-                        onClick={() => navigate(`/quote/${q.id}`)}
-                        className="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-muted transition-colors sm:text-sm"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0 sm:gap-2">
-                          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span className="truncate max-w-[100px] sm:max-w-none">
-                            {q.trip.destination || 'Sin destino'}
-                          </span>
-                          <Badge
-                            variant={STATUS_COLORS[q.status || 'draft'] || 'secondary'}
-                            className="text-[9px] px-1 sm:text-[10px]"
-                          >
-                            {STATUS_LABELS[q.status || 'draft'] || q.status}
-                          </Badge>
-                        </div>
-                        <span className="text-xs font-medium shrink-0 ml-2">
-                          {(q.trip as any).currency || 'USD'} {(q.pricing.totalPrice || 0).toLocaleString()}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="files">
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {FILE_FILTERS.map(f => {
-                    const count = fileCountByFilter(f.key);
-                    return (
-                      <Button
-                        key={f.key}
-                        variant={fileFilter === f.key ? 'default' : 'outline'}
-                        size="sm"
-                        className="h-6 text-[10px] px-2 sm:h-7 sm:text-xs sm:px-3"
-                        onClick={() => setFileFilter(f.key)}
-                      >
-                        {f.label}
-                        {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
-                      </Button>
-                    );
-                  })}
-                </div>
-                {filteredFiles.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2 text-center">
-                    Sin expedientes en esta categoría
-                  </p>
-                ) : (
-                  <div className="space-y-1 max-h-48 overflow-y-auto sm:max-h-60">
-                    {filteredFiles.map(f => (
-                      <button
-                        key={f.id}
-                        onClick={() => navigate(`/files/${f.id}`)}
-                        className="w-full flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-muted transition-colors sm:text-sm"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0 sm:gap-2">
-                          <FolderOpen className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span className="font-mono shrink-0">
-                            FILE-{String(f.file_number).padStart(3, '0')}
-                          </span>
-                          <span className="text-muted-foreground truncate max-w-[80px] sm:max-w-none">
-                            {f.destination}
-                          </span>
-                          <Badge
-                            variant={STATUS_COLORS[f.status] || 'secondary'}
-                            className="text-[9px] px-1 sm:text-[10px] shrink-0"
-                          >
-                            {STATUS_LABELS[f.status] || f.status}
-                          </Badge>
-                        </div>
-                        {f.start_date && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0 ml-2">
-                            <Calendar className="h-3 w-3" />
-                            <span className="hidden sm:inline">
-                              {new Date(f.start_date).toLocaleDateString('es-AR')}
-                            </span>
-                            <span className="sm:hidden">
-                              {new Date(f.start_date).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}
-                            </span>
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
           )}
+        </div>
+      </div>
 
-          {/* Acciones */}
-          <div className="flex gap-1 sm:gap-2 flex-wrap">
-            <Button variant="ghost" size="sm" onClick={onEdit} className="h-8 px-2 text-xs sm:px-3 sm:text-sm">
-              <Pencil className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> Editar
+      {/* Columna Derecha: Tabs */}
+      <div className="md:col-span-8">
+        <div className="rounded-xl bg-background/50 border p-4 backdrop-blur-sm h-full">
+          <Tabs defaultValue="quotes">
+            <TabsList className="mb-4 bg-muted/50 rounded-lg p-1">
+              <TabsTrigger value="quotes" className="rounded-md text-sm">
+                Presupuestos <Badge variant="secondary" className="ml-2 bg-background">{quotes.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="files" className="rounded-md text-sm">
+                Expedientes <Badge variant="secondary" className="ml-2 bg-background">{files.length}</Badge>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="quotes" className="space-y-3 m-0">
+              <div className="flex flex-wrap gap-2">
+                {QUOTE_FILTERS.map(f => {
+                  const count = quoteCountByFilter(f.key);
+                  return (
+                    <Button key={f.key} variant={quoteFilter === f.key ? 'default' : 'outline'} size="sm" className="h-7 text-xs rounded-full" onClick={() => setQuoteFilter(f.key)}>
+                      {f.label} {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+                    </Button>
+                  );
+                })}
+              </div>
+              {filteredQuotes.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm bg-muted/20 rounded-xl border border-dashed">No hay presupuestos acá.</div>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {filteredQuotes.map(q => (
+                    <div key={q.id} onClick={() => navigate(`/quote/${q.id}`)} className="flex items-center justify-between p-3 rounded-xl border bg-card hover:border-primary/50 hover:shadow-sm cursor-pointer transition-all group">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                          <MapPin className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{q.trip.destination || 'Sin destino'}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{(q.trip as any).currency || 'USD'} {(q.pricing.totalPrice || 0).toLocaleString('es-AR')}</p>
+                        </div>
+                      </div>
+                      <Badge variant={STATUS_COLORS[q.status || 'draft'] || 'secondary'} className="capitalize">{STATUS_LABELS[q.status || 'draft']}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="files" className="space-y-3 m-0">
+              <div className="flex flex-wrap gap-2">
+                {FILE_FILTERS.map(f => {
+                  const count = fileCountByFilter(f.key);
+                  return (
+                    <Button key={f.key} variant={fileFilter === f.key ? 'default' : 'outline'} size="sm" className="h-7 text-xs rounded-full" onClick={() => setFileFilter(f.key)}>
+                      {f.label} {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+                    </Button>
+                  );
+                })}
+              </div>
+              {filteredFiles.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm bg-muted/20 rounded-xl border border-dashed">No hay expedientes acá.</div>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {filteredFiles.map(f => (
+                    <div key={f.id} onClick={() => navigate(`/files/${f.id}`)} className="flex items-center justify-between p-3 rounded-xl border bg-card hover:border-primary/50 hover:shadow-sm cursor-pointer transition-all group">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                          <FolderOpen className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">FILE-{String(f.file_number).padStart(3, '0')} · {f.destination}</p>
+                          {f.start_date && <p className="text-xs text-muted-foreground mt-0.5">Inicia el {new Date(f.start_date).toLocaleDateString('es-AR')}</p>}
+                        </div>
+                      </div>
+                      <Badge variant={STATUS_COLORS[f.status] || 'secondary'} className="capitalize">{STATUS_LABELS[f.status] || f.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -- Desktop Table Row --
+function ClientTableRow({ client, quotes, onEdit, onDelete, navigate, defaultOpen }: any) {
+  const hookState = useClientExpandable(client, quotes, defaultOpen);
+  const { open, setOpen } = hookState;
+
+  return (
+    <>
+      <tr 
+        onClick={() => setOpen(!open)}
+        className={`group transition-colors hover:bg-muted/40 cursor-pointer ${open ? 'bg-muted/20 border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'}`}
+      >
+        <td className="px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${open ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}>
+              {client.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{client.name}</p>
+              {client.locality && <p className="text-xs text-slate-600 font-medium mt-0.5"><MapPin className="inline h-3 w-3 mr-0.5 text-slate-500" />{client.locality}</p>}
+            </div>
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          <div className="space-y-1">
+            {client.email ? (
+              <p className="text-sm text-foreground flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-slate-500" /> {client.email}</p>
+            ) : <span className="text-sm text-slate-400 font-medium">-</span>}
+            {(client.phone || client.phone_mobile) ? (
+              <p className="text-sm text-slate-700 font-medium flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-slate-500" /> {client.phone_mobile || client.phone}</p>
+            ) : null}
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          <div className="flex flex-wrap gap-2">
+            <DocumentAlertBadge label="DNI" dateStr={client.dni_expiry} compact />
+            <DocumentAlertBadge label="Pasaporte" dateStr={client.passport_expiry} compact />
+          </div>
+        </td>
+        <td className="px-6 py-4 text-right">
+          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-background shadow-sm hover:text-primary" onClick={(e) => { e.stopPropagation(); navigate(`/clients/${client.id}`); }} title="Cuenta Corriente">
+              <Wallet className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(`/clients/${client.id}`)}
-              className="h-8 px-2 text-xs sm:px-3 sm:text-sm"
-            >
-              <Wallet className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> Cuenta
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-background shadow-sm text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Editar">
+              <Pencil className="h-4 w-4" />
             </Button>
             <AdminOnly>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onDelete}
-                className="h-8 px-2 text-destructive sm:px-3"
-              >
-                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 shadow-sm text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Eliminar">
+                <Trash2 className="h-4 w-4" />
               </Button>
             </AdminOnly>
+            <Button variant="ghost" size="icon" className="h-8 w-8 ml-2">
+              {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </Button>
           </div>
-        </CardContent>
-      </CollapsibleContent>
-    </Card>
-  </Collapsible>
-);
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={4} className="p-0 border-b-0">
+            <div className="bg-muted/10 border-t border-b border-border/50 p-6 shadow-inner">
+              <ClientDetailsExpanded client={client} quotes={quotes} hookState={hookState} navigate={navigate} onEdit={onEdit} onDelete={onDelete} />
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// -- Mobile Card View --
+function ClientMobileCard({ client, quotes, onEdit, onDelete, navigate, defaultOpen }: any) {
+  const hookState = useClientExpandable(client, quotes, defaultOpen);
+  const { open, setOpen } = hookState;
+
+  return (
+    <div className={`glass-card-premium overflow-hidden rounded-2xl border transition-all ${open ? 'ring-2 ring-primary/50' : ''}`}>
+      <div className="p-4 cursor-pointer" onClick={() => setOpen(!open)}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${open ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}>
+              {client.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-foreground truncate text-base">{client.name}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate flex items-center gap-1">
+                {client.email ? <><Mail className="h-3 w-3" /> {client.email}</> : 'Sin email'}
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+            {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </Button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <DocumentAlertBadge label="DNI" dateStr={client.dni_expiry} compact />
+          <DocumentAlertBadge label="Pasaporte" dateStr={client.passport_expiry} compact />
+        </div>
+      </div>
+      {open && (
+        <div className="p-4 pt-0 border-t border-border/50 mt-2 bg-muted/5">
+          <div className="mt-4">
+             <ClientDetailsExpanded client={client} quotes={quotes} hookState={hookState} navigate={navigate} onEdit={onEdit} onDelete={onDelete} />
+          </div>
+          <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
+             <Button variant="outline" size="sm" className="flex-1 rounded-xl" onClick={(e) => { e.stopPropagation(); navigate(`/clients/${client.id}`); }}>
+               <Wallet className="mr-2 h-4 w-4" /> Cuenta
+             </Button>
+             <Button variant="outline" size="sm" className="flex-1 rounded-xl" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+               <Pencil className="mr-2 h-4 w-4" /> Editar
+             </Button>
+             <AdminOnly>
+               <Button variant="outline" size="sm" className="flex-none rounded-xl text-destructive hover:bg-destructive hover:text-destructive-foreground border-destructive/20" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+                 <Trash2 className="h-4 w-4" />
+               </Button>
+             </AdminOnly>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default Clients;

@@ -9,7 +9,7 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const APP_URL = 'https://axontur.lovable.app';
+const APP_URL = Deno.env.get("VITE_APP_URL") || Deno.env.get("APP_URL") || 'https://vickaturismo.tur.ar';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {

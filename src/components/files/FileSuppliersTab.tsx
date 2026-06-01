@@ -1,56 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Plus, Trash2, Building2, DollarSign, Check, ChevronsUpDown, CheckCircle2, Pencil, AlertTriangle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
-interface ServiceRecord {
-  supplier_name: string;
-  supplier_id: string | null;
-  cost: number;
-  currency: string;
-  status: string;
-}
-
-interface SupplierPayment {
-  id: string;
-  supplier_name: string;
-  supplier_id: string | null;
-  amount: number;
-  currency: string;
-  payment_date: string;
-  payment_method: string;
-  reference: string;
-  notes: string;
-}
-
-interface CatalogSupplier {
-  id: string;
-  name: string;
-}
-
-const METHODS = [
-  { value: 'transfer', label: 'Transferencia' },
-  { value: 'credit_card', label: 'Tarjeta de Crédito' },
-  { value: 'debit_card', label: 'Tarjeta de Débito' },
-  { value: 'cash', label: 'Efectivo' },
-  { value: 'check', label: 'Cheque' },
-  { value: 'other', label: 'Otro' },
-];
-
-const CURRENCIES = ['USD', 'ARS', 'EUR', 'BRL'];
+import { ServiceRecord, SupplierPayment, CatalogSupplier, METHODS } from './suppliers/types';
+import { SupplierCard } from './suppliers/SupplierCard';
+import { SupplierPaymentDialog } from './suppliers/SupplierPaymentDialog';
 
 interface Props { fileId: string; currency: string; }
 
@@ -62,18 +19,13 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  
   const [selectedSupplier, setSelectedSupplier] = useState<{ name: string; id: string | null } | null>(null);
   const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(null);
   const [autoMatched, setAutoMatched] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
+  
   const [editingPayment, setEditingPayment] = useState<SupplierPayment | null>(null);
-  const [form, setForm] = useState({
-    amount: 0, currency, payment_date: new Date().toISOString().split('T')[0],
-    payment_method: 'transfer', reference: '', notes: '',
-  });
-
-  const GENERIC_NAMES = ['operador', 'proveedor', 'sin nombre', '-', ''];
-  const isGenericName = (name?: string) => GENERIC_NAMES.includes((name || '').trim().toLowerCase());
 
   const load = async () => {
     if (!user) return;
@@ -90,7 +42,6 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
   useEffect(() => { load(); }, [fileId, user?.id]);
 
-  // Group services by supplier
   const suppliers = useMemo(() => {
     const map = new Map<string, { name: string; id: string | null; costs: Record<string, number> }>();
     services.filter(s => s.supplier_name && s.status !== 'cancelled').forEach(s => {
@@ -118,7 +69,6 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
   const openPayment = (supplier: { name: string; id: string | null }) => {
     setSelectedSupplier(supplier);
     setEditingPayment(null);
-    // Pre-resolve supplier_id from service link or catalog match
     let resolvedId: string | null = supplier.id || null;
     let matched = false;
     if (!resolvedId) {
@@ -132,7 +82,6 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     }
     setResolvedSupplierId(resolvedId);
     setAutoMatched(matched);
-    setForm({ amount: 0, currency, payment_date: new Date().toISOString().split('T')[0], payment_method: 'transfer', reference: '', notes: '' });
     setDialogOpen(true);
   };
 
@@ -141,14 +90,6 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     setEditingPayment(payment);
     setResolvedSupplierId(payment.supplier_id);
     setAutoMatched(false);
-    setForm({
-      amount: payment.amount,
-      currency: payment.currency,
-      payment_date: payment.payment_date,
-      payment_method: payment.payment_method || 'transfer',
-      reference: payment.reference || '',
-      notes: payment.notes || '',
-    });
     setDialogOpen(true);
   };
 
@@ -172,39 +113,46 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     toast.success(`Proveedor «${data.name}» creado`);
   };
 
-  const handleSave = async () => {
-    if (!user || !selectedSupplier) return;
-    if (form.amount <= 0) { toast.error('El monto debe ser mayor a 0'); return; }
-    if (!resolvedSupplierId) {
-      toast.error('Debe enlazar el pago a un proveedor del catálogo');
-      return;
-    }
-
+  const handleSave = async (lines: any[], paymentDate: string) => {
+    if (!user || !selectedSupplier || !resolvedSupplierId) return;
     const supplierName = catalog.find(c => c.id === resolvedSupplierId)?.name || selectedSupplier.name;
 
-    const payload = {
-      supplier_name: supplierName,
-      supplier_id: resolvedSupplierId,
-      amount: form.amount,
-      currency: form.currency,
-      payment_date: form.payment_date,
-      payment_method: form.payment_method,
-      reference: form.reference,
-      notes: form.notes,
-    };
-
-    let error;
     if (editingPayment) {
-      ({ error } = await supabase.from('file_supplier_payments' as any).update(payload as any).eq('id', editingPayment.id));
+      const line = lines[0];
+      const payload = {
+        supplier_name: supplierName,
+        supplier_id: resolvedSupplierId,
+        amount: line.amount,
+        currency: line.currency,
+        payment_date: paymentDate,
+        payment_method: line.payment_method,
+        reference: line.reference,
+        notes: line.notes,
+      };
+      const { error } = await supabase.from('file_supplier_payments' as any).update(payload as any).eq('id', editingPayment.id);
+      if (error) { toast.error('Error al actualizar pago'); return; }
     } else {
-      ({ error } = await supabase.from('file_supplier_payments' as any).insert({
-        ...payload, file_id: fileId, user_id: user.id,
-      } as any));
+      const promises = lines.map(line => {
+        const payload = {
+          supplier_name: supplierName,
+          supplier_id: resolvedSupplierId,
+          amount: line.amount,
+          currency: line.currency,
+          payment_date: paymentDate,
+          payment_method: line.payment_method,
+          reference: line.reference,
+          notes: line.notes,
+          file_id: fileId,
+          user_id: user.id,
+        };
+        return supabase.from('file_supplier_payments' as any).insert(payload as any);
+      });
+      const results = await Promise.all(promises);
+      const firstError = results.find(r => r.error);
+      if (firstError) { toast.error('Error al registrar algunos pagos'); return; }
     }
 
-    if (error) { toast.error(editingPayment ? 'Error al actualizar pago' : 'Error al registrar pago'); return; }
-
-    toast.success(editingPayment ? 'Pago actualizado y reflejado en cuenta corriente' : 'Pago registrado y reflejado en cuenta corriente');
+    toast.success(editingPayment ? 'Pago actualizado y reflejado en cuenta corriente' : 'Pagos registrados y reflejados en cuenta corriente');
     setDialogOpen(false);
     setEditingPayment(null);
     load();
@@ -225,9 +173,6 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
   if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando operadores...</div>;
 
-  const resolvedSupplierName = catalog.find(c => c.id === resolvedSupplierId)?.name;
-  const showCreateOption = selectedSupplier && !findCatalogMatch(selectedSupplier.name);
-
   return (
     <div>
       <div className="mb-4">
@@ -238,212 +183,40 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
         <Card><CardContent className="py-8 text-center text-muted-foreground">No hay proveedores en los servicios del expediente</CardContent></Card>
       ) : (
         <div className="space-y-4">
-          {suppliers.map(sup => {
-            const paid = getSupplierPaid(sup.name);
-            const supPayments = getSupplierPayments(sup.name);
-            return (
-              <Card key={sup.name}>
-                <CardContent className="p-3 sm:p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate">{sup.name}</p>
-                        <p className="text-xs text-muted-foreground break-words">Costo total: {formatMoney(sup.costs)}</p>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => openPayment(sup)} className="shrink-0">
-                      <DollarSign className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Registrar pago</span>
-                    </Button>
-                  </div>
-
-                  {Object.keys(paid).length > 0 && (
-                    <div className="flex items-center flex-wrap gap-2 text-sm">
-                      <Badge variant="secondary">Pagado: {formatMoney(paid)}</Badge>
-                      {Object.entries(sup.costs).map(([cur, cost]) => {
-                        const paidAmt = paid[cur] || 0;
-                        const pending = cost - paidAmt;
-                        if (pending <= 0) return null;
-                        return <Badge key={cur} variant="outline" className="text-destructive">Pendiente: {cur} {pending.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</Badge>;
-                      })}
-                    </div>
-                  )}
-
-                  {Object.keys(paid).length === 0 && (
-                    <Badge variant="outline" className="text-destructive">Sin pagos registrados</Badge>
-                  )}
-
-                  {supPayments.length > 0 && (
-                    <div className="space-y-1 border-t pt-2">
-                      <p className="text-xs font-medium text-muted-foreground">Historial de pagos</p>
-                      {supPayments.map(p => {
-                        const linked = catalog.find(c => c.id === p.supplier_id);
-                        return (
-                          <div key={p.id} className="flex items-start justify-between gap-2 rounded bg-muted/50 px-3 py-2 text-sm">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
-                                <span className="font-medium">{p.currency} {p.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                                <span className="text-xs text-muted-foreground">{new Date(p.payment_date).toLocaleDateString('es-AR')} · {getMethodLabel(p.payment_method)}</span>
-                                {p.reference && <span className="text-xs text-muted-foreground">Ref: {p.reference}</span>}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {linked ? `→ CC: ${linked.name}` : (
-                                  <span className="text-destructive">Sin enlazar a catálogo</span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => openEdit(p)}>
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => setDeleteId(p.id)}>
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          {suppliers.map(sup => (
+            <SupplierCard
+              key={sup.name}
+              supplier={sup}
+              paid={getSupplierPaid(sup.name)}
+              payments={getSupplierPayments(sup.name)}
+              catalog={catalog}
+              onOpenPayment={openPayment}
+              onOpenEdit={openEdit}
+              onDelete={setDeleteId}
+              getMethodLabel={getMethodLabel}
+              formatMoney={formatMoney}
+            />
+          ))}
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingPayment(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingPayment ? 'Editar pago' : 'Registrar pago'} a {selectedSupplier?.name}</DialogTitle>
-          </DialogHeader>
-
-          {editingPayment && isGenericName(editingPayment.supplier_name) && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Este proveedor parece genérico. Cambialo por el operador real para que el saldo se refleje en su cuenta corriente.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Supplier link selector */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium">Proveedor del catálogo *</label>
-            {resolvedSupplierId && autoMatched ? (
-              <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/10 px-3 py-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                  <span className="font-medium">Enlazado a: {resolvedSupplierName}</span>
-                </div>
-                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setResolvedSupplierId(null); setAutoMatched(false); }}>
-                  Cambiar
-                </Button>
-              </div>
-            ) : (
-              <Popover open={comboOpen} onOpenChange={setComboOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className={cn('w-full justify-between', !resolvedSupplierId && 'text-muted-foreground')}
-                  >
-                    {resolvedSupplierId ? resolvedSupplierName : 'Seleccionar o crear proveedor...'}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Buscar proveedor..." />
-                    <CommandList>
-                      <CommandEmpty>
-                        {selectedSupplier && (
-                          <button
-                            type="button"
-                            onClick={() => createSupplierFromName(selectedSupplier.name)}
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
-                          >
-                            <Plus className="mr-2 inline h-4 w-4" />
-                            Crear «{selectedSupplier.name}»
-                          </button>
-                        )}
-                      </CommandEmpty>
-                      {showCreateOption && selectedSupplier && (
-                        <CommandGroup>
-                          <CommandItem
-                            value={`__create__${selectedSupplier.name}`}
-                            onSelect={() => createSupplierFromName(selectedSupplier.name)}
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Crear «{selectedSupplier.name}»
-                          </CommandItem>
-                        </CommandGroup>
-                      )}
-                      <CommandGroup heading="Catálogo">
-                        {catalog.map(s => (
-                          <CommandItem
-                            key={s.id}
-                            value={s.name}
-                            onSelect={() => { setResolvedSupplierId(s.id); setAutoMatched(false); setComboOpen(false); }}
-                          >
-                            <Check className={cn('mr-2 h-4 w-4', resolvedSupplierId === s.id ? 'opacity-100' : 'opacity-0')} />
-                            {s.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Sin enlazar al catálogo, el pago no aparece en la cuenta corriente del proveedor.
-            </p>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Monto *</label>
-                <Input type="number" min={0} step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: Number(e.target.value) })} />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Moneda</label>
-                <Select value={form.currency} onValueChange={v => setForm({ ...form, currency: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Fecha de pago</label>
-                <Input type="date" value={form.payment_date} onChange={e => setForm({ ...form, payment_date: e.target.value })} />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Método</label>
-                <Select value={form.payment_method} onValueChange={v => setForm({ ...form, payment_method: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Referencia / Nro. transferencia</label>
-              <Input value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Notas</label>
-              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
-            </div>
-            <Button onClick={handleSave} disabled={!resolvedSupplierId || form.amount <= 0}>
-              {editingPayment ? 'Guardar cambios' : 'Registrar pago'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SupplierPaymentDialog
+        open={dialogOpen}
+        onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingPayment(null); }}
+        editingPayment={editingPayment}
+        selectedSupplier={selectedSupplier}
+        resolvedSupplierId={resolvedSupplierId}
+        setResolvedSupplierId={setResolvedSupplierId}
+        autoMatched={autoMatched}
+        setAutoMatched={setAutoMatched}
+        catalog={catalog}
+        findCatalogMatch={findCatalogMatch}
+        createSupplierFromName={createSupplierFromName}
+        comboOpen={comboOpen}
+        setComboOpen={setComboOpen}
+        onSave={handleSave}
+        defaultCurrency={currency}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

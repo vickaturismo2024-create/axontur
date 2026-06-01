@@ -269,7 +269,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
         {/* Step Content */}
         <Card className="mb-6 flex flex-1 flex-col overflow-hidden">
           <CardHeader className="shrink-0 p-4 sm:p-6">
-            <CardTitle className="flex items-center gap-2 font-serif text-base sm:text-xl">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-xl">
               {(() => { const Icon = steps[currentStep].icon; return <Icon className="h-5 w-5 text-gold" />; })()}
               {steps[currentStep].label}
             </CardTitle>
@@ -321,7 +321,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
       {showPreviewPanel && previewTemplate && (
         <div className="hidden w-[400px] shrink-0 lg:block">
           <div className="sticky top-4 rounded-lg border bg-card p-4">
-            <h3 className="mb-4 font-serif font-semibold">Vista previa</h3>
+            <h3 className="mb-4 font-semibold">Vista previa</h3>
             <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
               <PDFPreview quote={previewQuote} template={previewTemplate} />
             </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +19,7 @@ interface AlertItem {
   href: string;
 }
 
-export function OperationalAlertsWidget() {
+export function OperationalAlertsWidget({ defaultOpen, raw }: { defaultOpen?: boolean; raw?: boolean }) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -125,6 +126,25 @@ export function OperationalAlertsWidget() {
         });
       });
 
+      // 5) Presupuestos aprobados recientemente (últimos 7 días)
+      const { data: approvedQuotes } = await supabase
+        .from('quotes')
+        .select('id, client, trip, approved_at')
+        .eq('status', 'approved')
+        .gte('approved_at', sevenAgo.toISOString());
+      (approvedQuotes || []).forEach((q: any) => {
+        const clientName = (q.client as any)?.name || 'Cliente';
+        const destination = (q.trip as any)?.destination || 'Sin destino';
+        items.push({
+          id: `quote-${q.id}`,
+          kind: 'quote_approved',
+          label: 'Presupuesto aprobado',
+          detail: `${clientName} · ${destination}`,
+          severity: 'warning',
+          href: `/quote/${q.id}`,
+        });
+      });
+
       return items;
     },
     enabled: !!user,
@@ -135,9 +155,53 @@ export function OperationalAlertsWidget() {
     doc_expiring: (alerts || []).filter(a => a.kind === 'doc_expiring'),
     file_to_close: (alerts || []).filter(a => a.kind === 'file_to_close'),
     receipt_draft: (alerts || []).filter(a => a.kind === 'receipt_draft'),
+    quote_approved: (alerts || []).filter(a => a.kind === 'quote_approved'),
   };
 
   const total = alerts?.length || 0;
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="space-y-2.5">
+          {[0, 1, 2].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
+        </div>
+      );
+    }
+
+    if (total === 0) {
+      return (
+        <div className="py-8 text-center">
+          <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
+          <p className="text-xs text-muted-foreground">✓ No hay alertas operativas pendientes</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {grouped.service_due.length > 0 && (
+          <Section icon={<Clock className="h-3.5 w-3.5 text-amber-500" />} title="Pagos a operadores" items={grouped.service_due} navigate={navigate} />
+        )}
+        {grouped.doc_expiring.length > 0 && (
+          <Section icon={<ShieldAlert className="h-3.5 w-3.5 text-destructive" />} title="Documentos vencidos o por vencer" items={grouped.doc_expiring} navigate={navigate} />
+        )}
+        {grouped.file_to_close.length > 0 && (
+          <Section icon={<FileText className="h-3.5 w-3.5 text-amber-500" />} title="Expedientes a cerrar" items={grouped.file_to_close} navigate={navigate} />
+        )}
+        {grouped.receipt_draft.length > 0 && (
+          <Section icon={<Receipt className="h-3.5 w-3.5 text-amber-500" />} title="Recibos en borrador" items={grouped.receipt_draft} navigate={navigate} />
+        )}
+        {grouped.quote_approved.length > 0 && (
+          <Section icon={<FileText className="h-3.5 w-3.5 text-emerald-500" />} title="Presupuestos aprobados" items={grouped.quote_approved} navigate={navigate} />
+        )}
+      </div>
+    );
+  };
+
+  if (raw) {
+    return renderContent();
+  }
 
   return (
     <CollapsibleWidget
@@ -148,31 +212,9 @@ export function OperationalAlertsWidget() {
       badgeVariant={
         (alerts || []).some(a => a.severity === 'destructive') ? 'destructive' : 'warning'
       }
+      defaultOpen={defaultOpen}
     >
-      {isLoading ? (
-        <div className="space-y-2">
-          {[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-        </div>
-      ) : total === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          ✓ No hay alertas pendientes
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {grouped.service_due.length > 0 && (
-            <Section icon={<Clock className="h-4 w-4" />} title="Pagos a operadores" items={grouped.service_due} navigate={navigate} />
-          )}
-          {grouped.doc_expiring.length > 0 && (
-            <Section icon={<ShieldAlert className="h-4 w-4" />} title="Documentos" items={grouped.doc_expiring} navigate={navigate} />
-          )}
-          {grouped.file_to_close.length > 0 && (
-            <Section icon={<FileText className="h-4 w-4" />} title="Expedientes a cerrar" items={grouped.file_to_close} navigate={navigate} />
-          )}
-          {grouped.receipt_draft.length > 0 && (
-            <Section icon={<Receipt className="h-4 w-4" />} title="Recibos en borrador" items={grouped.receipt_draft} navigate={navigate} />
-          )}
-        </div>
-      )}
+      {renderContent()}
     </CollapsibleWidget>
   );
 }
@@ -183,31 +225,63 @@ function Section({ icon, title, items, navigate }: {
   items: AlertItem[];
   navigate: ReturnType<typeof useNavigate>;
 }) {
+  const [visibleCount, setVisibleCount] = useState(5);
+
   return (
-    <div>
-      <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-        {icon} {title} ({items.length})
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 px-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+        {icon}
+        <span>{title}</span>
+        <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[9px]">{items.length}</span>
       </div>
-      <div className="space-y-1">
-        {items.slice(0, 5).map(a => (
-          <button
-            key={a.id}
-            onClick={() => navigate(a.href)}
-            className="group flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-sm hover:bg-accent"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <Badge variant={a.severity === 'destructive' ? 'destructive' : 'secondary'} className="text-[10px]">
-                  {a.label}
-                </Badge>
+
+      <div className="space-y-2">
+        {items.slice(0, visibleCount).map(a => {
+          const isDestructive = a.severity === 'destructive';
+          const isApproved = a.kind === 'quote_approved';
+          
+          return (
+            <button
+              key={a.id}
+              onClick={() => navigate(a.href)}
+              className={`group flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left hover:scale-[1.01] hover:shadow-sm transition-all duration-300 bg-background/50 ${
+                isDestructive 
+                  ? 'border-l-4 border-l-destructive border-border/60 hover:border-destructive/30 hover:bg-destructive/[0.02]' 
+                  : isApproved 
+                  ? 'border-l-4 border-l-emerald-500 border-border/60 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]'
+                  : 'border-l-4 border-l-amber-500 border-border/60 hover:border-amber-500/30 hover:bg-amber-500/[0.02]'
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant={isDestructive ? 'destructive' : isApproved ? 'secondary' : 'outline'} 
+                    className={`text-[9px] font-bold px-1.5 h-4.5 ${
+                      isApproved 
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-0' 
+                        : !isDestructive 
+                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-0'
+                        : ''
+                    }`}
+                  >
+                    {a.label}
+                  </Badge>
+                </div>
+                <p className="mt-1.5 text-xs font-semibold text-foreground truncate group-hover:text-primary dark:group-hover:text-gold transition-colors">
+                  {a.detail}
+                </p>
               </div>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">{a.detail}</p>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
+            </button>
+          );
+        })}
+        {items.length > visibleCount && (
+          <button
+            onClick={() => setVisibleCount(prev => prev + 5)}
+            className="w-full text-center text-[10px] font-bold text-primary hover:text-primary/80 dark:text-gold dark:hover:text-gold/80 pt-2 pb-2 block bg-muted/10 hover:bg-muted/30 rounded-lg border border-dashed border-border/50 transition-colors"
+          >
+            + Ver {Math.min(5, items.length - visibleCount)} alertas más (quedan {items.length - visibleCount})
           </button>
-        ))}
-        {items.length > 5 && (
-          <p className="pl-2 text-xs text-muted-foreground">+ {items.length - 5} más</p>
         )}
       </div>
     </div>

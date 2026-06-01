@@ -139,7 +139,7 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
                 {quote.client.name}
                 <ExternalLink className="h-3 w-3" />
               </button>
-              <h3 className="mt-1 font-serif text-xl font-semibold text-foreground">{quote.trip.destination}</h3>
+              <h3 className="mt-1 text-xl font-semibold text-foreground">{quote.trip.destination}</h3>
             </div>
             <div className="flex flex-col items-end gap-1">
               <Badge variant="secondary" className="bg-gold/20 text-gold-dark">

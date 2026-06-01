@@ -74,7 +74,7 @@ export function Header() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shrink-0">
                     <Plane className="h-4 w-4 text-primary-foreground" />
                   </div>
-                  <SheetTitle className="font-serif text-base font-semibold text-foreground truncate m-0">
+                  <SheetTitle className="text-base font-semibold text-foreground truncate m-0">
                     {agencyName}
                   </SheetTitle>
                 </div>
@@ -125,7 +125,7 @@ export function Header() {
                 <Plane className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-serif text-base sm:text-lg font-semibold text-foreground truncate">
+                <span className="text-base sm:text-lg font-semibold text-foreground truncate">
                   {agencyName}
                 </span>
               </div>

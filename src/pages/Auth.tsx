@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2, Compass } from 'lucide-react';
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -65,118 +65,166 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-navy/5 to-gold/10 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-navy text-white">
-            <FileText className="h-6 w-6" />
+    <div className="flex min-h-screen bg-background">
+      {/* Lado Izquierdo - Visual e Inspirador (Oculto en pantallas pequeñas) */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center items-center justify-center p-12 overflow-hidden"
+        style={{ backgroundImage: `url('/login_travel_bg.png')` }}
+      >
+        {/* Filtro degradado premium */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[hsl(var(--navy-dark))]/90 via-[hsl(var(--navy))]/70 to-transparent" />
+        
+        {/* Decoración geométrica */}
+        <div className="absolute top-12 left-12 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute bottom-12 right-12 h-64 w-64 rounded-full bg-[hsl(var(--gold))]/10 blur-3xl" />
+
+        {/* Tarjeta Glassmorphic */}
+        <div className="relative max-w-lg w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 sm:p-10 shadow-2xl text-white">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(var(--gold))]/20 border border-[hsl(var(--gold))]/40 mb-6 text-[hsl(var(--gold))]">
+            <Compass className="h-6 w-6 animate-pulse" />
           </div>
-          <CardTitle className="font-serif text-2xl">Presupuestos de Viaje</CardTitle>
-          <CardDescription>
-            Creá y gestioná presupuestos profesionales para tus clientes
-          </CardDescription>
-        </CardHeader>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+            AxonTur V2
+          </h1>
+          <p className="text-white/80 text-sm leading-relaxed mb-6 font-light">
+            "Conectando destinos, simplificando tu gestión. La herramienta definitiva de presupuestación y control de expedientes de viaje para agencias premium."
+          </p>
+          <div className="flex items-center gap-3 border-t border-white/10 pt-6">
+            <div className="h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="text-xs text-white/60 uppercase tracking-widest font-medium">
+              Listo para operar
+            </span>
+          </div>
+        </div>
+      </div>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
-            <TabsTrigger value="register">Registrarse</TabsTrigger>
-          </TabsList>
+      {/* Lado Derecho - Formulario de Acceso */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-background via-background to-[hsl(var(--cream-dark))]/20">
+        <Card className="w-full max-w-md shadow-premium border-border bg-card animate-fadeInUp">
+          <CardHeader className="text-center pb-4">
+            {/* Logo de AxonTur visible en móvil */}
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary lg:hidden shadow-sm">
+              <Compass className="h-7 w-7 text-primary animate-pulse" />
+            </div>
+            
+            <CardTitle className="text-2xl sm:text-3xl text-foreground font-bold">
+              Bienvenido a AxonTur
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Ingresá al ERP para gestionar tus clientes, caja y expedientes.
+            </CardDescription>
+          </CardHeader>
 
-          <TabsContent value="login">
-            <form onSubmit={handleLogin}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="tu@email.com"
-                    value={loginData.email}
-                    onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Contraseña</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginData.password}
-                    onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                    disabled={isLoading}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Ingresando...
-                    </>
-                  ) : (
-                    'Iniciar Sesión'
-                  )}
-                </Button>
-              </CardFooter>
-            </form>
-          </TabsContent>
+          <Tabs defaultValue="login" className="w-full">
+            <div className="px-6">
+              <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-xl">
+                <TabsTrigger value="login" className="rounded-lg text-xs font-semibold">Iniciar Sesión</TabsTrigger>
+                <TabsTrigger value="register" className="rounded-lg text-xs font-semibold">Registrarse</TabsTrigger>
+              </TabsList>
+            </div>
 
-          <TabsContent value="register">
-            <form onSubmit={handleRegister}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input
-                    id="register-email"
-                    type="email"
-                    placeholder="tu@email.com"
-                    value={registerData.email}
-                    onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Contraseña</Label>
-                  <Input
-                    id="register-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={registerData.password}
-                    onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-confirm">Confirmar Contraseña</Label>
-                  <Input
-                    id="register-confirm"
-                    type="password"
-                    placeholder="••••••••"
-                    value={registerData.confirmPassword}
-                    onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                    disabled={isLoading}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Registrando...
-                    </>
-                  ) : (
-                    'Crear Cuenta'
-                  )}
-                </Button>
-              </CardFooter>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </Card>
+            <TabsContent value="login" className="mt-4">
+              <form onSubmit={handleLogin}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="login-email" className="text-xs font-medium text-foreground">Correo Electrónico</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="ejemplo@agencia.com"
+                      value={loginData.email}
+                      onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                      disabled={isLoading}
+                      className="h-10 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="login-password" className="text-xs font-medium text-foreground">Contraseña</Label>
+                    </div>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={loginData.password}
+                      onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                      disabled={isLoading}
+                      className="h-10 text-xs"
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter className="pt-2">
+                  <Button type="submit" className="w-full h-10 text-xs font-semibold shadow-gold hover:opacity-95" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Ingresando...
+                      </>
+                    ) : (
+                      'Iniciar Sesión'
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="register" className="mt-4">
+              <form onSubmit={handleRegister}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-email" className="text-xs font-medium text-foreground">Correo Electrónico</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      placeholder="ejemplo@agencia.com"
+                      value={registerData.email}
+                      onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                      disabled={isLoading}
+                      className="h-10 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-password" className="text-xs font-medium text-foreground">Contraseña</Label>
+                    <Input
+                      id="register-password"
+                      type="password"
+                      placeholder="Mínimo 6 caracteres"
+                      value={registerData.password}
+                      onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                      disabled={isLoading}
+                      className="h-10 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="register-confirm" className="text-xs font-medium text-foreground">Confirmar Contraseña</Label>
+                    <Input
+                      id="register-confirm"
+                      type="password"
+                      placeholder="Repetir contraseña"
+                      value={registerData.confirmPassword}
+                      onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                      disabled={isLoading}
+                      className="h-10 text-xs"
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter className="pt-2">
+                  <Button type="submit" className="w-full h-10 text-xs font-semibold shadow-gold hover:opacity-95" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creando cuenta...
+                      </>
+                    ) : (
+                      'Crear Cuenta'
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </Card>
+      </div>
     </div>
   );
 }

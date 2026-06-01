@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Plus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,79 +12,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Plus, Trash2, FileText, Download, PlusCircle, Mail, MoreVertical, Ban, Eye, Info } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { generateReceiptPDF } from '@/components/files/receiptPdfUtils';
 import { sendReceiptEmail, isInfraReady } from '@/lib/emailService';
-import { computeReceiptTotals, formatMoney } from '@/lib/receiptTotals';
 
-interface Receipt {
-  id: string;
-  receipt_number: number;
-  client_name: string;
-  amount: number;
-  currency: string;
-  payment_method: string;
-  payment_date: string;
-  concept: string;
-  notes: string;
-  status: string;
-  created_at: string;
-}
-
-interface ReceiptItem {
-  id?: string;
-  amount: number;
-  currency: string;
-  payment_method: string;
-  exchange_rate: number | null;
-  service_currency: string | null;
-  notes: string;
-}
-
-const METHODS = [
-  { value: 'transfer', label: 'Transferencia' },
-  { value: 'credit_card', label: 'Tarjeta de Crédito' },
-  { value: 'debit_card', label: 'Tarjeta de Débito' },
-  { value: 'cash', label: 'Efectivo' },
-  { value: 'check', label: 'Cheque' },
-  { value: 'other', label: 'Otro' },
-];
-
-const CURRENCIES = ['USD', 'ARS', 'EUR', 'BRL'];
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  issued: 'Emitido',
-  paid: 'Pagado',
-  cancelled: 'Anulado',
-};
-
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  draft: 'secondary',
-  issued: 'default',
-  paid: 'outline',
-  cancelled: 'destructive',
-};
-
-const emptyItem = (): ReceiptItem => ({
-  amount: 0,
-  currency: 'USD',
-  payment_method: 'transfer',
-  exchange_rate: null,
-  service_currency: null,
-  notes: '',
-});
+// Import newly extracted components
+import { Receipt, ReceiptItem, METHODS, STATUS_LABELS } from './receipts/types';
+import { ReceiptCard } from './receipts/ReceiptCard';
+import { NewReceiptDialog } from './receipts/NewReceiptDialog';
+import { ReceiptDetailDialog } from './receipts/ReceiptDetailDialog';
+import { EmailReceiptDialog } from './receipts/EmailReceiptDialog';
 
 interface Props {
   fileId: string;
@@ -102,23 +36,22 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const { user } = useAuth();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  
+  // Email states
   const [emailReceipt, setEmailReceipt] = useState<Receipt | null>(null);
   const [emailTo, setEmailTo] = useState('');
   const [emailIncludeBreakdown, setEmailIncludeBreakdown] = useState(true);
   const [emailSending, setEmailSending] = useState(false);
+  
+  // Detail states
   const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
   const [detailItems, setDetailItems] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [form, setForm] = useState({
-    client_name: clientName,
-    payment_date: new Date().toISOString().split('T')[0],
-    concept: '',
-    notes: '',
-  });
-  const [items, setItems] = useState<ReceiptItem[]>([{ ...emptyItem(), currency }]);
 
   const load = async () => {
     const { data } = await supabase
@@ -134,31 +67,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     load();
   }, [fileId]);
 
-  const openNew = () => {
-    setForm({
-      client_name: clientName,
-      payment_date: new Date().toISOString().split('T')[0],
-      concept: '',
-      notes: '',
-    });
-    setItems([{ ...emptyItem(), currency }]);
-    setDialogOpen(true);
-  };
-
-  const updateItem = (idx: number, patch: Partial<ReceiptItem>) => {
-    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
-  };
-
-  const removeItem = (idx: number) => {
-    if (items.length <= 1) return;
-    setItems((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const mainCurrencyForForm = items[0]?.currency || currency;
-  const totals = computeReceiptTotals(items, mainCurrencyForForm);
-  const totalAmount = totals.convertedTotal;
-
-  const handleSave = async () => {
+  const handleSaveReceipt = async (form: any, items: ReceiptItem[], totalAmount: number) => {
     if (!user) return;
     if (items.every((it) => it.amount <= 0)) {
       toast.error('Al menos una línea debe tener monto > 0');
@@ -172,7 +81,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     const mainCurrency = items[0].currency;
     const mainMethod = items[0].payment_method;
 
-    // Obtener el siguiente número correlativo global
     const { data: nextNum } = await supabase.rpc('next_receipt_number' as any, { p_user_id: user.id });
     const receiptNumber = (nextNum as number) || 1;
 
@@ -217,7 +125,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
       await supabase.from('file_receipt_items').insert(itemsToInsert as any);
     }
 
-    // Movimientos en cuenta corriente del cliente, vinculados al recibo
     if (clientId) {
       const movements = items
         .filter((i) => i.amount > 0)
@@ -265,7 +172,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    // Borrar items + movimientos asociados (cascade manual)
     await supabase.from('file_receipt_items').delete().eq('receipt_id', deleteId);
     await supabase.from('account_movements').delete().eq('receipt_id', deleteId);
     await supabase.from('file_receipts').delete().eq('id', deleteId);
@@ -289,7 +195,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         };
       }
     }
-    // Obtener items del recibo
     const { data: items } = await supabase
       .from('file_receipt_items')
       .select('*')
@@ -312,7 +217,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const openEmailDialog = async (r: Receipt) => {
     setEmailReceipt(r);
     setEmailIncludeBreakdown(true);
-    // Pre-cargar email del cliente
     if (clientId) {
       const { data } = await supabase.from('clients').select('email').eq('id', clientId).maybeSingle();
       setEmailTo((data as any)?.email || '');
@@ -328,7 +232,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     }
     setEmailSending(true);
     try {
-      // Guard: chequear estado de la infraestructura de email
       const infra = await isInfraReady();
       if (!infra.domainReady) {
         const ok = window.confirm(
@@ -391,7 +294,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold">Recibos ({receipts.length})</h3>
-        <Button size="sm" onClick={openNew}>
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />Nuevo recibo
         </Button>
       </div>
@@ -402,294 +305,49 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         </Card>
       ) : (
         <div className="space-y-2">
-          {receipts.map((r) => {
-            const status = r.status || 'issued';
-            const isCancelled = status === 'cancelled';
-            return (
-              <Card key={r.id} className={isCancelled ? 'opacity-60' : ''}>
-                <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3">
-                  <div className="flex items-start gap-3 sm:contents">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-mono text-sm font-bold ${isCancelled ? 'line-through' : ''}`}>
-                          REC-{String(r.receipt_number).padStart(4, '0')}
-                        </span>
-                        <Badge variant={STATUS_VARIANT[status]} className="text-[10px] px-1.5 py-0">
-                          {STATUS_LABELS[status]}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{new Date(r.payment_date).toLocaleDateString('es-AR')}</span>
-                      </div>
-                      <p className={`truncate text-sm ${isCancelled ? 'line-through text-muted-foreground' : ''}`}>{r.concept}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {r.client_name} · {getMethodLabel(r.payment_method)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 border-t sm:border-0 pt-2 sm:pt-0">
-                    <div className="text-right">
-                      <p className={`font-bold ${isCancelled ? 'line-through text-muted-foreground' : ''}`}>
-                        {r.currency} {r.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openDetail(r)} title="Ver detalle">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => downloadReceipt(r)} title="Descargar PDF">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEmailDialog(r)}
-                        title="Enviar por email"
-                        disabled={isCancelled}
-                      >
-                        <Mail className="h-4 w-4" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" title="Más acciones">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {!isCancelled && status !== 'draft' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(r.id, 'draft')}>
-                              Marcar como Borrador
-                            </DropdownMenuItem>
-                          )}
-                          {!isCancelled && status !== 'issued' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(r.id, 'issued')}>
-                              Marcar como Emitido
-                            </DropdownMenuItem>
-                          )}
-                          {!isCancelled && status !== 'paid' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(r.id, 'paid')}>
-                              Marcar como Pagado
-                            </DropdownMenuItem>
-                          )}
-                          {!isCancelled && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => setCancelId(r.id)} className="text-destructive">
-                                <Ban className="mr-2 h-4 w-4" />Anular recibo
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setDeleteId(r.id)} className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {receipts.map((r) => (
+            <ReceiptCard
+              key={r.id}
+              receipt={r}
+              getMethodLabel={getMethodLabel}
+              onOpenDetail={openDetail}
+              onDownload={downloadReceipt}
+              onOpenEmail={openEmailDialog}
+              onChangeStatus={handleStatusChange}
+              onCancel={setCancelId}
+              onDelete={setDeleteId}
+            />
+          ))}
         </div>
       )}
 
-      {/* Dialog: nuevo recibo */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Nuevo recibo</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Cliente</label>
-                <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Fecha de pago</label>
-                <Input
-                  type="date"
-                  value={form.payment_date}
-                  onChange={(e) => setForm({ ...form, payment_date: e.target.value })}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Concepto *</label>
-              <Input
-                value={form.concept}
-                onChange={(e) => setForm({ ...form, concept: e.target.value })}
-                placeholder="Ej: Seña paquete Caribe"
-              />
-            </div>
+      <NewReceiptDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSave={handleSaveReceipt}
+        defaultClientName={clientName}
+        defaultCurrency={currency}
+      />
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Líneas de pago</label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setItems([...items, { ...emptyItem(), currency }])}
-                >
-                  <PlusCircle className="mr-1 h-4 w-4" />Agregar línea
-                </Button>
-              </div>
-              {items.map((item, idx) => (
-                <Card key={idx} className="p-3">
-                  <div className="grid gap-3">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-medium">Monto *</label>
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={item.amount}
-                          onChange={(e) => updateItem(idx, { amount: Number(e.target.value) })}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium">Moneda pago</label>
-                        <Select value={item.currency} onValueChange={(v) => updateItem(idx, { currency: v })}>
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CURRENCIES.map((c) => (
-                              <SelectItem key={c} value={c}>
-                                {c}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium">Método</label>
-                        <Select
-                          value={item.payment_method}
-                          onValueChange={(v) => updateItem(idx, { payment_method: v })}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {METHODS.map((m) => (
-                              <SelectItem key={m.value} value={m.value}>
-                                {m.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-medium">Moneda servicio</label>
-                        <Select
-                          value={item.service_currency || ''}
-                          onValueChange={(v) => updateItem(idx, { service_currency: v === 'none' ? null : v })}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="—" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">— Sin conversión</SelectItem>
-                            {CURRENCIES.map((c) => (
-                              <SelectItem key={c} value={c}>
-                                {c}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium">Cotización</label>
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          placeholder="Ej: 1200"
-                          value={item.exchange_rate ?? ''}
-                          onChange={(e) =>
-                            updateItem(idx, { exchange_rate: e.target.value ? Number(e.target.value) : null })
-                          }
-                        />
-                      </div>
-                      <div className="flex items-end">
-                        {items.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-9 text-destructive"
-                            onClick={() => removeItem(idx)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+      <ReceiptDetailDialog
+        receipt={detailReceipt}
+        items={detailItems}
+        loading={detailLoading}
+        onOpenChange={(o) => !o && setDetailReceipt(null)}
+        getMethodLabel={getMethodLabel}
+      />
 
-            <div>
-              <label className="mb-1 block text-sm font-medium">Notas</label>
-              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
-            </div>
-            <Button onClick={handleSave}>Generar recibo</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EmailReceiptDialog
+        receipt={emailReceipt}
+        emailTo={emailTo}
+        setEmailTo={setEmailTo}
+        emailIncludeBreakdown={emailIncludeBreakdown}
+        setEmailIncludeBreakdown={setEmailIncludeBreakdown}
+        emailSending={emailSending}
+        onSend={handleSendEmail}
+        onOpenChange={(o) => !o && setEmailReceipt(null)}
+      />
 
-      {/* Dialog: enviar email */}
-      <Dialog open={!!emailReceipt} onOpenChange={(o) => !o && setEmailReceipt(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enviar recibo por email</DialogTitle>
-          </DialogHeader>
-          {emailReceipt && (
-            <div className="grid gap-4">
-              <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                <p className="font-medium">REC-{String(emailReceipt.receipt_number).padStart(4, '0')}</p>
-                <p className="text-muted-foreground">{emailReceipt.concept}</p>
-                <p className="text-muted-foreground">
-                  {emailReceipt.currency} {emailReceipt.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Destinatario *</label>
-                <Input
-                  type="email"
-                  value={emailTo}
-                  onChange={(e) => setEmailTo(e.target.value)}
-                  placeholder="cliente@ejemplo.com"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="include-breakdown"
-                  checked={emailIncludeBreakdown}
-                  onCheckedChange={(v) => setEmailIncludeBreakdown(!!v)}
-                />
-                <label htmlFor="include-breakdown" className="text-sm cursor-pointer">
-                  Incluir desglose de líneas en el cuerpo
-                </label>
-              </div>
-              <Button onClick={handleSendEmail} disabled={emailSending}>
-                <Mail className="mr-2 h-4 w-4" />
-                {emailSending ? 'Enviando...' : 'Enviar email'}
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmación: anular */}
       <AlertDialog open={!!cancelId} onOpenChange={() => setCancelId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -708,7 +366,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirmación: eliminar */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -725,126 +382,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Modal: detalle de recibo con líneas + tooltip de TC */}
-      <Dialog open={!!detailReceipt} onOpenChange={(o) => !o && setDetailReceipt(null)}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {detailReceipt && `Recibo REC-${String(detailReceipt.receipt_number).padStart(4, '0')}`}
-            </DialogTitle>
-          </DialogHeader>
-          {detailReceipt && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Cliente</span>
-                  <p className="font-medium">{detailReceipt.client_name}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Fecha</span>
-                  <p className="font-medium">{new Date(detailReceipt.payment_date).toLocaleDateString('es-AR')}</p>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-muted-foreground">Concepto</span>
-                  <p className="font-medium">{detailReceipt.concept}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-semibold mb-2">Líneas de pago</h4>
-                {detailLoading ? (
-                  <p className="py-4 text-center text-muted-foreground text-sm">Cargando...</p>
-                ) : detailItems.length === 0 ? (
-                  <p className="py-4 text-center text-muted-foreground text-sm">Sin líneas registradas.</p>
-                ) : (
-                  <TooltipProvider>
-                    <div className="space-y-2">
-                      {detailItems.map((it) => {
-                        const hasFx =
-                          it.exchange_rate &&
-                          it.service_currency &&
-                          it.service_currency !== it.currency;
-                        return (
-                          <div
-                            key={it.id}
-                            className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium">
-                                  {it.currency} {Number(it.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                </span>
-                                <Badge variant="outline" className="text-[10px]">
-                                  {getMethodLabel(it.payment_method || 'other')}
-                                </Badge>
-                                {hasFx && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="inline-flex items-center gap-1 text-xs text-primary cursor-help">
-                                        <Info className="h-3.5 w-3.5" />
-                                        TC {Number(it.exchange_rate).toFixed(2)}
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs">
-                                      <p className="text-xs">
-                                        <strong>TC aplicado:</strong> 1 {it.service_currency} ={' '}
-                                        {Number(it.exchange_rate).toLocaleString('es-AR')} {it.currency}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        Fecha: {new Date(detailReceipt.payment_date).toLocaleDateString('es-AR')} · Manual
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
-                              </div>
-                              {it.notes && (
-                                <p className="text-xs text-muted-foreground mt-0.5 truncate">{it.notes}</p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </TooltipProvider>
-                )}
-              </div>
-
-              {(() => {
-                const detailTotals = computeReceiptTotals(detailItems as any, detailReceipt.currency);
-                const subtotalEntries = Object.entries(detailTotals.subtotalsByCurrency);
-                const showBreakdown = detailTotals.isMultiCurrency && subtotalEntries.length > 0;
-                return (
-                  <div className="border-t pt-3 space-y-2">
-                    {showBreakdown && (
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Subtotales</p>
-                        {subtotalEntries.map(([cur, amt]) => (
-                          <div key={cur} className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">{cur}</span>
-                            <span className="font-medium">{formatMoney(cur, amt)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {detailTotals.unconvertibleLines.length > 0 && (
-                      <p className="text-xs text-amber-600">
-                        Hay líneas en otra moneda sin TC cargado: no se incluyen en el total convertido.
-                      </p>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Total recibo</span>
-                      <span className="font-bold text-lg">
-                        {formatMoney(detailReceipt.currency, detailTotals.convertedTotal)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

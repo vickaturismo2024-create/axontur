@@ -61,9 +61,9 @@ serve(async (req) => {
       .replace(/\bforget\s+(all\s+)?(previous\s+)?instructions?\b/gi, '[FILTERED]')
       .substring(0, 10000);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const systemPrompt = `You are an expert at parsing airline PNR (Passenger Name Record) data from GDS systems like Amadeus, Sabre, Galileo, and Worldspan.
@@ -97,17 +97,16 @@ Common GDS formats:
 - Sabre: "1 AA 1234Y 15MAR DFWLAX HK1 1430 1600"
 - Format variations include airline code, flight number, booking class, date, route, status, times
 
-Parse dates carefully - they may be in formats like "15MAR", "15MAR24", "2024-03-15", etc.
 Convert city codes to readable names when possible (EZE = Buenos Aires, CUN = Cancún, MIA = Miami, etc).`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Parse the following PNR/flight information:\n\n${sanitizedPnr}` }

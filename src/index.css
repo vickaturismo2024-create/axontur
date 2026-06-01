@@ -6,71 +6,71 @@
 
 @layer base {
   :root {
-    /* Premium Travel Agency Palette */
-    --background: 40 33% 98%;
-    --foreground: 215 50% 15%;
+    /* Premium Travel Agency Palette - Light-First with high contrast */
+    --background: 35 25% 98%;
+    --foreground: 215 70% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 50% 15%;
+    --card-foreground: 215 70% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 50% 15%;
+    --popover-foreground: 215 70% 15%;
 
     /* Deep Navy Blue - Primary */
-    --primary: 215 50% 23%;
-    --primary-foreground: 40 33% 98%;
+    --primary: 215 65% 20%;
+    --primary-foreground: 0 0% 100%;
 
     /* Champagne Gold - Secondary */
-    --secondary: 38 45% 85%;
-    --secondary-foreground: 215 50% 15%;
+    --secondary: 35 15% 92%;
+    --secondary-foreground: 215 70% 15%;
 
-    /* Muted Cream */
-    --muted: 40 20% 94%;
-    --muted-foreground: 215 20% 45%;
+    /* Muted Slate Gray */
+    --muted: 35 15% 94%;
+    --muted-foreground: 215 15% 45%;
 
     /* Gold Accent */
-    --accent: 38 70% 55%;
-    --accent-foreground: 215 50% 15%;
+    --accent: 38 70% 47%;
+    --accent-foreground: 215 70% 15%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 20% 88%;
-    --input: 40 20% 88%;
-    --ring: 215 50% 23%;
+    --border: 35 10% 89%;
+    --input: 35 10% 89%;
+    --ring: 38 70% 47%;
 
     --radius: 0.75rem;
 
     /* Custom tokens */
-    --gold: 38 70% 55%;
+    --gold: 38 70% 50%;
     --gold-light: 38 60% 75%;
-    --gold-dark: 38 65% 42%;
-    --navy: 215 50% 23%;
-    --navy-light: 215 40% 35%;
-    --navy-dark: 215 55% 15%;
-    --cream: 40 33% 98%;
-    --cream-dark: 40 20% 92%;
+    --gold-dark: 38 70% 35%;
+    --navy: 215 65% 20%;
+    --navy-light: 215 50% 35%;
+    --navy-dark: 215 70% 12%;
+    --cream: 35 25% 98%;
+    --cream-dark: 35 15% 92%;
 
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(215 50% 23%) 0%, hsl(215 40% 35%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(38 70% 55%) 0%, hsl(38 60% 65%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(40 20% 98%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(215 65% 20%) 0%, hsl(215 50% 35%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(38 70% 50%) 0%, hsl(38 60% 65%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(35 25% 98%) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(215 50% 15% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(215 50% 15% / 0.07), 0 2px 4px -2px hsl(215 50% 15% / 0.05);
-    --shadow-lg: 0 10px 15px -3px hsl(215 50% 15% / 0.08), 0 4px 6px -4px hsl(215 50% 15% / 0.05);
-    --shadow-xl: 0 20px 25px -5px hsl(215 50% 15% / 0.1), 0 8px 10px -6px hsl(215 50% 15% / 0.05);
-    --shadow-gold: 0 4px 14px 0 hsl(38 70% 55% / 0.25);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    --shadow-gold: 0 4px 14px 0 hsl(38 70% 50% / 0.15);
 
-    --sidebar-background: 215 50% 23%;
-    --sidebar-foreground: 40 33% 98%;
-    --sidebar-primary: 38 70% 55%;
-    --sidebar-primary-foreground: 215 50% 15%;
-    --sidebar-accent: 215 40% 30%;
-    --sidebar-accent-foreground: 40 33% 98%;
-    --sidebar-border: 215 40% 30%;
-    --sidebar-ring: 38 70% 55%;
+    --sidebar-background: 215 65% 20%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 38 70% 50%;
+    --sidebar-primary-foreground: 215 70% 15%;
+    --sidebar-accent: 215 50% 28%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 50% 28%;
+    --sidebar-ring: 38 70% 50%;
   }
 
   .dark {
@@ -115,7 +115,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 }
 
@@ -413,4 +413,361 @@
   .flex.flex-col.items-center.gap-8 {
     gap: 0 !important;
   }
+}
+
+/* ============================================================
+   AXONTUR — DESIGN SYSTEM PREMIUM v2
+   Inspirado en Traveris Pro — adaptado a paleta Navy/Gold
+   ============================================================ */
+
+/* ── Animaciones ─────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0);     }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+.animate-fadeInUp    { animation: fadeInUp    0.35s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.animate-fadeIn      { animation: fadeIn      0.25s ease both; }
+.animate-slideInRight { animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+/* ── Glass cards ─────────────────────────────────────────── */
+.glass-card-premium {
+  background:        hsl(var(--card));
+  border:            1px solid hsl(var(--border));
+  border-top:        3px solid hsl(var(--primary)); /* Elegante barra superior Navy */
+  border-radius:     var(--radius);
+  padding:           1.5rem;
+  box-shadow:        0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02), 0 10px 15px -3px rgba(0, 0, 0, 0.03);
+  transition:        border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+.glass-card-premium:hover {
+  border-color: hsl(var(--primary) / 0.4);
+  box-shadow:   0 12px 20px -8px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  transform:    translateY(-1.5px);
+}
+
+.glass-card-solid {
+  background:    hsl(var(--card));
+  border:        1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding:       1.5rem;
+  transition:    var(--transition, all 0.25s ease);
+}
+
+/* ── Botones premium ─────────────────────────────────────── */
+.btn-premium {
+  background:    linear-gradient(135deg, hsl(var(--primary)), hsl(var(--navy-light, var(--primary))));
+  color:         hsl(var(--primary-foreground));
+  border:        none;
+  border-radius: var(--radius);
+  padding:       0.6rem 1.5rem;
+  font-weight:   600;
+  font-size:     0.875rem;
+  cursor:        pointer;
+  position:      relative;
+  overflow:      hidden;
+  transition:    transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-premium:hover {
+  transform:  translateY(-1px);
+  box-shadow: 0 4px 16px hsl(var(--primary) / 0.35);
+}
+.btn-premium:active { transform: translateY(0); }
+
+.btn-gold {
+  background:    linear-gradient(135deg, hsl(var(--gold)), hsl(var(--gold-dark)));
+  color:         hsl(var(--navy));
+  border:        none;
+  border-radius: var(--radius);
+  padding:       0.6rem 1.5rem;
+  font-weight:   700;
+  font-size:     0.875rem;
+  cursor:        pointer;
+  transition:    transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-gold:hover {
+  transform:  translateY(-1px);
+  box-shadow: var(--shadow-gold);
+}
+
+.btn-outline-premium {
+  background:    transparent;
+  color:         hsl(var(--primary));
+  border:        1.5px solid hsl(var(--primary));
+  border-radius: var(--radius);
+  padding:       0.6rem 1.5rem;
+  font-weight:   600;
+  font-size:     0.875rem;
+  cursor:        pointer;
+  transition:    background 0.2s ease, transform 0.2s ease;
+}
+.btn-outline-premium:hover {
+  background: hsl(var(--primary) / 0.08);
+  transform:  translateY(-1px);
+}
+
+/* ── Status pills ─────────────────────────────────────────── */
+.status-pill {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            0.3rem;
+  padding:        0.2rem 0.7rem;
+  border-radius:  100px;
+  font-size:      0.72rem;
+  font-weight:    600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.status-pill.confirmed,
+.status-pill.abierto   { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
+.status-pill.completed,
+.status-pill.cerrado   { background: hsl(142 71% 45% / 0.12);   color: hsl(142 71% 35%);    }
+.status-pill.cancelled,
+.status-pill.cancelado { background: hsl(var(--destructive) / 0.12); color: hsl(var(--destructive)); }
+.status-pill.pending,
+.status-pill.draft     { background: hsl(var(--accent) / 0.12); color: hsl(var(--gold-dark)); }
+.status-pill.sent      { background: hsl(200 80% 50% / 0.12);   color: hsl(200 80% 40%);     }
+.status-pill.in_progress { background: hsl(var(--accent) / 0.15); color: hsl(var(--gold-dark)); }
+
+.dark .status-pill.confirmed,
+.dark .status-pill.abierto   { background: hsl(var(--primary) / 0.2); color: hsl(var(--primary)); }
+.dark .status-pill.completed,
+.dark .status-pill.cerrado   { background: hsl(142 71% 45% / 0.2);   color: hsl(142 71% 65%);    }
+.dark .status-pill.cancelled,
+.dark .status-pill.cancelado { background: hsl(var(--destructive) / 0.2); color: hsl(0 72% 70%);  }
+.dark .status-pill.pending,
+.dark .status-pill.draft     { background: hsl(var(--gold) / 0.2); color: hsl(var(--gold));       }
+
+/* ── Tabla premium ───────────────────────────────────────── */
+.table-premium {
+  width:           100%;
+  border-collapse: collapse;
+  font-size:       0.875rem;
+}
+.table-premium thead tr {
+  border-bottom: 1.5px solid hsl(var(--border));
+}
+.table-premium thead th {
+  padding:        0.75rem 1rem;
+  text-align:     left;
+  font-size:      0.72rem;
+  font-weight:    600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color:          hsl(var(--muted-foreground));
+}
+.table-premium tbody tr {
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  transition:    background 0.15s ease;
+}
+.table-premium tbody tr:last-child { border-bottom: none; }
+.table-premium tbody tr:hover      { background: hsl(var(--muted) / 0.5); }
+.table-premium td {
+  padding:        0.75rem 1rem;
+  vertical-align: middle;
+  color:          hsl(var(--foreground));
+}
+
+/* ── Nav tabs premium ────────────────────────────────────── */
+.nav-tabs-premium {
+  display:    flex;
+  gap:        0.25rem;
+  border-bottom: 1.5px solid hsl(var(--border));
+  padding-bottom: 0;
+  flex-wrap:  wrap;
+}
+.nav-tabs-premium .nav-link {
+  background:    transparent;
+  border:        none;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1.5px;
+  padding:       0.6rem 1rem;
+  font-size:     0.875rem;
+  font-weight:   500;
+  color:         hsl(var(--muted-foreground));
+  cursor:        pointer;
+  transition:    color 0.2s ease, border-color 0.2s ease;
+  border-radius: var(--radius) var(--radius) 0 0;
+  white-space:   nowrap;
+}
+.nav-tabs-premium .nav-link:hover {
+  color:      hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.4);
+}
+.nav-tabs-premium .nav-link.active {
+  color:        hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  font-weight:  600;
+}
+.dark .nav-tabs-premium .nav-link.active {
+  color:        hsl(var(--gold));
+  border-color: hsl(var(--gold));
+}
+
+/* ── Money / balance cards ───────────────────────────────── */
+.money-wallet {
+  background:    hsl(var(--card));
+  border:        1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding:       1.25rem;
+  cursor:        pointer;
+  transition:    border-color 0.2s ease, box-shadow 0.2s ease;
+  position:      relative;
+  overflow:      hidden;
+}
+.money-wallet::before {
+  content:       '';
+  position:      absolute;
+  top:           0; left: 0; right: 0;
+  height:        3px;
+  background:    linear-gradient(90deg, hsl(var(--primary)), hsl(var(--gold)));
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.money-wallet:hover {
+  border-color: hsl(var(--primary) / 0.4);
+  box-shadow:   var(--shadow-md);
+}
+.money-wallet .label {
+  font-size:      0.72rem;
+  font-weight:    600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color:          hsl(var(--muted-foreground));
+  margin-bottom:  0.5rem;
+}
+.money-wallet .amount {
+  font-size:   1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color:       hsl(var(--foreground));
+}
+.money-wallet.ars .amount { color: hsl(142 60% 40%); }
+.money-wallet.usd .amount { color: hsl(var(--primary)); }
+.money-wallet.eur .amount { color: hsl(250 60% 55%); }
+
+.dark .money-wallet.ars .amount { color: hsl(142 60% 60%); }
+.dark .money-wallet.usd .amount { color: hsl(var(--gold));  }
+.dark .money-wallet.eur .amount { color: hsl(250 60% 75%); }
+
+/* ── Page header ─────────────────────────────────────────── */
+.page-header {
+  display:         flex;
+  align-items:     flex-start;
+  justify-content: space-between;
+  gap:             1rem;
+  margin-bottom:   1.5rem;
+  flex-wrap:       wrap;
+}
+.page-title {
+  font-size:   1.75rem;
+  font-weight: 700;
+  color:       hsl(var(--foreground));
+  line-height: 1.2;
+}
+.page-subtitle {
+  font-size:   0.875rem;
+  color:       hsl(var(--muted-foreground));
+  margin-top:  0.25rem;
+}
+
+/* ── Stat card ───────────────────────────────────────────── */
+.stat-card {
+  background:    hsl(var(--card));
+  border:        1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding:       1.25rem;
+  transition:    box-shadow 0.2s ease;
+}
+.stat-card:hover { box-shadow: var(--shadow-md); }
+.stat-value {
+  font-size:   1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color:       hsl(var(--primary));
+}
+.stat-label {
+  font-size:   0.78rem;
+  color:       hsl(var(--muted-foreground));
+  margin-top:  0.35rem;
+  font-weight: 500;
+}
+
+/* ── Form controls premium ───────────────────────────────── */
+.form-control-premium {
+  background:    hsl(var(--input));
+  border:        1.5px solid hsl(var(--border));
+  border-radius: var(--radius);
+  color:         hsl(var(--foreground));
+  padding:       0.6rem 1rem;
+  font-size:     0.875rem;
+  width:         100%;
+  transition:    border-color 0.2s ease, box-shadow 0.2s ease;
+  outline:       none;
+}
+.form-control-premium:focus {
+  border-color: hsl(var(--primary));
+  box-shadow:   0 0 0 3px hsl(var(--primary) / 0.12);
+}
+.form-control-premium::placeholder { color: hsl(var(--muted-foreground)); }
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background:    hsl(var(--muted-foreground) / 0.3);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+
+/* ── Skeleton shimmer ────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton-premium {
+  background:             linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.1) 50%, hsl(var(--muted)) 75%);
+  background-size:        200% 100%;
+  animation:              shimmer 1.5s infinite;
+  border-radius:          calc(var(--radius) / 2);
+}
+
+/* ── Section title ───────────────────────────────────────── */
+.section-title {
+  font-size:      0.72rem;
+  font-weight:    600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color:          hsl(var(--muted-foreground));
+  margin-bottom:  0.75rem;
+}
+
+/* ── Utility: hover primary text ─────────────────────────── */
+.text-primary-hover:hover { color: hsl(var(--primary)) !important; }
+
+/* ── Detalle overlay para money wallet ───────────────────── */
+.detalle-overlay {
+  position:      absolute;
+  inset:         0;
+  background:    hsl(var(--card) / 0.97);
+  backdrop-filter: blur(4px);
+  border-radius: var(--radius);
+  padding:       1rem;
+  display:       flex;
+  flex-direction: column;
+  gap:           0.5rem;
+}
+.detalle-row {
+  display:         flex;
+  justify-content: space-between;
+  align-items:     center;
+  font-size:       0.82rem;
+  color:           hsl(var(--foreground));
 }

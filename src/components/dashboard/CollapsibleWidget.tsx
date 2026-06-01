@@ -45,7 +45,10 @@ export function CollapsibleWidget({
       {/* Header — siempre visible, clickeable para toggle */}
       <button
         onClick={toggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/50 rounded-t-xl"
+        className={cn(
+          "flex w-full items-center justify-between px-5 py-3.5 text-left transition-colors hover:bg-muted/40 rounded-t-xl",
+          isOpen && "border-b border-border/40"
+        )}
         aria-expanded={isOpen}
       >
         <div className="flex items-center gap-2 min-w-0">

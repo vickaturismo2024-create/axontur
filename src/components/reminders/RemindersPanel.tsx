@@ -31,9 +31,11 @@ interface ServiceDue {
 interface RemindersPanelProps {
   quoteId?: string;
   quoteName?: string;
+  defaultOpen?: boolean;
+  raw?: boolean;
 }
 
-export function RemindersPanel({ quoteId, quoteName }: RemindersPanelProps) {
+export function RemindersPanel({ quoteId, quoteName, defaultOpen, raw }: RemindersPanelProps) {
   const { user } = useAuth();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [serviceDues, setServiceDues] = useState<ServiceDue[]>([]);
@@ -92,110 +94,169 @@ export function RemindersPanel({ quoteId, quoteName }: RemindersPanelProps) {
   const completed = reminders.filter(r => r.completed);
   const totalAlerts = pending.length + serviceDues.length;
 
-  return (
-    <CollapsibleWidget
-      widgetKey="reminders"
-      icon={<Bell className="h-4 w-4" />}
-      title={quoteName ? `Recordatorios — ${quoteName}` : 'Recordatorios'}
-      count={totalAlerts}
-      badgeVariant={totalAlerts > 0 ? 'destructive' : 'secondary'}
-    >
-      <div className="space-y-3">
+  const renderContent = () => (
+    <div className="space-y-4">
+      {/* Styled Task Input Group */}
+      <div className="space-y-2 rounded-xl border border-border/80 bg-muted/30 p-3">
+        <Input
+          placeholder="Escribí una tarea..."
+          value={newMessage}
+          onChange={e => setNewMessage(e.target.value)}
+          className="h-9 text-xs rounded-lg bg-background border-border"
+          onKeyDown={e => { if (e.key === 'Enter') addReminder(); }}
+        />
         <div className="flex gap-2">
-          <Input
-            placeholder="Nuevo recordatorio..."
-            value={newMessage}
-            onChange={e => setNewMessage(e.target.value)}
-            className="h-8 text-sm"
-            onKeyDown={e => { if (e.key === 'Enter') addReminder(); }}
-          />
           <Input
             type="datetime-local"
             value={newDate}
             onChange={e => setNewDate(e.target.value)}
-            className="h-8 text-sm w-auto"
+            className="h-9 text-xs rounded-lg bg-background border-border flex-1"
           />
           <Button
             size="sm"
-            variant="ghost"
-            className="h-8 px-2"
             onClick={addReminder}
             disabled={!newMessage.trim() || !newDate}
+            className="h-9 px-3 rounded-lg bg-primary hover:bg-primary/95 text-primary-foreground font-semibold text-xs transition-colors shrink-0"
           >
-            <Plus className="h-3 w-3" />
+            Agregar
           </Button>
         </div>
+      </div>
 
-        <div className="space-y-1 max-h-[400px] overflow-y-auto">
-          {/* Service due date alerts */}
-          {serviceDues.length > 0 && (
-            <>
-              <p className="text-xs font-medium text-destructive flex items-center gap-1 pt-1">
-                <AlertTriangle className="h-3 w-3" />Vencimientos de servicios ({serviceDues.length})
-              </p>
-              {serviceDues.map(s => {
-                const date = new Date(s.payment_due_date);
-                const overdue = isPast(date) && !isToday(date);
-                return (
-                  <div key={s.id} className={`p-2 rounded text-sm ${overdue ? 'bg-destructive/10' : 'bg-yellow-500/10'}`}>
-                    <p className="truncate font-medium">{s.description}</p>
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      {s.supplier_name && <span>Prov: {s.supplier_name}</span>}
-                      <span>{s.currency} {s.cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                      <span className={overdue ? 'text-destructive font-medium' : 'text-yellow-700 font-medium'}>
-                        <Calendar className="inline h-3 w-3 mr-0.5" />
-                        {format(date, "d MMM yyyy", { locale: es })}
-                        {overdue && ' — Vencido'}
-                      </span>
+      {/* Task Items List */}
+      <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
+        {/* Service due date alerts */}
+        {serviceDues.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 px-1 text-[10px] font-bold text-destructive uppercase tracking-wider">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span>Vencimientos de servicios ({serviceDues.length})</span>
+            </div>
+            {serviceDues.map(s => {
+              const date = new Date(s.payment_due_date);
+              const overdue = isPast(date) && !isToday(date);
+              return (
+                <div 
+                  key={s.id} 
+                  className={`rounded-xl border p-3.5 transition-all hover:scale-[1.01] hover:shadow-sm text-sm border-l-4 ${
+                    overdue 
+                      ? 'border-l-destructive border-border/60 bg-destructive/[0.02]' 
+                      : 'border-l-amber-500 border-border/60 bg-amber-500/[0.02]'
+                  }`}
+                >
+                  <p className="font-semibold text-foreground truncate">{s.description}</p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-muted-foreground font-medium">
+                    {s.supplier_name && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">Prov: {s.supplier_name}</span>}
+                    <span>{s.currency} {s.cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                    <span className={`flex items-center gap-0.5 ${overdue ? 'text-destructive font-semibold' : 'text-amber-700 dark:text-amber-400 font-semibold'}`}>
+                      <Calendar className="h-3.5 w-3.5 shrink-0" />
+                      {format(date, "d MMM yyyy", { locale: es })}
+                      {overdue && ' (Vencido)'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Regular reminders */}
+        {pending.length > 0 && (
+          <div className="space-y-2">
+            {pending.map(r => {
+              const date = new Date(r.reminder_date);
+              const overdue = isPast(date) && !isToday(date);
+              return (
+                <div 
+                  key={r.id} 
+                  className={`flex items-start justify-between gap-3 rounded-xl border p-3.5 transition-all hover:scale-[1.01] hover:shadow-sm text-sm bg-background/50 border-l-4 ${
+                    overdue 
+                      ? 'border-l-destructive border-border/60 hover:border-destructive/35 hover:bg-destructive/[0.02]' 
+                      : 'border-l-primary/30 border-border/60 hover:border-primary/45 hover:bg-accent/5 dark:border-l-gold/30 dark:hover:border-gold/50'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                    <Checkbox 
+                      checked={false} 
+                      onCheckedChange={() => toggleCompleted(r)} 
+                      className="mt-0.5 rounded"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground text-xs leading-relaxed break-words">{r.message}</p>
+                      <p className={`text-[10px] font-semibold flex items-center gap-1 mt-1 ${overdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                        {format(date, "d MMM yyyy HH:mm", { locale: es })}
+                        {overdue && ' (Vencido)'}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </>
-          )}
-
-          {/* Regular reminders */}
-          {pending.map(r => {
-            const date = new Date(r.reminder_date);
-            const overdue = isPast(date) && !isToday(date);
-            return (
-              <div key={r.id} className={`flex items-center gap-2 p-2 rounded text-sm ${overdue ? 'bg-destructive/10' : 'bg-muted/50'}`}>
-                <Checkbox checked={false} onCheckedChange={() => toggleCompleted(r)} />
-                <div className="flex-1 min-w-0">
-                  <p className="truncate">{r.message}</p>
-                  <p className={`text-xs flex items-center gap-1 ${overdue ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    <Calendar className="h-3 w-3" />
-                    {format(date, "d MMM yyyy HH:mm", { locale: es })}
-                    {overdue && ' — Vencido'}
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => deleteReminder(r.id)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            );
-          })}
-
-          {completed.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground pt-2">Completados ({completed.length})</p>
-              {completed.slice(0, 5).map(r => (
-                <div key={r.id} className="flex items-center gap-2 p-2 rounded text-sm opacity-50">
-                  <Checkbox checked onCheckedChange={() => toggleCompleted(r)} />
-                  <p className="flex-1 line-through truncate">{r.message}</p>
-                  <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => deleteReminder(r.id)}>
-                    <Trash2 className="h-3 w-3" />
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg shrink-0" 
+                    onClick={() => deleteReminder(r.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              ))}
-            </>
-          )}
+              );
+            })}
+          </div>
+        )}
 
-          {reminders.length === 0 && serviceDues.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">Sin recordatorios</p>
-          )}
-        </div>
+        {/* Completed reminders */}
+        {completed.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-border/40 mt-2">
+            <div className="px-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Completadas ({completed.length})
+            </div>
+            {completed.slice(0, 5).map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/10 p-2.5 text-xs opacity-60">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <Checkbox 
+                    checked 
+                    onCheckedChange={() => toggleCompleted(r)} 
+                    className="rounded"
+                  />
+                  <p className="line-through text-muted-foreground font-medium truncate flex-1">{r.message}</p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-md shrink-0" 
+                  onClick={() => deleteReminder(r.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {reminders.length === 0 && serviceDues.length === 0 && (
+          <div className="py-8 text-center">
+            <Bell className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
+            <p className="text-xs text-muted-foreground">Sin recordatorios ni tareas pendientes</p>
+          </div>
+        )}
       </div>
+    </div>
+  );
+
+  if (raw) {
+    return renderContent();
+  }
+
+  return (
+    <CollapsibleWidget
+      widgetKey="reminders"
+      icon={<Bell className="h-4 w-4 text-[hsl(var(--gold))]" />}
+      title={quoteName ? `Recordatorios — ${quoteName}` : 'Recordatorios y Tareas'}
+      count={totalAlerts}
+      badgeVariant={totalAlerts > 0 ? 'destructive' : 'secondary'}
+      defaultOpen={defaultOpen}
+    >
+      {renderContent()}
     </CollapsibleWidget>
   );
 }

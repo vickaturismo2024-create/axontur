@@ -1,26 +1,37 @@
-const fs = require('fs');
-const file = 'src/hooks/useFlightReservations.ts';
-let content = fs.readFileSync(file, 'utf8');
+const { createClient } = require('@supabase/supabase-js');
 
-// Add import
-if (!content.includes('import { queryKeys } from')) {
-  content = content.replace(
-    /import \{ useQuery, useMutation, useQueryClient \} from '@tanstack\/react-query';/,
-    "import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';\nimport { queryKeys } from '@/lib/queryKeys';"
-  );
+const url = "https://hdeyzjfyewabypbgadsz.supabase.co";
+const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkZXl6amZ5ZXdhYnlwYmdhZHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTkwNjIsImV4cCI6MjA5NDUzNTA2Mn0.dzrQO_qdGLMfemklUINm1wo10LGOvdtASG57IbZsvss";
+
+const supabase = createClient(url, key);
+
+async function test() {
+  console.log("Fetching file_receipt_items...");
+  const { data: items, error: iError } = await supabase
+    .from('file_receipt_items')
+    .select('amount, currency, receipt_id');
+  
+  console.log("Items count:", items?.length, "Error:", iError);
+
+  console.log("Fetching file_receipts...");
+  const { data: receipts, error: rError } = await supabase
+    .from('file_receipts')
+    .select('id, status');
+
+  console.log("Receipts count:", receipts?.length, "Error:", rError);
+
+  if (items && receipts) {
+    const statusMap = new Map(receipts.map(r => [r.id, r.status]));
+    console.log("Status map size:", statusMap.size);
+    let totalUSD = 0;
+    items.forEach(it => {
+      const status = statusMap.get(it.receipt_id);
+      if (status !== 'cancelled') {
+        if (it.currency === 'USD') totalUSD += Number(it.amount);
+      }
+    });
+    console.log("Total USD (not cancelled):", totalUSD);
+  }
 }
 
-// Queries
-content = content.replace(/queryKey: \['reservations', user\?\.id\],/g, 'queryKey: queryKeys.reservations.all(user?.id),');
-content = content.replace(/queryKey: \['reservation', id\],/g, 'queryKey: queryKeys.reservations.detail(id),');
-content = content.replace(/queryKey: \['upcoming-flights', user\?\.id, limit\],/g, 'queryKey: queryKeys.reservations.upcomingFlights(user?.id, limit),');
-content = content.replace(/queryKey: \['pending-changes-count', user\?\.id\],/g, 'queryKey: queryKeys.reservations.pendingChangesCount(user?.id),');
-
-// Invalidations
-content = content.replace(/queryKey: \['reservations'\]/g, 'queryKey: queryKeys.reservations.all()');
-content = content.replace(/queryKey: \['reservation'\]/g, 'queryKey: queryKeys.reservations.detail()');
-content = content.replace(/queryKey: \['upcoming-flights'\]/g, 'queryKey: queryKeys.reservations.upcomingFlights()');
-content = content.replace(/queryKey: \['pending-changes-count'\]/g, 'queryKey: queryKeys.reservations.pendingChangesCount()');
-
-fs.writeFileSync(file, content);
-console.log('Done');
+test();

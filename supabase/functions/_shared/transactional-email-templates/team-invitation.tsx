@@ -27,7 +27,7 @@ const TeamInvitationEmail = ({
   agencyName = 'tu agencia',
   inviterEmail = 'un administrador',
   roleLabel = 'Vendedor',
-  acceptUrl = 'https://axontur.lovable.app',
+  acceptUrl = 'https://vickaturismo.tur.ar',
   expiresInDays = 7,
 }: TeamInvitationProps) => (
   <Html lang="es" dir="ltr">
@@ -78,7 +78,7 @@ export const template = {
     agencyName: 'Vicka Turismo',
     inviterEmail: 'admin@vickaturismo.tur.ar',
     roleLabel: 'Vendedor',
-    acceptUrl: 'https://axontur.lovable.app/accept-invitation?token=preview',
+    acceptUrl: 'https://vickaturismo.tur.ar/accept-invitation?token=preview',
     expiresInDays: 7,
   },
 } satisfies TemplateEntry
