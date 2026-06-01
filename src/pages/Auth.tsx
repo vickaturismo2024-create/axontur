@@ -99,27 +99,31 @@ export default function Auth() {
       </div>
 
       {/* Lado Derecho - Formulario de Acceso */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-background via-background to-[hsl(var(--cream-dark))]/20">
-        <Card className="w-full max-w-md shadow-premium border-border bg-card animate-fadeInUp">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-[hsl(var(--navy-dark))] via-[hsl(var(--navy))] to-[hsl(var(--navy-dark))] relative overflow-hidden">
+        {/* Luces de ambiente premium en el fondo */}
+        <div className="absolute top-0 right-0 h-96 w-96 rounded-full bg-[hsl(var(--gold))]/5 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 h-96 w-96 rounded-full bg-[hsl(var(--primary))]/10 blur-3xl pointer-events-none" />
+
+        <Card className="w-full max-w-md shadow-premium border-white/10 bg-white/5 backdrop-blur-lg text-white animate-fadeInUp relative z-10">
           <CardHeader className="text-center pb-4">
-            {/* Logo de AxonTur visible en móvil */}
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary lg:hidden shadow-sm">
-              <Compass className="h-7 w-7 text-primary animate-pulse" />
+            {/* Logo de AxonTur visible en móvil con colores dorados premium */}
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[hsl(var(--gold))]/10 border border-[hsl(var(--gold))]/20 text-[hsl(var(--gold))] lg:hidden shadow-sm">
+              <Compass className="h-7 w-7 text-[hsl(var(--gold))] animate-pulse" />
             </div>
             
-            <CardTitle className="text-2xl sm:text-3xl text-foreground font-bold">
+            <CardTitle className="text-2xl sm:text-3xl text-white font-bold">
               Bienvenido a AxonTur
             </CardTitle>
-            <CardDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
+            <CardDescription className="text-xs sm:text-sm text-white/70 mt-1">
               Ingresá al ERP para gestionar tus clientes, caja y expedientes.
             </CardDescription>
           </CardHeader>
 
           <Tabs defaultValue="login" className="w-full">
             <div className="px-6">
-              <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-xl">
-                <TabsTrigger value="login" className="rounded-lg text-xs font-semibold">Iniciar Sesión</TabsTrigger>
-                <TabsTrigger value="register" className="rounded-lg text-xs font-semibold">Registrarse</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-white/10 p-1 rounded-xl">
+                <TabsTrigger value="login" className="rounded-lg text-xs font-semibold text-white/60 data-[state=active]:bg-white/15 data-[state=active]:text-white transition-all">Iniciar Sesión</TabsTrigger>
+                <TabsTrigger value="register" className="rounded-lg text-xs font-semibold text-white/60 data-[state=active]:bg-white/15 data-[state=active]:text-white transition-all">Registrarse</TabsTrigger>
               </TabsList>
             </div>
 
@@ -127,7 +131,7 @@ export default function Auth() {
               <form onSubmit={handleLogin}>
                 <CardContent className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="login-email" className="text-xs font-medium text-foreground">Correo Electrónico</Label>
+                    <Label htmlFor="login-email" className="text-xs font-medium text-white/80">Correo Electrónico</Label>
                     <Input
                       id="login-email"
                       type="email"
@@ -135,12 +139,12 @@ export default function Auth() {
                       value={loginData.email}
                       onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                       disabled={isLoading}
-                      className="h-10 text-xs"
+                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="login-password" className="text-xs font-medium text-foreground">Contraseña</Label>
+                      <Label htmlFor="login-password" className="text-xs font-medium text-white/80">Contraseña</Label>
                     </div>
                     <Input
                       id="login-password"
@@ -149,15 +153,15 @@ export default function Auth() {
                       value={loginData.password}
                       onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                       disabled={isLoading}
-                      className="h-10 text-xs"
+                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
                     />
                   </div>
                 </CardContent>
                 <CardFooter className="pt-2">
-                  <Button type="submit" className="w-full h-10 text-xs font-semibold shadow-gold hover:opacity-95" disabled={isLoading}>
+                  <Button type="submit" className="w-full h-10 text-xs font-bold bg-gradient-to-r from-[hsl(var(--gold))] to-[hsl(var(--accent))] hover:opacity-90 text-[hsl(var(--navy-dark))] border-none shadow-gold hover:scale-[1.01] transition-all" disabled={isLoading}>
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin text-[hsl(var(--navy-dark))]" />
                         Ingresando...
                       </>
                     ) : (
@@ -172,7 +176,7 @@ export default function Auth() {
               <form onSubmit={handleRegister}>
                 <CardContent className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="register-email" className="text-xs font-medium text-foreground">Correo Electrónico</Label>
+                    <Label htmlFor="register-email" className="text-xs font-medium text-white/80">Correo Electrónico</Label>
                     <Input
                       id="register-email"
                       type="email"
@@ -180,11 +184,11 @@ export default function Auth() {
                       value={registerData.email}
                       onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                       disabled={isLoading}
-                      className="h-10 text-xs"
+                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="register-password" className="text-xs font-medium text-foreground">Contraseña</Label>
+                    <Label htmlFor="register-password" className="text-xs font-medium text-white/80">Contraseña</Label>
                     <Input
                       id="register-password"
                       type="password"
@@ -192,11 +196,11 @@ export default function Auth() {
                       value={registerData.password}
                       onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                       disabled={isLoading}
-                      className="h-10 text-xs"
+                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="register-confirm" className="text-xs font-medium text-foreground">Confirmar Contraseña</Label>
+                    <Label htmlFor="register-confirm" className="text-xs font-medium text-white/80">Confirmar Contraseña</Label>
                     <Input
                       id="register-confirm"
                       type="password"
@@ -204,15 +208,15 @@ export default function Auth() {
                       value={registerData.confirmPassword}
                       onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
                       disabled={isLoading}
-                      className="h-10 text-xs"
+                      className="h-10 text-xs bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-[hsl(var(--gold))] focus:ring-1 focus:ring-[hsl(var(--gold))] transition-all"
                     />
                   </div>
                 </CardContent>
                 <CardFooter className="pt-2">
-                  <Button type="submit" className="w-full h-10 text-xs font-semibold shadow-gold hover:opacity-95" disabled={isLoading}>
+                  <Button type="submit" className="w-full h-10 text-xs font-bold bg-gradient-to-r from-[hsl(var(--gold))] to-[hsl(var(--accent))] hover:opacity-90 text-[hsl(var(--navy-dark))] border-none shadow-gold hover:scale-[1.01] transition-all" disabled={isLoading}>
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin text-[hsl(var(--navy-dark))]" />
                         Creando cuenta...
                       </>
                     ) : (
