@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Plane, Menu, LogOut, User, Moon, Sun, Search } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plane, Menu, LogOut, User, Moon, Sun, Search, Download } from 'lucide-react';
 import { RemindersBadge } from '@/components/reminders/RemindersBadge';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { InfraHealthDot } from '@/components/layout/InfraHealthDot';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
@@ -58,6 +59,53 @@ export function Header() {
 
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // PWA installation helper
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showIOSInstallInfo, setShowIOSInstallInfo] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const isIOS = useMemo(() => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  }, []);
+
+  const isStandalone = useMemo(() => {
+    return window.matchMedia('(display-mode: standalone)').matches || 
+           (window.navigator as any).standalone === true;
+  }, []);
+
+  const showInstallButton = useMemo(() => {
+    if (isStandalone) return false;
+    return !!deferredPrompt || isIOS;
+  }, [deferredPrompt, isIOS, isStandalone]);
+
+  const handleInstallClick = async () => {
+    if (isIOS) {
+      setShowIOSInstallInfo(true);
+      setMenuOpen(false);
+      return;
+    }
+
+    if (!deferredPrompt) return;
+    
+    setMenuOpen(false);
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-card/80 backdrop-blur-lg">
       <div className="container mx-auto flex h-16 items-center justify-between gap-2 px-3 sm:px-4">
@@ -100,6 +148,13 @@ export function Header() {
                     {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
                     {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
                   </Button>
+
+                  {showInstallButton && (
+                    <Button variant="ghost" className="w-full justify-start text-primary font-medium" onClick={handleInstallClick}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Instalar Aplicación
+                    </Button>
+                  )}
 
                   {user && (
                     <>
@@ -183,6 +238,44 @@ export function Header() {
         </div>
       </div>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+
+      <Dialog open={showIOSInstallInfo} onOpenChange={setShowIOSInstallInfo}>
+        <DialogContent className="max-w-xs sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-center font-serif text-lg text-primary flex items-center justify-center gap-2">
+              <Plane className="h-5 w-5 text-primary" /> Instalar AxonTur
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs mt-2">
+              Sigue estos sencillos pasos para tener la aplicación en tu pantalla de inicio en iPhone o iPad:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-3 text-sm">
+            <div className="flex items-start gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">1</span>
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Toca el botón de <strong>Compartir</strong> en la barra inferior de Safari (el ícono de un cuadrado con una flecha hacia arriba ⬆️).
+              </p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">2</span>
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Desplázate hacia abajo y selecciona la opción <strong>"Agregar a pantalla de inicio"</strong>.
+              </p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">3</span>
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Presiona <strong>"Agregar"</strong> en la esquina superior derecha para confirmar. ¡Listo!
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-center mt-2">
+            <Button className="w-full rounded-xl" onClick={() => setShowIOSInstallInfo(false)}>
+              Entendido
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
