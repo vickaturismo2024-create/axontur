@@ -208,15 +208,17 @@ export function TeamTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold">Miembros del equipo</h3>
+          <h3 className="text-lg font-semibold text-foreground">Miembros del equipo</h3>
           <p className="text-sm text-muted-foreground">Administrá quién tiene acceso a tu agencia y con qué rol.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
           <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline"><UserIcon className="h-4 w-4 mr-2" /> Agregar usuario existente</Button>
+              <Button variant="outline" className="flex-1 md:flex-none text-xs h-9">
+                <UserIcon className="h-4 w-4 mr-2 shrink-0" /> Agregar usuario existente
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -251,7 +253,9 @@ export function TeamTab() {
           </Dialog>
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
             <DialogTrigger asChild>
-              <Button><UserPlus className="h-4 w-4 mr-2" /> Invitar miembro</Button>
+              <Button className="flex-1 md:flex-none text-xs h-9 bg-primary text-primary-foreground hover:bg-primary/95">
+                <UserPlus className="h-4 w-4 mr-2 shrink-0" /> Invitar miembro
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -305,20 +309,20 @@ export function TeamTab() {
               const isMe = m.user_id === user?.id;
               const isLastAdmin = m.role === 'admin' && adminCount === 1;
               return (
-                <Card key={m.id} className="p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
+                <Card key={m.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     {m.role === 'admin' ? <Crown className="h-5 w-5 text-amber-500 shrink-0" /> : <UserIcon className="h-5 w-5 text-muted-foreground shrink-0" />}
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">
-                        {m.email || m.user_id.substring(0, 8) + '…'}
-                        {isMe && <Badge variant="secondary" className="ml-2 text-[10px]">Vos</Badge>}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate text-sm sm:text-base">
+                        {m.email || `${m.user_id.substring(0, 8)}…`}
+                        {isMe && <Badge variant="secondary" className="ml-2 text-[9px] h-4.5 px-1.5 align-middle">Vos</Badge>}
                       </p>
-                      <p className="text-xs text-muted-foreground">Miembro desde {format(parseISO(m.created_at), 'dd MMM yyyy', { locale: es })}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Miembro desde {format(parseISO(m.created_at), 'dd MMM yyyy', { locale: es })}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
                     <Select value={m.role} onValueChange={(v) => changeRole(m.id, v as AppRole)} disabled={isMe || isLastAdmin}>
-                      <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-32 h-8.5 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">Administrador</SelectItem>
                         <SelectItem value="vendedor">Vendedor</SelectItem>
@@ -327,7 +331,7 @@ export function TeamTab() {
                     {!isMe && !isLastAdmin && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8.5 w-8.5 text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
@@ -357,39 +361,39 @@ export function TeamTab() {
             {pendingInvites.map((inv) => {
               const expired = isExpired(inv.expires_at);
               return (
-                <Card key={inv.id} className="p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
+                <Card key={inv.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <Mail className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{inv.email}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline">{inv.role === 'admin' ? 'Administrador' : 'Vendedor'}</Badge>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate text-sm sm:text-base">{inv.email}</p>
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
+                        <Badge variant="outline" className="text-[9px] py-0 px-1.5">{inv.role === 'admin' ? 'Administrador' : 'Vendedor'}</Badge>
                         {expired ? (
-                          <Badge variant="destructive">Expirada</Badge>
+                          <Badge variant="destructive" className="text-[9px] py-0 px-1.5">Expirada</Badge>
                         ) : (
                           <span>Expira el {format(parseISO(inv.expires_at), 'dd MMM yyyy', { locale: es })}</span>
                         )}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
                     {expired ? (
-                      <Button variant="outline" size="sm" onClick={() => reactivateInvite(inv.id)} disabled={reactivatingId === inv.id}>
-                        {reactivatingId === inv.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCw className="h-4 w-4 mr-1" />}
+                      <Button variant="outline" size="sm" className="h-8 text-xs flex-1 sm:flex-none" onClick={() => reactivateInvite(inv.id)} disabled={reactivatingId === inv.id}>
+                        {reactivatingId === inv.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCw className="h-3 w-3 mr-1" />}
                         Reactivar
                       </Button>
                     ) : (
                       <>
-                        <Button variant="outline" size="sm" onClick={() => resendInvite(inv.id)} disabled={resendingId === inv.id}>
-                          {resendingId === inv.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                        <Button variant="outline" size="sm" className="h-8 text-xs flex-1 sm:flex-none" onClick={() => resendInvite(inv.id)} disabled={resendingId === inv.id}>
+                          {resendingId === inv.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
                           Reenviar email
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => copyLink(inv.token)} title="Copiar link">
-                          <Copy className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => copyLink(inv.token)} title="Copiar link">
+                          <Copy className="h-3.5 w-3.5" />
                         </Button>
                       </>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => cancelInvite(inv.id)}>Cancelar</Button>
+                    <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground shrink-0 px-2" onClick={() => cancelInvite(inv.id)}>Cancelar</Button>
                   </div>
                 </Card>
               );
@@ -404,28 +408,28 @@ export function TeamTab() {
           <h4 className="text-sm font-medium text-muted-foreground">Historial</h4>
           <div className="space-y-2">
             {otherInvites.slice(0, 10).map((inv) => (
-              <Card key={inv.id} className="p-3 flex items-center justify-between gap-4 opacity-70">
-                <div className="flex items-center gap-3 min-w-0">
+              <Card key={inv.id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 opacity-70">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm truncate">{inv.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      <Badge variant="secondary" className="mr-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm truncate font-medium">{inv.email}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      <Badge variant="secondary" className="mr-2 text-[9px] py-0 px-1">
                         {inv.status === 'accepted' ? 'Aceptada' : inv.status === 'cancelled' ? 'Cancelada' : 'Expirada'}
                       </Badge>
                       {format(parseISO(inv.created_at), 'dd MMM yyyy', { locale: es })}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
                   {inv.status !== 'accepted' && (
-                    <Button variant="outline" size="sm" onClick={() => reactivateInvite(inv.id)} disabled={reactivatingId === inv.id}>
-                      {reactivatingId === inv.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RotateCw className="h-4 w-4 mr-1" />}
+                    <Button variant="outline" size="sm" className="h-8 text-xs flex-1 sm:flex-none" onClick={() => reactivateInvite(inv.id)} disabled={reactivatingId === inv.id}>
+                      {reactivatingId === inv.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCw className="h-3 w-3 mr-1" />}
                       Reactivar
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" onClick={() => deleteInvite(inv.id)}>
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0" onClick={() => deleteInvite(inv.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </Card>

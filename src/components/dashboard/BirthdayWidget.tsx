@@ -24,7 +24,7 @@ interface BirthdayClient {
   upcomingAge: number;
 }
 
-function buildBirthdayItem(c: { id: string; name: string; phone: string | null; birth_date: string }): BirthdayClient | null {
+function buildBirthdayItem(c: { id: string; name: string; phone: string | null; phone_mobile: string | null; phone_work?: string | null; birth_date: string }): BirthdayClient | null {
   if (!c.birth_date) return null;
   const [yStr, mStr, dStr] = c.birth_date.split('-');
   const month = parseInt(mStr, 10) - 1;
@@ -45,10 +45,12 @@ function buildBirthdayItem(c: { id: string; name: string; phone: string | null; 
   const birth = parseISO(c.birth_date);
   const baseAge = differenceInYears(next, birth);
 
+  const phoneVal = (c.phone_mobile || '').trim() || (c.phone || '').trim() || (c.phone_work || '').trim() || '';
+
   return {
     id: c.id,
     name: c.name,
-    phone: c.phone || '',
+    phone: phoneVal,
     birth_date: c.birth_date,
     monthDay: month * 100 + day,
     daysUntil,
@@ -74,7 +76,7 @@ export function BirthdayWidget({ defaultOpen, raw }: { defaultOpen?: boolean; ra
       while (true) {
         const { data } = await supabase
           .from('clients')
-          .select('id, name, phone, birth_date')
+          .select('id, name, phone, phone_mobile, phone_work, birth_date')
           .not('birth_date', 'is', null)
           .range(from, from + PAGE - 1);
         if (!data || data.length === 0) break;

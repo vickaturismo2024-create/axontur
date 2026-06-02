@@ -203,16 +203,16 @@ const Templates = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-sans text-3xl font-bold text-foreground">Plantillas</h1>
             <p className="mt-1 text-muted-foreground">Personaliza el diseño de tus presupuestos</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setGalleryOpen(true)}>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Button variant="outline" onClick={() => setGalleryOpen(true)} className="flex-1 sm:flex-none">
               <Layers className="mr-2 h-4 w-4" /> Galería
             </Button>
-            <Button onClick={handleCreate} className="bg-primary">
+            <Button onClick={handleCreate} className="bg-primary flex-1 sm:flex-none">
               <Plus className="mr-2 h-4 w-4" /> Nueva Plantilla
             </Button>
           </div>
@@ -220,36 +220,50 @@ const Templates = () => {
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {templates.map((template) => (
-            <Card key={template.id} className="group overflow-hidden">
-              <CardHeader className="relative pb-2">
-                <div className="mb-3 flex gap-2">
-                  {[template.colors.primary, template.colors.secondary, template.colors.accent].map((c, i) => (
-                    <div key={i} className="h-8 w-8 rounded-full border" style={{ backgroundColor: c }} />
-                  ))}
-                </div>
-                <CardTitle className="flex items-center gap-2 font-sans text-lg">
-                  {template.name}
-                  {defaultTemplateId === template.id && (
-                    <span className="flex items-center gap-1 rounded-full bg-gold/20 px-2 py-0.5 text-xs text-gold-dark">
-                      <Star className="h-3 w-3 fill-current" /> Predeterminada
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4 space-y-2 text-sm text-muted-foreground">
-                  <p>Tipografía: {template.fonts.heading}</p>
-                  <p>Agentes WhatsApp: {template.whatsappAgents.length}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(template)}><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDuplicate(template)}><Copy className="mr-1 h-4 w-4" /> Duplicar</Button>
-                  {defaultTemplateId !== template.id && (
-                    <Button variant="ghost" size="sm" onClick={() => setDefaultTemplate(template.id)} className="text-gold-dark"><Star className="mr-1 h-4 w-4" /> Predeterminar</Button>
-                  )}
+            <Card key={template.id} className="group overflow-hidden flex flex-col justify-between">
+              <div>
+                <CardHeader className="relative pb-2">
+                  <div className="mb-3 flex gap-2">
+                    {[template.colors.primary, template.colors.secondary, template.colors.accent].map((c, i) => (
+                      <div key={i} className="h-8 w-8 rounded-full border" style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                  <CardTitle className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 font-sans text-lg">
+                    <span className="truncate">{template.name}</span>
+                    {defaultTemplateId === template.id && (
+                      <span className="flex items-center gap-1 rounded-full bg-gold/20 px-2 py-0.5 text-xs text-gold-dark shrink-0 w-fit">
+                        <Star className="h-3 w-3 fill-current" /> Predeterminada
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-0">
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <p>Tipografía: {template.fonts.heading}</p>
+                    <p>Agentes WhatsApp: {template.whatsappAgents.length}</p>
+                  </div>
+                </CardContent>
+              </div>
+              <CardContent className="pt-4 mt-auto">
+                <div className="flex flex-wrap gap-1.5 pt-3 border-t justify-between items-center">
+                  <div className="flex flex-wrap gap-1">
+                    <Button variant="ghost" size="sm" className="h-8 text-xs px-2.5" onClick={() => handleEdit(template)}>
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 text-xs px-2.5" onClick={() => handleDuplicate(template)}>
+                      <Copy className="mr-1.5 h-3.5 w-3.5" /> Duplicar
+                    </Button>
+                    {defaultTemplateId !== template.id && (
+                      <Button variant="ghost" size="sm" className="h-8 text-xs px-2.5 text-gold-dark hover:text-gold-dark hover:bg-gold/10" onClick={() => setDefaultTemplate(template.id)}>
+                        <Star className="mr-1.5 h-3.5 w-3.5" /> Predeterminar
+                      </Button>
+                    )}
+                  </div>
                   {template.id !== 'default' && (
                     <AdminOnly>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(template.id)} className="text-destructive"><Trash2 className="mr-1 h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0" onClick={() => handleDelete(template.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </AdminOnly>
                   )}
                 </div>

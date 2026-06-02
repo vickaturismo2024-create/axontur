@@ -78,7 +78,11 @@ const Clients = () => {
     staleTime: 60_000,
   });
 
-  const fetchClients = async () => { await refetch(); };
+  const fetchClients = async () => {
+    await refetch();
+    queryClient.invalidateQueries({ queryKey: ['birthday-widget'] });
+    queryClient.invalidateQueries({ queryKey: ['operational-alerts'] });
+  };
 
   const existingDnis = useMemo(() => {
     const set = new Set<string>();
@@ -172,6 +176,8 @@ const Clients = () => {
       const { error } = await supabase.from('clients').delete().eq('id', deleteTargetId);
       if (error) throw error;
       queryClient.setQueryData<ClientRecord[]>(['clients', user?.id], (prev) => (prev || []).filter(c => c.id !== deleteTargetId));
+      queryClient.invalidateQueries({ queryKey: ['birthday-widget'] });
+      queryClient.invalidateQueries({ queryKey: ['operational-alerts'] });
       setDeleteTargetId(null);
       toast.success('Cliente eliminado');
     } catch (e) { console.error(e); toast.error('Error al eliminar'); }

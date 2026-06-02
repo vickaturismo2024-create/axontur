@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Header } from '@/components/layout/Header';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +49,7 @@ interface ImportResult { imported: number; skipped: number; errors: string[] }
 
 export default function DataImport() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<'upload' | 'queue' | 'importing' | 'done'>('upload');
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -179,6 +181,9 @@ export default function DataImport() {
       errors: acc.errors + (q.result?.errors?.length || 0),
     }), { imported: 0, errors: 0 });
     toast.success(`Importación completa: ${totals.imported} registros importados`);
+    
+    // Invalidate React Query cache to reflect newly imported items
+    queryClient.invalidateQueries();
   };
 
   const totalImported = queue.reduce((s, q) => s + (q.result?.imported || 0), 0);
