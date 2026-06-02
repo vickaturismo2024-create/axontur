@@ -133,7 +133,7 @@ export default function Auth() {
 
           <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'login' | 'register')} className="w-full">
             <div className="px-6">
-              <TabsList className="grid w-full grid-cols-2 bg-white/10 p-1 rounded-xl">
+              <TabsList className="!grid w-full !grid-cols-2 bg-white/10 p-1 rounded-xl">
                 <TabsTrigger value="login" className="rounded-lg text-xs font-semibold text-white/60 data-[state=active]:bg-white/15 data-[state=active]:text-white transition-all">Iniciar Sesión</TabsTrigger>
                 <TabsTrigger value="register" className="rounded-lg text-xs font-semibold text-white/60 data-[state=active]:bg-white/15 data-[state=active]:text-white transition-all">Registrarse</TabsTrigger>
               </TabsList>

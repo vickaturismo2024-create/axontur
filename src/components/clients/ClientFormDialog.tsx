@@ -53,11 +53,11 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
           <DialogTitle>{client.id ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="personal" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto p-1">
-            <TabsTrigger value="personal">Personal</TabsTrigger>
-            <TabsTrigger value="documents">Documentos</TabsTrigger>
-            <TabsTrigger value="contact">Contacto</TabsTrigger>
-            <TabsTrigger value="notes" disabled={!client.id}>Notas</TabsTrigger>
+          <TabsList className="!grid w-full !grid-cols-2 sm:!grid-cols-4 gap-1 !h-auto p-1">
+            <TabsTrigger value="personal" className="py-2 text-xs sm:text-sm">Personal</TabsTrigger>
+            <TabsTrigger value="documents" className="py-2 text-xs sm:text-sm">Documentos</TabsTrigger>
+            <TabsTrigger value="contact" className="py-2 text-xs sm:text-sm">Contacto</TabsTrigger>
+            <TabsTrigger value="notes" disabled={!client.id} className="py-2 text-xs sm:text-sm">Notas</TabsTrigger>
           </TabsList>
 
           <TabsContent value="personal" className="space-y-4 mt-4">

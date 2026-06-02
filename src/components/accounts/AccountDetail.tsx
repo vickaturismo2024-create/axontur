@@ -213,12 +213,12 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
     <>
       <Dialog open={open} onOpenChange={() => onClose()}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-2">
-              <span className="truncate">{accountName} — Cuenta Corriente</span>
+          <DialogHeader className="pr-10 sm:pr-0">
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <span className="truncate text-base sm:text-lg">{accountName} — Cuenta Corriente</span>
               {canCreateMovements && (
-                <Button size="sm" onClick={() => setAddOpen(true)}>
-                  <Plus className="mr-1 h-3 w-3" /> Movimiento
+                <Button size="sm" className="h-8 text-xs w-full sm:w-auto mt-1 sm:mt-0 shrink-0 bg-primary text-primary-foreground hover:bg-primary/95" onClick={() => setAddOpen(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Movimiento
                 </Button>
               )}
             </DialogTitle>
@@ -245,19 +245,19 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
                 </Button>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
               <div>
                 <Label className="text-xs">Desde</Label>
-                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 text-xs" />
+                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 text-xs w-full" />
               </div>
               <div>
                 <Label className="text-xs">Hasta</Label>
-                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 text-xs" />
+                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 text-xs w-full" />
               </div>
               <div>
                 <Label className="text-xs">Tipo</Label>
                 <Select value={typeFilter} onValueChange={v => setTypeFilter(v as any)}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="credit">Haber</SelectItem>
@@ -265,17 +265,19 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
                   </SelectContent>
                 </Select>
               </div>
-              {availableCurrencies.length > 1 && (
+              {availableCurrencies.length > 1 ? (
                 <div>
                   <Label className="text-xs">Moneda</Label>
                   <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todas</SelectItem>
                       {availableCurrencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+              ) : (
+                <div className="hidden md:block" />
               )}
             </div>
             <Input

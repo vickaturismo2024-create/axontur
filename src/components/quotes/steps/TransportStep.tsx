@@ -62,7 +62,7 @@ export function TransportStep({ quote, onUpdate }: TransportStepProps) {
   return (
     <div className="space-y-4">
       <Tabs value={transportTab} onValueChange={setTransportTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="!grid w-full !grid-cols-4">
           <TabsTrigger value="transfers">Traslados</TabsTrigger>
           <TabsTrigger value="trains">Trenes</TabsTrigger>
           <TabsTrigger value="ferries">Ferrys</TabsTrigger>

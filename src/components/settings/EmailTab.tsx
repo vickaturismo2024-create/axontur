@@ -117,9 +117,9 @@ export function EmailTab() {
         </div>
 
         <Tabs value={activeTemplate} onValueChange={v => setActiveTemplate(v as EmailTemplateKey)}>
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className="!grid !grid-cols-1 sm:!grid-cols-3 w-full !h-auto gap-1 bg-muted p-1">
             {(Object.keys(TEMPLATE_LABELS) as EmailTemplateKey[]).map(key => (
-              <TabsTrigger key={key} value={key}>{TEMPLATE_LABELS[key]}</TabsTrigger>
+              <TabsTrigger key={key} value={key} className="py-2 text-xs sm:text-sm whitespace-normal text-center h-auto min-h-[36px]">{TEMPLATE_LABELS[key]}</TabsTrigger>
             ))}
           </TabsList>
 

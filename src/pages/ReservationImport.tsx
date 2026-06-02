@@ -530,7 +530,7 @@ export default function ReservationImport() {
             <Card>
               <CardContent className="pt-6">
                 <Tabs defaultValue="text">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="!grid w-full !grid-cols-2">
                     <TabsTrigger value="text"><FileText className="h-4 w-4 mr-2" />Pegar texto</TabsTrigger>
                     <TabsTrigger value="pdf"><FileUp className="h-4 w-4 mr-2" />Subir PDF</TabsTrigger>
                   </TabsList>

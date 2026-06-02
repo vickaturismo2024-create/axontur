@@ -119,7 +119,7 @@ export function EditReservationModal({ reservation, open, onOpenChange }: EditRe
         </DialogHeader>
 
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="!grid w-full !grid-cols-3">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="passengers"><User className="h-4 w-4 mr-1" />Pasajeros</TabsTrigger>
             <TabsTrigger value="flights"><Plane className="h-4 w-4 mr-1" />Vuelos</TabsTrigger>

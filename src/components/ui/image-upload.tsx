@@ -80,7 +80,7 @@ export function ImageUpload({
       {label && <Label>{label}</Label>}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="!grid w-full !grid-cols-2">
           <TabsTrigger value="file" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
             Subir archivo

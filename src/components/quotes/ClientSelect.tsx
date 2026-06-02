@@ -81,7 +81,7 @@ export function ClientSelect({ onSelect, onSelectGroup }: ClientSelectProps) {
         </div>
 
         <Tabs defaultValue="clients">
-          <TabsList className="grid w-full grid-cols-2 h-8">
+          <TabsList className="!grid w-full !grid-cols-2 !h-8">
             <TabsTrigger value="clients" className="text-xs"><User className="mr-1 h-3 w-3" />Clientes</TabsTrigger>
             <TabsTrigger value="groups" className="text-xs"><Users className="mr-1 h-3 w-3" />Grupos</TabsTrigger>
           </TabsList>
