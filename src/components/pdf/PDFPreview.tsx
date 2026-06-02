@@ -23,7 +23,7 @@ export function PDFPreview({ quote, template }: PDFPreviewProps) {
         const width = containerRef.current.getBoundingClientRect().width;
         // Target page width is 210mm (approx 794px).
         // Leave a small 16px padding on mobile.
-        const computedScale = Math.min(1, (width - 16) / 794);
+        const computedScale = Math.min(1, (width - 8) / 794);
         setScale(computedScale);
         
         if (contentRef.current) {
@@ -55,7 +55,7 @@ export function PDFPreview({ quote, template }: PDFPreviewProps) {
   return (
     <div ref={containerRef} className="w-full flex justify-center">
       <ScrollArea className="h-[calc(100vh-200px)] w-full">
-        <div className="flex justify-center p-2 w-full">
+        <div className="flex justify-center p-1 w-full">
           <div 
             style={{ 
               width: `${794 * scale}px`,

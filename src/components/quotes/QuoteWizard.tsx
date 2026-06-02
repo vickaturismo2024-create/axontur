@@ -209,7 +209,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
             <Switch id="itinerary-visible-preview" checked={itineraryVisible} onCheckedChange={setItineraryVisible} />
             <Label htmlFor="itinerary-visible-preview" className="text-sm">Mostrar itinerario en el PDF</Label>
           </div>
-          <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <div className="rounded-lg border border-border bg-muted/30 p-2 sm:p-4">
             {previewTemplate ? (
               <PDFPreview quote={previewQuote} template={previewTemplate} />
             ) : (

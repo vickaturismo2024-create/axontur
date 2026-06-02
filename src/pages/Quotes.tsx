@@ -379,7 +379,7 @@ const Quotes = () => {
       </main>
 
       <Dialog open={!!previewQuote} onOpenChange={() => setPreviewQuote(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-3 sm:p-6">
           <DialogHeader>
             <DialogTitle className="font-sans">Vista Previa — {previewQuote?.trip.destination}</DialogTitle>
           </DialogHeader>

@@ -178,9 +178,9 @@
   /* PDF Preview Styles - A4 Format */
   .pdf-page {
     @apply bg-white shadow-xl;
-    width: 210mm;
-    min-height: 297mm;
-    padding: 15mm;
+    width: 794px;
+    min-height: 1123px;
+    padding: 57px;
     font-family: 'Inter', sans-serif;
     box-sizing: border-box;
     position: relative;
