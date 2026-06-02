@@ -345,7 +345,16 @@ export default function ReservationDetail() {
                     <div key={pax.id} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                       <span className="text-sm text-muted-foreground">{index + 1}.</span>
                       <div>
-                        <span className="font-medium">{pax.last_name}/{pax.first_name || ''}</span>
+                        <span
+                          className="font-medium hover:text-primary hover:underline cursor-pointer transition-colors"
+                          onClick={() => {
+                            const fullName = [pax.last_name, pax.first_name].filter(Boolean).join(' ');
+                            navigate(`/clients?highlight=${encodeURIComponent(fullName)}`);
+                          }}
+                          title="Ver en CRM Clientes"
+                        >
+                          {pax.last_name}/{pax.first_name || ''}
+                        </span>
                         {pax.title && <span className="text-muted-foreground ml-2">{pax.title}</span>}
                         {pax.document && <div className="text-xs text-muted-foreground mt-0.5">Doc: {pax.document}</div>}
                       </div>

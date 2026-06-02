@@ -4,11 +4,18 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, User, UserPlus, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, User, UserPlus, Search, Download, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { exportPassengersToExcel } from '@/lib/exportPassengersExcel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { ClientInfoDialog } from '@/components/clients/ClientInfoDialog';
+import { ClientRecord } from '@/components/clients/ClientFormDialog';
+import { useNavigate } from 'react-router-dom';
 
 interface Passenger {
   id: string;
@@ -22,6 +29,48 @@ interface Passenger {
   notes: string;
 }
 
+interface PassengerForm {
+  client_id: string | null;
+  name: string;
+  sex: string;
+  birth_date: string | null;
+  nationality: string;
+  notes: string;
+  dni: string;
+  dni_expiry: string | null;
+  passport: string;
+  passport_issue: string | null;
+  passport_expiry: string | null;
+  cuil_cuit: string;
+  email: string;
+  phone: string;
+  phone_work: string;
+  phone_mobile: string;
+  address: string;
+  locality: string;
+}
+
+const emptyPassengerForm: PassengerForm = {
+  client_id: null,
+  name: '',
+  sex: '',
+  birth_date: null,
+  nationality: '',
+  notes: '',
+  dni: '',
+  dni_expiry: null,
+  passport: '',
+  passport_issue: null,
+  passport_expiry: null,
+  cuil_cuit: '',
+  email: '',
+  phone: '',
+  phone_work: '',
+  phone_mobile: '',
+  address: '',
+  locality: '',
+};
+
 interface ClientOption {
   id: string;
   name: string;
@@ -30,18 +79,17 @@ interface ClientOption {
   passport_expiry: string | null;
   birth_date: string | null;
   nationality: string;
+  sex?: string;
+  cuil_cuit?: string;
+  email?: string;
+  phone?: string;
+  phone_work?: string;
+  phone_mobile?: string;
+  address?: string;
+  locality?: string;
+  passport_issue?: string | null;
+  notes?: string;
 }
-
-const emptyPassenger: Omit<Passenger, 'id'> = {
-  client_id: null,
-  name: '',
-  dni: '',
-  passport: '',
-  passport_expiry: null,
-  birth_date: null,
-  nationality: '',
-  notes: '',
-};
 
 const CLIENTS_PAGE_SIZE = 1000;
 
@@ -56,16 +104,22 @@ interface Props { fileId: string; }
 
 export function FilePassengersTab({ fileId }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingClients, setLoadingClients] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Passenger | null>(null);
-  const [form, setForm] = useState({ ...emptyPassenger });
+  const [form, setForm] = useState<PassengerForm>({ ...emptyPassengerForm });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importMode, setImportMode] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
+
+  // Info Dialog state
+  const [selectedClientInfo, setSelectedClientInfo] = useState<ClientRecord | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [passengerForInfo, setPassengerForInfo] = useState<Passenger | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -90,7 +144,7 @@ export function FilePassengersTab({ fileId }: Props) {
       while (hasMore) {
         const { data, error } = await supabase
           .from('clients')
-          .select('id,name,dni,passport,passport_expiry,birth_date,nationality')
+          .select('id,name,sex,birth_date,nationality,notes,dni,dni_expiry,passport,passport_issue,passport_expiry,cuil_cuit,email,phone,phone_work,phone_mobile,address,locality')
           .order('name')
           .range(from, from + CLIENTS_PAGE_SIZE - 1);
 
@@ -121,16 +175,66 @@ export function FilePassengersTab({ fileId }: Props) {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ ...emptyPassenger });
+    setForm({ ...emptyPassengerForm });
     setImportMode(false);
     setClientSearch('');
     setDialogOpen(true);
   };
 
-  const openEdit = (p: Passenger) => {
+  const openEdit = async (p: Passenger) => {
     setEditing(p);
-    setForm({ ...p });
     setImportMode(false);
+
+    if (p.client_id) {
+      toast.loading('Cargando datos completos...', { id: 'edit-passenger-loading' });
+      const { data } = await supabase.from('clients').select('*').eq('id', p.client_id).maybeSingle();
+      toast.dismiss('edit-passenger-loading');
+      if (data) {
+        setForm({
+          client_id: p.client_id,
+          name: data.name || '',
+          sex: data.sex || '',
+          birth_date: data.birth_date || null,
+          nationality: data.nationality || '',
+          notes: data.notes || p.notes || '',
+          dni: data.dni || p.dni || '',
+          dni_expiry: data.dni_expiry || null,
+          passport: data.passport || p.passport || '',
+          passport_issue: data.passport_issue || null,
+          passport_expiry: data.passport_expiry || p.passport_expiry || null,
+          cuil_cuit: data.cuil_cuit || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          phone_work: data.phone_work || '',
+          phone_mobile: data.phone_mobile || '',
+          address: data.address || '',
+          locality: data.locality || '',
+        });
+        setDialogOpen(true);
+        return;
+      }
+    }
+
+    setForm({
+      client_id: null,
+      name: p.name || '',
+      sex: '',
+      birth_date: p.birth_date || null,
+      nationality: p.nationality || '',
+      notes: p.notes || '',
+      dni: p.dni || '',
+      dni_expiry: null,
+      passport: p.passport || '',
+      passport_issue: null,
+      passport_expiry: p.passport_expiry || null,
+      cuil_cuit: '',
+      email: '',
+      phone: '',
+      phone_work: '',
+      phone_mobile: '',
+      address: '',
+      locality: '',
+    });
     setDialogOpen(true);
   };
 
@@ -138,12 +242,22 @@ export function FilePassengersTab({ fileId }: Props) {
     setForm({
       client_id: c.id,
       name: c.name,
-      dni: c.dni || '',
-      passport: c.passport || '',
-      passport_expiry: c.passport_expiry,
-      birth_date: c.birth_date,
+      sex: c.sex || '',
+      birth_date: c.birth_date || null,
       nationality: c.nationality || '',
-      notes: '',
+      notes: c.notes || '',
+      dni: c.dni || '',
+      dni_expiry: c.dni_expiry || null,
+      passport: c.passport || '',
+      passport_issue: c.passport_issue || null,
+      passport_expiry: c.passport_expiry || null,
+      cuil_cuit: c.cuil_cuit || '',
+      email: c.email || '',
+      phone: c.phone || '',
+      phone_work: c.phone_work || '',
+      phone_mobile: c.phone_mobile || '',
+      address: c.address || '',
+      locality: c.locality || '',
     });
     setImportMode(false);
   };
@@ -151,15 +265,103 @@ export function FilePassengersTab({ fileId }: Props) {
   const handleSave = async () => {
     if (!user) return;
     if (!form.name.trim()) { toast.error('Ingresá el nombre'); return; }
-    if (editing) {
-      const { error } = await supabase.from('file_passengers').update({ ...form }).eq('id', editing.id);
-      if (error) toast.error('Error al actualizar'); else toast.success('Pasajero actualizado');
-    } else {
-      const { error } = await supabase.from('file_passengers').insert({ ...form, file_id: fileId, user_id: user.id });
-      if (error) toast.error('Error al agregar'); else toast.success('Pasajero agregado');
+
+    toast.loading('Guardando...', { id: 'save-passenger-loading' });
+
+    try {
+      let clientId = form.client_id;
+
+      // 1. Search CRM for client by name if not linked
+      if (!clientId) {
+        const { data: existing } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('name', form.name.trim())
+          .maybeSingle();
+
+        if (existing) {
+          clientId = existing.id;
+        }
+      }
+
+      const clientPayload: any = {
+        name: form.name.trim(),
+        sex: form.sex || null,
+        birth_date: form.birth_date || null,
+        nationality: form.nationality || null,
+        notes: form.notes || null,
+        dni: form.dni || null,
+        dni_expiry: form.dni_expiry || null,
+        passport: form.passport || null,
+        passport_issue: form.passport_issue || null,
+        passport_expiry: form.passport_expiry || null,
+        cuil_cuit: form.cuil_cuit || null,
+        email: form.email || null,
+        phone: form.phone || null,
+        phone_work: form.phone_work || null,
+        phone_mobile: form.phone_mobile || null,
+        address: form.address || null,
+        locality: form.locality || null,
+      };
+
+      // 2. Create or Update client in CRM
+      if (!clientId) {
+        clientPayload.user_id = user.id;
+        const { data: newC, error: clientErr } = await supabase
+          .from('clients')
+          .insert([clientPayload])
+          .select('id')
+          .single();
+
+        if (clientErr) throw clientErr;
+        clientId = newC.id;
+      } else {
+        const { error: clientErr } = await supabase
+          .from('clients')
+          .update(clientPayload)
+          .eq('id', clientId);
+
+        if (clientErr) throw clientErr;
+      }
+
+      // 3. Save the passenger linked to client
+      const passengerPayload = {
+        client_id: clientId,
+        name: form.name.trim(),
+        dni: form.dni,
+        passport: form.passport,
+        passport_expiry: form.passport_expiry,
+        birth_date: form.birth_date,
+        nationality: form.nationality,
+        notes: form.notes,
+      };
+
+      if (editing) {
+        const { error } = await supabase
+          .from('file_passengers')
+          .update(passengerPayload)
+          .eq('id', editing.id);
+        if (error) throw error;
+        toast.success('Pasajero actualizado', { id: 'save-passenger-loading' });
+      } else {
+        const { error } = await supabase
+          .from('file_passengers')
+          .insert({
+            ...passengerPayload,
+            file_id: fileId,
+            user_id: user.id,
+          });
+        if (error) throw error;
+        toast.success('Pasajero agregado', { id: 'save-passenger-loading' });
+      }
+
+      setDialogOpen(false);
+      void load();
+      void loadClients();
+    } catch (e) {
+      console.error(e);
+      toast.error('Error al guardar el pasajero', { id: 'save-passenger-loading' });
     }
-    setDialogOpen(false);
-    void load();
   };
 
   const handleDelete = async () => {
@@ -168,6 +370,41 @@ export function FilePassengersTab({ fileId }: Props) {
     setDeleteId(null);
     toast.success('Pasajero eliminado');
     void load();
+  };
+
+  const handleViewInfo = async (p: Passenger) => {
+    setPassengerForInfo(p);
+    if (p.client_id) {
+      const { data } = await supabase.from('clients').select('*').eq('id', p.client_id).maybeSingle();
+      if (data) {
+        setSelectedClientInfo(data as ClientRecord);
+        setInfoOpen(true);
+        return;
+      }
+    }
+
+    const dummy: ClientRecord = {
+      id: '',
+      name: p.name,
+      email: '',
+      phone: '',
+      phone_work: '',
+      phone_mobile: '',
+      notes: p.notes || '',
+      address: '',
+      nationality: p.nationality || '',
+      birth_date: p.birth_date || '',
+      dni: p.dni || '',
+      dni_expiry: '',
+      passport: p.passport || '',
+      passport_issue: '',
+      passport_expiry: p.passport_expiry || '',
+      locality: '',
+      cuil_cuit: '',
+      sex: '',
+    };
+    setSelectedClientInfo(dummy);
+    setInfoOpen(true);
   };
 
   const filteredClients = useMemo(() => {
@@ -209,8 +446,25 @@ export function FilePassengersTab({ fileId }: Props) {
                   <User className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium">{p.name}</p>
-                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p
+                      className="font-semibold text-foreground hover:text-primary hover:underline cursor-pointer transition-colors"
+                      onClick={() => handleViewInfo(p)}
+                      title="Ver Información del Pasajero"
+                    >
+                      {p.name}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 hover:bg-muted/80 text-muted-foreground hover:text-primary"
+                      onClick={() => navigate(`/clients?highlight=${encodeURIComponent(p.name)}`)}
+                      title="Ver en CRM Clientes"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-0.5">
                     {p.dni && <span>DNI: {p.dni}</span>}
                     {p.passport && <span>Pasaporte: {p.passport}</span>}
                     {p.nationality && <span>{p.nationality}</span>}
@@ -228,7 +482,7 @@ export function FilePassengersTab({ fileId }: Props) {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader><DialogTitle>{editing ? 'Editar pasajero' : 'Nuevo pasajero'}</DialogTitle></DialogHeader>
 
           {!editing && !importMode && (
@@ -277,36 +531,116 @@ export function FilePassengersTab({ fileId }: Props) {
             </div>
           )}
 
-          <div className="grid gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Nombre completo *</label>
-              <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium">DNI</label>
-                <Input value={form.dni} onChange={e => setForm({ ...form, dni: e.target.value })} />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Pasaporte</label>
-                <Input value={form.passport} onChange={e => setForm({ ...form, passport: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Venc. Pasaporte</label>
-                <Input type="date" value={form.passport_expiry || ''} onChange={e => setForm({ ...form, passport_expiry: e.target.value || null })} />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Fecha nacimiento</label>
-                <Input type="date" value={form.birth_date || ''} onChange={e => setForm({ ...form, birth_date: e.target.value || null })} />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Nacionalidad</label>
-              <Input value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} />
-            </div>
-            <Button onClick={handleSave}>{editing ? 'Actualizar' : 'Agregar'}</Button>
+          <div className="grid gap-4 mt-2">
+            <Tabs defaultValue="personal" className="w-full">
+              <TabsList className="!grid w-full !grid-cols-2 sm:!grid-cols-4 gap-1 !h-auto p-1 mb-4">
+                <TabsTrigger value="personal" className="py-2 text-xs sm:text-sm">Personal</TabsTrigger>
+                <TabsTrigger value="documents" className="py-2 text-xs sm:text-sm">Documentos</TabsTrigger>
+                <TabsTrigger value="contact" className="py-2 text-xs sm:text-sm">Contacto</TabsTrigger>
+                <TabsTrigger value="notes" className="py-2 text-xs sm:text-sm">Notas</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="personal" className="space-y-4 m-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Nombre completo *</Label>
+                    <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Apellido Nombre" />
+                  </div>
+                  <div>
+                    <Label>Sexo</Label>
+                    <Select value={form.sex} onValueChange={(v) => setForm({ ...form, sex: v })}>
+                      <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="M">Masculino</SelectItem>
+                        <SelectItem value="F">Femenino</SelectItem>
+                        <SelectItem value="X">No binario</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Fecha de nacimiento</Label>
+                    <Input type="date" value={form.birth_date || ''} onChange={(e) => setForm({ ...form, birth_date: e.target.value || null })} />
+                  </div>
+                  <div>
+                    <Label>Nacionalidad</Label>
+                    <Input value={form.nationality} onChange={(e) => setForm({ ...form, nationality: e.target.value })} placeholder="Argentina" />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="documents" className="space-y-4 m-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>DNI</Label>
+                    <Input value={form.dni} onChange={(e) => setForm({ ...form, dni: e.target.value })} placeholder="12345678" />
+                  </div>
+                  <div>
+                    <Label>Vto. DNI</Label>
+                    <Input type="date" value={form.dni_expiry || ''} onChange={(e) => setForm({ ...form, dni_expiry: e.target.value || null })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Pasaporte</Label>
+                    <Input value={form.passport} onChange={(e) => setForm({ ...form, passport: e.target.value })} placeholder="AAA123456" />
+                  </div>
+                  <div>
+                    <Label>Emisión</Label>
+                    <Input type="date" value={form.passport_issue || ''} onChange={(e) => setForm({ ...form, passport_issue: e.target.value || null })} />
+                  </div>
+                  <div>
+                    <Label>Vencimiento</Label>
+                    <Input type="date" value={form.passport_expiry || ''} onChange={(e) => setForm({ ...form, passport_expiry: e.target.value || null })} />
+                  </div>
+                </div>
+                <div>
+                  <Label>CUIL/CUIT</Label>
+                  <Input value={form.cuil_cuit} onChange={(e) => setForm({ ...form, cuil_cuit: e.target.value })} placeholder="20-12345678-9" />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="contact" className="space-y-4 m-0">
+                <div>
+                  <Label>Email</Label>
+                  <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ejemplo@email.com" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Tel. Particular</Label>
+                    <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Tel. Comercial</Label>
+                    <Input value={form.phone_work} onChange={(e) => setForm({ ...form, phone_work: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Celular</Label>
+                    <Input value={form.phone_mobile} onChange={(e) => setForm({ ...form, phone_mobile: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Dirección</Label>
+                    <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Localidad</Label>
+                    <Input value={form.locality} onChange={(e) => setForm({ ...form, locality: e.target.value })} />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="notes" className="space-y-4 m-0">
+                <div>
+                  <Label>Notas</Label>
+                  <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={4} placeholder="Notas adicionales..." />
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <Button onClick={handleSave} className="mt-4 w-full">{editing ? 'Actualizar' : 'Agregar'}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -323,6 +657,17 @@ export function FilePassengersTab({ fileId }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ClientInfoDialog
+        open={infoOpen}
+        onOpenChange={setInfoOpen}
+        client={selectedClientInfo}
+        onEdit={() => {
+          if (passengerForInfo) {
+            void openEdit(passengerForInfo);
+          }
+        }}
+      />
     </div>
   );
 }
