@@ -62,8 +62,8 @@ export function ClientInfoDialog({ open, onOpenChange, client, onEdit }: ClientI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl mx-auto rounded-2xl max-h-[90vh] overflow-y-auto scrollbar-thin shadow-premium">
-        <DialogHeader className="border-b border-border/50 pb-4">
+      <DialogContent className="max-w-2xl mx-auto rounded-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto scrollbar-thin shadow-premium p-4 sm:p-6">
+        <DialogHeader className="border-b border-border/50 pb-4 pr-6 sm:pr-0">
           <div className="flex items-center gap-4 text-left">
             <div className="h-14 w-14 rounded-full bg-primary/10 text-primary dark:bg-gold/15 dark:text-gold flex items-center justify-center font-bold text-lg shrink-0">
               {initials || <User className="h-6 w-6" />}

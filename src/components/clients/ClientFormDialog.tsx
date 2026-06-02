@@ -48,8 +48,8 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[95vh] sm:max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="pr-6 sm:pr-0">
           <DialogTitle>{client.id ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="personal" className="w-full">
