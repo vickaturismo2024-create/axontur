@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Pencil, Trash2, Users, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight, MapPin, Calendar, FolderOpen, ChevronLeft, Wallet } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Users, User, Mail, Phone, Download, Upload, FileText, AlertTriangle, ShieldAlert, ChevronDown, ChevronRight, MapPin, Calendar, FolderOpen, ChevronLeft, Wallet } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { DocumentAlertBadge, getDocStatus, getWorstStatus, DocStatus } from '@/components/clients/DocumentAlertBadge';
@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { ClientFormDialog, ClientRecord, emptyClient } from '@/components/clients/ClientFormDialog';
 import { ImportExcelDialog } from '@/components/clients/ImportExcelDialog';
 import { GroupsManager } from '@/components/clients/GroupsManager';
+import { ClientInfoDialog } from '@/components/clients/ClientInfoDialog';
 import { Quote } from '@/types/quote';
 
 const PAGE_SIZE = 25;
@@ -61,7 +62,9 @@ const Clients = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
+  const [selectedInfoClient, setSelectedInfoClient] = useState<ClientRecord | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -113,6 +116,18 @@ const Clients = () => {
   // Reset page when filters/search change
   useEffect(() => { setPage(1); }, [search, docFilter]);
 
+  // Automatically open client info modal if ?info=clientId is present
+  const infoParam = searchParams.get('info');
+  useEffect(() => {
+    if (infoParam && clients.length > 0) {
+      const foundClient = clients.find(c => c.id === infoParam);
+      if (foundClient) {
+        setSelectedInfoClient(foundClient);
+        setIsInfoOpen(true);
+      }
+    }
+  }, [infoParam, clients]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const paginated = useMemo(
@@ -125,6 +140,7 @@ const Clients = () => {
 
   const handleNew = () => { setEditingClient({ id: '', ...emptyClient }); setIsDialogOpen(true); };
   const handleEdit = (client: ClientRecord) => { setEditingClient({ ...client }); setIsDialogOpen(true); };
+  const handleViewInfo = (client: ClientRecord) => { setSelectedInfoClient(client); setIsInfoOpen(true); };
 
   const handleSave = async () => {
     if (!editingClient || !user) return;
@@ -359,6 +375,7 @@ const Clients = () => {
                           quotes={getClientQuotes(client)}
                           onEdit={() => handleEdit(client)}
                           onDelete={() => setDeleteTargetId(client.id)}
+                          onInfo={() => handleViewInfo(client)}
                           navigate={navigate}
                           defaultOpen={!!highlightName && client.name === highlightName}
                         />
@@ -377,6 +394,7 @@ const Clients = () => {
                     quotes={getClientQuotes(client)}
                     onEdit={() => handleEdit(client)}
                     onDelete={() => setDeleteTargetId(client.id)}
+                    onInfo={() => handleViewInfo(client)}
                     navigate={navigate}
                     defaultOpen={!!highlightName && client.name === highlightName}
                   />
@@ -427,6 +445,13 @@ const Clients = () => {
       client={editingClient}
       onClientChange={setEditingClient}
       onSave={handleSave}
+    />
+
+    <ClientInfoDialog
+      open={isInfoOpen}
+      onOpenChange={setIsInfoOpen}
+      client={selectedInfoClient}
+      onEdit={() => handleEdit(selectedInfoClient!)}
     />
 
     <ImportExcelDialog
@@ -646,7 +671,7 @@ function ClientDetailsExpanded({ client, quotes, hookState, navigate, onEdit, on
 }
 
 // -- Desktop Table Row --
-function ClientTableRow({ client, quotes, onEdit, onDelete, navigate, defaultOpen }: any) {
+function ClientTableRow({ client, quotes, onEdit, onDelete, onInfo, navigate, defaultOpen }: any) {
   const hookState = useClientExpandable(client, quotes, defaultOpen);
   const { open, setOpen } = hookState;
 
@@ -685,6 +710,9 @@ function ClientTableRow({ client, quotes, onEdit, onDelete, navigate, defaultOpe
         </td>
         <td className="px-6 py-4 text-right">
           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-background shadow-sm hover:text-primary" onClick={(e) => { e.stopPropagation(); onInfo(); }} title="Ver Información Personal">
+              <User className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-background shadow-sm hover:text-primary" onClick={(e) => { e.stopPropagation(); navigate(`/clients/${client.id}`); }} title="Cuenta Corriente">
               <Wallet className="h-4 w-4" />
             </Button>
@@ -716,7 +744,7 @@ function ClientTableRow({ client, quotes, onEdit, onDelete, navigate, defaultOpe
 }
 
 // -- Mobile Card View --
-function ClientMobileCard({ client, quotes, onEdit, onDelete, navigate, defaultOpen }: any) {
+function ClientMobileCard({ client, quotes, onEdit, onDelete, onInfo, navigate, defaultOpen }: any) {
   const hookState = useClientExpandable(client, quotes, defaultOpen);
   const { open, setOpen } = hookState;
 
@@ -750,6 +778,9 @@ function ClientMobileCard({ client, quotes, onEdit, onDelete, navigate, defaultO
              <ClientDetailsExpanded client={client} quotes={quotes} hookState={hookState} navigate={navigate} onEdit={onEdit} onDelete={onDelete} />
           </div>
           <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
+             <Button variant="outline" size="sm" className="flex-1 rounded-xl" onClick={(e) => { e.stopPropagation(); onInfo(); }}>
+               <User className="mr-2 h-4 w-4" /> Info
+             </Button>
              <Button variant="outline" size="sm" className="flex-1 rounded-xl" onClick={(e) => { e.stopPropagation(); navigate(`/clients/${client.id}`); }}>
                <Wallet className="mr-2 h-4 w-4" /> Cuenta
              </Button>

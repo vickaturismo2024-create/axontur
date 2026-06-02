@@ -220,7 +220,7 @@ function Section({ icon, title, items, highlight, onWhatsApp, navigate }: {
               }`}
             >
               <button
-                onClick={() => navigate(`/clients/${i.id}`)}
+                onClick={() => navigate(`/clients?info=${i.id}`)}
                 className="flex items-center gap-3 min-w-0 flex-1 text-left"
               >
                 {/* CRM-Style Avatar */}

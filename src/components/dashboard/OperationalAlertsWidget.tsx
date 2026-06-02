@@ -72,7 +72,7 @@ export function OperationalAlertsWidget({ defaultOpen, raw }: { defaultOpen?: bo
               label: dni === 'expired' ? 'DNI vencido' : 'DNI por vencer',
               detail: c.name,
               severity: dni === 'expired' ? 'destructive' : 'warning',
-              href: `/clients/${c.id}`,
+              href: `/clients?info=${c.id}`,
             });
           }
           if (pas === 'expired' || pas === 'expiring') {
@@ -82,7 +82,7 @@ export function OperationalAlertsWidget({ defaultOpen, raw }: { defaultOpen?: bo
               label: pas === 'expired' ? 'Pasaporte vencido' : 'Pasaporte por vencer',
               detail: c.name,
               severity: pas === 'expired' ? 'destructive' : 'warning',
-              href: `/clients/${c.id}`,
+              href: `/clients?info=${c.id}`,
             });
           }
         });
