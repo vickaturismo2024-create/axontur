@@ -14,7 +14,13 @@ interface PDFPreviewProps {
 export function PDFPreview({ quote, template }: PDFPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.85);
+  const [scale, setScale] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const estimatedWidth = Math.min(window.innerWidth - 64, 794);
+      return Math.min(1, (estimatedWidth - 8) / 794);
+    }
+    return 0.85;
+  });
   const [height, setHeight] = useState<number | string>('auto');
 
   useEffect(() => {
