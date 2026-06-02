@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Mail, Phone, Calendar, User, FileText, CheckCircle, ShieldAlert, AlertTriangle, MessageSquare, Clipboard } from 'lucide-react';
@@ -165,16 +165,16 @@ export function ClientInfoDialog({ open, onOpenChange, client, onEdit }: ClientI
           )}
         </div>
 
-        <div className="flex justify-end gap-2.5 pt-4 border-t border-border/50">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="rounded-xl px-4">
+        <DialogFooter className="mt-4 pt-4 border-t border-border/50">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="rounded-xl w-full sm:w-auto">
             Cerrar
           </Button>
           {onEdit && (
-            <Button size="sm" onClick={() => { onOpenChange(false); onEdit(); }} className="rounded-xl px-4 bg-primary hover:bg-primary/95 text-primary-foreground dark:bg-gold dark:text-background dark:hover:bg-gold/90 font-semibold">
+            <Button size="sm" onClick={() => { onOpenChange(false); onEdit(); }} className="rounded-xl w-full sm:w-auto bg-primary hover:bg-primary/95 text-primary-foreground dark:bg-gold dark:text-background dark:hover:bg-gold/90 font-semibold">
               Editar Cliente
             </Button>
           )}
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

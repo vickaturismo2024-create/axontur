@@ -783,19 +783,19 @@ function ClientMobileCard({ client, quotes, onEdit, onDelete, onInfo, navigate, 
           <div className="mt-4">
              <ClientDetailsExpanded client={client} quotes={quotes} hookState={hookState} navigate={navigate} onEdit={onEdit} onDelete={onDelete} />
           </div>
-          <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
-             <Button variant="outline" size="sm" className="flex-1 rounded-xl" onClick={(e) => { e.stopPropagation(); onInfo(); }}>
-               <User className="mr-2 h-4 w-4" /> Info
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border/50">
+             <Button variant="outline" size="sm" className="flex-1 min-w-[70px] px-2 rounded-xl" onClick={(e) => { e.stopPropagation(); onInfo(); }}>
+               <User className="mr-1.5 h-4 w-4 shrink-0" /> Info
              </Button>
-             <Button variant="outline" size="sm" className="flex-1 rounded-xl" onClick={(e) => { e.stopPropagation(); navigate(`/clients/${client.id}`); }}>
-               <Wallet className="mr-2 h-4 w-4" /> Cuenta
+             <Button variant="outline" size="sm" className="flex-1 min-w-[85px] px-2 rounded-xl" onClick={(e) => { e.stopPropagation(); navigate(`/clients/${client.id}`); }}>
+               <Wallet className="mr-1.5 h-4 w-4 shrink-0" /> Cuenta
              </Button>
-             <Button variant="outline" size="sm" className="flex-1 rounded-xl" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-               <Pencil className="mr-2 h-4 w-4" /> Editar
+             <Button variant="outline" size="sm" className="flex-1 min-w-[80px] px-2 rounded-xl" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+               <Pencil className="mr-1.5 h-4 w-4 shrink-0" /> Editar
              </Button>
              <AdminOnly>
-               <Button variant="outline" size="sm" className="flex-none rounded-xl text-destructive hover:bg-destructive hover:text-destructive-foreground border-destructive/20" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
-                 <Trash2 className="h-4 w-4" />
+               <Button variant="outline" size="sm" className="flex-none px-3 rounded-xl text-destructive hover:bg-destructive hover:text-destructive-foreground border-destructive/20" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+                 <Trash2 className="h-4 w-4 shrink-0" />
                </Button>
              </AdminOnly>
           </div>
