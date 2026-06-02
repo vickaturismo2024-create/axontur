@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,11 @@ import { Loader2, Compass, Eye, EyeOff } from 'lucide-react';
 
 export default function Auth() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get('redirect') || '/';
   const { signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ email: '', password: '', confirmPassword: '' });
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -34,7 +37,7 @@ export default function Auth() {
       toast.error(error.message);
     } else {
       toast.success('¡Bienvenido!');
-      navigate('/');
+      navigate(redirectUrl);
     }
   };
 
@@ -56,14 +59,20 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    const { error } = await signUp(registerData.email, registerData.password);
+    const { session, error } = await signUp(registerData.email, registerData.password);
     setIsLoading(false);
 
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('¡Cuenta creada! Ya podés iniciar sesión');
-      navigate('/');
+      if (session) {
+        toast.success('¡Bienvenido! Registro exitoso.');
+        navigate(redirectUrl);
+      } else {
+        toast.success('¡Registro exitoso! Por favor, verificá tu correo electrónico para activar tu cuenta.');
+        setActiveTab('login');
+        setRegisterData({ email: '', password: '', confirmPassword: '' });
+      }
     }
   };
 
@@ -122,7 +131,7 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
 
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'login' | 'register')} className="w-full">
             <div className="px-6">
               <TabsList className="grid w-full grid-cols-2 bg-white/10 p-1 rounded-xl">
                 <TabsTrigger value="login" className="rounded-lg text-xs font-semibold text-white/60 data-[state=active]:bg-white/15 data-[state=active]:text-white transition-all">Iniciar Sesión</TabsTrigger>

@@ -13,3 +13,13 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => {},
   }),
 });
+
+// Polyfill PointerEvent for Radix UI components in JSDOM
+if (!window.PointerEvent) {
+  class PointerEvent extends MouseEvent {
+    constructor(type: string, params: PointerEventInit = {}) {
+      super(type, params);
+    }
+  }
+  window.PointerEvent = PointerEvent as any;
+}

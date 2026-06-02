@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ interface RemindersPanelProps {
 
 export function RemindersPanel({ quoteId, quoteName, defaultOpen, raw }: RemindersPanelProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [serviceDues, setServiceDues] = useState<ServiceDue[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -136,15 +138,16 @@ export function RemindersPanel({ quoteId, quoteName, defaultOpen, raw }: Reminde
               const date = new Date(s.payment_due_date);
               const overdue = isPast(date) && !isToday(date);
               return (
-                <div 
+                <button 
                   key={s.id} 
-                  className={`rounded-xl border p-3.5 transition-all hover:scale-[1.01] hover:shadow-sm text-sm border-l-4 ${
+                  onClick={() => navigate(`/files/${s.file_id}`)}
+                  className={`w-full text-left rounded-xl border p-3.5 transition-all hover:scale-[1.01] hover:shadow-sm text-sm border-l-4 group block ${
                     overdue 
-                      ? 'border-l-destructive border-border/60 bg-destructive/[0.02]' 
-                      : 'border-l-amber-500 border-border/60 bg-amber-500/[0.02]'
+                      ? 'border-l-destructive border-border/60 bg-destructive/[0.02] hover:bg-destructive/[0.04]' 
+                      : 'border-l-amber-500 border-border/60 bg-amber-500/[0.02] hover:bg-amber-500/[0.04]'
                   }`}
                 >
-                  <p className="font-semibold text-foreground truncate">{s.description}</p>
+                  <p className="font-semibold text-foreground truncate group-hover:text-primary dark:group-hover:text-gold transition-colors">{s.description}</p>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-muted-foreground font-medium">
                     {s.supplier_name && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">Prov: {s.supplier_name}</span>}
                     <span>{s.currency} {s.cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
@@ -154,7 +157,7 @@ export function RemindersPanel({ quoteId, quoteName, defaultOpen, raw }: Reminde
                       {overdue && ' (Vencido)'}
                     </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -188,6 +191,14 @@ export function RemindersPanel({ quoteId, quoteName, defaultOpen, raw }: Reminde
                         {format(date, "d MMM yyyy HH:mm", { locale: es })}
                         {overdue && ' (Vencido)'}
                       </p>
+                      {r.quote_id && (
+                        <button
+                          onClick={() => navigate(`/quote/${r.quote_id}`)}
+                          className="mt-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary dark:bg-gold/10 dark:text-gold hover:underline border-0 uppercase tracking-wide block"
+                        >
+                          Ver Presupuesto
+                        </button>
+                      )}
                     </div>
                   </div>
                   <Button 

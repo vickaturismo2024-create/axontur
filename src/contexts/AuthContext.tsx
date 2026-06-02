@@ -11,7 +11,7 @@ interface AuthContextType {
   agencyId: string | null;
   agencyName: string | null;
   role: AppRole | null;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ session: Session | null; error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -112,16 +112,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: window.location.origin,
         },
       });
-      return { error: error ? new Error(error.message) : null };
+      return { session: data?.session ?? null, error: error ? new Error(error.message) : null };
     } catch (error) {
-      return { error: error instanceof Error ? error : new Error('Error al registrar') };
+      return { session: null, error: error instanceof Error ? error : new Error('Error al registrar') };
     }
   };
 
