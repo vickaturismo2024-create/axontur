@@ -197,6 +197,8 @@ function Section({ icon, title, items, highlight, onWhatsApp, navigate }: {
   onWhatsApp: (i: BirthdayClient) => void;
   navigate: (to: string) => void;
 }) {
+  const [visibleCount, setVisibleCount] = useState(5);
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5 px-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -206,7 +208,7 @@ function Section({ icon, title, items, highlight, onWhatsApp, navigate }: {
       </div>
       
       <div className="space-y-2">
-        {items.slice(0, 5).map(i => {
+        {items.slice(0, visibleCount).map(i => {
           const dateLabel = format(parseISO(i.birth_date), "d 'de' MMM", { locale: es });
           const initials = i.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
           
@@ -281,10 +283,13 @@ function Section({ icon, title, items, highlight, onWhatsApp, navigate }: {
             </div>
           );
         })}
-        {items.length > 5 && (
-          <p className="text-center text-[10px] text-muted-foreground font-medium pt-0.5 hover:underline cursor-pointer" onClick={() => navigate('/clients')}>
-            + {items.length - 5} cumpleaños más
-          </p>
+        {items.length > visibleCount && (
+          <button
+            onClick={() => setVisibleCount(prev => prev + 5)}
+            className="w-full text-center text-[10px] font-bold text-primary hover:text-primary/80 dark:text-gold dark:hover:text-gold/80 pt-2 pb-2 block bg-muted/10 hover:bg-muted/30 rounded-lg border border-dashed border-border/50 transition-colors"
+          >
+            + Ver {Math.min(5, items.length - visibleCount)} cumpleaños más (quedan {items.length - visibleCount})
+          </button>
         )}
       </div>
     </div>
