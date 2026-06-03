@@ -10,10 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
-import { FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ImportFilesExcelDialog } from '@/components/files/ImportFilesExcelDialog';
+import { NewFileDialog } from '@/components/files/NewFileDialog';
 
 interface FileRecord {
   id: string;
@@ -48,6 +49,7 @@ const Files = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [importOpen, setImportOpen] = useState(false);
+  const [newFileOpen, setNewFileOpen] = useState(false);
   const [page, setPage] = useState(0);
 
   const { data: files, isLoading, refetch } = useQuery<FileRecord[]>({
@@ -100,20 +102,34 @@ const Files = () => {
             </h1>
             <p className="text-sm text-muted-foreground">Gestión de reservas operativas</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setImportOpen(true)}
-            className="w-full sm:w-auto"
-            size="sm"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Importar Excel
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => setImportOpen(true)}
+              className="w-full sm:w-auto text-xs sm:text-sm h-9 px-3"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Importar Excel
+            </Button>
+            <Button
+              onClick={() => setNewFileOpen(true)}
+              className="w-full sm:w-auto text-xs sm:text-sm h-9 px-3"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Expediente
+            </Button>
+          </div>
         </div>
 
         <ImportFilesExcelDialog
           open={importOpen}
           onOpenChange={(v) => { setImportOpen(v); if (!v) refetch(); }}
+        />
+
+        <NewFileDialog
+          open={newFileOpen}
+          onOpenChange={setNewFileOpen}
+          onSaveSuccess={() => refetch()}
         />
 
         {/* Filtros */}
