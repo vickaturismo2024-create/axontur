@@ -10,11 +10,24 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
-import { FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ImportFilesExcelDialog } from '@/components/files/ImportFilesExcelDialog';
 import { NewFileDialog } from '@/components/files/NewFileDialog';
+import { AdminOnly } from '@/components/auth/AdminOnly';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 interface FileRecord {
   id: string;
@@ -73,6 +86,32 @@ const Files = () => {
     },
     enabled: !!user,
   });
+
+  const handleDeleteFile = async (fileId: string) => {
+    try {
+      const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fileId);
+      if (receipts && receipts.length > 0) {
+        const receiptIds = receipts.map(r => r.id);
+        await supabase.from('file_receipt_items').delete().in('receipt_id', receiptIds);
+      }
+
+      await Promise.all([
+        supabase.from('file_services').delete().eq('file_id', fileId),
+        supabase.from('file_passengers').delete().eq('file_id', fileId),
+        supabase.from('file_receipts').delete().eq('file_id', fileId),
+        supabase.from('file_supplier_payments').delete().eq('file_id', fileId),
+      ]);
+
+      const { error } = await supabase.from('files').delete().eq('id', fileId);
+      if (error) throw error;
+
+      toast.success('Expediente eliminado');
+      refetch();
+    } catch (e) {
+      console.error(e);
+      toast.error('Error al eliminar expediente');
+    }
+  };
 
   const filtered = useMemo(() => {
     return (files || []).filter(f => {
@@ -231,9 +270,46 @@ const Files = () => {
                             </Badge>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-background shadow-sm hover:text-primary transition-colors">
-                              <ArrowRight className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <AdminOnly>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors shadow-sm"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>¿Eliminar expediente?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Se eliminarán todos los datos asociados (servicios, pasajeros, recibos y pagos) de FILE-{String(file.file_number).padStart(3, '0')}. Esta acción no se puede deshacer.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteFile(file.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Eliminar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </AdminOnly>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => navigate(`/files/${file.id}`)}
+                                className="h-8 w-8 hover:bg-background shadow-sm hover:text-primary transition-colors"
+                              >
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -300,7 +376,39 @@ const Files = () => {
                         </div>
                       </div>
 
-                      <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <AdminOnly>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors shadow-sm"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Eliminar expediente?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Se eliminarán todos los datos asociados (servicios, pasajeros, recibos y pagos) de FILE-{String(file.file_number).padStart(3, '0')}. Esta acción no se puede deshacer.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteFile(file.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </AdminOnly>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </div>
                     </CardContent>
                   </Card>
                 );
