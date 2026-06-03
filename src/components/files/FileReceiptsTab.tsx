@@ -195,11 +195,27 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         };
       }
     }
+
+    // Fetch client address & locality and file number for receipt header details
+    let extraDetails = { address: '', locality: '', file_number: undefined as number | undefined };
+    if (clientId) {
+      const { data: cli } = await supabase.from('clients').select('address, locality').eq('id', clientId).maybeSingle();
+      if (cli) {
+        extraDetails.address = cli.address || '';
+        extraDetails.locality = cli.locality || '';
+      }
+    }
+
+    const { data: fil } = await supabase.from('files').select('file_number').eq('id', fileId).maybeSingle();
+    if (fil) {
+      extraDetails.file_number = fil.file_number;
+    }
+
     const { data: items } = await supabase
       .from('file_receipt_items')
       .select('*')
       .eq('receipt_id', r.id);
-    await generateReceiptPDF(r as any, agency, (items as any[]) || []);
+    await generateReceiptPDF(r as any, agency, (items as any[]) || [], extraDetails);
   };
 
   const openDetail = async (r: Receipt) => {

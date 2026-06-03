@@ -31,6 +31,18 @@ interface ReceiptItem {
   notes?: string;
 }
 
+interface LogoDetails {
+  base64: string;
+  width: number;
+  height: number;
+}
+
+interface ExtraDetails {
+  address?: string;
+  locality?: string;
+  file_number?: number;
+}
+
 const METHODS: Record<string, string> = {
   transfer: 'Transferencia',
   credit_card: 'Tarjeta de Crédito',
@@ -41,22 +53,38 @@ const METHODS: Record<string, string> = {
 };
 
 const BRAND_PRIMARY: [number, number, number] = [30, 58, 95];
-const BRAND_ACCENT: [number, number, number] = [41, 128, 185];
-const BRAND_LIGHT: [number, number, number] = [236, 240, 241];
+const BRAND_ACCENT: [number, number, number] = [186, 126, 242]; // Lavanda de Vicka
 const WATERMARK_RED: [number, number, number] = [220, 53, 69];
 
-async function loadImageAsBase64(url: string): Promise<string | null> {
+// Cache para Base64 y dimensiones de imágenes
+const logoCache = new Map<string, LogoDetails | null>();
+
+async function loadImageDetails(url: string): Promise<LogoDetails | null> {
   if (!url) return null;
+  if (logoCache.has(url)) return logoCache.get(url)!;
   try {
     const res = await fetch(url, { mode: 'cors' });
     const blob = await res.blob();
-    return await new Promise<string | null>((resolve) => {
+    const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
+      reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+
+    // Medir dimensiones naturales de la imagen para evitar estiramientos
+    const dimensions = await new Promise<{ width: number; height: number }>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => resolve({ width: 1, height: 1 });
+      img.src = base64;
+    });
+
+    const details = { base64, ...dimensions };
+    logoCache.set(url, details);
+    return details;
   } catch {
+    logoCache.set(url, null);
     return null;
   }
 }
@@ -112,7 +140,24 @@ export function numeroALetras(num: number, currency = ''): string {
     texto = millText + (resto > 0 ? ' ' + milesALetras(resto) : '');
   }
   const decStr = String(decimales).padStart(2, '0');
-  return `${texto.trim()} ${currency} CON ${decStr}/100`.trim();
+  
+  let labelMoneda = 'PESOS';
+  if (currency.toUpperCase() === 'USD') labelMoneda = 'DOLARES';
+  if (currency.toUpperCase() === 'EUR') labelMoneda = 'EUROS';
+
+  return `${texto.trim()} ${labelMoneda} CON ${decStr}/100`.trim();
+}
+
+function getCurrencySymbol(cur: string) {
+  if (cur.toUpperCase() === 'USD') return 'U$S';
+  if (cur.toUpperCase() === 'EUR') return '€';
+  return '$';
+}
+
+function getCurrencyName(cur: string) {
+  if (cur.toUpperCase() === 'USD') return 'DOLARES';
+  if (cur.toUpperCase() === 'EUR') return 'EUROS';
+  return 'PESOS';
 }
 
 // ============================================================================
@@ -127,7 +172,6 @@ function drawCancelledWatermark(doc: jsPDF, yOffset: number, halfHeight: number)
   doc.setTextColor(WATERMARK_RED[0], WATERMARK_RED[1], WATERMARK_RED[2]);
   doc.setFontSize(80);
   doc.setFont('helvetica', 'bold');
-  // jsPDF supports rotated text via the angle option
   doc.text('ANULADO', cx, cy, { align: 'center', angle: 30 } as any);
   (doc as any).restoreGraphicsState?.();
 }
@@ -140,188 +184,261 @@ function drawReceipt(
   receipt: Receipt,
   agency: Agency,
   yOffset: number,
-  logoBase64: string | null,
+  logoDetails: LogoDetails | null,
   copyLabel: string,
   items: ReceiptItem[],
+  extraDetails?: ExtraDetails,
 ) {
   const w = doc.internal.pageSize.getWidth();
   const margin = 15;
+  const width = w - margin * 2;
+  const isVicka = agency.name?.toLowerCase().includes('vicka') || false;
 
-  // ---------- Header ----------
-  doc.setFillColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-  doc.rect(0, yOffset, w, 24, 'F');
-  doc.setFillColor(BRAND_ACCENT[0], BRAND_ACCENT[1], BRAND_ACCENT[2]);
-  doc.rect(0, yOffset + 24, w, 1.2, 'F');
+  // ---------- Header Box ----------
+  if (isVicka) {
+    // Fondo gris claro
+    doc.setFillColor(242, 242, 242);
+    doc.rect(margin, yOffset + 5, width, 28, 'F');
 
-  let textStartX = margin;
-  if (logoBase64) {
-    try {
-      doc.addImage(logoBase64, 'AUTO', margin, yOffset + 3, 18, 18);
-      textStartX = margin + 22;
-    } catch {
-      /* ignore */
+    // Banda violeta superior con patrón de V (triángulos)
+    doc.setFillColor(186, 126, 242);
+    doc.rect(margin, yOffset + 5, width, 3, 'F');
+    doc.setStrokeColor(255, 255, 255);
+    doc.setLineWidth(0.4);
+    const step = 3.5;
+    for (let x = margin; x < w - margin; x += step) {
+      doc.line(x, yOffset + 5, x + step / 2, yOffset + 8);
+      doc.line(x + step / 2, yOffset + 8, x + step, yOffset + 5);
+    }
+
+    // Banda violeta inferior con patrón de V
+    doc.setFillColor(186, 126, 242);
+    doc.rect(margin, yOffset + 28, width, 3, 'F');
+    for (let x = margin; x < w - margin; x += step) {
+      doc.line(x, yOffset + 28, x + step / 2, yOffset + 31);
+      doc.line(x + step / 2, yOffset + 31, x + step, yOffset + 28);
+    }
+
+    // Cuadrado "X" en el centro
+    doc.setFillColor(186, 126, 242);
+    doc.rect(w / 2 - 6, yOffset + 9, 12, 12, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(26);
+    doc.setFont('helvetica', 'bold');
+    doc.text('X', w / 2, yOffset + 18.5, { align: 'center' });
+
+    doc.setFontSize(5.5);
+    doc.text('Documento no válido', w / 2, yOffset + 23.5, { align: 'center' });
+    doc.text('como factura', w / 2, yOffset + 26.2, { align: 'center' });
+
+    // Logo de Vicka a la izquierda (escalado responsivo)
+    if (logoDetails) {
+      const ratio = logoDetails.width / logoDetails.height;
+      let lW = 16 * ratio;
+      let lH = 16;
+      if (lW > 24) {
+        lW = 24;
+        lH = 24 / ratio;
+      }
+      const logoX = margin + 4;
+      const logoY = yOffset + 9.5 + (16 - lH) / 2;
+      try {
+        doc.addImage(logoDetails.base64, 'AUTO', logoX, logoY, lW, lH);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    // Datos a la derecha
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(50, 50, 50);
+    let contactY = yOffset + 11.5;
+    let website = '';
+    if (agency.email) {
+      const parts = agency.email.split('@');
+      if (parts.length > 1) website = `www.${parts[1]}`;
+    }
+    if (website) { doc.text(website, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
+    if (agency.email) { doc.text(agency.email, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
+    if (agency.phone) { doc.text(`Tel. ${agency.phone}`, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
+    if (agency.address) { doc.text(agency.address, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
+    if (agency.cuit) { doc.text(`Monotributo: ${agency.cuit}`, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
+  } else {
+    // Diseño genérico moderno con colores de la marca
+    doc.setFillColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
+    doc.rect(margin, yOffset + 5, width, 26, 'F');
+    doc.setFillColor(186, 126, 242); // Línea decorativa
+    doc.rect(margin, yOffset + 31, width, 1.2, 'F');
+
+    if (logoDetails) {
+      const ratio = logoDetails.width / logoDetails.height;
+      let lW = 15 * ratio;
+      let lH = 15;
+      if (lW > 25) {
+        lW = 25;
+        lH = 25 / ratio;
+      }
+      try {
+        doc.addImage(logoDetails.base64, 'AUTO', margin + 4, yOffset + 10.5, lW, lH);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(agency.name || 'Mi Agencia', margin + 30, yOffset + 14);
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    const headerLine1 = [agency.address, agency.phone].filter(Boolean).join('  ·  ');
+    const headerLine2 = [agency.cuit ? `CUIT: ${agency.cuit}` : '', agency.email].filter(Boolean).join('  ·  ');
+    if (headerLine1) doc.text(headerLine1, margin + 30, yOffset + 19);
+    if (headerLine2) doc.text(headerLine2, margin + 30, yOffset + 23);
+  }
+
+  // Label de la copia arriba a la derecha
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'italic');
+  doc.text(copyLabel, w - margin, yOffset + 3, { align: 'right' });
+
+  // ---------- Fecha y Nro Recibo ----------
+  const y = yOffset + 40;
+  
+  // Ciudad y fecha alineadas
+  let city = 'MAR DEL PLATA';
+  if (agency.address) {
+    const parts = agency.address.split(',');
+    if (parts.length > 1) {
+      city = parts[parts.length - 1].trim().toUpperCase();
     }
   }
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
-  doc.setFont('helvetica', 'bold');
-  doc.text(agency.name || 'Mi Agencia', textStartX, yOffset + 11);
-
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  const headerLine1 = [agency.address, agency.phone].filter(Boolean).join('  ·  ');
-  const headerLine2 = [agency.cuit ? `CUIT: ${agency.cuit}` : '', agency.email].filter(Boolean).join('  ·  ');
-  if (headerLine1) doc.text(headerLine1, textStartX, yOffset + 16);
-  if (headerLine2) doc.text(headerLine2, textStartX, yOffset + 20);
-
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'italic');
-  doc.text(copyLabel, w - margin, yOffset + 8, { align: 'right' });
-
-  // ---------- Título y N° ----------
-  let y = yOffset + 32;
-  doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-  doc.setFontSize(15);
-  doc.setFont('helvetica', 'bold');
-  doc.text('RECIBO', margin, y);
-
-  doc.setFont('courier', 'bold');
-  doc.setFontSize(18);
-  doc.text(`N° ${String(receipt.receipt_number).padStart(6, '0')}`, w - margin, y, { align: 'right' });
-
-  y += 4;
-  doc.setDrawColor(BRAND_ACCENT[0], BRAND_ACCENT[1], BRAND_ACCENT[2]);
-  doc.setLineWidth(0.4);
-  doc.line(margin, y, w - margin, y);
-  y += 6;
-
-  // ---------- Datos ----------
-  doc.setTextColor(50, 50, 50);
-  doc.setFont('helvetica', 'bold');
+  const dateObj = new Date(receipt.payment_date);
+  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const formattedDate = `${city}, ${dateObj.getDate()} de ${months[dateObj.getMonth()]} de ${dateObj.getFullYear()}`;
+  
   doc.setFontSize(8);
-  doc.text('FECHA:', margin, y);
-  doc.text('CLIENTE:', margin + 60, y);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text(formattedDate, margin, y);
+
+  // Recibo N° en píldora redondeada
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(w - margin - 55, yOffset + 35, 55, 7, 2.2, 2.2, 'S');
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RECIBO X:', w - margin - 52, yOffset + 39.5);
+  doc.text(`N° 1000 -${String(receipt.receipt_number).padStart(8, '0')}`, w - margin - 3, yOffset + 39.5, { align: 'right' });
+
+  // Línea divisoria
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.4);
+  doc.line(margin, yOffset + 44, w - margin, yOffset + 44);
+
+  // ---------- Cliente y Domicilio ----------
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Señor:', margin, yOffset + 48.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(new Date(receipt.payment_date).toLocaleDateString('es-AR'), margin + 16, y);
-  doc.text(receipt.client_name || '—', margin + 76, y);
-  y += 5;
+  doc.text((receipt.client_name || '').toUpperCase(), margin + 11, yOffset + 48.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('CONCEPTO:', margin, y);
+  doc.text('Domicilio:', margin, yOffset + 53.5);
   doc.setFont('helvetica', 'normal');
-  const conceptLines = doc.splitTextToSize(receipt.concept || '—', w - margin * 2 - 22);
-  doc.text(conceptLines, margin + 22, y);
-  y += conceptLines.length * 4 + 2;
+  doc.text((extraDetails?.address || '—').toUpperCase(), margin + 15, yOffset + 53.5);
 
-  // ---------- Tabla de líneas ----------
-  if (items.length > 0) {
-    doc.setFillColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-    doc.rect(margin, y, w - margin * 2, 5.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.text('MONTO', margin + 2, y + 4);
-    doc.text('MONEDA', margin + 35, y + 4);
-    doc.text('MÉTODO', margin + 60, y + 4);
-    doc.text('COTIZACIÓN', w - margin - 2, y + 4, { align: 'right' });
-    y += 5.5;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Localidad:', margin + 100, yOffset + 53.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text((extraDetails?.locality || '—').toUpperCase(), margin + 116, yOffset + 53.5);
 
-    doc.setTextColor(40, 40, 40);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    items.forEach((it, idx) => {
-      if (idx % 2 === 0) {
-        doc.setFillColor(248, 249, 250);
-        doc.rect(margin, y, w - margin * 2, 5, 'F');
-      }
-      doc.text(it.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 }), margin + 2, y + 3.5);
-      doc.text(it.currency, margin + 35, y + 3.5);
-      doc.text(METHODS[it.payment_method || ''] || it.payment_method || '—', margin + 60, y + 3.5);
-      const rateText = it.exchange_rate && it.service_currency
-        ? `${it.service_currency} @ ${it.exchange_rate}`
-        : '—';
-      doc.text(rateText, w - margin - 2, y + 3.5, { align: 'right' });
-      y += 5;
-    });
-    y += 1;
-  }
+  // Línea divisoria
+  doc.line(margin, yOffset + 57, w - margin, yOffset + 57);
 
-  // ---------- Total (con desglose multi-moneda si corresponde) ----------
+  // ---------- Monto en letras y Referencia ----------
   const pdfTotals = computeReceiptTotals(items as any, receipt.currency);
-  const subtotalEntries = Object.entries(pdfTotals.subtotalsByCurrency);
-  const showBreakdown = pdfTotals.isMultiCurrency && subtotalEntries.length > 0;
-
-  if (showBreakdown) {
-    doc.setTextColor(80, 80, 80);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    doc.text('SUBTOTALES', margin, y + 3);
-    doc.setFont('helvetica', 'normal');
-    let sy = y + 3;
-    subtotalEntries.forEach(([cur, amt]) => {
-      doc.text(
-        `${cur} ${amt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
-        w - margin,
-        sy,
-        { align: 'right' },
-      );
-      sy += 3.5;
-    });
-    y = sy + 0.5;
-  }
-
   const totalAmountForPdf = pdfTotals.convertedTotal;
-  doc.setFillColor(BRAND_LIGHT[0], BRAND_LIGHT[1], BRAND_LIGHT[2]);
-  doc.roundedRect(margin, y, w - margin * 2, 9, 2, 2, 'F');
-  doc.setTextColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
-  doc.setFontSize(11);
+
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL:', margin + 3, y + 6);
-  doc.text(
-    `${receipt.currency} ${totalAmountForPdf.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
-    w - margin - 3,
-    y + 6,
-    { align: 'right' },
-  );
-  y += 11;
+  doc.text(`Recibimos la cantidad de ${getCurrencyName(receipt.currency)}:`, margin, yOffset + 61.5);
+  doc.text(`R. ${extraDetails?.file_number || '—'}`, w - margin, yOffset + 61.5, { align: 'right' });
 
-  // ---------- Total en letras ----------
-  doc.setTextColor(60, 60, 60);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'italic');
-  const letrasText = `Son: ${numeroALetras(totalAmountForPdf, receipt.currency)}`;
-  const letrasLines = doc.splitTextToSize(letrasText, w - margin * 2);
-  doc.text(letrasLines, margin, y);
-  y += letrasLines.length * 3.5 + 2;
+  doc.setFont('helvetica', 'normal');
+  const letrasText = numeroALetras(totalAmountForPdf, receipt.currency).toUpperCase();
+  doc.text(letrasText, margin, yOffset + 66);
 
-  // ---------- Notas ----------
+  // Línea divisoria
+  doc.line(margin, yOffset + 69.5, w - margin, yOffset + 69.5);
+
+  // ---------- Concepto ----------
+  doc.setFont('helvetica', 'bold');
+  doc.text('en concepto de:', margin, yOffset + 74);
+  
+  doc.setFont('helvetica', 'normal');
+  const conceptLines = doc.splitTextToSize((receipt.concept || '—').toUpperCase(), width);
+  doc.text(conceptLines, margin, yOffset + 78.5);
+  
+  let currentY = yOffset + 78.5 + conceptLines.length * 4;
+
   if (receipt.notes) {
-    doc.setTextColor(80, 80, 80);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'italic');
-    const noteLines = doc.splitTextToSize(`Observaciones: ${receipt.notes}`, w - margin * 2);
-    doc.text(noteLines, margin, y);
+    const noteLines = doc.splitTextToSize((receipt.notes).toUpperCase(), width);
+    doc.text(noteLines, margin, currentY);
+    currentY += noteLines.length * 4;
   }
+
+  // Línea divisoria fija antes del total
+  doc.line(margin, yOffset + 100, w - margin, yOffset + 100);
+
+  // ---------- Moneda recibida / TOTAL ----------
+  doc.setFont('helvetica', 'bold');
+  doc.text('Moneda recibida:', margin, yOffset + 104.5);
+  doc.text('TOTAL', w - margin, yOffset + 104.5, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  // Si hay desglose de items multimoneda, los mostramos
+  const effectiveItems = items.length > 0 ? items : [{ amount: receipt.amount, currency: receipt.currency }];
+  let iy = yOffset + 109.5;
+  effectiveItems.forEach((it, idx) => {
+    // Si hay más de 3 items en el desglose, los mostramos con un interlineado menor para evitar colisión
+    const spacing = effectiveItems.length > 3 ? 3 : 4.5;
+    if (iy < yOffset + 120) {
+      doc.text(`${getCurrencyName(it.currency)}  ${it.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, margin, iy);
+      doc.text(`${getCurrencySymbol(it.currency)}:  ${it.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, w - margin, iy, { align: 'right' });
+      iy += spacing;
+    }
+  });
+
+  // Línea divisoria
+  doc.line(margin, yOffset + 122, w - margin, yOffset + 122);
 
   // ---------- Firmas ----------
-  const sigY = yOffset + 128;
-  doc.setDrawColor(120, 120, 120);
-  doc.setLineWidth(0.3);
-  doc.line(margin + 5, sigY, margin + 70, sigY);
-  doc.line(w - margin - 70, sigY, w - margin - 5, sigY);
-  doc.setTextColor(100, 100, 100);
-  doc.setFontSize(7);
+  const sigY = yOffset + 133;
+  doc.setDrawColor(150, 150, 150);
+  doc.setLineWidth(0.2);
+  doc.line(margin + 5, sigY, margin + 60, sigY);
+  doc.line(w - margin - 60, sigY, w - margin - 5, sigY);
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Firma Agencia', margin + 37.5, sigY + 4, { align: 'center' });
-  doc.text('Firma Cliente', w - margin - 37.5, sigY + 4, { align: 'center' });
+  doc.text('Firma Autorizada', margin + 32.5, sigY + 3.5, { align: 'center' });
+  doc.text('Firma Cliente', w - margin - 32.5, sigY + 3.5, { align: 'center' });
 
-  doc.setFillColor(BRAND_ACCENT[0], BRAND_ACCENT[1], BRAND_ACCENT[2]);
-  doc.rect(0, yOffset + 140, w, 1, 'F');
+  // Línea decorativa del pie del recibo
+  if (isVicka) {
+    doc.setFillColor(186, 126, 242);
+    doc.rect(margin, yOffset + 142, width, 1.5, 'F');
+  } else {
+    doc.setFillColor(BRAND_ACCENT[0], BRAND_ACCENT[1], BRAND_ACCENT[2]);
+    doc.rect(margin, yOffset + 142, width, 1, 'F');
+  }
 
   // ---------- Watermark ANULADO ----------
   if (receipt.status === 'cancelled') {
-    drawCancelledWatermark(doc, yOffset, 141);
+    drawCancelledWatermark(doc, yOffset, 148.5);
   }
 }
 
@@ -329,14 +446,15 @@ export async function generateReceiptPDF(
   receipt: Receipt,
   agency: Agency,
   items: ReceiptItem[] = [],
+  extraDetails?: ExtraDetails,
 ) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const w = doc.internal.pageSize.getWidth();
   const halfHeight = 148.5;
 
-  const logoBase64 = await loadImageAsBase64(agency.logo_url);
+  // Carga optimizada con caché del logo de la agencia
+  const logoDetails = await loadImageDetails(agency.logo_url);
 
-  // Si no hay items, generamos uno con los datos del recibo principal
   const effectiveItems: ReceiptItem[] = items.length > 0
     ? items
     : [{
@@ -345,9 +463,10 @@ export async function generateReceiptPDF(
         payment_method: receipt.payment_method,
       }];
 
-  drawReceipt(doc, receipt, agency, 0, logoBase64, 'COPIA AGENCIA', effectiveItems);
+  // Dibujar copia de la Agencia
+  drawReceipt(doc, receipt, agency, 0, logoDetails, 'COPIA AGENCIA', effectiveItems, extraDetails);
 
-  // Línea de corte
+  // Línea de corte punteada
   doc.setDrawColor(150, 150, 150);
   doc.setLineWidth(0.3);
   const dashLen = 3;
@@ -360,7 +479,8 @@ export async function generateReceiptPDF(
   doc.setFont('helvetica', 'normal');
   doc.text('✂  CORTAR AQUÍ', w / 2, halfHeight - 1.5, { align: 'center' });
 
-  drawReceipt(doc, receipt, agency, halfHeight, logoBase64, 'COPIA CLIENTE', effectiveItems);
+  // Dibujar copia del Cliente
+  drawReceipt(doc, receipt, agency, halfHeight, logoDetails, 'COPIA CLIENTE', effectiveItems, extraDetails);
 
   doc.save(`Recibo-${String(receipt.receipt_number).padStart(6, '0')}.pdf`);
 }
