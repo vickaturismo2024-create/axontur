@@ -36,6 +36,7 @@ export interface UserSettings {
   receipt_header_layout: string;
   receipt_primary_color: string;
   receipt_accent_color: string;
+  receipt_header_image_url: string;
 }
 
 export interface EmailTemplateConfig {
@@ -92,6 +93,7 @@ const defaults: UserSettings = {
   receipt_header_layout: 'classic',
   receipt_primary_color: '#1E3A5F',
   receipt_accent_color: '#BA7EF2',
+  receipt_header_image_url: '',
 };
 
 interface Ctx {
@@ -149,6 +151,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         receipt_header_layout: d.receipt_header_layout || 'classic',
         receipt_primary_color: d.receipt_primary_color || '#1E3A5F',
         receipt_accent_color: d.receipt_accent_color || '#BA7EF2',
+        receipt_header_image_url: d.receipt_header_image_url || '',
       });
     } else {
       setSettings(defaults);

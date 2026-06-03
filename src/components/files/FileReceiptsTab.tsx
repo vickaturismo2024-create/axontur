@@ -190,7 +190,8 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
       logo_url: '',
       receipt_header_layout: 'classic',
       receipt_primary_color: '#1E3A5F',
-      receipt_accent_color: '#BA7EF2'
+      receipt_accent_color: '#BA7EF2',
+      receipt_header_image_url: ''
     };
     if (user) {
       const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
@@ -205,6 +206,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
           receipt_header_layout: (data as any).receipt_header_layout || 'classic',
           receipt_primary_color: (data as any).receipt_primary_color || '#1E3A5F',
           receipt_accent_color: (data as any).receipt_accent_color || '#BA7EF2',
+          receipt_header_image_url: (data as any).receipt_header_image_url || '',
         };
       }
     }

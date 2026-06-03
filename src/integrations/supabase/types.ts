@@ -1403,6 +1403,7 @@ export type Database = {
           receipt_header_layout: string | null
           receipt_primary_color: string | null
           receipt_accent_color: string | null
+          receipt_header_image_url: string | null
           receipt_prefix: string
           theme: string
           updated_at: string
@@ -1435,6 +1436,7 @@ export type Database = {
           receipt_header_layout?: string | null
           receipt_primary_color?: string | null
           receipt_accent_color?: string | null
+          receipt_header_image_url?: string | null
           receipt_prefix?: string
           theme?: string
           updated_at?: string
@@ -1467,6 +1469,7 @@ export type Database = {
           receipt_header_layout?: string | null
           receipt_primary_color?: string | null
           receipt_accent_color?: string | null
+          receipt_header_image_url?: string | null
           receipt_prefix?: string
           theme?: string
           updated_at?: string

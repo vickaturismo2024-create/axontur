@@ -245,6 +245,7 @@ function drawReceipt(
   copyLabel: string,
   items: ReceiptItem[],
   extraDetails?: ExtraDetails,
+  bannerDetails: LogoDetails | null = null,
 ) {
   const w = doc.internal.pageSize.getWidth();
   const margin = 15;
@@ -252,13 +253,24 @@ function drawReceipt(
 
   // Resolve layout style (defaults to 'classic' unless configured as 'vicka' OR agency name matches and not classic)
   const isVicka = agency.receipt_header_layout === 'vicka' || 
-    (agency.name?.toLowerCase().includes('vicka') && agency.receipt_header_layout !== 'classic');
+    (agency.name?.toLowerCase().includes('vicka') && agency.receipt_header_layout !== 'classic' && agency.receipt_header_layout !== 'custom_banner');
+  const isCustomBanner = agency.receipt_header_layout === 'custom_banner' && bannerDetails;
 
   const primaryRgb = hexToRgb(agency.receipt_primary_color || '', [30, 58, 95]);
   const accentRgb = hexToRgb(agency.receipt_accent_color || '', [186, 126, 242]);
 
   // ---------- Header Box ----------
-  if (isVicka) {
+  if (isCustomBanner && bannerDetails) {
+    try {
+      doc.addImage(bannerDetails.base64, 'AUTO', margin, yOffset + 5, width, 28);
+    } catch (e) {
+      doc.setFillColor(240, 240, 240);
+      doc.rect(margin, yOffset + 5, width, 28, 'F');
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(8);
+      doc.text('Error al cargar la imagen de banner del encabezado', w / 2, yOffset + 20, { align: 'center' });
+    }
+  } else if (isVicka) {
     // Fondo gris claro
     doc.setFillColor(242, 242, 242);
     doc.rect(margin, yOffset + 5, width, 28, 'F');
@@ -557,8 +569,9 @@ export async function generateReceiptPDF(
   const w = doc.internal.pageSize.getWidth();
   const halfHeight = 148.5;
 
-  // Carga optimizada con caché del logo de la agencia
+  // Carga optimizada con caché del logo y del banner de la agencia
   const logoDetails = await loadImageDetails(agency.logo_url);
+  const bannerDetails = await loadImageDetails(agency.receipt_header_image_url || '');
 
   const effectiveItems: ReceiptItem[] = items.length > 0
     ? items
@@ -569,7 +582,7 @@ export async function generateReceiptPDF(
       }];
 
   // Dibujar copia de la Agencia
-  drawReceipt(doc, receipt, agency, 0, logoDetails, 'COPIA AGENCIA', effectiveItems, extraDetails);
+  drawReceipt(doc, receipt, agency, 0, logoDetails, 'COPIA AGENCIA', effectiveItems, extraDetails, bannerDetails);
 
   // Línea de corte punteada
   doc.setDrawColor(150, 150, 150);
@@ -585,7 +598,7 @@ export async function generateReceiptPDF(
   doc.text('✂  CORTAR AQUÍ', w / 2, halfHeight - 1.5, { align: 'center' });
 
   // Dibujar copia del Cliente
-  drawReceipt(doc, receipt, agency, halfHeight, logoDetails, 'COPIA CLIENTE', effectiveItems, extraDetails);
+  drawReceipt(doc, receipt, agency, halfHeight, logoDetails, 'COPIA CLIENTE', effectiveItems, extraDetails, bannerDetails);
 
   doc.save(`Recibo-${String(receipt.receipt_number).padStart(6, '0')}.pdf`);
 }

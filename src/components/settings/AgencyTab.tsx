@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 const FIELDS: (keyof UserSettings)[] = [
   'agency_name', 'cuit', 'phone', 'email', 'address', 'website', 'logo_url',
-  'receipt_header_layout', 'receipt_primary_color', 'receipt_accent_color'
+  'receipt_header_layout', 'receipt_primary_color', 'receipt_accent_color', 'receipt_header_image_url'
 ];
 
 interface CardRecord {
@@ -204,7 +204,12 @@ export function AgencyTab() {
         />
 
         <div className="border border-border rounded-lg p-4 bg-muted/40 space-y-4">
-          <h4 className="text-sm font-semibold text-foreground">Diseño de Recibos</h4>
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">Diseño de Recibos</h4>
+            <p className="text-xs text-muted-foreground mt-1">
+              Personalizá el aspecto visual del encabezado de tus recibos en PDF. Podés usar las plantillas prediseñadas o subir tu propio banner completo (por ejemplo, un diseño exportado de Canva).
+            </p>
+          </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
@@ -217,6 +222,7 @@ export function AgencyTab() {
               >
                 <option value="classic">Clásico (Moderna)</option>
                 <option value="vicka">Vicka Turismo (Patrón & Centro X)</option>
+                <option value="custom_banner">Imagen de Banner Personalizado</option>
               </select>
             </div>
 
@@ -260,6 +266,21 @@ export function AgencyTab() {
               </div>
             </div>
           </div>
+
+          {local.receipt_header_layout === 'custom_banner' && (
+            <div className="pt-2 border-t border-border/60">
+              <p className="text-xs text-muted-foreground mb-3 bg-muted p-2 rounded border border-border/40">
+                💡 <strong>¿Cómo funciona?</strong> Diseñá un banner de <strong>180x28mm</strong> (proporción aproximada 6.4:1) en Canva u otro editor, exportalo como PNG/JPG y subilo acá. Reemplazará todo el texto y logo del encabezado por esta imagen.
+              </p>
+              <ImageUpload
+                label="Subir Banner del Encabezado (Sugerido: 180 x 28 mm)"
+                value={local.receipt_header_image_url || ''}
+                onChange={(v) => u('receipt_header_image_url', v)}
+                placeholder="Subí tu banner de encabezado"
+                previewClassName="h-16 w-full object-contain bg-background border rounded"
+              />
+            </div>
+          )}
         </div>
 
         <Button onClick={save} disabled={saving} className="w-full">
