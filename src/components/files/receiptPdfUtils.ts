@@ -19,7 +19,11 @@ interface Agency {
   address: string;
   cuit: string;
   email: string;
+  website?: string;
   logo_url: string;
+  receipt_header_layout?: string;
+  receipt_primary_color?: string;
+  receipt_accent_color?: string;
 }
 
 interface ReceiptItem {
@@ -148,6 +152,24 @@ export function numeroALetras(num: number, currency = ''): string {
   return `${texto.trim()} ${labelMoneda} CON ${decStr}/100`.trim();
 }
 
+function numeroALetrasSolo(num: number): string {
+  const entero = Math.floor(Math.abs(num));
+  const decimales = Math.round((Math.abs(num) - entero) * 100);
+  let texto: string;
+  if (entero === 0) texto = 'CERO';
+  else if (entero < 1_000_000) texto = milesALetras(entero);
+  else {
+    const mill = Math.floor(entero / 1_000_000);
+    const resto = entero % 1_000_000;
+    const millText = mill === 1 ? 'UN MILLON' : milesALetras(mill) + ' MILLONES';
+    texto = millText + (resto > 0 ? ' ' + milesALetras(resto) : '');
+  }
+  if (decimales > 0) {
+    return `${texto.trim()} CON ${String(decimales).padStart(2, '0')}/100`;
+  }
+  return texto.trim();
+}
+
 function getCurrencySymbol(cur: string) {
   if (cur.toUpperCase() === 'USD') return 'U$S';
   if (cur.toUpperCase() === 'EUR') return '€';
@@ -176,6 +198,41 @@ function drawCancelledWatermark(doc: jsPDF, yOffset: number, halfHeight: number)
   (doc as any).restoreGraphicsState?.();
 }
 
+function hexToRgb(hex: string, defaultRgb: [number, number, number]): [number, number, number] {
+  if (!hex) return defaultRgb;
+  const cleanHex = hex.replace('#', '');
+  if (cleanHex.length !== 6) return defaultRgb;
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return isNaN(r) || isNaN(g) || isNaN(b) ? defaultRgb : [r, g, b];
+}
+
+function drawIcon(doc: jsPDF, type: 'globe' | 'email' | 'phone' | 'pin', x: number, y: number, color: [number, number, number]) {
+  doc.setDrawColor(color[0], color[1], color[2]);
+  doc.setFillColor(color[0], color[1], color[2]);
+  doc.setLineWidth(0.3);
+
+  if (type === 'globe') {
+    doc.circle(x + 1.2, y - 1.2, 1.2, 'S');
+    doc.line(x + 1.2, y - 2.4, x + 1.2, y); // vertical
+    doc.line(x, y - 1.2, x + 2.4, y - 1.2); // horizontal
+  } else if (type === 'email') {
+    doc.rect(x, y - 2.2, 2.4, 1.8, 'S');
+    doc.line(x, y - 2.2, x + 1.2, y - 1.3);
+    doc.line(x + 1.2, y - 1.3, x + 2.4, y - 2.2);
+  } else if (type === 'phone') {
+    doc.setLineWidth(0.5);
+    doc.line(x + 0.4, y - 2, x + 0.4, y - 0.4);
+    doc.setLineWidth(0.25);
+    doc.line(x + 0.4, y - 2, x + 1.2, y - 2);
+    doc.line(x + 0.4, y - 0.4, x + 1.2, y - 0.4);
+  } else if (type === 'pin') {
+    doc.circle(x + 1.2, y - 1.8, 0.8, 'FD');
+    doc.line(x + 1.2, y - 1, x + 1.2, y);
+  }
+}
+
 // ============================================================================
 // Render de un recibo (mitad de A4)
 // ============================================================================
@@ -192,7 +249,13 @@ function drawReceipt(
   const w = doc.internal.pageSize.getWidth();
   const margin = 15;
   const width = w - margin * 2;
-  const isVicka = agency.name?.toLowerCase().includes('vicka') || false;
+
+  // Resolve layout style (defaults to 'classic' unless configured as 'vicka' OR agency name matches and not classic)
+  const isVicka = agency.receipt_header_layout === 'vicka' || 
+    (agency.name?.toLowerCase().includes('vicka') && agency.receipt_header_layout !== 'classic');
+
+  const primaryRgb = hexToRgb(agency.receipt_primary_color || '', [30, 58, 95]);
+  const accentRgb = hexToRgb(agency.receipt_accent_color || '', [186, 126, 242]);
 
   // ---------- Header Box ----------
   if (isVicka) {
@@ -201,35 +264,41 @@ function drawReceipt(
     doc.rect(margin, yOffset + 5, width, 28, 'F');
 
     // Banda violeta superior con patrón de V (triángulos)
-    doc.setFillColor(186, 126, 242);
-    doc.rect(margin, yOffset + 5, width, 3, 'F');
+    doc.setFillColor(accentRgb[0], accentRgb[1], accentRgb[2]);
+    doc.rect(margin, yOffset + 5, width, 6, 'F');
     doc.setStrokeColor(255, 255, 255);
-    doc.setLineWidth(0.4);
-    const step = 3.5;
-    for (let x = margin; x < w - margin; x += step) {
-      doc.line(x, yOffset + 5, x + step / 2, yOffset + 8);
-      doc.line(x + step / 2, yOffset + 8, x + step, yOffset + 5);
+    doc.setLineWidth(0.8);
+    const step = 6;
+    for (let x = margin + 2; x < w - margin - 2; x += step) {
+      if (x + step >= w / 2 - 9 && x <= w / 2 + 9) {
+        continue;
+      }
+      doc.line(x, yOffset + 6, x + 2, yOffset + 10);
+      doc.line(x + 2, yOffset + 10, x + 4, yOffset + 6);
     }
 
     // Banda violeta inferior con patrón de V
-    doc.setFillColor(186, 126, 242);
-    doc.rect(margin, yOffset + 28, width, 3, 'F');
-    for (let x = margin; x < w - margin; x += step) {
-      doc.line(x, yOffset + 28, x + step / 2, yOffset + 31);
-      doc.line(x + step / 2, yOffset + 31, x + step, yOffset + 28);
+    doc.setFillColor(accentRgb[0], accentRgb[1], accentRgb[2]);
+    doc.rect(margin, yOffset + 27, width, 6, 'F');
+    for (let x = margin + 2; x < w - margin - 2; x += step) {
+      if (x + step >= w / 2 - 9 && x <= w / 2 + 9) {
+        continue;
+      }
+      doc.line(x, yOffset + 28, x + 2, yOffset + 32);
+      doc.line(x + 2, yOffset + 32, x + 4, yOffset + 28);
     }
 
     // Cuadrado "X" en el centro
-    doc.setFillColor(186, 126, 242);
-    doc.rect(w / 2 - 6, yOffset + 9, 12, 12, 'F');
+    doc.setFillColor(accentRgb[0], accentRgb[1], accentRgb[2]);
+    doc.rect(w / 2 - 8, yOffset + 5, 16, 16, 'F');
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(26);
+    doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    doc.text('X', w / 2, yOffset + 18.5, { align: 'center' });
+    doc.text('X', w / 2, yOffset + 15, { align: 'center' });
 
-    doc.setFontSize(5.5);
-    doc.text('Documento no válido', w / 2, yOffset + 23.5, { align: 'center' });
-    doc.text('como factura', w / 2, yOffset + 26.2, { align: 'center' });
+    doc.setFontSize(6);
+    doc.text('Documento no válido', w / 2, yOffset + 24, { align: 'center' });
+    doc.text('como factura', w / 2, yOffset + 26.5, { align: 'center' });
 
     // Logo de Vicka a la izquierda (escalado responsivo)
     if (logoDetails) {
@@ -241,7 +310,7 @@ function drawReceipt(
         lH = 24 / ratio;
       }
       const logoX = margin + 4;
-      const logoY = yOffset + 9.5 + (16 - lH) / 2;
+      const logoY = yOffset + 11 + (20 - lH) / 2;
       try {
         doc.addImage(logoDetails.base64, 'AUTO', logoX, logoY, lW, lH);
       } catch (e) {
@@ -253,22 +322,36 @@ function drawReceipt(
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(50, 50, 50);
-    let contactY = yOffset + 11.5;
-    let website = '';
-    if (agency.email) {
+
+    let contactY = yOffset + 14;
+    const rightAlignX = w - margin - 4;
+
+    const drawContactLine = (text: string, iconType?: 'globe' | 'email' | 'phone' | 'pin') => {
+      doc.text(text, rightAlignX, contactY, { align: 'right' });
+      if (iconType) {
+        const textWidth = doc.getTextWidth(text);
+        const iconX = rightAlignX - textWidth - 4;
+        drawIcon(doc, iconType, iconX, contactY, accentRgb);
+      }
+      contactY += 3.2;
+    };
+
+    let website = agency.website || '';
+    if (!website && agency.email) {
       const parts = agency.email.split('@');
       if (parts.length > 1) website = `www.${parts[1]}`;
     }
-    if (website) { doc.text(website, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
-    if (agency.email) { doc.text(agency.email, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
-    if (agency.phone) { doc.text(`Tel. ${agency.phone}`, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
-    if (agency.address) { doc.text(agency.address, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
-    if (agency.cuit) { doc.text(`Monotributo: ${agency.cuit}`, w - margin - 4, contactY, { align: 'right' }); contactY += 3.2; }
+
+    if (website) drawContactLine(website, 'globe');
+    if (agency.email) drawContactLine(agency.email, 'email');
+    if (agency.phone) drawContactLine(`Tel. ${agency.phone}`, 'phone');
+    if (agency.address) drawContactLine(agency.address, 'pin');
+    if (agency.cuit) drawContactLine(`Monotributo: ${agency.cuit}`);
   } else {
     // Diseño genérico moderno con colores de la marca
-    doc.setFillColor(BRAND_PRIMARY[0], BRAND_PRIMARY[1], BRAND_PRIMARY[2]);
+    doc.setFillColor(primaryRgb[0], primaryRgb[1], primaryRgb[2]);
     doc.rect(margin, yOffset + 5, width, 26, 'F');
-    doc.setFillColor(186, 126, 242); // Línea decorativa
+    doc.setFillColor(accentRgb[0], accentRgb[1], accentRgb[2]); // Línea decorativa
     doc.rect(margin, yOffset + 31, width, 1.2, 'F');
 
     if (logoDetails) {
@@ -306,7 +389,7 @@ function drawReceipt(
   doc.text(copyLabel, w - margin, yOffset + 3, { align: 'right' });
 
   // ---------- Fecha y Nro Recibo ----------
-  const y = yOffset + 40;
+  const y = yOffset + 44.2;
   
   // Ciudad y fecha alineadas
   let city = 'MAR DEL PLATA';
@@ -316,9 +399,20 @@ function drawReceipt(
       city = parts[parts.length - 1].trim().toUpperCase();
     }
   }
-  const dateObj = new Date(receipt.payment_date);
+
+  // Timezone-safe date extraction
+  const dateParts = receipt.payment_date.split('-');
+  let formattedDate = '';
   const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const formattedDate = `${city}, ${dateObj.getDate()} de ${months[dateObj.getMonth()]} de ${dateObj.getFullYear()}`;
+  if (dateParts.length === 3) {
+    const year = dateParts[0];
+    const monthIndex = parseInt(dateParts[1], 10) - 1;
+    const day = parseInt(dateParts[2], 10);
+    formattedDate = `${city}, ${day} de ${months[monthIndex]} de ${year}`;
+  } else {
+    const dateObj = new Date(receipt.payment_date);
+    formattedDate = `${city}, ${dateObj.getDate()} de ${months[dateObj.getMonth()]} de ${dateObj.getFullYear()}`;
+  }
   
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
@@ -328,61 +422,72 @@ function drawReceipt(
   // Recibo N° en píldora redondeada
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.35);
-  doc.roundedRect(w - margin - 55, yOffset + 35, 55, 7, 2.2, 2.2, 'S');
+  doc.roundedRect(w - margin - 62, yOffset + 40, 62, 6, 2.2, 2.2, 'S');
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('RECIBO X:', w - margin - 52, yOffset + 39.5);
-  doc.text(`N° 1000 -${String(receipt.receipt_number).padStart(8, '0')}`, w - margin - 3, yOffset + 39.5, { align: 'right' });
+  doc.text('RECIBO X:', w - margin - 59, yOffset + 44.2);
+  doc.text(`N° 1000 -${String(receipt.receipt_number).padStart(8, '0')}`, w - margin - 3, yOffset + 44.2, { align: 'right' });
 
-  // Línea divisoria
+  // Línea divisoria (Gruesa)
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.4);
-  doc.line(margin, yOffset + 44, w - margin, yOffset + 44);
+  doc.setLineWidth(0.6);
+  doc.line(margin, yOffset + 47.5, w - margin, yOffset + 47.5);
 
   // ---------- Cliente y Domicilio ----------
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('Señor:', margin, yOffset + 48.5);
+  doc.text('Señor:', margin, yOffset + 52.5);
   doc.setFont('helvetica', 'normal');
-  doc.text((receipt.client_name || '').toUpperCase(), margin + 11, yOffset + 48.5);
+  doc.text((receipt.client_name || '').toUpperCase(), margin + 11, yOffset + 52.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Domicilio:', margin, yOffset + 53.5);
+  doc.text('Domicilio:', margin, yOffset + 57.5);
   doc.setFont('helvetica', 'normal');
-  doc.text((extraDetails?.address || '—').toUpperCase(), margin + 15, yOffset + 53.5);
+  doc.text((extraDetails?.address || '—').toUpperCase(), margin + 15, yOffset + 57.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Localidad:', margin + 100, yOffset + 53.5);
+  doc.text('Localidad:', margin + 100, yOffset + 57.5);
   doc.setFont('helvetica', 'normal');
-  doc.text((extraDetails?.locality || '—').toUpperCase(), margin + 116, yOffset + 53.5);
+  doc.text((extraDetails?.locality || '—').toUpperCase(), margin + 116, yOffset + 57.5);
 
   // Línea divisoria
-  doc.line(margin, yOffset + 57, w - margin, yOffset + 57);
+  doc.setLineWidth(0.5);
+  doc.line(margin, yOffset + 60.5, w - margin, yOffset + 60.5);
 
   // ---------- Monto en letras y Referencia ----------
   const pdfTotals = computeReceiptTotals(items as any, receipt.currency);
   const totalAmountForPdf = pdfTotals.convertedTotal;
 
+  let labelText = '';
+  if (receipt.currency.toUpperCase() === 'USD') {
+    labelText = 'Recibimos el equivalente a USD:';
+  } else if (receipt.currency.toUpperCase() === 'EUR') {
+    labelText = 'Recibimos el equivalente a EUR:';
+  } else {
+    labelText = 'Recibimos la cantidad de PESOS:';
+  }
+
   doc.setFont('helvetica', 'bold');
-  doc.text(`Recibimos la cantidad de ${getCurrencyName(receipt.currency)}:`, margin, yOffset + 61.5);
-  doc.text(`R. ${extraDetails?.file_number || '—'}`, w - margin, yOffset + 61.5, { align: 'right' });
+  doc.text(labelText, margin, yOffset + 65.5);
+  doc.text(`R. ${extraDetails?.file_number || '—'}`, w - margin, yOffset + 65.5, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
-  const letrasText = numeroALetras(totalAmountForPdf, receipt.currency).toUpperCase();
-  doc.text(letrasText, margin, yOffset + 66);
+  const letrasText = numeroALetrasSolo(totalAmountForPdf).toUpperCase();
+  doc.text(letrasText, margin, yOffset + 70.5);
 
   // Línea divisoria
-  doc.line(margin, yOffset + 69.5, w - margin, yOffset + 69.5);
+  doc.setLineWidth(0.5);
+  doc.line(margin, yOffset + 73.5, w - margin, yOffset + 73.5);
 
   // ---------- Concepto ----------
   doc.setFont('helvetica', 'bold');
-  doc.text('en concepto de:', margin, yOffset + 74);
+  doc.text('en concepto de:', margin, yOffset + 78);
   
   doc.setFont('helvetica', 'normal');
   const conceptLines = doc.splitTextToSize((receipt.concept || '—').toUpperCase(), width);
-  doc.text(conceptLines, margin, yOffset + 78.5);
+  doc.text(conceptLines, margin, yOffset + 82.5);
   
-  let currentY = yOffset + 78.5 + conceptLines.length * 4;
+  let currentY = yOffset + 82.5 + conceptLines.length * 4;
 
   if (receipt.notes) {
     const noteLines = doc.splitTextToSize((receipt.notes).toUpperCase(), width);
@@ -391,48 +496,48 @@ function drawReceipt(
   }
 
   // Línea divisoria fija antes del total
+  doc.setLineWidth(0.5);
   doc.line(margin, yOffset + 100, w - margin, yOffset + 100);
 
   // ---------- Moneda recibida / TOTAL ----------
   doc.setFont('helvetica', 'bold');
-  doc.text('Moneda recibida:', margin, yOffset + 104.5);
-  doc.text('TOTAL', w - margin, yOffset + 104.5, { align: 'right' });
+  doc.text('Moneda recibida:', margin, yOffset + 104);
+  doc.text('TOTAL', w - margin, yOffset + 104, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
-  // Si hay desglose de items multimoneda, los mostramos
   const effectiveItems = items.length > 0 ? items : [{ amount: receipt.amount, currency: receipt.currency }];
-  let iy = yOffset + 109.5;
-  effectiveItems.forEach((it, idx) => {
-    // Si hay más de 3 items en el desglose, los mostramos con un interlineado menor para evitar colisión
+  let iy = yOffset + 109;
+  effectiveItems.forEach((it) => {
     const spacing = effectiveItems.length > 3 ? 3 : 4.5;
     if (iy < yOffset + 120) {
-      doc.text(`${getCurrencyName(it.currency)}  ${it.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, margin, iy);
-      doc.text(`${getCurrencySymbol(it.currency)}:  ${it.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, w - margin, iy, { align: 'right' });
+      const currencyName = getCurrencyName(it.currency);
+      const formattedAmount = it.amount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      doc.text(`${currencyName}  ${formattedAmount}`, margin, iy);
+      doc.text(`${getCurrencySymbol(it.currency)}:  ${formattedAmount}`, w - margin, iy, { align: 'right' });
       iy += spacing;
     }
   });
 
   // Línea divisoria
+  doc.setLineWidth(0.5);
   doc.line(margin, yOffset + 122, w - margin, yOffset + 122);
 
-  // ---------- Firmas ----------
-  const sigY = yOffset + 133;
-  doc.setDrawColor(150, 150, 150);
-  doc.setLineWidth(0.2);
-  doc.line(margin + 5, sigY, margin + 60, sigY);
-  doc.line(w - margin - 60, sigY, w - margin - 5, sigY);
-  doc.setTextColor(120, 120, 120);
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Firma Autorizada', margin + 32.5, sigY + 3.5, { align: 'center' });
-  doc.text('Firma Cliente', w - margin - 32.5, sigY + 3.5, { align: 'center' });
+  // Signatures only drawn for classic layouts
+  if (!isVicka) {
+    // ---------- Firmas ----------
+    const sigY = yOffset + 133;
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.2);
+    doc.line(margin + 5, sigY, margin + 60, sigY);
+    doc.line(w - margin - 60, sigY, w - margin - 5, sigY);
+    doc.setTextColor(120, 120, 120);
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Firma Autorizada', margin + 32.5, sigY + 3.5, { align: 'center' });
+    doc.text('Firma Cliente', w - margin - 32.5, sigY + 3.5, { align: 'center' });
 
-  // Línea decorativa del pie del recibo
-  if (isVicka) {
-    doc.setFillColor(186, 126, 242);
-    doc.rect(margin, yOffset + 142, width, 1.5, 'F');
-  } else {
-    doc.setFillColor(BRAND_ACCENT[0], BRAND_ACCENT[1], BRAND_ACCENT[2]);
+    // Línea decorativa del pie del recibo para clásico
+    doc.setFillColor(accentRgb[0], accentRgb[1], accentRgb[2]);
     doc.rect(margin, yOffset + 142, width, 1, 'F');
   }
 

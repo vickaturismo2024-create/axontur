@@ -11,7 +11,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-const FIELDS: (keyof UserSettings)[] = ['agency_name', 'cuit', 'phone', 'email', 'address', 'website', 'logo_url'];
+const FIELDS: (keyof UserSettings)[] = [
+  'agency_name', 'cuit', 'phone', 'email', 'address', 'website', 'logo_url',
+  'receipt_header_layout', 'receipt_primary_color', 'receipt_accent_color'
+];
 
 interface CardRecord {
   id: string;
@@ -199,6 +202,66 @@ export function AgencyTab() {
           placeholder="https://ejemplo.com/logo.png"
           previewClassName="h-20"
         />
+
+        <div className="border border-border rounded-lg p-4 bg-muted/40 space-y-4">
+          <h4 className="text-sm font-semibold text-foreground">Diseño de Recibos</h4>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="receipt-layout">Plantilla del Encabezado</Label>
+              <select
+                id="receipt-layout"
+                value={local.receipt_header_layout || 'classic'}
+                onChange={(e) => u('receipt_header_layout', e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="classic">Clásico (Moderna)</option>
+                <option value="vicka">Vicka Turismo (Patrón & Centro X)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="primary-color">Color Principal</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="primary-color"
+                  type="color"
+                  value={local.receipt_primary_color || '#1E3A5F'}
+                  onChange={(e) => u('receipt_primary_color', e.target.value)}
+                  className="w-10 h-9 p-0 border border-input cursor-pointer"
+                />
+                <Input
+                  type="text"
+                  value={local.receipt_primary_color || '#1E3A5F'}
+                  onChange={(e) => u('receipt_primary_color', e.target.value)}
+                  className="flex-1 text-xs font-mono"
+                  placeholder="#1E3A5F"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="accent-color">Color de Acento</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="accent-color"
+                  type="color"
+                  value={local.receipt_accent_color || '#BA7EF2'}
+                  onChange={(e) => u('receipt_accent_color', e.target.value)}
+                  className="w-10 h-9 p-0 border border-input cursor-pointer"
+                />
+                <Input
+                  type="text"
+                  value={local.receipt_accent_color || '#BA7EF2'}
+                  onChange={(e) => u('receipt_accent_color', e.target.value)}
+                  className="flex-1 text-xs font-mono"
+                  placeholder="#BA7EF2"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <Button onClick={save} disabled={saving} className="w-full">
           <Save className="mr-2 h-4 w-4" />
           {saving ? 'Guardando...' : 'Guardar perfil'}

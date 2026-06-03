@@ -181,7 +181,17 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   };
 
   const downloadReceipt = async (r: Receipt) => {
-    let agency = { name: '', phone: '', address: '', cuit: '', email: '', logo_url: '' };
+    let agency = {
+      name: '',
+      phone: '',
+      address: '',
+      cuit: '',
+      email: '',
+      logo_url: '',
+      receipt_header_layout: 'classic',
+      receipt_primary_color: '#1E3A5F',
+      receipt_accent_color: '#BA7EF2'
+    };
     if (user) {
       const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
       if (data) {
@@ -192,6 +202,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
           cuit: (data as any).cuit || '',
           email: (data as any).email || '',
           logo_url: (data as any).logo_url || '',
+          receipt_header_layout: (data as any).receipt_header_layout || 'classic',
+          receipt_primary_color: (data as any).receipt_primary_color || '#1E3A5F',
+          receipt_accent_color: (data as any).receipt_accent_color || '#BA7EF2',
         };
       }
     }

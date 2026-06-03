@@ -32,6 +32,10 @@ export interface UserSettings {
   // Birthday WhatsApp
   birthday_whatsapp_template: string;
   birthday_whatsapp_country_code: string;
+  // Receipt layout settings
+  receipt_header_layout: string;
+  receipt_primary_color: string;
+  receipt_accent_color: string;
 }
 
 export interface EmailTemplateConfig {
@@ -85,6 +89,9 @@ const defaults: UserSettings = {
   birthday_whatsapp_template:
     '¡Feliz cumpleaños, {{primer_nombre}}! 🎉 Te deseamos un día increíble lleno de alegría. Saludos desde {{agencia}}.',
   birthday_whatsapp_country_code: '54',
+  receipt_header_layout: 'classic',
+  receipt_primary_color: '#1E3A5F',
+  receipt_accent_color: '#BA7EF2',
 };
 
 interface Ctx {
@@ -139,6 +146,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         email_templates: (d.email_templates as EmailTemplatesConfig) || {},
         birthday_whatsapp_template: d.birthday_whatsapp_template || defaults.birthday_whatsapp_template,
         birthday_whatsapp_country_code: d.birthday_whatsapp_country_code || defaults.birthday_whatsapp_country_code,
+        receipt_header_layout: d.receipt_header_layout || 'classic',
+        receipt_primary_color: d.receipt_primary_color || '#1E3A5F',
+        receipt_accent_color: d.receipt_accent_color || '#BA7EF2',
       });
     } else {
       setSettings(defaults);

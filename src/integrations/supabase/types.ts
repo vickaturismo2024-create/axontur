@@ -1400,6 +1400,9 @@ export type Database = {
           payment_due_days: number
           pdf_footer_legal: string
           phone: string | null
+          receipt_header_layout: string | null
+          receipt_primary_color: string | null
+          receipt_accent_color: string | null
           receipt_prefix: string
           theme: string
           updated_at: string
@@ -1429,6 +1432,9 @@ export type Database = {
           payment_due_days?: number
           pdf_footer_legal?: string
           phone?: string | null
+          receipt_header_layout?: string | null
+          receipt_primary_color?: string | null
+          receipt_accent_color?: string | null
           receipt_prefix?: string
           theme?: string
           updated_at?: string
@@ -1458,6 +1464,9 @@ export type Database = {
           payment_due_days?: number
           pdf_footer_legal?: string
           phone?: string | null
+          receipt_header_layout?: string | null
+          receipt_primary_color?: string | null
+          receipt_accent_color?: string | null
           receipt_prefix?: string
           theme?: string
           updated_at?: string
