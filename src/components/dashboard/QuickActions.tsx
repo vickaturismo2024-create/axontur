@@ -26,9 +26,9 @@ const ACTIONS: Action[] = [
     bgColor: 'bg-emerald-500/10 hover:bg-emerald-500/20',
   },
   {
-    label: 'Nueva Reserva',
+    label: 'Nuevo Expediente',
     icon: <Plane className="h-5 w-5" />,
-    href: '/reservations/import',
+    href: '/files',
     color: 'text-sky-600 dark:text-sky-400',
     bgColor: 'bg-sky-500/10 hover:bg-sky-500/20',
   },
