@@ -175,13 +175,6 @@ export default function Reservations() {
         return true;
       })
       .sort((a, b) => {
-        const ta = earliestDepByRes.get(a.id);
-        const tb = earliestDepByRes.get(b.id);
-        // Reservations with dep date come first, sorted ascending
-        if (ta !== undefined && tb !== undefined) return ta - tb;
-        if (ta !== undefined) return -1;
-        if (tb !== undefined) return 1;
-        // Fallback to created_at desc
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
   }, [reservations, search, airlineFilter, dateFilter, onlyChanges, segmentsByRes, passengersByRes, pendingChangesByRes, earliestDepByRes]);
