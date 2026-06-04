@@ -214,7 +214,7 @@ const LABELS: Record<string, { dateFrom: string; dateTo: string; supplier: strin
   transfer:   { dateFrom: 'Fecha y hora',       dateTo: '',                   supplier: 'Operador',    confirmation: 'Referencia'          },
   activity:   { dateFrom: 'Fecha',              dateTo: '',                   supplier: 'Operador',    confirmation: 'Referencia'          },
   insurance:  { dateFrom: 'Vigencia desde',     dateTo: 'Vigencia hasta',     supplier: 'Compañía',    confirmation: 'Nro. de póliza'      },
-  cruise:     { dateFrom: 'Fecha de embarque',  dateTo: 'Fecha de debarque',  supplier: 'Naviera',     confirmation: 'Nro. de reserva'     },
+  cruise:     { dateFrom: 'Fecha de embarque',  dateTo: 'Fecha de desembarque',  supplier: 'Naviera',     confirmation: 'Nro. de reserva'     },
   train:      { dateFrom: 'Fecha de salida',    dateTo: 'Fecha de llegada',   supplier: 'Operador',    confirmation: 'Nro. de reserva'     },
   rental_car: { dateFrom: 'Fecha de retiro',    dateTo: 'Fecha de devolución', supplier: 'Empresa',   confirmation: 'Nro. de reserva'     },
   ferry:      { dateFrom: 'Fecha de salida',    dateTo: 'Fecha de llegada',   supplier: 'Naviera',     confirmation: 'Nro. de reserva'     },
@@ -235,20 +235,12 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
     destination: '',
     start_date: '',
     end_date: '',
-    return_date: '',
-    expiry_date: '',
     travelers: '1',
     currency: 'USD',
     total_price: '0',
     total_cost: '0',
     status: 'confirmed',
     internal_notes: '',
-    operational_notes: '',
-    promoter: '',
-    secondary_seller: '',
-    department: '',
-    advance_amount_ars: '0',
-    advance_amount_usd: '0',
   });
 
   // Client search state for main file client
@@ -283,20 +275,12 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
         destination: '',
         start_date: '',
         end_date: '',
-        return_date: '',
-        expiry_date: '',
         travelers: '1',
         currency: 'USD',
         total_price: '0',
         total_cost: '0',
         status: 'confirmed',
         internal_notes: '',
-        operational_notes: '',
-        promoter: '',
-        secondary_seller: '',
-        department: '',
-        advance_amount_ars: '0',
-        advance_amount_usd: '0',
       });
       setSelectedMainClient(null);
       setMainClientSearch('');
@@ -322,6 +306,29 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
         });
     }
   }, [open]);
+
+  // Auto-calculate travelers count when passengers list changes
+  useEffect(() => {
+    if (passengersList.length > 0) {
+      setForm(prev => ({
+        ...prev,
+        travelers: String(passengersList.length),
+      }));
+    }
+  }, [passengersList]);
+
+  // Auto-calculate total price and total cost when services list changes
+  useEffect(() => {
+    if (servicesList.length > 0) {
+      const totalP = servicesList.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      const totalC = servicesList.reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
+      setForm(prev => ({
+        ...prev,
+        total_price: String(totalP),
+        total_cost: String(totalC),
+      }));
+    }
+  }, [servicesList]);
 
   // Clients filters
   const filteredMainClients = useMemo(() => {
@@ -480,28 +487,44 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
     if (!user) return;
     setSaving(true);
     try {
-      // 1. Insert main file
+      let mainClientId = (!form.client_id || form.client_id === 'new') ? null : form.client_id;
+      const mainClientName = form.client_name.trim();
+
+      // Sync manually entered main client to CRM
+      if (!mainClientId && mainClientName && mainClientName.toLowerCase() !== 'sin cliente') {
+        const { data: existing } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('name', mainClientName)
+          .maybeSingle();
+
+        if (existing) {
+          mainClientId = existing.id;
+        } else {
+          const { data: newC, error: newCErr } = await supabase
+            .from('clients')
+            .insert({ name: mainClientName, user_id: user.id })
+            .select('id')
+            .single();
+          if (!newCErr && newC) {
+            mainClientId = newC.id;
+          }
+        }
+      }
+
       const payload: any = {
         user_id: user.id,
-        client_name: form.client_name.trim() || 'Sin cliente',
-        client_id: form.client_id === 'new' ? null : form.client_id,
+        client_name: mainClientName || 'Sin cliente',
+        client_id: mainClientId,
         destination: form.destination.trim(),
         start_date: form.start_date || null,
         end_date: form.end_date || null,
-        return_date: form.return_date || null,
-        expiry_date: form.expiry_date || null,
         travelers: parseInt(form.travelers, 10) || 1,
         currency: form.currency,
         total_price: parseFloat(form.total_price) || 0,
         total_cost: parseFloat(form.total_cost) || 0,
         status: form.status,
         internal_notes: form.internal_notes.trim(),
-        operational_notes: form.operational_notes.trim(),
-        promoter: form.promoter.trim(),
-        secondary_seller: form.secondary_seller.trim(),
-        department: form.department.trim(),
-        advance_amount_ars: parseFloat(form.advance_amount_ars) || 0,
-        advance_amount_usd: parseFloat(form.advance_amount_usd) || 0,
       };
 
       const { data: fileData, error: fileErr } = await supabase
@@ -559,30 +582,64 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
           await supabase.from('clients').update(clientPayload).eq('id', clientId);
         }
 
-        // Write passenger row
+        // Write passenger row (guard all optional columns with || null)
         const passPayload = {
           file_id: fileData.id,
           user_id: user.id,
-          client_id: clientId,
+          client_id: clientId || null,
           name: pass.name.trim(),
-          dni: pass.dni,
-          passport: pass.passport,
-          passport_expiry: pass.passport_expiry,
-          birth_date: pass.birth_date,
-          nationality: pass.nationality,
-          notes: pass.notes,
+          dni: pass.dni || null,
+          passport: pass.passport || null,
+          passport_expiry: pass.passport_expiry || null,
+          birth_date: pass.birth_date || null,
+          nationality: pass.nationality || null,
+          notes: pass.notes || null,
         };
         await supabase.from('file_passengers').insert(passPayload);
       }
 
-      // 3. Insert Services
+      // 3. Insert Services (clean all string & date fields to avoid syntax format errors)
       if (servicesList.length > 0) {
         const servicesPayload = servicesList.map(svc => ({
-          ...svc,
           file_id: fileData.id,
           user_id: user.id,
+          service_type: svc.service_type,
+          description: svc.description?.trim() || '',
+          supplier_id: svc.supplier_id || null,
+          supplier_name: svc.supplier_name?.trim() || null,
+          status: svc.status || 'pending',
+          confirmation_number: svc.confirmation_number?.trim() || null,
+          cost: Number(svc.cost) || 0,
+          price: Number(svc.price) || 0,
+          currency: svc.currency || 'USD',
+          service_date: svc.service_date || null,
+          end_date: svc.end_date || null,
+          payment_due_date: svc.payment_due_date || null,
+          notes: svc.notes?.trim() || null,
+          origin: svc.origin?.trim() || null,
+          destination: svc.destination?.trim() || null,
+          airline: svc.airline?.trim() || null,
+          flight_number: svc.flight_number?.trim() || null,
+          cabin_class: svc.cabin_class || null,
+          regime: svc.regime || null,
+          room_type: svc.room_type?.trim() || null,
+          pickup_location: svc.pickup_location?.trim() || null,
+          dropoff_location: svc.dropoff_location?.trim() || null,
+          company: svc.company?.trim() || null,
+          departure_time: svc.departure_time?.trim() || null,
+          arrival_time: svc.arrival_time?.trim() || null,
+          luggage: svc.luggage?.trim() || null,
+          luggage_type: svc.luggage_type || null,
+          hotel_category: svc.hotel_category?.trim() || null,
+          ship_name: svc.ship_name?.trim() || null,
+          embarkation_port: svc.embarkation_port?.trim() || null,
+          disembarkation_port: svc.disembarkation_port?.trim() || null,
+          deck: svc.deck?.trim() || null,
+          cabin_number: svc.cabin_number?.trim() || null,
+          coverage: svc.coverage?.trim() || null,
+          insurance_plan: svc.insurance_plan?.trim() || null,
         }));
-        const { error: svcErr } = await supabase.from('file_services').insert(servicesPayload as any);
+        const { error: svcErr } = await supabase.from('file_services').insert(servicesPayload);
         if (svcErr) throw svcErr;
       }
 
@@ -745,19 +802,27 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="travelers">Pasajeros (Pax)</Label>
+                  <Label htmlFor="travelers" className="flex items-center justify-between">
+                    <span>Pasajeros (Pax)</span>
+                    {passengersList.length > 0 && (
+                      <span className="text-[10px] text-primary font-semibold bg-primary/10 px-1.5 py-0.5 rounded">
+                        Auto (Tab 2)
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     id="travelers"
                     type="number"
                     min="1"
                     value={form.travelers}
                     onChange={e => setForm(p => ({ ...p, travelers: e.target.value }))}
+                    disabled={passengersList.length > 0}
                   />
                 </div>
               </div>
 
               {/* Sección 3: Fechas */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-b pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b pb-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="start_date">Fecha Salida</Label>
                   <Input
@@ -777,30 +842,10 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                     onChange={e => setForm(p => ({ ...p, end_date: e.target.value }))}
                   />
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="return_date">Fecha Regreso Real</Label>
-                  <Input
-                    id="return_date"
-                    type="date"
-                    value={form.return_date}
-                    onChange={e => setForm(p => ({ ...p, return_date: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="expiry_date">Fecha Vencimiento (Seña)</Label>
-                  <Input
-                    id="expiry_date"
-                    type="date"
-                    value={form.expiry_date}
-                    onChange={e => setForm(p => ({ ...p, expiry_date: e.target.value }))}
-                  />
-                </div>
               </div>
 
               {/* Sección 4: Precios y Moneda */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-b pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b pb-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="currency">Moneda Principal</Label>
                   <Select value={form.currency} onValueChange={v => setForm(p => ({ ...p, currency: v }))}>
@@ -817,7 +862,14 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="total_price">Precio de Venta</Label>
+                  <Label htmlFor="total_price" className="flex items-center justify-between">
+                    <span>Precio de Venta</span>
+                    {servicesList.length > 0 && (
+                      <span className="text-[10px] text-primary font-semibold bg-primary/10 px-1.5 py-0.5 rounded">
+                        Auto (Tab 3)
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     id="total_price"
                     type="number"
@@ -825,11 +877,19 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                     step="0.01"
                     value={form.total_price}
                     onChange={e => setForm(p => ({ ...p, total_price: e.target.value }))}
+                    disabled={servicesList.length > 0}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="total_cost">Costo Total</Label>
+                  <Label htmlFor="total_cost" className="flex items-center justify-between">
+                    <span>Costo Total</span>
+                    {servicesList.length > 0 && (
+                      <span className="text-[10px] text-primary font-semibold bg-primary/10 px-1.5 py-0.5 rounded">
+                        Auto (Tab 3)
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     id="total_cost"
                     type="number"
@@ -837,88 +897,21 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                     step="0.01"
                     value={form.total_cost}
                     onChange={e => setForm(p => ({ ...p, total_cost: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="department">Departamento</Label>
-                  <Input
-                    id="department"
-                    placeholder="Área/Depto"
-                    value={form.department}
-                    onChange={e => setForm(p => ({ ...p, department: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              {/* Sección 5: Staff y Adelantos */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-b pb-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="promoter">Promotor / Referido</Label>
-                  <Input
-                    id="promoter"
-                    placeholder="Referido por"
-                    value={form.promoter}
-                    onChange={e => setForm(p => ({ ...p, promoter: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="secondary_seller">Vendedor 2</Label>
-                  <Input
-                    id="secondary_seller"
-                    placeholder="Vendedor secundario"
-                    value={form.secondary_seller}
-                    onChange={e => setForm(p => ({ ...p, secondary_seller: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="advance_amount_ars">Adelanto ARS</Label>
-                  <Input
-                    id="advance_amount_ars"
-                    type="number"
-                    min="0"
-                    value={form.advance_amount_ars}
-                    onChange={e => setForm(p => ({ ...p, advance_amount_ars: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="advance_amount_usd">Adelanto USD</Label>
-                  <Input
-                    id="advance_amount_usd"
-                    type="number"
-                    min="0"
-                    value={form.advance_amount_usd}
-                    onChange={e => setForm(p => ({ ...p, advance_amount_usd: e.target.value }))}
+                    disabled={servicesList.length > 0}
                   />
                 </div>
               </div>
 
               {/* Sección 6: Notas */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="internal_notes">Notas Internas</Label>
-                  <Textarea
-                    id="internal_notes"
-                    placeholder="Notas privadas de oficina..."
-                    value={form.internal_notes}
-                    onChange={e => setForm(p => ({ ...p, internal_notes: e.target.value }))}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="operational_notes">Notas Operativas</Label>
-                  <Textarea
-                    id="operational_notes"
-                    placeholder="Notas operativas, itinerario, etc..."
-                    value={form.operational_notes}
-                    onChange={e => setForm(p => ({ ...p, operational_notes: e.target.value }))}
-                    rows={3}
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="internal_notes">Notas Internas</Label>
+                <Textarea
+                  id="internal_notes"
+                  placeholder="Notas privadas de oficina..."
+                  value={form.internal_notes}
+                  onChange={e => setForm(p => ({ ...p, internal_notes: e.target.value }))}
+                  rows={3}
+                />
               </div>
             </TabsContent>
 
@@ -1128,7 +1121,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Nombre completo *</Label>
-                    <Input value={passengerForm.name} onChange={e => setPassengerForm({ ...passengerForm, name: e.target.value })} placeholder="Apellido Nombre" />
+                    <Input value={passengerForm.name} onChange={e => setPassengerForm({ ...passengerForm, name: e.target.value.toUpperCase() })} placeholder="APELLIDO NOMBRE" />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Sexo</Label>
@@ -1158,7 +1151,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>DNI</Label>
-                    <Input value={passengerForm.dni} onChange={e => setPassengerForm({ ...passengerForm, dni: e.target.value })} placeholder="12345678" />
+                    <Input value={passengerForm.dni} onChange={e => setPassengerForm({ ...passengerForm, dni: e.target.value.replace(/\D/g, '') })} placeholder="12345678" />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Vto. DNI</Label>
@@ -1168,7 +1161,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
                     <Label>Pasaporte</Label>
-                    <Input value={passengerForm.passport} onChange={e => setPassengerForm({ ...passengerForm, passport: e.target.value })} placeholder="AAA123456" />
+                    <Input value={passengerForm.passport} onChange={e => setPassengerForm({ ...passengerForm, passport: e.target.value.toUpperCase() })} placeholder="AAA123456" />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Emisión</Label>
@@ -1385,21 +1378,21 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-[10px]">Origen (EZE, MAD)</Label>
-                    <Input value={serviceForm.origin} onChange={e => setServiceForm({ ...serviceForm, origin: e.target.value })} className="h-8 text-xs" />
+                    <Input value={serviceForm.origin} onChange={e => setServiceForm({ ...serviceForm, origin: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) })} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px]">Destino</Label>
-                    <Input value={serviceForm.destination} onChange={e => setServiceForm({ ...serviceForm, destination: e.target.value })} className="h-8 text-xs" />
+                    <Input value={serviceForm.destination} onChange={e => setServiceForm({ ...serviceForm, destination: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) })} className="h-8 text-xs" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-[10px]">Aerolínea</Label>
-                    <Input value={serviceForm.airline} onChange={e => setServiceForm({ ...serviceForm, airline: e.target.value })} className="h-8 text-xs" />
+                    <Input value={serviceForm.airline} onChange={e => setServiceForm({ ...serviceForm, airline: e.target.value.toUpperCase() })} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px]">Nro Vuelo</Label>
-                    <Input value={serviceForm.flight_number} onChange={e => setServiceForm({ ...serviceForm, flight_number: e.target.value })} className="h-8 text-xs" />
+                    <Input value={serviceForm.flight_number} onChange={e => setServiceForm({ ...serviceForm, flight_number: e.target.value.toUpperCase() })} className="h-8 text-xs" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1481,7 +1474,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-[10px]">Plan de Seguro</Label>
-                    <Input placeholder="Ej: Gold 150k" value={serviceForm.insurance_plan} onChange={e => setForm({ ...form, insurance_plan: e.target.value })} className="h-8 text-xs" />
+                    <Input placeholder="Ej: Gold 150k" value={serviceForm.insurance_plan} onChange={e => setServiceForm({ ...serviceForm, insurance_plan: e.target.value })} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px]">Cobertura</Label>

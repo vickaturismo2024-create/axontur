@@ -35,4 +35,4 @@ export function buildWhatsAppUrl(phoneDigits: string, message: string): string {
 }
 
 export const DEFAULT_BIRTHDAY_TEMPLATE =
-  '¡Feliz cumpleaños, {{primer_nombre}}! 🎉 Te deseamos un día increíble lleno de alegría. Saludos desde {{agencia}}.';
+  '¡Feliz cumpleaños, {{nombre}}! 🎉 Te deseamos un día increíble lleno de alegría. Saludos desde {{agencia}}.';

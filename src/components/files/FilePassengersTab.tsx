@@ -544,7 +544,7 @@ export function FilePassengersTab({ fileId }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Nombre completo *</Label>
-                    <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Apellido Nombre" />
+                    <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value.toUpperCase() })} placeholder="APELLIDO NOMBRE" />
                   </div>
                   <div>
                     <Label>Sexo</Label>
@@ -574,7 +574,7 @@ export function FilePassengersTab({ fileId }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>DNI</Label>
-                    <Input value={form.dni} onChange={(e) => setForm({ ...form, dni: e.target.value })} placeholder="12345678" />
+                    <Input value={form.dni} onChange={(e) => setForm({ ...form, dni: e.target.value.replace(/\D/g, '') })} placeholder="12345678" />
                   </div>
                   <div>
                     <Label>Vto. DNI</Label>
@@ -584,7 +584,7 @@ export function FilePassengersTab({ fileId }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label>Pasaporte</Label>
-                    <Input value={form.passport} onChange={(e) => setForm({ ...form, passport: e.target.value })} placeholder="AAA123456" />
+                    <Input value={form.passport} onChange={(e) => setForm({ ...form, passport: e.target.value.toUpperCase() })} placeholder="AAA123456" />
                   </div>
                   <div>
                     <Label>Emisión</Label>

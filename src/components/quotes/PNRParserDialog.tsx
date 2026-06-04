@@ -34,42 +34,29 @@ export function PNRParserDialog({ onFlightsParsed }: PNRParserDialogProps) {
     setIsLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Debés iniciar sesión para usar esta función');
+      const { data, error } = await supabase.functions.invoke('parse-pnr', {
+        body: { pnrText },
+      });
+
+      if (error) {
+        console.error('Error invoking parse-pnr function:', error);
+        const status = (error as any).status;
+        if (status === 401) {
+          toast.error('Sesión expirada. Por favor, iniciá sesión nuevamente.');
+        } else if (status === 429) {
+          toast.error('Límite de solicitudes excedido. Intentá de nuevo más tarde.');
+        } else if (status === 402) {
+          toast.error('Créditos insuficientes. Por favor, agregá créditos a tu workspace.');
+        } else {
+          toast.error(error.message || 'Error al procesar el PNR');
+        }
         return;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pnr`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ pnrText }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (response.status === 401) {
-          toast.error('Sesión expirada. Por favor, iniciá sesión nuevamente.');
-          return;
-        }
-        if (response.status === 429) {
-          toast.error('Límite de solicitudes excedido. Intentá de nuevo más tarde.');
-          return;
-        }
-        if (response.status === 402) {
-          toast.error('Créditos insuficientes. Por favor, agregá créditos a tu workspace.');
-          return;
-        }
-        throw new Error(errorData.error || 'Error al parsear el PNR');
+      if (!data) {
+        toast.error('No se recibieron datos de la respuesta');
+        return;
       }
-
-      const data = await response.json();
 
       if (!data.flights || data.flights.length === 0) {
         toast.error('No se encontraron vuelos en el PNR');

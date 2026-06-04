@@ -443,21 +443,21 @@ export function FileServicesTab({ fileId, currency }: Props) {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 uppercase">Origen (EZE, MAD)</label>
-                    <Input value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value })} className="h-9" />
+                    <Input value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) })} className="h-9" />
                   </div>
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 uppercase">Destino</label>
-                    <Input value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value })} className="h-9" />
+                    <Input value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) })} className="h-9" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 uppercase">Aerolínea</label>
-                    <Input value={form.airline} onChange={e => setForm({ ...form, airline: e.target.value })} className="h-9" />
+                    <Input value={form.airline} onChange={e => setForm({ ...form, airline: e.target.value.toUpperCase() })} className="h-9" />
                   </div>
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 uppercase">Nro Vuelo</label>
-                    <Input value={form.flight_number} onChange={e => setForm({ ...form, flight_number: e.target.value })} className="h-9" />
+                    <Input value={form.flight_number} onChange={e => setForm({ ...form, flight_number: e.target.value.toUpperCase() })} className="h-9" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">

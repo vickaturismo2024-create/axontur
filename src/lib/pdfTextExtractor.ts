@@ -1,11 +1,8 @@
 // Client-side PDF text extraction using pdfjs-dist
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Use the bundled worker via Vite ?url import
-// @ts-ignore – Vite handles this
-import workerSrc from 'pdfjs-dist/build/pdf.worker.min.js?url';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+// Use the official CDN matching the installed pdfjs-dist version (3.11.174)
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 export async function extractTextFromPDF(
   file: File,

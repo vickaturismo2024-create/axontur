@@ -88,7 +88,7 @@ const defaults: UserSettings = {
   email_reply_to: '',
   email_templates: {},
   birthday_whatsapp_template:
-    '¡Feliz cumpleaños, {{primer_nombre}}! 🎉 Te deseamos un día increíble lleno de alegría. Saludos desde {{agencia}}.',
+    '¡Feliz cumpleaños, {{nombre}}! 🎉 Te deseamos un día increíble lleno de alegría. Saludos desde {{agencia}}.',
   birthday_whatsapp_country_code: '54',
   receipt_header_layout: 'classic',
   receipt_primary_color: '#1E3A5F',
@@ -146,7 +146,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         email_signature: d.email_signature || '',
         email_reply_to: d.email_reply_to || '',
         email_templates: (d.email_templates as EmailTemplatesConfig) || {},
-        birthday_whatsapp_template: d.birthday_whatsapp_template || defaults.birthday_whatsapp_template,
+        birthday_whatsapp_template:
+          d.birthday_whatsapp_template &&
+          d.birthday_whatsapp_template !== '¡Feliz cumpleaños, {{primer_nombre}}! 🎉 Te deseamos un día increíble lleno de alegría. Saludos desde {{agencia}}.'
+            ? d.birthday_whatsapp_template
+            : defaults.birthday_whatsapp_template,
         birthday_whatsapp_country_code: d.birthday_whatsapp_country_code || defaults.birthday_whatsapp_country_code,
         receipt_header_layout: d.receipt_header_layout || 'classic',
         receipt_primary_color: d.receipt_primary_color || '#1E3A5F',

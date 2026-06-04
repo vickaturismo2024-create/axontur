@@ -80,7 +80,11 @@ export function FileAttachmentsTab({ fileId, agencyId }: Props) {
           .from(BUCKET)
           .upload(path, file, { contentType: file.type, upsert: false });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Error de Storage al subir archivo:', uploadError);
+          toast.error(`Error de almacenamiento al subir ${file.name}: ${uploadError.message}`);
+          continue;
+        }
 
         const { error: dbError } = await supabase
           .from('file_attachments' as any)
@@ -95,14 +99,16 @@ export function FileAttachmentsTab({ fileId, agencyId }: Props) {
           } as any);
 
         if (dbError) {
+          console.error('Error de Base de Datos al guardar adjunto:', dbError);
           await supabase.storage.from(BUCKET).remove([path]);
-          throw dbError;
+          toast.error(`Error de base de datos al guardar ${file.name}: ${dbError.message}`);
+          continue;
         }
 
         toast.success(`${file.name} subido`);
       } catch (err) {
-        console.error(err);
-        toast.error(`Error al subir ${file.name}`);
+        console.error('Error inesperado al subir archivo:', err);
+        toast.error(`Error inesperado al subir ${file.name}`);
       } finally {
         setUploading(false);
       }

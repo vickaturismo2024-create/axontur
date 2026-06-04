@@ -56,33 +56,27 @@ export function PDFParserDialog({ onFlightsParsed }: PDFParserDialogProps) {
       }
 
       setProgress('Analizando con IA...');
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Sesión expirada. Iniciá sesión nuevamente.');
-        return;
-      }
+      const { data, error } = await supabase.functions.invoke('parse-pdf', {
+        body: { text },
+      });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pdf`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ text }),
+      if (error) {
+        console.error('Error invoking parse-pdf function:', error);
+        const status = (error as any).status;
+        if (status === 429) {
+          toast.error('Límite excedido. Intentá más tarde.');
+        } else if (status === 402) {
+          toast.error('Créditos insuficientes en tu workspace.');
+        } else {
+          toast.error(error.message || 'Error al procesar el PDF');
         }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 429) toast.error('Límite excedido. Intentá más tarde.');
-        else if (response.status === 402) toast.error('Créditos insuficientes en tu workspace.');
-        else toast.error(errorData.error || 'Error al procesar el PDF');
         return;
       }
 
-      const data = await response.json();
+      if (!data) {
+        toast.error('No se recibieron datos de la respuesta');
+        return;
+      }
       if (!data.flights || data.flights.length === 0) {
         toast.error('No se encontraron vuelos en el PDF');
         return;
