@@ -6,7 +6,7 @@ import {
 import { Share2, Mail, MessageCircle, Download, Printer, Link2, Check, Clock, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { generatePDF } from '@/lib/generatePDF';
+import { generatePDF, generatePDFBlob } from '@/lib/generatePDF';
 import { exportQuoteToExcel } from '@/lib/exportExcel';
 import { normalizePhoneForWhatsApp, buildWhatsAppUrl } from '@/lib/birthdayTemplate';
 import { useSettingsSafe } from '@/contexts/SettingsContext';
@@ -51,16 +51,95 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContain
     window.open(`mailto:${quote.client.email}?subject=${subject}&body=${body}`, '_blank');
   };
 
-  // WhatsApp share link setup: immediately opens WhatsApp with prefilled text and working downloadable link
   const phoneDigits = normalizePhoneForWhatsApp(quote.client.phone || '', defaultCountryCode);
   const phoneValidForWhatsApp = phoneDigits.length >= 8 && phoneDigits.length <= 15;
-  const whatsappMessage = `¡Hola ${quote.client.name}! 👋\n\nTe comparto tu presupuesto de viaje a *${quote.trip.destination}* 🌍✈️\n\n🔗 Ver presupuesto: ${getShareUrl()}\n\nSi tienes alguna pregunta, ¡no dudes en escribirnos!`;
-  const whatsappUrl = phoneValidForWhatsApp ? buildWhatsAppUrl(phoneDigits, whatsappMessage) : null;
 
   const handleInvalidWhatsApp = () => {
     toast.error('El cliente no tiene un teléfono válido para WhatsApp', {
       description: 'Verificá el teléfono del cliente o el código de país por defecto en Ajustes → Notificaciones.',
     });
+  };
+
+  const isMobile = () => {
+    if (typeof window === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
+  const handleShareWhatsApp = async () => {
+    if (!phoneValidForWhatsApp) {
+      handleInvalidWhatsApp();
+      return;
+    }
+
+    if (!pdfContainerSelector) {
+      toast.error('No se puede generar el PDF desde esta pantalla.');
+      return;
+    }
+
+    const isMob = isMobile();
+    let newWindow: Window | null = null;
+
+    // To prevent browser popup blockers on PC, we pre-open a blank tab synchronously
+    if (!isMob) {
+      newWindow = window.open('', '_blank');
+      if (newWindow) {
+        newWindow.document.write('<p style="font-family: sans-serif; text-align: center; margin-top: 20px;">Abriendo WhatsApp y preparando PDF...</p>');
+      }
+    }
+
+    const toastId = toast.loading('Generando PDF presupuesto...');
+
+    try {
+      const blob = await generatePDFBlob(pdfContainerSelector);
+      const filename = `presupuesto-${quote.trip.destination.replace(/\s+/g, '-')}.pdf`;
+      const file = new File([blob], filename, { type: 'application/pdf' });
+
+      // WhatsApp text message without link as requested for manual attachment flow on PC / native share on mobile
+      const whatsappMessage = `¡Hola ${quote.client.name}! 👋\n\nTe comparto tu presupuesto de viaje a *${quote.trip.destination}* 🌍✈️\n\nSi tienes alguna pregunta, ¡no dudes en escribirnos!`;
+      const whatsappUrl = buildWhatsAppUrl(phoneDigits, whatsappMessage);
+
+      // On mobile devices, use the native browser sharing to attach the actual PDF directly to WhatsApp
+      if (isMob && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        toast.dismiss(toastId);
+        await navigator.share({
+          files: [file],
+          title: `Presupuesto a ${quote.trip.destination}`,
+          text: whatsappMessage,
+        });
+      } else {
+        // Fallback for PC: trigger PDF download locally
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+
+        // Redirect the pre-opened window to WhatsApp
+        if (newWindow) {
+          newWindow.location.href = whatsappUrl;
+        } else {
+          window.open(whatsappUrl, '_blank');
+        }
+
+        toast.success('PDF descargado. Adjúntalo en el chat de WhatsApp que se acaba de abrir.', {
+          id: toastId,
+          duration: 6000,
+        });
+      }
+    } catch (e: any) {
+      console.error(e);
+      if (newWindow) newWindow.close();
+
+      // Absolute fallback if PDF generation fails
+      const whatsappMessageFallback = `¡Hola ${quote.client.name}! 👋\n\nTe comparto tu presupuesto de viaje a *${quote.trip.destination}* 🌍✈️\n\nSi tienes alguna pregunta, ¡no dudes en escribirnos!`;
+      const whatsappUrlFallback = buildWhatsAppUrl(phoneDigits, whatsappMessageFallback);
+      window.open(whatsappUrlFallback, '_blank');
+
+      toast.error('Ocurrió un error al generar el PDF. Se abrió WhatsApp con el mensaje.', { id: toastId });
+    }
   };
 
   const setExpiry = (hours: number | null) => {
@@ -88,17 +167,9 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContain
         <DropdownMenuItem onClick={handleShareEmail} className="gap-2 cursor-pointer">
           <Mail className="h-4 w-4" />Enviar por Email
         </DropdownMenuItem>
-        {whatsappUrl ? (
-          <DropdownMenuItem asChild>
-            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="gap-2 cursor-pointer flex items-center">
-              <MessageCircle className="h-4 w-4 text-green-600" />Enviar por WhatsApp
-            </a>
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onClick={handleInvalidWhatsApp} className="gap-2 cursor-pointer">
-            <MessageCircle className="h-4 w-4 text-green-600" />Enviar por WhatsApp
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onClick={handleShareWhatsApp} className="gap-2 cursor-pointer">
+          <MessageCircle className="h-4 w-4 text-green-600" />Enviar por WhatsApp
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={async () => {
           if (!pdfContainerSelector) { onPrint(); return; }
           setDownloading(true);
