@@ -44,6 +44,8 @@ interface LedgerItem {
   amount: number;
   payment_method: string;
   partyName: string;
+  file_id?: string | null;
+  receipt_id?: string | null;
 }
 
 const METHOD_LABELS: Record<string, string> = {
@@ -68,14 +70,14 @@ async function fetchCajaData() {
   // 2. Fetch receipts to check status and get client details
   const { data: receipts, error: receiptsError } = await supabase
     .from('file_receipts')
-    .select('id, status, client_name, concept, payment_date');
+    .select('id, status, client_name, concept, payment_date, file_id');
 
   if (receiptsError) throw receiptsError;
 
   // 3. Fetch supplier payments (outgoing)
   const { data: supplierPayments, error: pError } = await supabase
     .from('file_supplier_payments' as any)
-    .select('id, amount, currency, payment_method, payment_date, supplier_name, reference, notes');
+    .select('id, amount, currency, payment_method, payment_date, supplier_name, reference, notes, file_id');
 
   if (pError) throw pError;
 
@@ -86,13 +88,6 @@ async function fetchCajaData() {
     .eq('impacto_caja', true);
 
   if (iError) throw iError;
-
-  // 5. Fetch extra movements (non-operational)
-  const { data: extraMovements, error: extraError } = await supabase
-    .from('extra_movements' as any)
-    .select('id, concepto, monto, moneda, medio_pago, fecha, notes, user_id, agency_id, created_at');
-
-  const extraList = extraError ? [] : (extraMovements || []);
 
   const ledger: LedgerItem[] = [];
 
@@ -106,12 +101,14 @@ async function fetchCajaData() {
         id: item.id,
         type: 'ingreso',
         date: parent.payment_date || item.created_at.split('T')[0],
-        concept: `Cobro: ${parent.client_name} - ${parent.concept}`,
+        concept: parent.file_id ? `Cobro: ${parent.client_name} - ${parent.concept}` : parent.concept || 'Cobro Extra',
         notes: item.notes || '',
         currency: item.currency || 'USD',
         amount: Number(item.amount) || 0,
         payment_method: item.payment_method || 'other',
-        partyName: parent.client_name || '',
+        partyName: parent.file_id ? (parent.client_name || '') : 'Ajuste Extra',
+        file_id: parent.file_id || null,
+        receipt_id: item.receipt_id,
       });
     }
   });
@@ -122,12 +119,13 @@ async function fetchCajaData() {
       id: pay.id,
       type: 'egreso',
       date: pay.payment_date || pay.created_at?.split('T')[0],
-      concept: `Pago Proveedor: ${pay.supplier_name}${pay.reference ? ` (${pay.reference})` : ''}`,
+      concept: pay.file_id ? `Pago Proveedor: ${pay.supplier_name}${pay.reference ? ` (${pay.reference})` : ''}` : pay.notes || 'Pago Extra',
       notes: pay.notes || '',
       currency: pay.currency || 'USD',
       amount: Number(pay.amount) || 0,
       payment_method: pay.payment_method || 'transfer',
-      partyName: pay.supplier_name || '',
+      partyName: pay.file_id ? (pay.supplier_name || '') : 'Ajuste Extra',
+      file_id: pay.file_id || null,
     });
   });
 
@@ -143,21 +141,7 @@ async function fetchCajaData() {
       amount: Number(inc.monto) || 0,
       payment_method: 'cash',
       partyName: 'Ajuste Operativo',
-    });
-  });
-
-  // Map extra movements
-  extraList.forEach((item: any) => {
-    ledger.push({
-      id: item.id,
-      type: item.monto >= 0 ? 'ingreso' : 'egreso',
-      date: item.fecha || item.created_at?.split('T')[0],
-      concept: `Mov. Extra: ${item.concepto}`,
-      notes: item.notes || '',
-      currency: item.moneda || 'ARS',
-      amount: Math.abs(Number(item.monto)) || 0,
-      payment_method: item.medio_pago || 'cash',
-      partyName: 'Ajuste Extra',
+      file_id: inc.file_id || null,
     });
   });
 
@@ -165,8 +149,7 @@ async function fetchCajaData() {
   ledger.sort((a, b) => b.date.localeCompare(a.date));
 
   return {
-    ledger,
-    extraMovements: extraList
+    ledger
   };
 }
 
@@ -194,7 +177,9 @@ export default function CashBox() {
   });
 
   const ledger = cajaData?.ledger || [];
-  const extraMovements = cajaData?.extraMovements || [];
+  const extraMovements = useMemo(() => {
+    return ledger.filter(item => item.partyName === 'Ajuste Extra');
+  }, [ledger]);
 
   // Extra movements CRUD state
   const [isExtraDialogOpen, setIsExtraDialogOpen] = useState(false);
@@ -218,13 +203,13 @@ export default function CashBox() {
     setIsExtraDialogOpen(true);
   };
 
-  const openEditExtraDialog = (item: any) => {
+  const openEditExtraDialog = (item: LedgerItem) => {
     setEditingExtra(item);
-    setExtraConcepto(item.concepto);
-    setExtraMonto(String(item.monto));
-    setExtraMoneda(item.moneda);
-    setExtraMedioPago(item.medio_pago);
-    setExtraFecha(item.fecha);
+    setExtraConcepto(item.concept);
+    setExtraMonto(item.type === 'ingreso' ? String(item.amount) : String(-item.amount));
+    setExtraMoneda(item.currency);
+    setExtraMedioPago(item.payment_method);
+    setExtraFecha(item.date);
     setExtraNotes(item.notes || '');
     setIsExtraDialogOpen(true);
   };
@@ -257,30 +242,182 @@ export default function CashBox() {
         return;
       }
 
-      const payload = {
-        concepto: extraConcepto.trim(),
-        monto: parsedMonto,
-        moneda: extraMoneda,
-        medio_pago: extraMedioPago,
-        fecha: extraFecha,
-        notes: extraNotes.trim() || null,
-        user_id: user.id,
-        agency_id: agencyId,
-      };
+      if (parsedMonto >= 0) {
+        // Ingreso (positivo): guardar en file_receipts + file_receipt_items
+        if (editingExtra) {
+          if (editingExtra.type === 'ingreso') {
+            // Actualizar item
+            const { error: itemErr } = await supabase
+              .from('file_receipt_items')
+              .update({
+                amount: parsedMonto,
+                currency: extraMoneda,
+                payment_method: extraMedioPago,
+                notes: extraNotes.trim() || null,
+              } as any)
+              .eq('id', editingExtra.id);
+            if (itemErr) throw itemErr;
 
-      if (editingExtra) {
-        const { error } = await supabase
-          .from('extra_movements' as any)
-          .update(payload)
-          .eq('id', editingExtra.id);
-        if (error) throw error;
-        toast.success('Movimiento extra actualizado');
+            // Actualizar padre
+            if (editingExtra.receipt_id) {
+              const { error: receiptErr } = await supabase
+                .from('file_receipts')
+                .update({
+                  concept: extraConcepto.trim(),
+                  payment_date: extraFecha,
+                } as any)
+                .eq('id', editingExtra.receipt_id);
+              if (receiptErr) throw receiptErr;
+            }
+            toast.success('Movimiento extra (ingreso) actualizado');
+          } else {
+            // Antes era egreso, ahora es ingreso: borrar egreso e insertar ingreso
+            const { error: delErr } = await supabase
+              .from('file_supplier_payments')
+              .delete()
+              .eq('id', editingExtra.id);
+            if (delErr) throw delErr;
+
+            // Insertar recibo padre
+            const { data: receiptData, error: receiptErr } = await supabase
+              .from('file_receipts')
+              .insert({
+                concept: extraConcepto.trim(),
+                payment_date: extraFecha,
+                client_name: 'Ajuste Extra',
+                status: 'confirmed',
+                user_id: user.id,
+                agency_id: agencyId,
+                amount: parsedMonto,
+                currency: extraMoneda,
+                payment_method: extraMedioPago,
+                file_id: null,
+              } as any)
+              .select('id')
+              .single();
+            if (receiptErr) throw receiptErr;
+
+            // Insertar recibo item
+            const { error: itemErr } = await supabase
+              .from('file_receipt_items')
+              .insert({
+                receipt_id: receiptData.id,
+                amount: parsedMonto,
+                currency: extraMoneda,
+                payment_method: extraMedioPago,
+                notes: extraNotes.trim() || null,
+                user_id: user.id,
+                agency_id: agencyId,
+              } as any);
+            if (itemErr) throw itemErr;
+            toast.success('Movimiento extra (ingreso) registrado');
+          }
+        } else {
+          // Crear recibo padre nuevo sin expediente (file_id = null)
+          const { data: receiptData, error: receiptErr } = await supabase
+            .from('file_receipts')
+            .insert({
+              concept: extraConcepto.trim(),
+              payment_date: extraFecha,
+              client_name: 'Ajuste Extra',
+              status: 'confirmed',
+              user_id: user.id,
+              agency_id: agencyId,
+              amount: parsedMonto,
+              currency: extraMoneda,
+              payment_method: extraMedioPago,
+              file_id: null,
+            } as any)
+            .select('id')
+            .single();
+          if (receiptErr) throw receiptErr;
+
+          // Crear recibo item nuevo
+          const { error: itemErr } = await supabase
+            .from('file_receipt_items')
+            .insert({
+              receipt_id: receiptData.id,
+              amount: parsedMonto,
+              currency: extraMoneda,
+              payment_method: extraMedioPago,
+              notes: extraNotes.trim() || null,
+              user_id: user.id,
+              agency_id: agencyId,
+            } as any);
+          if (itemErr) throw itemErr;
+          toast.success('Movimiento extra (ingreso) registrado');
+        }
       } else {
-        const { error } = await supabase
-          .from('extra_movements' as any)
-          .insert(payload);
-        if (error) throw error;
-        toast.success('Movimiento extra registrado');
+        // Egreso (negativo): guardar en file_supplier_payments con file_id = null
+        const positiveAmount = Math.abs(parsedMonto);
+
+        if (editingExtra) {
+          if (editingExtra.type === 'egreso') {
+            const { error: payErr } = await supabase
+              .from('file_supplier_payments')
+              .update({
+                amount: positiveAmount,
+                currency: extraMoneda,
+                payment_method: extraMedioPago,
+                payment_date: extraFecha,
+                notes: extraConcepto.trim() + (extraNotes.trim() ? ` - ${extraNotes.trim()}` : ''),
+              } as any)
+              .eq('id', editingExtra.id);
+            if (payErr) throw payErr;
+            toast.success('Movimiento extra (egreso) actualizado');
+          } else {
+            // Antes era ingreso, ahora es egreso: borrar recibo e insertar pago
+            if (editingExtra.receipt_id) {
+              const { error: delItemErr } = await supabase
+                .from('file_receipt_items')
+                .delete()
+                .eq('receipt_id', editingExtra.receipt_id);
+              if (delItemErr) throw delItemErr;
+
+              const { error: delRecErr } = await supabase
+                .from('file_receipts')
+                .delete()
+                .eq('id', editingExtra.receipt_id);
+              if (delRecErr) throw delRecErr;
+            }
+
+            // Insertar pago
+            const { error: payErr } = await supabase
+              .from('file_supplier_payments')
+              .insert({
+                supplier_name: 'Ajuste Extra',
+                amount: positiveAmount,
+                currency: extraMoneda,
+                payment_method: extraMedioPago,
+                payment_date: extraFecha,
+                reference: 'Mov. Extra',
+                notes: extraConcepto.trim() + (extraNotes.trim() ? ` - ${extraNotes.trim()}` : ''),
+                user_id: user.id,
+                agency_id: agencyId,
+                file_id: null,
+              } as any);
+            if (payErr) throw payErr;
+            toast.success('Movimiento extra (egreso) registrado');
+          }
+        } else {
+          // Crear pago nuevo sin expediente (file_id = null)
+          const { error: payErr } = await supabase
+            .from('file_supplier_payments')
+            .insert({
+              supplier_name: 'Ajuste Extra',
+              amount: positiveAmount,
+              currency: extraMoneda,
+              payment_method: extraMedioPago,
+              payment_date: extraFecha,
+              reference: 'Mov. Extra',
+              notes: extraConcepto.trim() + (extraNotes.trim() ? ` - ${extraNotes.trim()}` : ''),
+              user_id: user.id,
+              agency_id: agencyId,
+              file_id: null,
+            } as any);
+          if (payErr) throw payErr;
+          toast.success('Movimiento extra (egreso) registrado');
+        }
       }
 
       setIsExtraDialogOpen(false);
@@ -293,17 +430,34 @@ export default function CashBox() {
     }
   };
 
-  const handleDeleteExtra = async (id: string) => {
+  const handleDeleteExtra = async (item: LedgerItem) => {
     const ok = window.confirm('¿Estás seguro de que deseas eliminar este movimiento extra?');
     if (!ok) return;
 
     try {
-      const { error } = await supabase
-        .from('extra_movements' as any)
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      toast.success('Movimiento extra eliminado');
+      if (item.type === 'ingreso') {
+        if (item.receipt_id) {
+          const { error: itemErr } = await supabase
+            .from('file_receipt_items')
+            .delete()
+            .eq('receipt_id', item.receipt_id);
+          if (itemErr) throw itemErr;
+
+          const { error: recErr } = await supabase
+            .from('file_receipts')
+            .delete()
+            .eq('id', item.receipt_id);
+          if (recErr) throw recErr;
+        }
+        toast.success('Movimiento extra (ingreso) eliminado');
+      } else {
+        const { error: payErr } = await supabase
+          .from('file_supplier_payments')
+          .delete()
+          .eq('id', item.id);
+        if (payErr) throw payErr;
+        toast.success('Movimiento extra (egreso) eliminado');
+      }
       refetch();
     } catch (e: any) {
       console.error(e);
@@ -864,20 +1018,20 @@ export default function CashBox() {
                           </tr>
                         </thead>
                         <tbody>
-                          {[...extraMovements].sort((a, b) => b.fecha.localeCompare(a.fecha)).map((item) => (
+                          {[...extraMovements].sort((a, b) => b.date.localeCompare(a.date)).map((item) => (
                             <tr key={item.id} className="border-b hover:bg-muted/20 transition-colors">
                               {/* Date */}
                               <td className="p-3 text-muted-foreground whitespace-nowrap" data-label="Fecha">
                                 <span className="flex items-center gap-1.5">
                                   <Calendar className="h-3 w-3 text-muted-foreground/60" />
-                                  {new Date(item.fecha + 'T12:00:00').toLocaleDateString('es-AR')}
+                                  {new Date(item.date + 'T12:00:00').toLocaleDateString('es-AR')}
                                 </span>
                               </td>
 
                               {/* Concept & Notes */}
                               <td className="p-3 font-medium" data-label="Concepto">
                                 <div className="flex flex-col gap-0.5 max-w-lg">
-                                  <span className="text-foreground">{item.concepto}</span>
+                                  <span className="text-foreground">{item.concept}</span>
                                   {item.notes && (
                                     <span className="text-[10px] text-muted-foreground font-light truncate" title={item.notes}>
                                       {item.notes}
@@ -889,35 +1043,35 @@ export default function CashBox() {
                               {/* Medio de pago */}
                               <td className="p-3" data-label="Medio">
                                 <Badge variant="secondary" className="font-semibold text-[10px] flex items-center gap-1 w-fit">
-                                  {item.medio_pago === 'cash' && <Wallet className="h-2.5 w-2.5" />}
-                                  {item.medio_pago === 'transfer' && <PiggyBank className="h-2.5 w-2.5" />}
-                                  {(item.medio_pago === 'credit_card' || item.medio_pago === 'debit_card') && <CreditCard className="h-2.5 w-2.5" />}
-                                  {getMethodLabel(item.medio_pago)}
+                                  {item.payment_method === 'cash' && <Wallet className="h-2.5 w-2.5" />}
+                                  {item.payment_method === 'transfer' && <PiggyBank className="h-2.5 w-2.5" />}
+                                  {(item.payment_method === 'credit_card' || item.payment_method === 'debit_card') && <CreditCard className="h-2.5 w-2.5" />}
+                                  {getMethodLabel(item.payment_method)}
                                 </Badge>
                               </td>
 
                               {/* Moneda */}
                               <td className="p-3 text-center font-medium" data-label="Moneda">
                                 <Badge variant="outline" className="font-semibold text-[10px] uppercase">
-                                  {item.moneda}
+                                  {item.currency}
                                 </Badge>
                               </td>
 
                               {/* Amount */}
                               <td className="p-3 text-right" data-label="Monto">
                                 <div className="flex items-center justify-end gap-1 font-bold text-sm">
-                                  {Number(item.monto) >= 0 ? (
+                                  {item.type === 'ingreso' ? (
                                     <>
                                       <ArrowUpRight className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                       <span className="text-emerald-600 dark:text-emerald-400">
-                                        + {getCurrencySymbol(item.moneda)} {formatMoney(Number(item.monto))}
+                                        + {getCurrencySymbol(item.currency)} {formatMoney(item.amount)}
                                       </span>
                                     </>
                                   ) : (
                                     <>
                                       <ArrowDownRight className="h-3.5 w-3.5 text-destructive shrink-0" />
                                       <span className="text-destructive">
-                                        - {getCurrencySymbol(item.moneda)} {formatMoney(Math.abs(Number(item.monto)))}
+                                        - {getCurrencySymbol(item.currency)} {formatMoney(item.amount)}
                                       </span>
                                     </>
                                   )}
@@ -939,7 +1093,7 @@ export default function CashBox() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => handleDeleteExtra(item.id)}
+                                    onClick={() => handleDeleteExtra(item)}
                                     className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                     title="Eliminar"
                                   >

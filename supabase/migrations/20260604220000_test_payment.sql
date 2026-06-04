@@ -30,11 +30,11 @@ BEGIN
   INSERT INTO public.extra_movements (
     agency_id,
     user_id,
-    concepto,
-    monto,
-    moneda,
-    medio_pago,
-    fecha,
+    concept,
+    amount,
+    currency,
+    payment_method,
+    payment_date,
     notes
   )
   VALUES (
