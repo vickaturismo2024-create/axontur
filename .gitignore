@@ -30,3 +30,4 @@ vite.config.ts.timestamp-*
 dev-dist
 dist/bundle-stats.html
 
+.env*.local
