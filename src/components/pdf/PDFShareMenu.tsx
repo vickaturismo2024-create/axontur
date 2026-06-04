@@ -26,7 +26,7 @@ export function PDFShareMenu({ quote, template, onPrint, onSetExpiry, pdfContain
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const getShareUrl = () => `${window.location.origin}/pdf/${quote.id}`;
+  const getShareUrl = () => `${window.location.origin}/pdf/${quote.id}?download=true`;
 
   const handleCopyLink = async () => {
     try {

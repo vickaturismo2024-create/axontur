@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { generatePDF } from '@/lib/generatePDF';
 
 // Transform snake_case DB row to camelCase Quote
 function mapDbRowToQuote(row: any): Quote {
@@ -143,6 +144,24 @@ const PublicPDF = () => {
     fetchQuote();
   }, [id]);
 
+  useEffect(() => {
+    if (!loading && quote) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('download') === 'true') {
+        const timer = setTimeout(async () => {
+          try {
+            await generatePDF('#pdf-export-container', `presupuesto-${quote.trip.destination.replace(/\s+/g, '-')}.pdf`);
+            toast.success('Descarga del PDF iniciada');
+          } catch (e) {
+            console.error('Error generating auto PDF:', e);
+            toast.error('Error al descargar el PDF automáticamente');
+          }
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [loading, quote]);
+
   const handleApprove = async () => {
     if (!id || !approvalName.trim()) return;
     setApproving(true);
@@ -240,6 +259,21 @@ const PublicPDF = () => {
     </div>
   );
 
+  const desktopPdfContentForCapture = (
+    <div
+      id="pdf-export-container"
+      className="absolute left-[-9999px] top-[-9999px] flex flex-col items-center gap-8"
+      style={{ width: '794px' }}
+    >
+      <PDFCoverPage quote={quote} template={template} isMobile={false} />
+      <PDFDetailsPages quote={quote} template={template} isMobile={false} />
+      <PDFContactPages quote={quote} template={template} isMobile={false} />
+      {template.sectionsToggles.itinerary && quote.itineraryDays.length > 0 && (
+        <PDFItineraryPages quote={quote} template={template} isMobile={false} />
+      )}
+    </div>
+  );
+
   // Mobile layout: full-width, no scaling
   if (isMobile) {
     return (
@@ -248,6 +282,7 @@ const PublicPDF = () => {
           {pdfContent}
           {approvalSection}
         </div>
+        {desktopPdfContentForCapture}
       </div>
     );
   }
@@ -275,6 +310,7 @@ const PublicPDF = () => {
         </div>
         {approvalSection}
       </div>
+      {desktopPdfContentForCapture}
     </div>
   );
 };
