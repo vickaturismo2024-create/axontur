@@ -12,7 +12,7 @@ import { createFileFromQuote } from '@/lib/fileFromQuote';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Plus, Search, Plane, Link, GitCompare, ChevronLeft, ChevronRight, } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Plane, Link as LinkIcon, GitCompare, ChevronLeft, ChevronRight, } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -213,7 +213,7 @@ const Quotes = () => {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setImportDialogOpen(true)} size="sm">
-              <Link className="mr-2 h-4 w-4" />Importar URL
+              <LinkIcon className="mr-2 h-4 w-4" />Importar URL
             </Button>
             <Button onClick={() => navigate('/quote/new')} size="sm">
               <Plus className="mr-2 h-4 w-4" />Nuevo Presupuesto
