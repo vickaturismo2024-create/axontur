@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
@@ -9,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/Header';
 import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
-import { Search, Users, Truck, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Search, Users, Truck, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AccountDetail } from '@/components/accounts/AccountDetail';
@@ -178,6 +179,13 @@ export default function Accounts() {
     <>
       <Header />
       <div className="container mx-auto p-4 md:p-6 space-y-4">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-2 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
         <div className="mb-4 sm:mb-6">
           <h1 className="font-sans text-2xl font-bold text-foreground flex items-center gap-2 sm:text-3xl tracking-tight">
             <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" /> Cuentas Corrientes

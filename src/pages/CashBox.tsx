@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Wallet, 
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Wallet, 
   ArrowUpRight, 
   ArrowDownRight, 
   PiggyBank, 
@@ -15,8 +14,7 @@ import {
   Calendar,
   FileText,
   ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
+  ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -260,6 +258,13 @@ export default function CashBox() {
     <>
       <Header />
       <div className="container mx-auto p-4 md:p-6 space-y-6 animate-fadeInUp">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-2 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

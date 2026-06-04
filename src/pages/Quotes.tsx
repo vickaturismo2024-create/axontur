@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { QuoteCard } from '@/components/quotes/QuoteCard';
 import { QuoteComparator } from '@/components/quotes/QuoteComparator';
@@ -12,9 +12,7 @@ import { createFileFromQuote } from '@/lib/fileFromQuote';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Plus, Search, Plane, Link, GitCompare, ChevronLeft, ChevronRight,
-} from 'lucide-react';
+import { ArrowLeft, Plus, Search, Plane, Link, GitCompare, ChevronLeft, ChevronRight, } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -187,6 +185,13 @@ const Quotes = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="container mx-auto px-4 py-16">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
           <PageLoadingScreen message="Cargando presupuestos..." />
         </main>
       </div>

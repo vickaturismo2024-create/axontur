@@ -24,8 +24,8 @@ const ExportPDF = () => {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <p className="text-lg text-muted-foreground">Presupuesto no encontrado</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
-            Volver al Dashboard
+          <Button onClick={() => navigate(-1)} className="mt-4">
+            Volver
           </Button>
         </div>
       </div>
@@ -49,7 +49,7 @@ const ExportPDF = () => {
       {/* Controls - Hidden when printing */}
       <div className="no-print sticky top-0 z-50 border-b bg-card p-4 shadow-sm">
         <div className="container mx-auto flex items-center justify-between">
-          <Button variant="ghost" onClick={() => navigate('/')}>
+          <Button variant="ghost" onClick={() => navigate(-1)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>

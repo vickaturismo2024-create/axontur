@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, User, Building2, SlidersHorizontal, Bell, FileText, Mail, Activity, Users } from 'lucide-react';
+import { ArrowLeft, Settings as SettingsIcon, User, Building2, SlidersHorizontal, Bell, FileText, Mail, Activity, Users } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
 import { AccountTab } from '@/components/settings/AccountTab';
 import { AgencyTab } from '@/components/settings/AgencyTab';
@@ -47,6 +47,13 @@ const Settings = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="container mx-auto flex items-center justify-center px-4 py-16">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </main>
       </div>

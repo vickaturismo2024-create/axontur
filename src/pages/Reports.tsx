@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { useQuotes } from '@/contexts/QuotesContext';
@@ -5,7 +6,7 @@ import { useSupplierAnalytics } from '@/hooks/useSupplierAnalytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Download } from 'lucide-react';
+import { ArrowLeft, BarChart3, Download } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
 import { exportReportsToExcel } from '@/lib/exportReports';
@@ -37,6 +38,13 @@ const Reports = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
         <div className="mb-6">
           <h1 className="font-sans text-3xl font-bold text-foreground">Reportes</h1>
           <p className="mt-1 text-muted-foreground">Análisis de rentabilidad y métricas de tu negocio</p>

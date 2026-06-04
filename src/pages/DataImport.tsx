@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Users, Store,
   FolderOpen, UserCheck, Briefcase, ArrowRight, X, Loader2, FileWarning,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { detectImportType, IMPORT_ORDER, type ImportType, type DetectionResult } from '@/lib/importDetector';
@@ -194,6 +196,13 @@ export default function DataImport() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
         <div className="mb-8">
           <h1 className="font-sans text-3xl font-bold text-foreground flex items-center gap-3">
             <FileSpreadsheet className="h-8 w-8 text-primary" />

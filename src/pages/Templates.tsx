@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { AdminOnly } from '@/components/auth/AdminOnly';
 import { toast } from 'sonner';
@@ -12,11 +13,9 @@ import { Switch } from '@/components/ui/switch';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { Slider } from '@/components/ui/slider';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { 
-  Plus, Palette, Type, Layout, Trash2, Copy, Pencil, Save, X,
+import { ArrowLeft, Plus, Palette, Type, Layout, Trash2, Copy, Pencil, Save, X,
   MessageCircle, Square, Minus, Layers, Star, Image, Settings,
-  AlignCenter, AlignLeft, AlignRight, Eye
-} from 'lucide-react';
+  AlignCenter, AlignLeft, AlignRight, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { TemplatePreviewPanel } from '@/components/templates/TemplatePreviewPanel';
 import { FontSelect } from '@/components/templates/FontSelect';
@@ -203,6 +202,13 @@ const Templates = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-sans text-3xl font-bold text-foreground">Plantillas</h1>

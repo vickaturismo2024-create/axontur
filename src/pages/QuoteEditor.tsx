@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 import { QuoteWizard } from '@/components/quotes/QuoteWizard';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { Quote, Flight, Lodging, Transfer, Activity } from '@/types/quote';
@@ -145,14 +147,14 @@ const QuoteEditor = () => {
       } else {
         await addQuote(quote);
       }
-      navigate('/');
+      navigate('/quotes');
     } catch (error) {
       console.error('Error saving quote:', error);
     }
   };
 
   const handleCancel = () => {
-    navigate('/');
+    navigate('/quotes');
   };
 
   if (isLoading) {
@@ -174,6 +176,13 @@ const QuoteEditor = () => {
       <Header />
       
       <main className="container mx-auto flex flex-1 flex-col overflow-hidden px-4 py-8">
+        {/* Botón Volver a Presupuestos */}
+        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0 self-start">
+          <Link to="/quotes">
+            <ArrowLeft className="h-4 w-4" /> Volver a Presupuestos
+          </Link>
+        </Button>
+
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="font-sans text-2xl font-bold text-foreground md:text-3xl">

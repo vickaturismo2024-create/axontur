@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Accordion } from '@/components/ui/accordion';
 import { TutorialSection } from '@/components/tutorials/TutorialSection';
@@ -12,12 +13,10 @@ import InteractiveTransportDemo from '@/components/tutorials/demos/TransportDemo
 import InteractiveOccupancyDemo from '@/components/tutorials/demos/OccupancyDemo';
 import { useTour } from '@/contexts/TourContext';
 import { Button } from '@/components/ui/button';
-import {
-  Rocket, UserRound, Plane, Hotel, TrainFront, Ship, Calculator,
+import { ArrowLeft, Rocket, UserRound, Plane, Hotel, TrainFront, Ship, Calculator,
   BedDouble, PlaneTakeoff, Palette, FileText, Lightbulb, Navigation,
   Users, Store, ShieldCheck, CreditCard, LayoutDashboard, CalendarDays,
-  BarChart3, Building2, Wrench,
-} from 'lucide-react';
+  BarChart3, Building2, Wrench, } from 'lucide-react';
 import { TutorialSectionsExisting } from '@/components/tutorials/TutorialSectionsExisting';
 import { TutorialSectionsNew } from '@/components/tutorials/TutorialSectionsNew';
 
@@ -36,6 +35,13 @@ export default function Tutorials() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto max-w-3xl px-4 py-10">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
         <div className="mb-8">
           <h1 className="text-3xl font-sans font-bold text-foreground">Guía del Sistema</h1>
           <p className="mt-2 text-muted-foreground">

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { AdminOnly } from '@/components/auth/AdminOnly';
 import { Link } from 'react-router-dom';
-import { Plane, Plus, Search, Trash2, AlertTriangle, Download, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plane, Plus, Search, Trash2, AlertTriangle, Download, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -213,6 +213,13 @@ export default function Reservations() {
   <div className="min-h-screen bg-background">
     <Header />
     <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8 max-w-7xl">
+        {/* Botón Volver al Dashboard */}
+        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
+          </Link>
+        </Button>
+
       {/* Encabezado */}
       <div className="mb-4 sm:mb-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
