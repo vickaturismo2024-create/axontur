@@ -669,6 +669,56 @@ export type Database = {
           },
         ]
       }
+      extra_movements: {
+        Row: {
+          agency_id: string
+          concepto: string
+          created_at: string
+          fecha: string
+          id: string
+          medio_pago: string
+          moneda: string
+          monto: number
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          concepto: string
+          created_at?: string
+          fecha?: string
+          id?: string
+          medio_pago?: string
+          moneda?: string
+          monto: number
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          concepto?: string
+          created_at?: string
+          fecha?: string
+          id?: string
+          medio_pago?: string
+          moneda?: string
+          monto?: number
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extra_movements_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_incidencias: {
         Row: {
           agency_id: string
