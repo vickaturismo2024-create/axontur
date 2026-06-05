@@ -449,11 +449,98 @@ function parseTime(timeStr: string): { hours: number; minutes: number } | undefi
   return undefined;
 }
 
+function extractDateFromLine(line: string): Date | undefined {
+  // Try Spanish/English text dates like "Vie. 4 Sep. 2026" or "4 Sep. 2026" or "11 Sep 2026"
+  const textDatePattern = /(\d{1,2})\s+(?:DE\s+)?([A-Z]{3,9})\.?\s*(?:DE\s+)?(\d{4})/i;
+  const match = line.match(textDatePattern);
+  if (match) {
+    const day = parseInt(match[1]);
+    const monthName = match[2].substring(0, 3).toUpperCase();
+    const month = MONTHS[monthName];
+    const year = parseInt(match[3]);
+    if (month !== undefined && day >= 1 && day <= 31 && year >= 2024 && year <= 2030) {
+      return new Date(year, month, day);
+    }
+  }
+
+  // Try standard date formats like 15MAR26 or 15MAR
+  const gdsDatePattern = /\b(\d{1,2})([A-Z]{3})(\d{2,4})?\b/i;
+  const matchGds = line.match(gdsDatePattern);
+  if (matchGds) {
+    const day = parseInt(matchGds[1]);
+    const monthName = matchGds[2].toUpperCase();
+    const month = MONTHS[monthName];
+    if (month !== undefined && day >= 1 && day <= 31) {
+      let year = new Date().getFullYear();
+      if (matchGds[3]) {
+        year = matchGds[3].length === 2 ? 2000 + parseInt(matchGds[3]) : parseInt(matchGds[3]);
+      }
+      return new Date(year, month, day);
+    }
+  }
+
+  return undefined;
+}
+
 export function parseSegments(text: string): ParsedSegment[] {
   const segments: ParsedSegment[] = [];
   const lines = text.split('\n');
+  let lastSeenDate: Date | undefined = undefined;
 
   for (const line of lines) {
+    // Check if the line has a date to be used for subsequent segments
+    const foundDate = extractDateFromLine(line);
+    if (foundDate && !line.includes('-------')) {
+      lastSeenDate = foundDate;
+    }
+
+    // Patrón de presupuesto exportado: GOL AEP 02:15 ------- JPA 11:45
+    const budgetPattern = /^\s*([A-Z\s]+)\s+([A-Z]{3})\s+(\d{2}:\d{2})\s+[-·\s—]+\s+([A-Z]{3})\s+(\d{2}:\d{2})/i;
+    const budgetMatch = line.match(budgetPattern);
+    if (budgetMatch) {
+      const airlineName = budgetMatch[1].trim();
+      const originIata = budgetMatch[2].toUpperCase();
+      const depTimeStr = budgetMatch[3];
+      const destIata = budgetMatch[4].toUpperCase();
+      const arrTimeStr = budgetMatch[5];
+
+      const depDate = lastSeenDate || new Date();
+      const arrDate = depDate;
+
+      const depTime = parseTime(depTimeStr);
+      const arrTime = parseTime(arrTimeStr);
+
+      let depDatetime: Date | undefined;
+      let arrDatetime: Date | undefined;
+
+      if (depDate && depTime) {
+        depDatetime = new Date(depDate);
+        depDatetime.setHours(depTime.hours, depTime.minutes);
+      }
+
+      if (arrDate && arrTime) {
+        arrDatetime = new Date(arrDate);
+        arrDatetime.setHours(arrTime.hours, arrTime.minutes);
+        if (depDatetime && arrDatetime < depDatetime) {
+          arrDatetime.setDate(arrDatetime.getDate() + 1);
+        }
+      }
+
+      segments.push({
+        airlineCode: airlineName.substring(0, 3).toUpperCase(),
+        flightNumber: '',
+        originIata,
+        destinationIata: destIata,
+        depDatetime,
+        arrDatetime,
+        bookingClass: undefined,
+        segmentStatus: undefined,
+        airlineLocator: undefined,
+        rawText: line.trim(),
+        isIncomplete: !depDatetime
+      });
+      continue;
+    }
     // Patrón Amadeus específico: 3  AR1328 I 17APR 5 EZEPUJ HK2  0830 1530  17APR  E  AR/JFRZXA
     // Formato: [num] [airline][flight] [class] [date] [dayofweek] [ORIG+DEST(6chars)] [status] [deptime] [arrtime] [arrdate?] [E] [airline/locator]
     const amadeusPattern = /^\s*(\d+)\s+([A-Z0-9]{2})\s?(\d{1,4})\s+([A-Z])\s+(\d{1,2}[A-Z]{3})\s+\d\*?\s*([A-Z]{6})\s+([A-Z]{2}\d?)\s+(\d{4})\s+(\d{4})(?:\s+(\d{1,2}[A-Z]{3}))?(?:\s+[A-Z])?(?:\s+[A-Z]{2}\/([A-Z0-9]{5,8}))?/i;

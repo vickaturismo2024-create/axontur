@@ -236,7 +236,7 @@ Respect dates carefully — convert any format (15MAR, 15-MAR-2025, etc.) to YYY
                 flightType: { type: "string", enum: ["direct", "stopover", "charter"] },
                 connectionGroupId: { type: "string" },
               },
-              required: ["origin", "destination", "date", "departureTime", "arrivalTime", "airline", "flightNumber"],
+              required: ["origin", "destination", "date"],
             },
           },
         },

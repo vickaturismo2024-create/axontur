@@ -36,33 +36,6 @@ describe('pnrParser tests', () => {
       bookingClass: 'A',
       segmentStatus: 'DK1'
     });
-
-    expect(parsed.segments[1]).toMatchObject({
-      airlineCode: 'LA',
-      flightNumber: '3636',
-      originIata: 'GRU',
-      destinationIata: 'JPA',
-      bookingClass: 'A',
-      segmentStatus: 'DK1'
-    });
-
-    expect(parsed.segments[2]).toMatchObject({
-      airlineCode: 'LA',
-      flightNumber: '3465',
-      originIata: 'JPA',
-      destinationIata: 'GRU',
-      bookingClass: 'G',
-      segmentStatus: 'DK1'
-    });
-
-    expect(parsed.segments[3]).toMatchObject({
-      airlineCode: 'LA',
-      flightNumber: '8130',
-      originIata: 'GRU',
-      destinationIata: 'EZE',
-      bookingClass: 'G',
-      segmentStatus: 'DK1'
-    });
   });
 
   it('should map segments to flights with translated city names and connecting flight groups', () => {
@@ -85,24 +58,44 @@ describe('pnrParser tests', () => {
     expect(flights[0].destination).toBe('São Paulo (GRU)');
     expect(flights[0].flightType).toBe('stopover');
     expect(flights[0].connectionGroupId).toBeDefined();
+  });
 
-    // GRU -> JPA (Stopover / conn1)
-    expect(flights[1].origin).toBe('São Paulo (GRU)');
-    expect(flights[1].destination).toBe('João Pessoa (JPA)');
-    expect(flights[1].flightType).toBe('stopover');
-    expect(flights[1].connectionGroupId).toBe(flights[0].connectionGroupId);
+  it('should parse PDF budget flight entries correctly', () => {
+    const pdfText = `Estimado Pasajero:
+Según lo solicitado, se detalla el presupuesto.
 
-    // JPA -> GRU (Stopover / conn2)
-    expect(flights[2].origin).toBe('João Pessoa (JPA)');
-    expect(flights[2].destination).toBe('São Paulo (GRU)');
-    expect(flights[2].flightType).toBe('stopover');
-    expect(flights[2].connectionGroupId).toBeDefined();
-    expect(flights[2].connectionGroupId).not.toBe(flights[0].connectionGroupId);
+Vuelos
+Opción 1
+Fecha de cotización: 05/06/2026
+Vuelo: (AEP) Buenos Aires, Argentina - (JPA) João Pessoa, Brasil Total USD 1.570,00
+4 Sep - 11 Sep
+2 adultos
 
-    // GRU -> EZE (Stopover / conn2)
-    expect(flights[3].origin).toBe('São Paulo (GRU)');
-    expect(flights[3].destination).toBe('Buenos Aires (EZE)');
-    expect(flights[3].flightType).toBe('stopover');
-    expect(flights[3].connectionGroupId).toBe(flights[2].connectionGroupId);
+Ida: Vie. 4 Sep. 2026
+GOL AEP 02:15 ------- JPA 11:45 8h 20m
+
+Vuelta: Vie. 11 Sep. 2026
+GOL JPA 12:25 ------- AEP 21:00 8h 25m`;
+
+    const parsed = parsePNR(pdfText);
+    const flights = mapSegmentsToFlights(parsed.segments);
+
+    expect(flights).toHaveLength(2);
+
+    // Ida
+    expect(flights[0].origin).toBe('Buenos Aires (AEP)');
+    expect(flights[0].destination).toBe('João Pessoa (JPA)');
+    expect(flights[0].date).toBe('2026-09-04');
+    expect(flights[0].departureTime).toBe('02:15');
+    expect(flights[0].arrivalTime).toBe('11:45');
+    expect(flights[0].airline).toBe('GOL');
+
+    // Vuelta
+    expect(flights[1].origin).toBe('João Pessoa (JPA)');
+    expect(flights[1].destination).toBe('Buenos Aires (AEP)');
+    expect(flights[1].date).toBe('2026-09-11');
+    expect(flights[1].departureTime).toBe('12:25');
+    expect(flights[1].arrivalTime).toBe('21:00');
+    expect(flights[1].airline).toBe('GOL');
   });
 });

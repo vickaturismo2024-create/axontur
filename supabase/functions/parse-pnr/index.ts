@@ -138,7 +138,7 @@ Convert city codes to readable names when possible (EZE = Buenos Aires, CUN = Ca
                         flightType: { type: "string", enum: ["direct", "stopover", "charter"], description: "Type of flight" },
                         connectionGroupId: { type: "string", description: "ID to group connected flights (same for all legs of a connection)" }
                       },
-                      required: ["origin", "destination", "date", "departureTime", "arrivalTime", "airline", "flightNumber"]
+                      required: ["origin", "destination", "date"]
                     }
                   }
                 },
