@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { Flight } from '@/types/quote';
 import { supabase } from '@/integrations/supabase/client';
 import { extractTextFromPDF } from '@/lib/pdfTextExtractor';
-import { parsePNR } from '@/lib/pnrParser';
+import { parsePNR, mapSegmentToFlight } from '@/lib/pnrParser';
 
 interface PDFParserDialogProps {
   onFlightsParsed: (flights: Omit<Flight, 'id'>[]) => void;
@@ -77,18 +77,7 @@ export function PDFParserDialog({ onFlightsParsed }: PDFParserDialogProps) {
         console.info('Utilizando extractor local alternativo para procesar el PDF...');
         const parsed = parsePNR(text);
         if (parsed.segments && parsed.segments.length > 0) {
-          flightsToUse = parsed.segments.map(seg => ({
-            origin: seg.originIata,
-            destination: seg.destinationIata,
-            date: seg.depDatetime ? seg.depDatetime.toISOString().split('T')[0] : '',
-            departureTime: seg.depDatetime ? seg.depDatetime.toTimeString().slice(0, 5) : '',
-            arrivalTime: seg.arrDatetime ? seg.arrDatetime.toTimeString().slice(0, 5) : '',
-            airline: seg.airlineCode || '',
-            flightNumber: `${seg.airlineCode}${seg.flightNumber}`.trim(),
-            luggage: '',
-            notes: seg.rawText || '',
-            flightType: 'direct' as const,
-          }));
+          flightsToUse = parsed.segments.map(mapSegmentToFlight);
           toast.info('Vuelos extraídos localmente (sin conexión IA)');
         }
       }

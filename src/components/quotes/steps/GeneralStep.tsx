@@ -126,8 +126,8 @@ export function GeneralStep({ quote, onUpdate }: GeneralStepProps) {
               id="travelers"
               type="number"
               min={1}
-              value={quote.trip.travelers}
-              onChange={(e) => onUpdate({ trip: { ...quote.trip, travelers: parseInt(e.target.value) || 1 } })}
+              value={quote.trip.travelers || ''}
+              onChange={(e) => onUpdate({ trip: { ...quote.trip, travelers: e.target.value === '' ? 0 : (parseInt(e.target.value) || 0) } })}
             />
           </div>
           <div>

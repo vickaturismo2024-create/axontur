@@ -107,7 +107,7 @@ export function LodgingStep({ quote, onUpdate }: LodgingStepProps) {
                 </div>
                 <div>
                   <Label>Noches</Label>
-                  <Input type="number" min={0} value={lodging.nights} onChange={(e) => updateLodging(lodging.id!, { nights: parseInt(e.target.value) || 0 })} />
+                  <Input type="number" min={0} value={lodging.nights || ''} onChange={(e) => updateLodging(lodging.id!, { nights: e.target.value === '' ? 0 : (parseInt(e.target.value) || 0) })} />
                 </div>
                 <div>
                   <Label>Notas</Label>

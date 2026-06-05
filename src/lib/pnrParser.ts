@@ -1,5 +1,6 @@
 // Parser para PNR/Itinerarios de vuelo
 // Soporta formatos: Amadeus, Sabre, Travelport y genéricos
+import { Flight } from '@/types/quote';
 
 // Códigos de estado GDS
 export const SEGMENT_STATUS = {
@@ -1073,3 +1074,23 @@ export function matchSegments(
 
   return matches;
 }
+
+/**
+ * Maps a parsed segment from PNR text to a Flight structure (excluding id)
+ * used in Quote Wizard. Uses toLocalISOString to ensure timezone-safe date extraction.
+ */
+export function mapSegmentToFlight(seg: ParsedSegment): Omit<Flight, 'id'> {
+  return {
+    origin: seg.originIata,
+    destination: seg.destinationIata,
+    date: seg.depDatetime ? toLocalISOString(seg.depDatetime).split('T')[0] : '',
+    departureTime: seg.depDatetime ? seg.depDatetime.toTimeString().slice(0, 5) : '',
+    arrivalTime: seg.arrDatetime ? seg.arrDatetime.toTimeString().slice(0, 5) : '',
+    airline: seg.airlineCode || '',
+    flightNumber: `${seg.airlineCode}${seg.flightNumber}`.trim(),
+    luggage: '',
+    notes: seg.rawText || '',
+    flightType: 'direct' as const,
+  };
+}
+

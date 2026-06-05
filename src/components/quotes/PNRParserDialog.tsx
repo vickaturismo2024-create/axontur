@@ -15,7 +15,7 @@ import { FileText, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Flight } from '@/types/quote';
 import { supabase } from '@/integrations/supabase/client';
-import { parsePNR, toLocalISOString } from '@/lib/pnrParser';
+import { parsePNR, mapSegmentToFlight } from '@/lib/pnrParser';
 
 interface PNRParserDialogProps {
   onFlightsParsed: (flights: Omit<Flight, 'id'>[]) => void;
@@ -57,18 +57,7 @@ export function PNRParserDialog({ onFlightsParsed }: PNRParserDialogProps) {
         console.info('Utilizando extractor local alternativo para procesar el PNR...');
         const parsed = parsePNR(pnrText);
         if (parsed.segments && parsed.segments.length > 0) {
-          flightsToUse = parsed.segments.map(seg => ({
-            origin: seg.originIata,
-            destination: seg.destinationIata,
-            date: seg.depDatetime ? toLocalISOString(seg.depDatetime).split('T')[0] : '',
-            departureTime: seg.depDatetime ? seg.depDatetime.toTimeString().slice(0, 5) : '',
-            arrivalTime: seg.arrDatetime ? seg.arrDatetime.toTimeString().slice(0, 5) : '',
-            airline: seg.airlineCode || '',
-            flightNumber: `${seg.airlineCode}${seg.flightNumber}`.trim(),
-            luggage: '',
-            notes: seg.rawText || '',
-            flightType: 'direct' as const,
-          }));
+          flightsToUse = parsed.segments.map(mapSegmentToFlight);
           isLocalFallback = true;
         }
       }

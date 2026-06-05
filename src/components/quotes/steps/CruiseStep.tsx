@@ -76,7 +76,7 @@ export function CruiseStep({ quote, onUpdate }: CruiseStepProps) {
             <div><Label>Número de cabina</Label><Input value={quote.cruise.cabinNumber} onChange={(e) => updateCruise({ cabinNumber: e.target.value })} placeholder="9124" /></div>
             <div><Label>Cubierta</Label><Input value={quote.cruise.deck} onChange={(e) => updateCruise({ deck: e.target.value })} placeholder="Deck 9" /></div>
             <div><Label>Régimen</Label><Input value={quote.cruise.regime} onChange={(e) => updateCruise({ regime: e.target.value })} placeholder="Full Board" /></div>
-            <div><Label>Noches</Label><Input type="number" min={0} value={quote.cruise.nights} onChange={(e) => updateCruise({ nights: parseInt(e.target.value) || 0 })} /></div>
+            <div><Label>Noches</Label><Input type="number" min={0} value={quote.cruise.nights || ''} onChange={(e) => updateCruise({ nights: e.target.value === '' ? 0 : (parseInt(e.target.value) || 0) })} /></div>
             <SupplierSelect value={quote.cruise?.supplier} onChange={(val) => updateCruise({ supplier: val })} />
             <div><Label>Costo neto total ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={quote.cruise.cost || ''} onChange={(e) => updateCruise({ cost: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
             <div><Label>Precio venta total ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={quote.cruise.price || ''} onChange={(e) => updateCruise({ price: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>

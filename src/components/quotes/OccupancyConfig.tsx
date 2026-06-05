@@ -184,9 +184,9 @@ export function OccupancyConfig({ lodging, totalTravelers, currency, onUpdate }:
                           type="number"
                           min={1}
                           className="h-8 text-xs"
-                          value={occupancy.roomCount}
+                          value={occupancy.roomCount || ''}
                           onChange={(e) => updateOccupancy(occupancy.id, { 
-                            roomCount: parseInt(e.target.value) || 1 
+                            roomCount: e.target.value === '' ? 0 : (parseInt(e.target.value) || 0) 
                           })}
                         />
                       </div>
@@ -199,9 +199,9 @@ export function OccupancyConfig({ lodging, totalTravelers, currency, onUpdate }:
                           min={1}
                           max={10}
                           className="h-8 text-xs"
-                          value={occupancy.guestsPerRoom}
+                          value={occupancy.guestsPerRoom || ''}
                           onChange={(e) => updateOccupancy(occupancy.id, { 
-                            guestsPerRoom: parseInt(e.target.value) || 1 
+                            guestsPerRoom: e.target.value === '' ? 0 : (parseInt(e.target.value) || 0) 
                           })}
                           disabled={occupancy.roomType !== 'custom'}
                         />

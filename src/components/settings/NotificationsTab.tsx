@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,22 @@ import { toast } from 'sonner';
 
 export function NotificationsTab() {
   const { settings, updateSettings } = useSettings();
+
+  const [documentExpiryMonths, setDocumentExpiryMonths] = useState<string>('');
+  const [paymentDueDays, setPaymentDueDays] = useState<string>('');
+
+  // Synchronize local states with settings values when loaded/updated
+  useEffect(() => {
+    if (settings.document_expiry_months !== undefined) {
+      setDocumentExpiryMonths(String(settings.document_expiry_months));
+    }
+  }, [settings.document_expiry_months]);
+
+  useEffect(() => {
+    if (settings.payment_due_days !== undefined) {
+      setPaymentDueDays(String(settings.payment_due_days));
+    }
+  }, [settings.payment_due_days]);
 
   const save = async (patch: Parameters<typeof updateSettings>[0]) => {
     try {
@@ -93,8 +110,21 @@ export function NotificationsTab() {
               min={1}
               max={24}
               className="w-20"
-              value={settings.document_expiry_months}
-              onChange={(e) => save({ document_expiry_months: Math.max(1, parseInt(e.target.value) || 6) })}
+              value={documentExpiryMonths}
+              onChange={(e) => setDocumentExpiryMonths(e.target.value)}
+              onBlur={() => {
+                const val = parseInt(documentExpiryMonths);
+                const validatedVal = isNaN(val) ? 6 : Math.max(1, Math.min(24, val));
+                setDocumentExpiryMonths(String(validatedVal));
+                if (validatedVal !== settings.document_expiry_months) {
+                  save({ document_expiry_months: validatedVal });
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                }
+              }}
             />
             <span className="text-sm text-muted-foreground">meses</span>
           </div>
@@ -117,8 +147,21 @@ export function NotificationsTab() {
               min={1}
               max={60}
               className="w-20"
-              value={settings.payment_due_days}
-              onChange={(e) => save({ payment_due_days: Math.max(1, parseInt(e.target.value) || 3) })}
+              value={paymentDueDays}
+              onChange={(e) => setPaymentDueDays(e.target.value)}
+              onBlur={() => {
+                const val = parseInt(paymentDueDays);
+                const validatedVal = isNaN(val) ? 3 : Math.max(1, Math.min(60, val));
+                setPaymentDueDays(String(validatedVal));
+                if (validatedVal !== settings.payment_due_days) {
+                  save({ payment_due_days: validatedVal });
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                }
+              }}
             />
             <span className="text-sm text-muted-foreground">días</span>
           </div>
