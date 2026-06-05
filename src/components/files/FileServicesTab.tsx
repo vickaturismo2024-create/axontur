@@ -150,8 +150,14 @@ export function FileServicesTab({ fileId, currency }: Props) {
       .select('*')
       .eq('file_id', fileId)
       .order('service_date');
-    setServices((data as any[]) || []);
+    const list = (data as any[]) || [];
+    setServices(list);
     setLoading(false);
+
+    // Sync total price and cost with parent file
+    const totalP = list.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+    const totalC = list.reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
+    await supabase.from('files').update({ total_price: totalP, total_cost: totalC }).eq('id', fileId);
   };
 
   useEffect(() => { load(); }, [fileId]);
