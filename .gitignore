@@ -31,3 +31,7 @@ dev-dist
 dist/bundle-stats.html
 
 .env*.local
+
+# Scratch folder
+scratch/
+

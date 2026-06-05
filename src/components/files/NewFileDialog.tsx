@@ -324,25 +324,21 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
 
   // Auto-calculate travelers count when passengers list changes
   useEffect(() => {
-    if (passengersList.length > 0) {
-      setForm(prev => ({
-        ...prev,
-        travelers: String(passengersList.length),
-      }));
-    }
+    setForm(prev => ({
+      ...prev,
+      travelers: String(Math.max(1, passengersList.length)),
+    }));
   }, [passengersList]);
 
   // Auto-calculate total price and total cost when services list changes
   useEffect(() => {
-    if (servicesList.length > 0) {
-      const totalP = servicesList.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-      const totalC = servicesList.reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
-      setForm(prev => ({
-        ...prev,
-        total_price: String(totalP),
-        total_cost: String(totalC),
-      }));
-    }
+    const totalP = servicesList.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+    const totalC = servicesList.reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
+    setForm(prev => ({
+      ...prev,
+      total_price: String(totalP),
+      total_cost: String(totalC),
+    }));
   }, [servicesList]);
 
   // Clients filters
@@ -817,22 +813,13 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="travelers" className="flex items-center justify-between">
-                    <span>Pasajeros (Pax)</span>
-                    {passengersList.length > 0 && (
-                      <span className="text-[10px] text-primary font-semibold bg-primary/10 px-1.5 py-0.5 rounded">
-                        Auto (Tab 2)
-                      </span>
-                    )}
-                  </Label>
-                  <Input
-                    id="travelers"
-                    type="number"
-                    min="1"
-                    value={form.travelers}
-                    onChange={e => setForm(p => ({ ...p, travelers: e.target.value }))}
-                    disabled={passengersList.length > 0}
-                  />
+                  <Label>Pasajeros (Pax)</Label>
+                  <div className="h-9 px-3 py-2 rounded-md border border-input bg-muted/50 text-sm font-medium flex items-center justify-between">
+                    <span>{form.travelers}</span>
+                    <span className="text-[10px] text-muted-foreground bg-background px-1.5 py-0.5 rounded border">
+                      Automático (Tab 2)
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -877,43 +864,23 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="total_price" className="flex items-center justify-between">
-                    <span>Precio de Venta</span>
-                    {servicesList.length > 0 && (
-                      <span className="text-[10px] text-primary font-semibold bg-primary/10 px-1.5 py-0.5 rounded">
-                        Auto (Tab 3)
-                      </span>
-                    )}
-                  </Label>
-                  <Input
-                    id="total_price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.total_price}
-                    onChange={e => setForm(p => ({ ...p, total_price: e.target.value }))}
-                    disabled={servicesList.length > 0}
-                  />
+                  <Label>Precio de Venta</Label>
+                  <div className="h-9 px-3 py-2 rounded-md border border-input bg-muted/50 text-sm font-medium flex items-center justify-between">
+                    <span>{form.currency} {Number(form.total_price).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-[10px] text-muted-foreground bg-background px-1.5 py-0.5 rounded border">
+                      Automático (Tab 3)
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="total_cost" className="flex items-center justify-between">
-                    <span>Costo Total</span>
-                    {servicesList.length > 0 && (
-                      <span className="text-[10px] text-primary font-semibold bg-primary/10 px-1.5 py-0.5 rounded">
-                        Auto (Tab 3)
-                      </span>
-                    )}
-                  </Label>
-                  <Input
-                    id="total_cost"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.total_cost}
-                    onChange={e => setForm(p => ({ ...p, total_cost: e.target.value }))}
-                    disabled={servicesList.length > 0}
-                  />
+                  <Label>Costo Total</Label>
+                  <div className="h-9 px-3 py-2 rounded-md border border-input bg-muted/50 text-sm font-medium flex items-center justify-between">
+                    <span>{form.currency} {Number(form.total_cost).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-[10px] text-muted-foreground bg-background px-1.5 py-0.5 rounded border">
+                      Automático (Tab 3)
+                    </span>
+                  </div>
                 </div>
               </div>
 
