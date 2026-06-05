@@ -124,13 +124,87 @@ export function FilePassengersTab({ fileId }: Props) {
 
   const load = async () => {
     setLoading(true);
+
+    // Get titular details from files and clients
+    const { data: fileData } = await supabase
+      .from('files')
+      .select('client_id, client_name')
+      .eq('id', fileId)
+      .maybeSingle();
+
+    let titularPassenger: Passenger | null = null;
+    if (fileData) {
+      if (fileData.client_id) {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', fileData.client_id)
+          .maybeSingle();
+        if (clientData) {
+          titularPassenger = {
+            id: 'titular',
+            file_id: fileId,
+            client_id: clientData.id,
+            name: clientData.name,
+            sex: clientData.sex || '',
+            birth_date: clientData.birth_date,
+            nationality: clientData.nationality || '',
+            notes: clientData.notes || '',
+            dni: clientData.dni || '',
+            dni_expiry: clientData.dni_expiry,
+            passport: clientData.passport || '',
+            passport_issue: clientData.passport_issue,
+            passport_expiry: clientData.passport_expiry,
+            cuil_cuit: clientData.cuil_cuit || '',
+            email: clientData.email || '',
+            phone: clientData.phone || '',
+            phone_work: clientData.phone_work || '',
+            phone_mobile: clientData.phone_mobile || '',
+            address: clientData.address || '',
+            locality: clientData.locality || '',
+          } as any;
+        }
+      } else if (fileData.client_name) {
+        titularPassenger = {
+          id: 'titular',
+          file_id: fileId,
+          client_id: null,
+          name: fileData.client_name,
+          sex: '',
+          birth_date: null,
+          nationality: '',
+          notes: '',
+          dni: '',
+          passport: '',
+          cuil_cuit: '',
+          email: '',
+          phone: '',
+          phone_work: '',
+          phone_mobile: '',
+          address: '',
+          locality: '',
+        } as any;
+      }
+    }
+
     const { data } = await supabase.from('file_passengers').select('*').eq('file_id', fileId).order('name');
     const list = (data as Passenger[]) || [];
-    setPassengers(list);
+    
+    // Check if titular is already in list (by name or client_id)
+    const hasTitular = list.some(p => 
+      (p.client_id && p.client_id === fileData?.client_id) || 
+      (p.name.toLowerCase().trim() === fileData?.client_name?.toLowerCase().trim())
+    );
+
+    const finalPassengers = titularPassenger && !hasTitular
+      ? [titularPassenger, ...list]
+      : list;
+
+    setPassengers(finalPassengers);
     setLoading(false);
     
     // Sync travelers count with parent file
-    await supabase.from('files').update({ travelers: 1 + list.length }).eq('id', fileId);
+    await supabase.from('files').update({ travelers: finalPassengers.length }).eq('id', fileId);
   };
 
   const loadClients = async () => {
@@ -342,12 +416,22 @@ export function FilePassengersTab({ fileId }: Props) {
       };
 
       if (editing) {
-        const { error } = await supabase
-          .from('file_passengers')
-          .update(passengerPayload)
-          .eq('id', editing.id);
-        if (error) throw error;
-        toast.success('Pasajero actualizado', { id: 'save-passenger-loading' });
+        if (editing.id === 'titular') {
+          // If editing titular, we only update files table if name changed
+          const { error: fileErr } = await supabase
+            .from('files')
+            .update({ client_name: form.name.trim() })
+            .eq('id', fileId);
+          if (fileErr) throw fileErr;
+          toast.success('Titular actualizado', { id: 'save-passenger-loading' });
+        } else {
+          const { error } = await supabase
+            .from('file_passengers')
+            .update(passengerPayload)
+            .eq('id', editing.id);
+          if (error) throw error;
+          toast.success('Pasajero actualizado', { id: 'save-passenger-loading' });
+        }
       } else {
         const { error } = await supabase
           .from('file_passengers')
@@ -370,7 +454,7 @@ export function FilePassengersTab({ fileId }: Props) {
   };
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || deleteId === 'titular') return;
     await supabase.from('file_passengers').delete().eq('id', deleteId);
     setDeleteId(null);
     toast.success('Pasajero eliminado');
@@ -459,6 +543,11 @@ export function FilePassengersTab({ fileId }: Props) {
                     >
                       {p.name}
                     </p>
+                    {p.id === 'titular' && (
+                      <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20 leading-none py-0.5 select-none">
+                        Titular Responsable
+                      </Badge>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -477,8 +566,14 @@ export function FilePassengersTab({ fileId }: Props) {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Editar"><Pencil className="h-4 w-4" /></Button>
+                  {p.id !== 'titular' ? (
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} title="Eliminar"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground font-semibold bg-muted px-2 py-1 rounded self-center border cursor-default select-none animate-fade-in" title="El titular responsable del expediente no se puede eliminar.">
+                      Titular
+                    </span>
+                  )}
                 </div>
               </CardContent>
             </Card>
