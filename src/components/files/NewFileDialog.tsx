@@ -288,13 +288,27 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
       setServicesList([]);
 
       // Load clients
-      supabase
-        .from('clients')
-        .select('*')
-        .order('name')
-        .then(({ data }) => {
-          if (data) setClients(data as ClientOption[]);
-        });
+      (async () => {
+        const PAGE = 1000;
+        let from = 0;
+        const all: any[] = [];
+        while (true) {
+          const { data, error } = await supabase
+            .from('clients')
+            .select('*')
+            .order('name')
+            .range(from, from + PAGE - 1);
+          if (error) {
+            console.error('Error loading clients in NewFileDialog:', error);
+            break;
+          }
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < PAGE) break;
+          from += PAGE;
+        }
+        setClients(all as ClientOption[]);
+      })();
 
       // Load suppliers
       supabase
