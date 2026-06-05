@@ -27,6 +27,45 @@ export async function generatePDFBlob(containerSelector: string): Promise<Blob> 
     
     if (i > 0) pdf.addPage();
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+    // Overlay interactive links programmatically from the DOM
+    const pageRect = page.getBoundingClientRect();
+    const links = page.querySelectorAll('a');
+
+    links.forEach((link) => {
+      const href = link.getAttribute('href');
+      if (!href) return;
+
+      const linkRect = link.getBoundingClientRect();
+
+      // Calculate relative coordinates in pixels
+      const relLeft = linkRect.left - pageRect.left;
+      const relTop = linkRect.top - pageRect.top;
+      const relWidth = linkRect.width;
+      const relHeight = linkRect.height;
+
+      // Scale to A4 dimensions in millimeters
+      const scaleX = pdfWidth / pageRect.width;
+      const scaleY = pdfHeight / pageRect.height;
+
+      const pdfX = relLeft * scaleX;
+      const pdfY = relTop * scaleY;
+      const pdfW = relWidth * scaleX;
+      const pdfH = relHeight * scaleY;
+
+      // Resolve relative URLs to absolute
+      let absoluteUrl = href;
+      if (!href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:')) {
+        if (href.startsWith('/')) {
+          absoluteUrl = window.location.origin + href;
+        } else {
+          absoluteUrl = 'https://' + href;
+        }
+      }
+
+      // Add link annotation to the current page in jsPDF
+      pdf.link(pdfX, pdfY, pdfW, pdfH, { url: absoluteUrl });
+    });
   }
 
   return pdf.output('blob');
@@ -43,3 +82,4 @@ export async function generatePDF(containerSelector: string, fileName: string = 
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
