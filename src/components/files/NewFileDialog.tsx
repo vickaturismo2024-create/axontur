@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatDateSafe } from '@/lib/utils';
 import {
   Plus,
   Search,
@@ -1009,7 +1010,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                           <p className="text-sm font-semibold text-foreground truncate mt-0.5">{s.description}</p>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
                             {s.supplier_name && `Proveedor: ${s.supplier_name}`}
-                            {s.service_date && ` · Fecha: ${new Date(s.service_date).toLocaleDateString('es-AR')}`}
+                            {s.service_date && ` · Fecha: ${formatDateSafe(s.service_date)}`}
                           </p>
                         </div>
                         <div className="text-right shrink-0 px-2 font-mono text-xs">

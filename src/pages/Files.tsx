@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ImportFilesExcelDialog } from '@/components/files/ImportFilesExcelDialog';
 import { NewFileDialog } from '@/components/files/NewFileDialog';
 import { AdminOnly } from '@/components/auth/AdminOnly';
+import { formatDateSafe } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -255,8 +256,8 @@ const Files = () => {
                           <td className="px-6 py-4 text-xs text-muted-foreground">
                             {file.start_date ? (
                               <span>
-                                {new Date(file.start_date).toLocaleDateString('es-AR')}
-                                {file.end_date && ` → ${new Date(file.end_date).toLocaleDateString('es-AR')}`}
+                                {formatDateSafe(file.start_date)}
+                                {file.end_date && ` → ${formatDateSafe(file.end_date)}`}
                               </span>
                             ) : '-'}
                           </td>
@@ -373,7 +374,7 @@ const Files = () => {
                           {file.start_date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3 flex-shrink-0" />
-                              {new Date(file.start_date).toLocaleDateString('es-AR')}
+                              {formatDateSafe(file.start_date)}
                             </span>
                           )}
                           <span className="flex items-center gap-1">

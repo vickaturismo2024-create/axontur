@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, Mail, Copy, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity, Check } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatDateSafe } from '@/lib/utils';
 import { sendSupplierVoucher, isInfraReady } from '@/lib/emailService';
 import { toast } from 'sonner';
 
@@ -61,7 +62,7 @@ export function FileVouchersTab({ fileId, clientName }: Props) {
   }, [fileId]);
 
   const handleCopy = (s: ServiceRecord) => {
-    const text = `Servicio: ${s.description}\nProveedor: ${s.supplier_name || 'Sin especificar'}\nCódigo Confirmación: ${s.confirmation_number || 'N/D'}\nFecha: ${s.service_date ? new Date(s.service_date).toLocaleDateString('es-AR') : 'N/D'}`;
+    const text = `Servicio: ${s.description}\nProveedor: ${s.supplier_name || 'Sin especificar'}\nCódigo Confirmación: ${s.confirmation_number || 'N/D'}\nFecha: ${s.service_date ? formatDateSafe(s.service_date) : 'N/D'}`;
     navigator.clipboard.writeText(text);
     setCopiedId(s.id);
     toast.success('Detalles del voucher copiados');
@@ -173,8 +174,8 @@ export function FileVouchersTab({ fileId, clientName }: Props) {
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Fecha: <span className="font-medium text-foreground">
-                      {s.service_date ? new Date(s.service_date).toLocaleDateString('es-AR') : 'N/D'}
-                      {s.end_date && ` → ${new Date(s.end_date).toLocaleDateString('es-AR')}`}
+                      {s.service_date ? formatDateSafe(s.service_date) : 'N/D'}
+                      {s.end_date && ` → ${formatDateSafe(s.end_date)}`}
                     </span>
                   </p>
                   {s.confirmation_number && (

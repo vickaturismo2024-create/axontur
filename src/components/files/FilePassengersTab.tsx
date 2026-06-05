@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { ClientInfoDialog } from '@/components/clients/ClientInfoDialog';
 import { ClientRecord } from '@/components/clients/ClientFormDialog';
 import { useNavigate } from 'react-router-dom';
+import { formatDateSafe } from '@/lib/utils';
 
 interface Passenger {
   id: string;
@@ -468,7 +469,7 @@ export function FilePassengersTab({ fileId }: Props) {
                     {p.dni && <span>DNI: {p.dni}</span>}
                     {p.passport && <span>Pasaporte: {p.passport}</span>}
                     {p.nationality && <span>{p.nationality}</span>}
-                    {p.birth_date && <span>Nac: {new Date(p.birth_date).toLocaleDateString('es-AR')}</span>}
+                    {p.birth_date && <span>Nac: {formatDateSafe(p.birth_date)}</span>}
                   </div>
                 </div>
                 <div className="flex gap-1">

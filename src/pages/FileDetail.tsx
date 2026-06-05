@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { AdminOnly } from '@/components/auth/AdminOnly';
+import { formatDateSafe } from '@/lib/utils';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -389,8 +390,8 @@ const FileDetail = () => {
                     {file.start_date && (
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" />
-                        {new Date(file.start_date).toLocaleDateString('es-AR')}
-                        {file.end_date && ` → ${new Date(file.end_date).toLocaleDateString('es-AR')}`}
+                        {formatDateSafe(file.start_date)}
+                        {file.end_date && ` → ${formatDateSafe(file.end_date)}`}
                       </span>
                     )}
 

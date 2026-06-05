@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuotes } from '@/contexts/QuotesContext';
 import { toast } from 'sonner';
+import { formatDateSafe } from '@/lib/utils';
 import { ClientFormDialog, ClientRecord, emptyClient } from '@/components/clients/ClientFormDialog';
 import { ImportExcelDialog } from '@/components/clients/ImportExcelDialog';
 import { GroupsManager } from '@/components/clients/GroupsManager';
@@ -667,7 +668,7 @@ function ClientDetailsExpanded({ client, quotes, hookState, navigate, onEdit, on
                         </div>
                         <div>
                           <p className="text-sm font-medium text-foreground">FILE-{String(f.file_number).padStart(3, '0')} · {f.destination}</p>
-                          {f.start_date && <p className="text-xs text-muted-foreground mt-0.5">Inicia el {new Date(f.start_date).toLocaleDateString('es-AR')}</p>}
+                           {f.start_date && <p className="text-xs text-muted-foreground mt-0.5">Inicia el {formatDateSafe(f.start_date)}</p>}
                         </div>
                       </div>
                       <Badge variant={STATUS_COLORS[f.status] || 'secondary'} className="capitalize">{STATUS_LABELS[f.status] || f.status}</Badge>

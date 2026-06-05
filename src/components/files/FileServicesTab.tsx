@@ -12,6 +12,7 @@ import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatDateSafe } from '@/lib/utils';
 import { isPast, isToday, differenceInDays } from 'date-fns';
 
 type ServiceType = 'flight' | 'lodging' | 'transfer' | 'activity' | 'insurance' |
@@ -782,13 +783,13 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
 
                   <div className="flex flex-wrap gap-x-3.5 gap-y-1.5 text-xs text-muted-foreground font-medium mt-2 border-t border-border/50 pt-2">
                     {s.service_date && (
-                      <span>{lbl.dateFrom}: {new Date(s.service_date).toLocaleDateString('es-AR')}</span>
+                      <span>{lbl.dateFrom}: {formatDateSafe(s.service_date)}</span>
                     )}
                     {s.end_date && (
-                      <span>{lbl.dateTo || 'Hasta'}: {new Date(s.end_date).toLocaleDateString('es-AR')}</span>
+                      <span>{lbl.dateTo || 'Hasta'}: {formatDateSafe(s.end_date)}</span>
                     )}
                     {s.payment_due_date && (
-                      <span>Venc. pago: <strong className="text-foreground/80 font-semibold">{new Date(s.payment_due_date).toLocaleDateString('es-AR')}</strong></span>
+                      <span>Venc. pago: <strong className="text-foreground/80 font-semibold">{formatDateSafe(s.payment_due_date)}</strong></span>
                     )}
                     {s.notes && (
                       <span className="w-full text-[11px] text-muted-foreground mt-1 italic block">Notas: {s.notes}</span>
