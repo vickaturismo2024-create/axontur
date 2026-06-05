@@ -52,6 +52,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
   const [detailItems, setDetailItems] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [passengers, setPassengers] = useState<string[]>([]);
 
   const load = async () => {
     const { data } = await supabase
@@ -66,6 +67,44 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   useEffect(() => {
     load();
   }, [fileId]);
+
+  useEffect(() => {
+    const loadPassengers = async () => {
+      const names: string[] = [];
+      
+      // 1. Obtener titular principal del expediente
+      const { data: fileData } = await supabase
+        .from('files')
+        .select('client_name')
+        .eq('id', fileId)
+        .maybeSingle();
+
+      if (fileData?.client_name) {
+        names.push(fileData.client_name);
+      } else if (clientName) {
+        names.push(clientName);
+      }
+
+      // 2. Obtener pasajeros adicionales
+      const { data: paxData } = await supabase
+        .from('file_passengers')
+        .select('name')
+        .eq('file_id', fileId);
+
+      if (paxData) {
+        paxData.forEach(p => {
+          if (p.name && !names.includes(p.name)) {
+            names.push(p.name);
+          }
+        });
+      }
+      setPassengers(names);
+    };
+
+    if (fileId) {
+      loadPassengers();
+    }
+  }, [fileId, clientName]);
 
   const handleSaveReceipt = async (form: any, items: ReceiptItem[], totalAmount: number) => {
     if (!user) return;
@@ -213,13 +252,51 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     // Fetch client address & locality and file number for receipt header details
     let extraDetails = { address: '', locality: '', file_number: undefined as number | undefined };
+    
+    let resolvedAddress = '';
+    let resolvedLocality = '';
+    
+    // First query titular details as fallback
     if (clientId) {
-      const { data: cli } = await supabase.from('clients').select('address, locality').eq('id', clientId).maybeSingle();
-      if (cli) {
-        extraDetails.address = cli.address || '';
-        extraDetails.locality = cli.locality || '';
+      const { data: mainCli } = await supabase
+        .from('clients')
+        .select('address, locality')
+        .eq('id', clientId)
+        .maybeSingle();
+      if (mainCli) {
+        resolvedAddress = mainCli.address || '';
+        resolvedLocality = mainCli.locality || '';
       }
     }
+
+    // If receipt name is different from main clientName, try to get passenger details
+    if (r.client_name && clientName && r.client_name.trim().toLowerCase() !== clientName.trim().toLowerCase()) {
+      const { data: pax } = await supabase
+        .from('file_passengers')
+        .select('client_id')
+        .eq('file_id', fileId)
+        .eq('name', r.client_name)
+        .maybeSingle();
+      
+      if (pax?.client_id) {
+        const { data: paxCli } = await supabase
+          .from('clients')
+          .select('address, locality')
+          .eq('id', pax.client_id)
+          .maybeSingle();
+        
+        if (paxCli) {
+          // If passenger has configured details, use them. Otherwise, keep the main client's details as fallback.
+          if (paxCli.address || paxCli.locality) {
+            resolvedAddress = paxCli.address || '';
+            resolvedLocality = paxCli.locality || '';
+          }
+        }
+      }
+    }
+
+    extraDetails.address = resolvedAddress;
+    extraDetails.locality = resolvedLocality;
 
     const { data: fil } = await supabase.from('files').select('file_number').eq('id', fileId).maybeSingle();
     if (fil) {
@@ -358,6 +435,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         onSave={handleSaveReceipt}
         defaultClientName={clientName}
         defaultCurrency={currency}
+        passengers={passengers}
       />
 
       <ReceiptDetailDialog

@@ -15,9 +15,10 @@ interface NewReceiptDialogProps {
   onSave: (form: any, items: ReceiptItem[], totalAmount: number) => Promise<void>;
   defaultClientName: string;
   defaultCurrency: string;
+  passengers?: string[];
 }
 
-export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName, defaultCurrency }: NewReceiptDialogProps) {
+export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName, defaultCurrency, passengers = [] }: NewReceiptDialogProps) {
   const [form, setForm] = useState({
     client_name: defaultClientName,
     payment_date: new Date().toISOString().split('T')[0],
@@ -66,13 +67,33 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
           <DialogTitle>Nuevo recibo</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4">
+          {passengers && passengers.length > 0 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-muted-foreground">Pasajero del Expediente</label>
+              <Select
+                value={passengers.includes(form.client_name) ? form.client_name : ""}
+                onValueChange={(value) => setForm({ ...form, client_name: value })}
+              >
+                <SelectTrigger className="w-full bg-background/50 border-input/60 hover:border-accent-foreground/50 transition-colors">
+                  <SelectValue placeholder="Seleccionar titular o pasajero..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {passengers.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">Cliente</label>
+              <label className="mb-1 block text-sm font-medium text-muted-foreground">Nombre en Recibo</label>
               <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Fecha de pago</label>
+              <label className="mb-1 block text-sm font-medium text-muted-foreground">Fecha de pago</label>
               <Input
                 type="date"
                 value={form.payment_date}
