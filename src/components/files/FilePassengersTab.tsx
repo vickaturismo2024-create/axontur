@@ -17,6 +17,7 @@ import { ClientInfoDialog } from '@/components/clients/ClientInfoDialog';
 import { ClientRecord } from '@/components/clients/ClientFormDialog';
 import { useNavigate } from 'react-router-dom';
 import { formatDateSafe } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface Passenger {
   id: string;
