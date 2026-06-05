@@ -61,8 +61,9 @@ export function TagSelect({ quoteId, assignedTags, allTags, onTagsChanged }: Tag
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground h-7 px-2">
-          <Tag className="h-3.5 w-3.5" />
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground h-9 px-3 gap-1.5">
+          <Tag className="h-4 w-4" />
+          <span>Etiquetas</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-2" align="start" onClick={(e) => e.stopPropagation()}>

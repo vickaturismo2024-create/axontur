@@ -217,16 +217,28 @@ export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onE
             {onToggleFavorite && (
               <Button variant="ghost" size="sm" onClick={() => onToggleFavorite(quote)} className={quote.favorited ? 'text-gold-dark' : 'text-muted-foreground'}>
                 <Star className={`mr-1.5 h-4 w-4 ${quote.favorited ? 'fill-current' : ''}`} />
+                {quote.favorited ? 'Favorito' : 'Destacar'}
               </Button>
             )}
             {onToggleArchive && (
               <Button variant="ghost" size="sm" onClick={() => onToggleArchive(quote)} className="text-muted-foreground hover:text-foreground">
-                {quote.archived ? <ArchiveRestore className="mr-1.5 h-4 w-4" /> : <Archive className="mr-1.5 h-4 w-4" />}
+                {quote.archived ? (
+                  <>
+                    <ArchiveRestore className="mr-1.5 h-4 w-4" />
+                    Desarchivar
+                  </>
+                ) : (
+                  <>
+                    <Archive className="mr-1.5 h-4 w-4" />
+                    Archivar
+                  </>
+                )}
               </Button>
             )}
             <AdminOnly>
               <Button variant="ghost" size="sm" onClick={() => onDelete(quote.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
                 <Trash2 className="mr-1.5 h-4 w-4" />
+                Eliminar
               </Button>
             </AdminOnly>
           </div>

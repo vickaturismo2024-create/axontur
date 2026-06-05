@@ -218,29 +218,53 @@ export default function ReservationImport() {
         return;
       }
       setPdfProgress('Analizando con IA...');
-      const { data, error } = await supabase.functions.invoke('parse-pdf', {
-        body: { text },
-      });
+      let apiData = null;
 
-      if (error) {
-        console.error('Error invoking parse-pdf function:', error);
-        const status = (error as any).status;
-        if (status === 429) {
-          toast.error('Límite excedido. Intentá más tarde.');
-        } else if (status === 402) {
-          toast.error('Créditos insuficientes en tu workspace.');
-        } else {
-          toast.error(error.message || 'Error al procesar el PDF');
+      try {
+        const { data, error } = await supabase.functions.invoke('parse-pdf', {
+          body: { text },
+        });
+
+        if (!error && data && data.flights && data.flights.length > 0) {
+          apiData = data;
+        } else if (error) {
+          console.warn('parse-pdf edge function returned error:', error);
         }
+      } catch (err) {
+        console.warn('Error invoking parse-pdf edge function:', err);
+      }
+
+      // Local fallback if AI failed or returned no flights
+      if (!apiData || !apiData.flights || apiData.flights.length === 0) {
+        console.info('Utilizando extractor local alternativo para procesar el PDF...');
+        const parsed = parsePNR(text);
+        if (parsed.segments && parsed.segments.length > 0) {
+          apiData = {
+            locator: parsed.locator || '',
+            passengers: parsed.passengers || [],
+            flights: parsed.segments.map(seg => ({
+              origin: seg.originIata,
+              destination: seg.destinationIata,
+              date: seg.depDatetime ? seg.depDatetime.toISOString().split('T')[0] : '',
+              departureTime: seg.depDatetime ? seg.depDatetime.toTimeString().slice(0, 5) : '',
+              arrivalTime: seg.arrDatetime ? seg.arrDatetime.toTimeString().slice(0, 5) : '',
+              airline: seg.airlineCode || '',
+              flightNumber: `${seg.airlineCode}${seg.flightNumber}`.trim(),
+              notes: seg.rawText || '',
+              flightType: 'direct',
+            })),
+          };
+          toast.info('PDF procesado con extractor local (sin conexión IA)');
+        }
+      }
+
+      if (!apiData || !apiData.flights || apiData.flights.length === 0) {
+        toast.error('No se pudieron extraer vuelos del PDF (extractor local ni IA detectaron vuelos)');
         return;
       }
 
-      if (!data) {
-        toast.error('No se recibieron datos de la respuesta');
-        return;
-      }
       // Map parsed flights to ParsedSegment format
-      const mappedSegments: EditableSegment[] = (data.flights || []).map((f: any, i: number) => {
+      const mappedSegments: EditableSegment[] = (apiData.flights || []).map((f: any, i: number) => {
         const dep = f.date && f.departureTime ? new Date(`${f.date}T${f.departureTime}:00`) : undefined;
         const arr = f.date && f.arrivalTime ? new Date(`${f.date}T${(f.arrivalTime || '').replace('+1', '')}:00`) : undefined;
         const [airlineCode, ...rest] = (f.flightNumber || '').match(/^([A-Z0-9]{2})\s*(\d+)/) || [];
@@ -256,26 +280,26 @@ export default function ReservationImport() {
           destinationIata: destIata,
           depDatetime: dep,
           arrDatetime: arr,
-          rawText: '',
+          rawText: f.notes || '',
           isIncomplete: !dep,
         };
       });
-      const mappedPassengers: EditablePassenger[] = (data.passengers || []).map((p: any, i: number) => ({
+      const mappedPassengers: EditablePassenger[] = (apiData.passengers || []).map((p: any, i: number) => ({
         id: `pax-${Date.now()}-${i}`,
         lastName: p.lastName || '',
         firstName: p.firstName || '',
         title: p.title || '',
       }));
-      setLocator(data.locator || '');
+      setLocator(apiData.locator || '');
       setPassengers(mappedPassengers);
       setSegments(mappedSegments);
       setRawText(text.substring(0, 10000));
       setIsParsed(true);
       toast.success(`PDF procesado: ${mappedSegments.length} vuelo(s), ${mappedPassengers.length} pasajero(s)`);
 
-      if (data.locator) {
-        const existing = await findByLocator(data.locator);
-        if (existing) setDuplicateRes({ id: existing.id, locator: existing.locator || data.locator });
+      if (apiData.locator) {
+        const existing = await findByLocator(apiData.locator);
+        if (existing) setDuplicateRes({ id: existing.id, locator: existing.locator || apiData.locator });
       }
     } catch (error) {
       console.error('Error parsing PDF:', error);

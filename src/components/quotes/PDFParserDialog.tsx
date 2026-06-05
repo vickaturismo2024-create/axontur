@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Flight } from '@/types/quote';
 import { supabase } from '@/integrations/supabase/client';
 import { extractTextFromPDF } from '@/lib/pdfTextExtractor';
+import { parsePNR } from '@/lib/pnrParser';
 
 interface PDFParserDialogProps {
   onFlightsParsed: (flights: Omit<Flight, 'id'>[]) => void;
@@ -56,34 +57,49 @@ export function PDFParserDialog({ onFlightsParsed }: PDFParserDialogProps) {
       }
 
       setProgress('Analizando con IA...');
-      const { data, error } = await supabase.functions.invoke('parse-pdf', {
-        body: { text },
-      });
+      let flightsToUse = null;
 
-      if (error) {
-        console.error('Error invoking parse-pdf function:', error);
-        const status = (error as any).status;
-        if (status === 429) {
-          toast.error('Límite excedido. Intentá más tarde.');
-        } else if (status === 402) {
-          toast.error('Créditos insuficientes en tu workspace.');
-        } else {
-          toast.error(error.message || 'Error al procesar el PDF');
+      try {
+        const { data, error } = await supabase.functions.invoke('parse-pdf', {
+          body: { text },
+        });
+
+        if (!error && data && data.flights && data.flights.length > 0) {
+          flightsToUse = data.flights;
+        } else if (error) {
+          console.warn('parse-pdf edge function returned error:', error);
         }
+      } catch (err) {
+        console.warn('Error invoking parse-pdf edge function:', err);
+      }
+
+      if (!flightsToUse || flightsToUse.length === 0) {
+        console.info('Utilizando extractor local alternativo para procesar el PDF...');
+        const parsed = parsePNR(text);
+        if (parsed.segments && parsed.segments.length > 0) {
+          flightsToUse = parsed.segments.map(seg => ({
+            origin: seg.originIata,
+            destination: seg.destinationIata,
+            date: seg.depDatetime ? seg.depDatetime.toISOString().split('T')[0] : '',
+            departureTime: seg.depDatetime ? seg.depDatetime.toTimeString().slice(0, 5) : '',
+            arrivalTime: seg.arrDatetime ? seg.arrDatetime.toTimeString().slice(0, 5) : '',
+            airline: seg.airlineCode || '',
+            flightNumber: `${seg.airlineCode}${seg.flightNumber}`.trim(),
+            luggage: '',
+            notes: seg.rawText || '',
+            flightType: 'direct' as const,
+          }));
+          toast.info('Vuelos extraídos localmente (sin conexión IA)');
+        }
+      }
+
+      if (!flightsToUse || flightsToUse.length === 0) {
+        toast.error('No se pudieron extraer vuelos del PDF (extractor local ni IA detectaron vuelos)');
         return;
       }
 
-      if (!data) {
-        toast.error('No se recibieron datos de la respuesta');
-        return;
-      }
-      if (!data.flights || data.flights.length === 0) {
-        toast.error('No se encontraron vuelos en el PDF');
-        return;
-      }
-
-      onFlightsParsed(data.flights);
-      toast.success(`${data.flights.length} vuelo(s) importado(s) desde PDF`);
+      onFlightsParsed(flightsToUse);
+      toast.success(`${flightsToUse.length} vuelo(s) importado(s) desde PDF`);
       setFile(null);
       setOpen(false);
     } catch (error) {
