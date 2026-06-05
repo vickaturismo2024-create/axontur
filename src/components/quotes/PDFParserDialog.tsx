@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { Flight } from '@/types/quote';
 import { supabase } from '@/integrations/supabase/client';
 import { extractTextFromPDF } from '@/lib/pdfTextExtractor';
-import { parsePNR, mapSegmentToFlight } from '@/lib/pnrParser';
+import { parsePNR, mapSegmentsToFlights } from '@/lib/pnrParser';
 
 interface PDFParserDialogProps {
   onFlightsParsed: (flights: Omit<Flight, 'id'>[]) => void;
@@ -77,7 +77,7 @@ export function PDFParserDialog({ onFlightsParsed }: PDFParserDialogProps) {
         console.info('Utilizando extractor local alternativo para procesar el PDF...');
         const parsed = parsePNR(text);
         if (parsed.segments && parsed.segments.length > 0) {
-          flightsToUse = parsed.segments.map(mapSegmentToFlight);
+          flightsToUse = mapSegmentsToFlights(parsed.segments);
           toast.info('Vuelos extraídos localmente (sin conexión IA)');
         }
       }

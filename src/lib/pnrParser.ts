@@ -1075,14 +1075,175 @@ export function matchSegments(
   return matches;
 }
 
+export const AIRPORT_CITY_NAMES: Record<string, string> = {
+  // Argentina
+  'EZE': 'Buenos Aires',
+  'AEP': 'Buenos Aires',
+  'COR': 'Córdoba',
+  'MDQ': 'Mar del Plata',
+  'ROS': 'Rosario',
+  'SLA': 'Salta',
+  'TUC': 'Tucumán',
+  'MDZ': 'Mendoza',
+  'BRC': 'San Carlos de Bariloche',
+  'USH': 'Ushuaia',
+  'IGR': 'Puerto Iguazú',
+  'JUJ': 'Jujuy',
+  'NQN': 'Neuquén',
+  'FTE': 'El Calafate',
+  'PSS': 'Posadas',
+  'SFN': 'Santa Fe',
+  'CNQ': 'Corrientes',
+  'RSA': 'Resistencia',
+  'EPA': 'El Palomar',
+  'VDM': 'Viedma',
+  'CPC': 'San Martín de los Andes',
+  'BHI': 'Bahía Blanca',
+  'RGA': 'Río Grande',
+  'RGL': 'Río Gallegos',
+
+  // Brasil
+  'GRU': 'São Paulo',
+  'CGH': 'São Paulo',
+  'VCP': 'Campinas',
+  'GIG': 'Río de Janeiro',
+  'SDU': 'Río de Janeiro',
+  'BSB': 'Brasilia',
+  'SSA': 'Salvador de Bahía',
+  'REC': 'Recife',
+  'NAT': 'Natal',
+  'FLN': 'Florianópolis',
+  'CWB': 'Curitiba',
+  'POA': 'Porto Alegre',
+  'BEL': 'Belém',
+  'FOR': 'Fortaleza',
+  'MAN': 'Manaos',
+  'CNF': 'Belo Horizonte',
+  'JPA': 'João Pessoa',
+
+  // Sudamérica / Caribe / Centroamérica
+  'SCL': 'Santiago de Chile',
+  'LIM': 'Lima',
+  'BOG': 'Bogotá',
+  'UIO': 'Quito',
+  'CCS': 'Caracas',
+  'MVD': 'Montevideo',
+  'ASU': 'Asunción',
+  'LPB': 'La Paz',
+  'VVI': 'Santa Cruz de la Sierra',
+  'GYE': 'Guayaquil',
+  'CTG': 'Cartagena',
+  'MDE': 'Medellín',
+  'CLO': 'Cali',
+  'CUZ': 'Cusco',
+  'PMI': 'Palma de Mallorca',
+  'PUJ': 'Punta Cana',
+  'SDQ': 'Santo Domingo',
+  'CUN': 'Cancún',
+  'PTY': 'Panamá',
+  'SJO': 'San José',
+  'HAV': 'La Habana',
+  'NAS': 'Nasáu',
+  'MBJ': 'Montego Bay',
+  'GUA': 'Guatemala',
+  'SAL': 'San Salvador',
+  'TGU': 'Tegucigalpa',
+  'BZE': 'Belice',
+
+  // Norteamérica
+  'MIA': 'Miami',
+  'JFK': 'Nueva York',
+  'EWR': 'Nueva York (Newark)',
+  'LGA': 'Nueva York (LaGuardia)',
+  'LAX': 'Los Ángeles',
+  'ORD': 'Chicago',
+  'ATL': 'Atlanta',
+  'DFW': 'Dallas',
+  'SFO': 'San Francisco',
+  'IAH': 'Houston',
+  'DEN': 'Denver',
+  'SEA': 'Seattle',
+  'MCO': 'Orlando',
+  'BOS': 'Boston',
+  'FLL': 'Fort Lauderdale',
+  'SJU': 'San Juan',
+  'MEX': 'Ciudad de México',
+  'GDL': 'Guadalajara',
+  'MTY': 'Monterrey',
+  'TIJ': 'Tijuana',
+  'SJD': 'San José del Cabo',
+  'PVR': 'Puerto Vallarta',
+  'MID': 'Mérida',
+
+  // Europa
+  'MAD': 'Madrid',
+  'BCN': 'Barcelona',
+  'FCO': 'Roma',
+  'CDG': 'París',
+  'ORY': 'París (Orly)',
+  'LHR': 'Londres',
+  'LGW': 'Londres (Gatwick)',
+  'STN': 'Londres (Stansted)',
+  'FRA': 'Fráncfort',
+  'AMS': 'Ámsterdam',
+  'MXP': 'Milán',
+  'LIN': 'Milán (Linate)',
+  'BGY': 'Milán (Bérgamo)',
+  'LIS': 'Lisboa',
+  'OPO': 'Oporto',
+  'ZRH': 'Zúrich',
+  'MUC': 'Múnich',
+  'VIE': 'Viena',
+  'BRU': 'Bruselas',
+  'CPH': 'Copenhague',
+  'OSL': 'Oslo',
+  'ARN': 'Estocolmo',
+  'HEL': 'Helsinki',
+  'WAW': 'Varsovia',
+  'PRG': 'Praga',
+  'BUD': 'Budapest',
+  'ATH': 'Atenas',
+  'DUB': 'Dublín',
+  'EDI': 'Edimburgo',
+  'MAN': 'Mánchester',
+  'NAP': 'Nápoles',
+  'VCE': 'Venecia',
+  'FLR': 'Florencia',
+
+  // Medio Oriente / África / Asia / Oceanía
+  'DOH': 'Doha',
+  'DXB': 'Dubái',
+  'IST': 'Estambul',
+  'TLV': 'Tel Aviv',
+  'AMM': 'Amán',
+  'CAI': 'El Cairo',
+  'JED': 'Yeda',
+  'RUH': 'Riad',
+  'SYD': 'Sídney',
+  'MEL': 'Melbourne',
+  'BNE': 'Brisbane',
+  'PER': 'Perth',
+  'AKL': 'Auckland',
+  'WLG': 'Wellington',
+  'CHC': 'Christchurch',
+  'PPT': 'Papeete',
+  'NAN': 'Nadi'
+};
+
 /**
  * Maps a parsed segment from PNR text to a Flight structure (excluding id)
  * used in Quote Wizard. Uses toLocalISOString to ensure timezone-safe date extraction.
  */
 export function mapSegmentToFlight(seg: ParsedSegment): Omit<Flight, 'id'> {
+  const originCity = AIRPORT_CITY_NAMES[seg.originIata] || '';
+  const originLabel = originCity ? `${originCity} (${seg.originIata})` : seg.originIata;
+
+  const destCity = AIRPORT_CITY_NAMES[seg.destinationIata] || '';
+  const destLabel = destCity ? `${destCity} (${seg.destinationIata})` : seg.destinationIata;
+
   return {
-    origin: seg.originIata,
-    destination: seg.destinationIata,
+    origin: originLabel,
+    destination: destLabel,
     date: seg.depDatetime ? toLocalISOString(seg.depDatetime).split('T')[0] : '',
     departureTime: seg.depDatetime ? seg.depDatetime.toTimeString().slice(0, 5) : '',
     arrivalTime: seg.arrDatetime ? seg.arrDatetime.toTimeString().slice(0, 5) : '',
@@ -1091,6 +1252,49 @@ export function mapSegmentToFlight(seg: ParsedSegment): Omit<Flight, 'id'> {
     luggage: '',
     notes: seg.rawText || '',
     flightType: 'direct' as const,
+    connectionGroupId: undefined,
   };
+}
+
+/**
+ * Maps a list of parsed segments to Flight structures, detecting connecting flights (stopovers)
+ * and resolving IATA airport codes to readable city names.
+ */
+export function mapSegmentsToFlights(segments: ParsedSegment[]): Omit<Flight, 'id'>[] {
+  const flights = segments.map(mapSegmentToFlight);
+
+  // Connection/stopover grouping logic
+  for (let i = 0; i < flights.length - 1; i++) {
+    const current = flights[i];
+    const next = flights[i + 1];
+
+    if (!current.date || !next.date) continue;
+
+    const currentIata = segments[i].destinationIata;
+    const nextIata = segments[i + 1].originIata;
+
+    // Check if the destination of this flight is the origin of the next flight
+    if (currentIata && nextIata && currentIata === nextIata) {
+      // Check if dates are close (same day or next day)
+      const currentDate = new Date(current.date);
+      const nextDate = new Date(next.date);
+      const diffTime = Math.abs(nextDate.getTime() - currentDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 1) {
+        // We have a connection!
+        let groupId = current.connectionGroupId || next.connectionGroupId;
+        if (!groupId) {
+          groupId = `conn_${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9)}`;
+        }
+        current.connectionGroupId = groupId;
+        current.flightType = 'stopover';
+        next.connectionGroupId = groupId;
+        next.flightType = 'stopover';
+      }
+    }
+  }
+
+  return flights;
 }
 

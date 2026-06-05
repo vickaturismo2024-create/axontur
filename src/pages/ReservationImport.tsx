@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Header } from '@/components/layout/Header';
 import { toast } from 'sonner';
-import { parsePNR, ParsedPassenger, ParsedSegment, mapSegmentToFlight } from '@/lib/pnrParser';
+import { parsePNR, ParsedPassenger, ParsedSegment, mapSegmentsToFlights } from '@/lib/pnrParser';
 import { extractTextFromPDF } from '@/lib/pdfTextExtractor';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -242,7 +242,7 @@ export default function ReservationImport() {
           apiData = {
             locator: parsed.locator || '',
             passengers: parsed.passengers || [],
-            flights: parsed.segments.map(mapSegmentToFlight),
+            flights: mapSegmentsToFlights(parsed.segments),
           };
           toast.info('PDF procesado con extractor local (sin conexión IA)');
         }
