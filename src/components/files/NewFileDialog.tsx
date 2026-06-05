@@ -117,8 +117,8 @@ interface ServiceForm {
   supplier_id: string | null;
   status: string;
   confirmation_number: string;
-  cost: number;
-  price: number;
+  cost: number | string;
+  price: number | string;
   currency: string;
   service_date: string | null;
   end_date: string | null;
@@ -155,8 +155,8 @@ const emptyService: ServiceForm = {
   supplier_id: null,
   status: 'pending',
   confirmation_number: '',
-  cost: 0,
-  price: 0,
+  cost: '',
+  price: '',
   currency: 'USD',
   service_date: null,
   end_date: null,
@@ -460,7 +460,11 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
 
   const openEditService = (idx: number) => {
     const s = servicesList[idx];
-    setServiceForm(s);
+    setServiceForm({
+      ...s,
+      cost: s.cost !== undefined && s.cost !== null ? String(s.cost) : '',
+      price: s.price !== undefined && s.price !== null ? String(s.price) : '',
+    });
     setEditingServiceIdx(idx);
     setSupplierSearch(s.supplier_name);
     setSelectedSupplier(s.supplier_id ? { id: s.supplier_id, name: s.supplier_name } : null);
@@ -981,8 +985,8 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                           </p>
                         </div>
                         <div className="text-right shrink-0 px-2 font-mono text-xs">
-                          <p className="font-bold text-foreground">{s.currency} {s.price.toLocaleString('es-AR')}</p>
-                          <p className="text-[10px] text-muted-foreground">Costo: {s.currency} {s.cost.toLocaleString('es-AR')}</p>
+                          <p className="font-bold text-foreground">{s.currency} {Number(s.price || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          <p className="text-[10px] text-muted-foreground">Costo: {s.currency} {Number(s.cost || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditService(idx)}>
@@ -1566,7 +1570,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                   type="number"
                   min="0"
                   value={serviceForm.cost}
-                  onChange={e => setServiceForm({ ...serviceForm, cost: Number(e.target.value) })}
+                  onChange={e => setServiceForm({ ...serviceForm, cost: e.target.value })}
                   className="h-10"
                 />
               </div>
@@ -1576,7 +1580,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
                   type="number"
                   min="0"
                   value={serviceForm.price}
-                  onChange={e => setServiceForm({ ...serviceForm, price: Number(e.target.value) })}
+                  onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })}
                   className="h-10"
                 />
               </div>

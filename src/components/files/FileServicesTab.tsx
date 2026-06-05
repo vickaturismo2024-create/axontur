@@ -101,8 +101,8 @@ const emptyService = {
   supplier_id:         null as string | null,
   status:              'pending',
   confirmation_number: '',
-  cost:                0,
-  price:               0,
+  cost:                '',
+  price:               '',
   currency:            'USD',
   service_date:        null as string | null,
   end_date:            null as string | null,
@@ -219,6 +219,8 @@ export function FileServicesTab({ fileId, currency }: Props) {
     setForm({
       ...emptyService,
       ...s,
+      cost:            s.cost !== undefined && s.cost !== null ? String(s.cost) : '',
+      price:           s.price !== undefined && s.price !== null ? String(s.price) : '',
       currency:        s.currency,
       service_date:    s.service_date    || null,
       end_date:        s.end_date        || null,
@@ -262,8 +264,8 @@ export function FileServicesTab({ fileId, currency }: Props) {
       supplier_id:         form.supplier_id || null,
       status:              form.status,
       confirmation_number: form.confirmation_number,
-      cost:                form.cost,
-      price:               form.price,
+      cost:                Number(form.cost) || 0,
+      price:               Number(form.price) || 0,
       currency:            form.currency,
       service_date:        form.service_date        || null,
       end_date:            form.end_date            || null,
@@ -647,12 +649,12 @@ export function FileServicesTab({ fileId, currency }: Props) {
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-700 uppercase">Costo neto</label>
                 <Input type="number" min={0} value={form.cost}
-                  onChange={e => setForm({ ...form, cost: Number(e.target.value) })} className="h-10" />
+                  onChange={e => setForm({ ...form, cost: e.target.value })} className="h-10" />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-700 uppercase">Precio venta</label>
                 <Input type="number" min={0} value={form.price}
-                  onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="h-10" />
+                  onChange={e => setForm({ ...form, price: e.target.value })} className="h-10" />
               </div>
             </div>
 
