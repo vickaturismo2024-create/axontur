@@ -15,6 +15,7 @@ import { FileText, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Flight } from '@/types/quote';
 import { supabase } from '@/integrations/supabase/client';
+import { parsePNR, toLocalISOString } from '@/lib/pnrParser';
 
 interface PNRParserDialogProps {
   onFlightsParsed: (flights: Omit<Flight, 'id'>[]) => void;
@@ -32,44 +33,63 @@ export function PNRParserDialog({ onFlightsParsed }: PNRParserDialogProps) {
     }
 
     setIsLoading(true);
+    let flightsToUse: Omit<Flight, 'id'>[] | null = null;
+    let isLocalFallback = false;
 
     try {
-      const { data, error } = await supabase.functions.invoke('parse-pnr', {
-        body: { pnrText },
-      });
+      // 1. Intentar analizar con la función Edge de Supabase
+      try {
+        const { data, error } = await supabase.functions.invoke('parse-pnr', {
+          body: { pnrText },
+        });
 
-      if (error) {
-        console.error('Error invoking parse-pnr function:', error);
-        const status = (error as any).status;
-        if (status === 401) {
-          toast.error('Sesión expirada. Por favor, iniciá sesión nuevamente.');
-        } else if (status === 429) {
-          toast.error('Límite de solicitudes excedido. Intentá de nuevo más tarde.');
-        } else if (status === 402) {
-          toast.error('Créditos insuficientes. Por favor, agregá créditos a tu workspace.');
-        } else {
-          toast.error(error.message || 'Error al procesar el PNR');
+        if (!error && data && data.flights && data.flights.length > 0) {
+          flightsToUse = data.flights;
+        } else if (error) {
+          console.warn('Edge function parse-pnr error, trying local parser fallback:', error);
         }
+      } catch (invokeError) {
+        console.warn('Failed to invoke parse-pnr edge function, trying local parser fallback:', invokeError);
+      }
+
+      // 2. Si no se extrajeron vuelos por IA, utilizar el parsePNR local
+      if (!flightsToUse || flightsToUse.length === 0) {
+        console.info('Utilizando extractor local alternativo para procesar el PNR...');
+        const parsed = parsePNR(pnrText);
+        if (parsed.segments && parsed.segments.length > 0) {
+          flightsToUse = parsed.segments.map(seg => ({
+            origin: seg.originIata,
+            destination: seg.destinationIata,
+            date: seg.depDatetime ? toLocalISOString(seg.depDatetime).split('T')[0] : '',
+            departureTime: seg.depDatetime ? seg.depDatetime.toTimeString().slice(0, 5) : '',
+            arrivalTime: seg.arrDatetime ? seg.arrDatetime.toTimeString().slice(0, 5) : '',
+            airline: seg.airlineCode || '',
+            flightNumber: `${seg.airlineCode}${seg.flightNumber}`.trim(),
+            luggage: '',
+            notes: seg.rawText || '',
+            flightType: 'direct' as const,
+          }));
+          isLocalFallback = true;
+        }
+      }
+
+      // 3. Si ambos métodos fallan en extraer vuelos
+      if (!flightsToUse || flightsToUse.length === 0) {
+        toast.error('No se pudieron extraer vuelos del PNR. Por favor, verifica el formato del texto.');
         return;
       }
 
-      if (!data) {
-        toast.error('No se recibieron datos de la respuesta');
-        return;
+      onFlightsParsed(flightsToUse);
+      if (isLocalFallback) {
+        toast.info(`${flightsToUse.length} vuelo(s) extraído(s) localmente (sin IA)`);
+      } else {
+        toast.success(`${flightsToUse.length} vuelo(s) importado(s) correctamente`);
       }
-
-      if (!data.flights || data.flights.length === 0) {
-        toast.error('No se encontraron vuelos en el PNR');
-        return;
-      }
-
-      onFlightsParsed(data.flights);
-      toast.success(`${data.flights.length} vuelo(s) importado(s) correctamente`);
       setPnrText('');
       setOpen(false);
     } catch (error) {
       console.error('Error parsing PNR:', error);
-      toast.error(error instanceof Error ? error.message : 'Error al parsear el PNR');
+      toast.error(error instanceof Error ? error.message : 'Error al procesar el PNR');
     } finally {
       setIsLoading(false);
     }

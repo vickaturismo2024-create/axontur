@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Users, Store,
   FolderOpen, UserCheck, Briefcase, ArrowRight, X, Loader2, FileWarning,
-  ArrowLeft,
+  ArrowLeft, FileUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { detectImportType, IMPORT_ORDER, type ImportType, type DetectionResult } from '@/lib/importDetector';
@@ -22,6 +22,7 @@ import { parseFileOperators, enrichFileOperators, insertFileOperators, type File
 import { insertFiles } from '@/lib/import/importFiles';
 import { parseReservationsExcel } from '@/lib/reservationExcelParser';
 import { supabase } from '@/integrations/supabase/client';
+import { ImportFilePDFDialog } from '@/components/files/ImportFilePDFDialog';
 
 type AnyRow = ClientImportRow | SupplierImportRow | PassengerImportRow | FileOperatorImportRow;
 
@@ -58,6 +59,8 @@ export default function DataImport() {
   const [detecting, setDetecting] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(-1);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [pdfImportOpen, setPdfImportOpen] = useState(false);
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -67,10 +70,20 @@ export default function DataImport() {
 
   // --- Procesar archivos subidos o arrastrados ---
   const processFiles = useCallback(async (files: FileList | File[]) => {
-    const xlsFiles = Array.from(files).filter(f =>
+    const fileArray = Array.from(files);
+    
+    // Si hay algún archivo PDF, abrir el modal de PDF histórico directamente
+    const pdfFile = fileArray.find(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (pdfFile) {
+      setSelectedPdfFile(pdfFile);
+      setPdfImportOpen(true);
+      return;
+    }
+
+    const xlsFiles = fileArray.filter(f =>
       f.name.endsWith('.xlsx') || f.name.endsWith('.xls')
     );
-    if (!xlsFiles.length) { toast.error('No se encontraron archivos .xlsx'); return; }
+    if (!xlsFiles.length) { toast.error('No se encontraron archivos .xlsx o .pdf válidos'); return; }
 
     setDetecting(true);
     const detected: QueuedFile[] = [];
@@ -257,16 +270,16 @@ export default function DataImport() {
                 )}
                 <div className="text-center">
                   <p className="font-semibold text-lg">
-                    {detecting ? 'Analizando archivos...' : dragOver ? 'Soltá los archivos aquí' : 'Arrastrá archivos .xlsx o hacé click'}
+                    {detecting ? 'Analizando archivos...' : dragOver ? 'Soltá los archivos aquí' : 'Arrastrá archivos .xlsx / .pdf o hacé click'}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Podés subir varios archivos a la vez. Se procesan en el orden correcto automáticamente.
+                    Subí planillas Excel (.xlsx) o un PDF de expediente histórico para migrarlo de forma completa.
                   </p>
                 </div>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.pdf"
                   multiple
                   className="hidden"
                   disabled={detecting}
@@ -297,14 +310,21 @@ export default function DataImport() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.pdf"
                   multiple
                   className="hidden"
                   onChange={e => {
                     if (e.target.files?.length) {
-                      // Agregar a la cola existente
+                      // Agregar a la cola existente o abrir PDF
                       (async () => {
-                        const xlsFiles = Array.from(e.target.files!).filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
+                        const fileArray = Array.from(e.target.files!);
+                        const pdfFile = fileArray.find(f => f.name.toLowerCase().endsWith('.pdf'));
+                        if (pdfFile) {
+                          setSelectedPdfFile(pdfFile);
+                          setPdfImportOpen(true);
+                          return;
+                        }
+                        const xlsFiles = fileArray.filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
                         for (const file of xlsFiles) {
                           try {
                             const det = await detectImportType(file);
@@ -423,6 +443,11 @@ export default function DataImport() {
             )}
           </div>
         )}
+        <ImportFilePDFDialog
+          open={pdfImportOpen}
+          onOpenChange={setPdfImportOpen}
+          initialFile={selectedPdfFile}
+        />
       </main>
     </div>
   );

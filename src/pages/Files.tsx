@@ -10,10 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
-import { ArrowLeft, FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight, Plus, Trash2, FileUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ImportFilesExcelDialog } from '@/components/files/ImportFilesExcelDialog';
+import { ImportFilePDFDialog } from '@/components/files/ImportFilePDFDialog';
 import { NewFileDialog } from '@/components/files/NewFileDialog';
 import { AdminOnly } from '@/components/auth/AdminOnly';
 import { formatDateSafe } from '@/lib/utils';
@@ -63,6 +64,7 @@ const Files = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [importOpen, setImportOpen] = useState(false);
+  const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [newFileOpen, setNewFileOpen] = useState(false);
   const [page, setPage] = useState(0);
 
@@ -159,6 +161,14 @@ const Files = () => {
               Importar Excel
             </Button>
             <Button
+              variant="outline"
+              onClick={() => setPdfImportOpen(true)}
+              className="w-full sm:w-auto text-xs sm:text-sm h-9 px-3"
+            >
+              <FileUp className="mr-2 h-4 w-4" />
+              Importar PDF Histórico
+            </Button>
+            <Button
               onClick={() => setNewFileOpen(true)}
               className="w-full sm:w-auto text-xs sm:text-sm h-9 px-3"
             >
@@ -171,6 +181,11 @@ const Files = () => {
         <ImportFilesExcelDialog
           open={importOpen}
           onOpenChange={(v) => { setImportOpen(v); if (!v) refetch(); }}
+        />
+
+        <ImportFilePDFDialog
+          open={pdfImportOpen}
+          onOpenChange={(v) => { setPdfImportOpen(v); if (!v) refetch(); }}
         />
 
         <NewFileDialog
