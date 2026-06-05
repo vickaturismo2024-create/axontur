@@ -326,7 +326,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
   useEffect(() => {
     setForm(prev => ({
       ...prev,
-      travelers: String(Math.max(1, passengersList.length)),
+      travelers: String(1 + passengersList.length),
     }));
   }, [passengersList]);
 

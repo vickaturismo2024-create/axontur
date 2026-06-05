@@ -130,7 +130,7 @@ export function FilePassengersTab({ fileId }: Props) {
     setLoading(false);
     
     // Sync travelers count with parent file
-    await supabase.from('files').update({ travelers: Math.max(1, list.length) }).eq('id', fileId);
+    await supabase.from('files').update({ travelers: 1 + list.length }).eq('id', fileId);
   };
 
   const loadClients = async () => {
