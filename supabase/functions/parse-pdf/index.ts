@@ -317,7 +317,7 @@ Respect dates carefully — convert any format (15MAR, 15-MAR-2025, etc.) to YYY
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gemini-2.5-flash",
+            model: "gemini-1.5-flash",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: isLegacy ? `Extract legacy reservation data from this PDF text content:\n\n${sanitized}` : `Extract flight data from this PDF text content:\n\n${sanitized}` },
