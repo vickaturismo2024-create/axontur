@@ -173,17 +173,36 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
   const paxSectionMatch = text.match(/PAX\s+([\s\S]+?)(?=SERVICIOS|$)/);
   if (paxSectionMatch) {
     const paxSection = paxSectionMatch[1];
-    // More flexible: NAME TYPE [-] [DNI|CI|PASAPORTE] NUMBER [DATE]?
-    const paxRegex = /([A-Z][A-Z\s\-]{3,40}?)\s+(ADULTO|MENOR|INFANTE|-)\s*[-\s]*(?:DNI|CI|PASAPORTE)?\s*(\d{6,12})\s*(\d{1,2}\/\d{1,2}\/\d{2,4})?/gi;
-    const paxMatches = [...paxSection.matchAll(paxRegex)];
-    for (const m of paxMatches) {
-      let name = m[1].trim().replace(/^PAX\s+/i, '').replace(/\s+/g, ' ');
-      passengers.push({
-        name,
-        type: m[2] || 'ADULTO',
-        dni: m[3],
-        birthDate: parseDateStr(m[4] || null)
-      });
+    const paxLines = paxSection.split('\n').map(l => l.trim()).filter(Boolean);
+    
+    for (const line of paxLines) {
+      if (line.includes('SERVICIOS')) break;
+      
+      const typeMatch = line.match(/\b(ADULTO|MENOR|INFANTE)\b/i);
+      if (!typeMatch) continue; // Not a passenger line
+
+      const type = typeMatch[1].toUpperCase();
+      let name = line.substring(0, typeMatch.index).trim().replace(/^-\s*/, '');
+      if (name.toUpperCase().startsWith('PAX ')) name = name.substring(4).trim();
+      
+      // Look for document (DNI, CI, PASAPORTE, or just a 7-9 digit number)
+      let dni = null;
+      const docMatch = line.match(/\b(DNI|CI|PASAPORTE|PAS)\s*[\-\:]?\s*([A-Z0-9\.]+)\b/i);
+      if (docMatch) {
+        dni = docMatch[2].replace(/\./g, '');
+      } else {
+        const numMatch = line.substring(typeMatch.index).match(/\b(\d{7,9})\b/);
+        if (numMatch) dni = numMatch[1];
+      }
+
+      // Look for birthdate (DD/MM/YY or DD/MM/YYYY)
+      let birthDate = null;
+      const dateMatch = line.match(/\b(\d{1,2}\/\d{1,2}\/\d{2,4})\b/);
+      if (dateMatch) {
+        birthDate = parseDateStr(dateMatch[1]);
+      }
+
+      passengers.push({ name, type, dni, birthDate });
     }
   }
 
@@ -213,7 +232,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
       const end = nextHeader ? nextHeader.index : servicesText.length;
       const remainingText = servicesText.substring(start, end).trim();
 
-      let supplierName = curr[1].replace(/^(SERVICIOS\s+Costo|Costo|Iva|Importe|Dif|Pesos|Dolares)/gi, '').trim();
+      let supplierName = curr[1].replace(/^(?:SERVICIOS|Costo|Iva|Importe|Dif|Pesos|Dolares|\s)+/gi, '').trim();
       let description = curr[2].trim();
       const sDate = parseDateStr(curr[3]);
       const eDate = parseDateStr(curr[4]);
@@ -410,7 +429,12 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
             endDate: data.endDate || null,
             numPax: data.numPax || data.passengers?.length || 1,
             currency: data.currency || 'USD',
-            passengers: data.passengers || [],
+            passengers: (data.passengers || []).map((p: any) => ({
+              name: p.name,
+              type: p.type || 'ADULTO',
+              dni: p.documentNumber || p.dni || null,
+              birthDate: p.birthDate || null,
+            })),
             services: data.services || [],
             receipts: data.receipts || [],
             payments: data.payments || [],

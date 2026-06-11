@@ -148,8 +148,8 @@ The output must include:
               properties: {
                 name: { type: "string" },
                 type: { type: "string", description: "ADULTO, MENOR, etc." },
-                dni: { type: "string" },
-                birthDate: { type: "string", description: "YYYY-MM-DD format (interpret 2-digit years, e.g. 10/10/69 is 1969-10-10, 08/10/00 is 2000-10-08)" },
+                documentNumber: { type: "string", description: "Document number (DNI, Passport, or ID) if present. Can be alphanumeric." },
+                birthDate: { type: "string", description: "YYYY-MM-DD format if present (interpret 2-digit years, e.g. 10/10/69 is 1969-10-10)" },
               },
               required: ["name"],
             },
