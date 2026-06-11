@@ -118,6 +118,10 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
   const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const flatText = text.replace(/\n+/g, ' '); // flattened version for single-line patterns
 
+  // Detect main currency
+  const currencyMatch = flatText.match(/(?:u\$s|usd|d[óo]lar)/i);
+  const detectedCurrency: 'USD' | 'ARS' = currencyMatch ? 'USD' : 'ARS';
+
   const parseDateStr = (dStr: string | null) => {
     if (!dStr) return null;
     const parts = dStr.split('/');
@@ -253,7 +257,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
         endDate: eDate,
         cost,
         price,
-        currency: 'USD'
+        currency: detectedCurrency
       });
     }
   }
@@ -278,7 +282,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
         concept,
         date: rDate,
         amount,
-        currency: 'USD'
+        currency: detectedCurrency
       });
     }
   }
@@ -297,13 +301,10 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
         supplierName,
         date: parseDateStr(m[2]),
         amount: parseFloat(m[3].replace(/,/g, '')),
-        currency: 'USD'
+        currency: detectedCurrency
       });
     }
   }
-
-  // Detect main currency
-  const currency = flatText.includes('U$S') || flatText.includes('USD') || flatText.includes('Dolares') ? 'USD' : 'ARS';
 
   return {
     legacyId,
@@ -315,7 +316,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
     startDate,
     endDate: services.length > 0 ? services[services.length - 1].endDate : null,
     numPax: passengers.length || 1,
-    currency: currency as 'USD' | 'ARS',
+    currency: detectedCurrency,
     passengers,
     services,
     receipts,
