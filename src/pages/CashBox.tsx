@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wallet, 
+import { ArrowLeft, Wallet, ChevronRight as ChevronRightIcon, 
   ArrowUpRight, 
   ArrowDownRight, 
   PiggyBank, 
@@ -17,7 +17,8 @@ import { ArrowLeft, Wallet,
   ChevronRight,
   Plus,
   Pencil,
-  Trash2 } from 'lucide-react';
+  Trash2,
+  ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 
@@ -89,6 +91,13 @@ async function fetchCajaData() {
 
   if (iError) throw iError;
 
+  // 5. Fetch wallet transfers
+  const { data: walletTransfers, error: wtError } = await supabase
+    .from('wallet_transfers' as any)
+    .select('*');
+
+  if (wtError) throw wtError;
+
   const ledger: LedgerItem[] = [];
 
   // Map receipts
@@ -145,6 +154,36 @@ async function fetchCajaData() {
     });
   });
 
+  // Map wallet transfers
+  (walletTransfers || []).forEach((wt: any) => {
+    // Outgoing from source method
+    ledger.push({
+      id: wt.id + '-out',
+      type: 'egreso',
+      date: wt.created_at?.split('T')[0],
+      concept: `Transferencia a ${getMethodLabel(wt.to_method)}`,
+      notes: wt.notes || 'Movimiento entre billeteras',
+      currency: wt.currency,
+      amount: Number(wt.amount) || 0,
+      payment_method: wt.from_method,
+      partyName: 'Transferencia Interna',
+      file_id: null,
+    });
+    // Incoming to dest method
+    ledger.push({
+      id: wt.id + '-in',
+      type: 'ingreso',
+      date: wt.created_at?.split('T')[0],
+      concept: `Transferencia desde ${getMethodLabel(wt.from_method)}`,
+      notes: wt.notes || 'Movimiento entre billeteras',
+      currency: wt.currency,
+      amount: Number(wt.amount) || 0,
+      payment_method: wt.to_method,
+      partyName: 'Transferencia Interna',
+      file_id: null,
+    });
+  });
+
   // Sort by date descending
   ledger.sort((a, b) => b.date.localeCompare(a.date));
 
@@ -178,8 +217,55 @@ export default function CashBox() {
 
   const ledger = cajaData?.ledger || [];
   const extraMovements = useMemo(() => {
-    return ledger.filter(item => item.partyName === 'Ajuste Extra');
+    return ledger.filter(item => item.partyName === 'Ajuste Extra' || item.partyName === 'Transferencia Interna');
   }, [ledger]);
+
+  // Wallet transfer state
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferCurrency, setTransferCurrency] = useState('ARS');
+  const [transferFrom, setTransferFrom] = useState('');
+  const [transferTo, setTransferTo] = useState('');
+  const [transferNotes, setTransferNotes] = useState('');
+  const [isSavingTransfer, setIsSavingTransfer] = useState(false);
+
+  // Drill-down state for wallet hierarchy
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+
+  const handleSaveTransfer = async () => {
+    if (!user) return;
+    if (transferFrom === transferTo) {
+      toast.error('El origen y destino deben ser diferentes');
+      return;
+    }
+    const amt = parseFloat(transferAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error('El monto debe ser mayor a 0');
+      return;
+    }
+
+    setIsSavingTransfer(true);
+    try {
+      const { error } = await supabase.from('wallet_transfers' as any).insert({
+        user_id: user.id,
+        from_method: transferFrom,
+        to_method: transferTo,
+        amount: amt,
+        currency: transferCurrency,
+        notes: transferNotes.trim(),
+      });
+      if (error) throw error;
+      toast.success('Transferencia entre billeteras registrada');
+      setIsTransferDialogOpen(false);
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Error al registrar la transferencia');
+    } finally {
+      setIsSavingTransfer(false);
+    }
+  };
 
   // Extra movements CRUD state
   const [isExtraDialogOpen, setIsExtraDialogOpen] = useState(false);
@@ -479,7 +565,6 @@ export default function CashBox() {
     const balances: Record<string, { incoming: number; outgoing: number; balance: number }> = {};
     
     ledger.forEach((item) => {
-      // Normalize credit card and debit card into a single 'card' wallet group for simplicity or keep separate
       let method = item.payment_method;
       if (method === 'credit_card' || method === 'debit_card') {
         method = 'card';
@@ -497,13 +582,49 @@ export default function CashBox() {
       }
     });
 
-    // Calculate net balances
     Object.keys(balances).forEach((key) => {
       balances[key].balance = balances[key].incoming - balances[key].outgoing;
     });
 
     return balances;
   }, [ledger]);
+
+  // Wallet data grouped by currency (Level 1)
+  const currencyWallets = useMemo(() => {
+    const currencies: Record<string, { balance: number; incoming: number; outgoing: number; methods: { method: string; balance: number; incoming: number; outgoing: number }[] }> = {};
+    
+    Object.entries(wallets).forEach(([key, data]) => {
+      const parts = key.split('_');
+      const method = parts.slice(0, -1).join('_');
+      const currency = parts[parts.length - 1];
+      
+      if (!currencies[currency]) {
+        currencies[currency] = { balance: 0, incoming: 0, outgoing: 0, methods: [] };
+      }
+      currencies[currency].balance += data.balance;
+      currencies[currency].incoming += data.incoming;
+      currencies[currency].outgoing += data.outgoing;
+      if (data.incoming > 0 || data.outgoing > 0) {
+        currencies[currency].methods.push({ method, ...data });
+      }
+    });
+
+    // Sort methods by absolute balance descending
+    Object.values(currencies).forEach(c => {
+      c.methods.sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+    });
+
+    return currencies;
+  }, [wallets]);
+
+  // Movements filtered for drill-down Level 3 (by currency + method)
+  const drillDownMovements = useMemo(() => {
+    if (!selectedCurrency || !selectedMethod) return [];
+    return ledger.filter(item => {
+      const itemMethod = (item.payment_method === 'credit_card' || item.payment_method === 'debit_card') ? 'card' : item.payment_method;
+      return item.currency === selectedCurrency && itemMethod === selectedMethod;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [ledger, selectedCurrency, selectedMethod]);
 
   // Filter ledger
   const filteredLedger = useMemo(() => {
@@ -580,7 +701,22 @@ export default function CashBox() {
               Flujo de caja consolidado, ingresos de recibos de clientes, egresos a proveedores e incidencias.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setTransferAmount('');
+                setTransferCurrency('ARS');
+                setTransferFrom('');
+                setTransferTo('');
+                setTransferNotes('');
+                setIsTransferDialogOpen(true);
+              }}
+              className="h-9 px-3 gap-2"
+            >
+              <ArrowRightLeft className="h-4 w-4" /> Transferencia Interna
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -607,179 +743,221 @@ export default function CashBox() {
           <PageLoadingScreen message="Cargando caja y flujo financiero..." />
         ) : (
           <>
-            {/* Primary Billeteras/Wallets */}
+            {/* Currency Wallet Cards — Level 1 */}
             <div className="space-y-3">
-              <p className="section-title">Billeteras Principales</p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {/* Caja Efectivo ARS */}
-                <Card className="border-t-4 border-t-emerald-500 hover:shadow-md transition-shadow relative overflow-hidden bg-card/45">
-                  <CardContent className="p-4 flex flex-col justify-between h-28">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Efectivo ARS</span>
-                      <Wallet className="h-4 w-4 text-emerald-500" />
-                    </div>
-                    <div className="mt-2">
-                      <h2 className="text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
-                        $ {formatMoney(getWalletDetails('cash', 'ARS').balance)}
-                      </h2>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t pt-1.5 mt-2">
-                      <span className="text-emerald-600 flex items-center">+{formatMoney(getWalletDetails('cash', 'ARS').incoming)}</span>
-                      <span className="text-destructive flex items-center">-{formatMoney(getWalletDetails('cash', 'ARS').outgoing)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Caja Efectivo USD */}
-                <Card className="border-t-4 border-t-amber-500 hover:shadow-md transition-shadow relative overflow-hidden bg-card/45">
-                  <CardContent className="p-4 flex flex-col justify-between h-28">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Efectivo USD</span>
-                      <Wallet className="h-4 w-4 text-amber-500" />
-                    </div>
-                    <div className="mt-2">
-                      <h2 className="text-xl sm:text-2xl font-extrabold text-amber-600 dark:text-amber-400">
-                        u$s {formatMoney(getWalletDetails('cash', 'USD').balance)}
-                      </h2>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t pt-1.5 mt-2">
-                      <span className="text-emerald-600 flex items-center">+{formatMoney(getWalletDetails('cash', 'USD').incoming)}</span>
-                      <span className="text-destructive flex items-center">-{formatMoney(getWalletDetails('cash', 'USD').outgoing)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Banco ARS */}
-                <Card className="border-t-4 border-t-blue-500 hover:shadow-md transition-shadow relative overflow-hidden bg-card/45">
-                  <CardContent className="p-4 flex flex-col justify-between h-28">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Banco ARS</span>
-                      <PiggyBank className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <div className="mt-2">
-                      <h2 className="text-xl sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400">
-                        $ {formatMoney(getWalletDetails('transfer', 'ARS').balance)}
-                      </h2>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t pt-1.5 mt-2">
-                      <span className="text-emerald-600 flex items-center">+{formatMoney(getWalletDetails('transfer', 'ARS').incoming)}</span>
-                      <span className="text-destructive flex items-center">-{formatMoney(getWalletDetails('transfer', 'ARS').outgoing)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Banco USD */}
-                <Card className="border-t-4 border-t-violet-500 hover:shadow-md transition-shadow relative overflow-hidden bg-card/45">
-                  <CardContent className="p-4 flex flex-col justify-between h-28">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Banco USD</span>
-                      <PiggyBank className="h-4 w-4 text-violet-500" />
-                    </div>
-                    <div className="mt-2">
-                      <h2 className="text-xl sm:text-2xl font-extrabold text-violet-600 dark:text-violet-400">
-                        u$s {formatMoney(getWalletDetails('transfer', 'USD').balance)}
-                      </h2>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t pt-1.5 mt-2">
-                      <span className="text-emerald-600 flex items-center">+{formatMoney(getWalletDetails('transfer', 'USD').incoming)}</span>
-                      <span className="text-destructive flex items-center">-{formatMoney(getWalletDetails('transfer', 'USD').outgoing)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
+              <p className="section-title">Billeteras por Moneda</p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {(['ARS', 'USD', 'EUR'] as const).map(cur => {
+                  const data = currencyWallets[cur];
+                  if (!data || (data.incoming === 0 && data.outgoing === 0)) return null;
+                  const currencyColors: Record<string, { border: string; text: string; icon: string; bg: string }> = {
+                    ARS: { border: 'border-t-emerald-500', text: 'text-emerald-500', icon: 'text-emerald-500', bg: 'from-emerald-500/10 to-transparent' },
+                    USD: { border: 'border-t-amber-500', text: 'text-amber-500', icon: 'text-amber-500', bg: 'from-amber-500/10 to-transparent' },
+                    EUR: { border: 'border-t-blue-500', text: 'text-blue-500', icon: 'text-blue-500', bg: 'from-blue-500/10 to-transparent' },
+                  };
+                  const colors = currencyColors[cur] || currencyColors.USD;
+                  const currencyFlags: Record<string, string> = { ARS: '🇦🇷', USD: '🇺🇸', EUR: '🇪🇺' };
+                  const currencyNames: Record<string, string> = { ARS: 'Pesos Argentinos', USD: 'Dólares Estadounidenses', EUR: 'Euros' };
+                  
+                  return (
+                    <Card
+                      key={cur}
+                      className={`${colors.border} border-t-4 hover:shadow-lg transition-all duration-300 cursor-pointer relative overflow-hidden bg-card/50 group`}
+                      onClick={() => setSelectedCurrency(cur)}
+                    >
+                      <div className={`absolute inset-0 bg-gradient-to-br ${colors.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+                      <CardContent className="p-5 relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{currencyFlags[cur]}</span>
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{cur}</p>
+                              <p className="text-[10px] text-muted-foreground/70">{currencyNames[cur]}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-muted-foreground/50 group-hover:text-foreground/70 transition-colors">
+                            <span className="text-[10px]">{data.methods.length} {data.methods.length === 1 ? 'método' : 'métodos'}</span>
+                            <ChevronRightIcon className="h-4 w-4" />
+                          </div>
+                        </div>
+                        
+                        {/* BIG BALANCE — Most important element */}
+                        <h2 className={`text-3xl sm:text-4xl font-black tracking-tight ${data.balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                          {getCurrencySymbol(cur)} {formatMoney(Math.abs(data.balance))}
+                        </h2>
+                        {data.balance < 0 && <span className="text-[10px] text-destructive font-medium">SALDO NEGATIVO</span>}
+                        
+                        {/* Ingresos / Egresos */}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-3 mt-4">
+                          <span className="flex items-center gap-1">
+                            <ArrowUpRight className="h-3 w-3 text-emerald-500" />
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{getCurrencySymbol(cur)} {formatMoney(data.incoming)}</span>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <ArrowDownRight className="h-3 w-3 text-destructive" />
+                            <span className="text-destructive font-semibold">{getCurrencySymbol(cur)} {formatMoney(data.outgoing)}</span>
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Other Wallet Balances (Cards & Cheques) if they have content */}
-            {(getWalletDetails('card', 'ARS').incoming > 0 || getWalletDetails('card', 'USD').incoming > 0 || getWalletDetails('check', 'ARS').incoming > 0 || getWalletDetails('check', 'USD').incoming > 0) && (
-              <div className="space-y-3">
-                <p className="section-title">Tarjetas y Cheques</p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {/* Tarjetas ARS */}
-                  {(getWalletDetails('card', 'ARS').incoming > 0 || getWalletDetails('card', 'ARS').outgoing > 0) && (
-                    <Card className="bg-card/30 hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4 flex flex-col justify-between h-24">
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Tarjetas ARS</span>
-                          <CreditCard className="h-4 w-4 text-cyan-500" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-foreground">
-                            $ {formatMoney(getWalletDetails('card', 'ARS').balance)}
-                          </h3>
-                        </div>
-                        <div className="flex justify-between text-[9px] text-muted-foreground border-t pt-1">
-                          <span>Ing: +{formatMoney(getWalletDetails('card', 'ARS').incoming)}</span>
-                          <span>Egr: -{formatMoney(getWalletDetails('card', 'ARS').outgoing)}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
+            {/* Sheet Level 2: Payment Methods for a Currency */}
+            <Sheet open={!!selectedCurrency && !selectedMethod} onOpenChange={(open) => { if (!open) setSelectedCurrency(null); }}>
+              <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+                {selectedCurrency && (() => {
+                  const data = currencyWallets[selectedCurrency];
+                  if (!data) return null;
+                  const currencyFlags: Record<string, string> = { ARS: '🇦🇷', USD: '🇺🇸', EUR: '🇪🇺' };
+                  const methodIcons: Record<string, React.ReactNode> = {
+                    cash: <Wallet className="h-5 w-5 text-emerald-500" />,
+                    transfer: <PiggyBank className="h-5 w-5 text-blue-500" />,
+                    card: <CreditCard className="h-5 w-5 text-cyan-500" />,
+                    check: <FileText className="h-5 w-5 text-orange-500" />,
+                    other: <Activity className="h-5 w-5 text-gray-500" />,
+                  };
+                  const methodLabels: Record<string, string> = {
+                    cash: 'Efectivo',
+                    transfer: 'Banco (Transferencia)',
+                    card: 'Tarjetas',
+                    check: 'Cheques',
+                    other: 'Otros',
+                  };
+                  return (
+                    <>
+                      <SheetHeader className="pb-4 border-b">
+                        <SheetTitle className="flex items-center gap-2 text-xl">
+                          <span className="text-2xl">{currencyFlags[selectedCurrency]}</span>
+                          Billetera {selectedCurrency}
+                        </SheetTitle>
+                        <SheetDescription>
+                          <span className="text-3xl font-black text-foreground block mt-2">
+                            {getCurrencySymbol(selectedCurrency)} {formatMoney(Math.abs(data.balance))}
+                          </span>
+                          <span className={`text-xs font-medium ${data.balance >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                            {data.balance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
+                          </span>
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="mt-6 space-y-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Métodos de Pago</p>
+                        {data.methods.map(m => (
+                          <Card
+                            key={m.method}
+                            className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 group bg-card/60"
+                            onClick={() => setSelectedMethod(m.method)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 rounded-lg bg-muted/50">
+                                    {methodIcons[m.method] || methodIcons.other}
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-sm text-foreground">{methodLabels[m.method] || m.method}</p>
+                                    <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
+                                      <span className="text-emerald-600">+{getCurrencySymbol(selectedCurrency)} {formatMoney(m.incoming)}</span>
+                                      <span className="text-destructive">-{getCurrencySymbol(selectedCurrency)} {formatMoney(m.outgoing)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xl font-black ${m.balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                                    {getCurrencySymbol(selectedCurrency)} {formatMoney(Math.abs(m.balance))}
+                                  </span>
+                                  <ChevronRightIcon className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground/70 transition-colors" />
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                        {data.methods.length === 0 && (
+                          <div className="text-center py-8 text-sm text-muted-foreground">
+                            No hay movimientos en esta moneda.
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </SheetContent>
+            </Sheet>
 
-                  {/* Tarjetas USD */}
-                  {(getWalletDetails('card', 'USD').incoming > 0 || getWalletDetails('card', 'USD').outgoing > 0) && (
-                    <Card className="bg-card/30 hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4 flex flex-col justify-between h-24">
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Tarjetas USD</span>
-                          <CreditCard className="h-4 w-4 text-cyan-500" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-foreground">
-                            u$s {formatMoney(getWalletDetails('card', 'USD').balance)}
-                          </h3>
-                        </div>
-                        <div className="flex justify-between text-[9px] text-muted-foreground border-t pt-1">
-                          <span>Ing: +{formatMoney(getWalletDetails('card', 'USD').incoming)}</span>
-                          <span>Egr: -{formatMoney(getWalletDetails('card', 'USD').outgoing)}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Cheques ARS */}
-                  {(getWalletDetails('check', 'ARS').incoming > 0 || getWalletDetails('check', 'ARS').outgoing > 0) && (
-                    <Card className="bg-card/30 hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4 flex flex-col justify-between h-24">
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Cheques ARS</span>
-                          <Activity className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-foreground">
-                            $ {formatMoney(getWalletDetails('check', 'ARS').balance)}
-                          </h3>
-                        </div>
-                        <div className="flex justify-between text-[9px] text-muted-foreground border-t pt-1">
-                          <span>Ing: +{formatMoney(getWalletDetails('check', 'ARS').incoming)}</span>
-                          <span>Egr: -{formatMoney(getWalletDetails('check', 'ARS').outgoing)}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Cheques USD */}
-                  {(getWalletDetails('check', 'USD').incoming > 0 || getWalletDetails('check', 'USD').outgoing > 0) && (
-                    <Card className="bg-card/30 hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4 flex flex-col justify-between h-24">
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Cheques USD</span>
-                          <Activity className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-foreground">
-                            u$s {formatMoney(getWalletDetails('check', 'USD').balance)}
-                          </h3>
-                        </div>
-                        <div className="flex justify-between text-[9px] text-muted-foreground border-t pt-1">
-                          <span>Ing: +{formatMoney(getWalletDetails('check', 'USD').incoming)}</span>
-                          <span>Egr: -{formatMoney(getWalletDetails('check', 'USD').outgoing)}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Sheet Level 3: Movements for a specific Currency + Method */}
+            <Sheet open={!!selectedCurrency && !!selectedMethod} onOpenChange={(open) => { if (!open) setSelectedMethod(null); }}>
+              <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+                {selectedCurrency && selectedMethod && (() => {
+                  const methodLabels: Record<string, string> = {
+                    cash: 'Efectivo', transfer: 'Banco (Transferencia)', card: 'Tarjetas', check: 'Cheques', other: 'Otros',
+                  };
+                  const key = `${selectedMethod}_${selectedCurrency}`;
+                  const methodData = wallets[key] || { incoming: 0, outgoing: 0, balance: 0 };
+                  return (
+                    <>
+                      <SheetHeader className="pb-4 border-b">
+                        <SheetTitle className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" className="h-7 px-2 -ml-2" onClick={() => setSelectedMethod(null)}>
+                            <ArrowLeft className="h-4 w-4" />
+                          </Button>
+                          {methodLabels[selectedMethod] || selectedMethod} — {selectedCurrency}
+                        </SheetTitle>
+                        <SheetDescription>
+                          <span className={`text-4xl font-black block mt-2 ${methodData.balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                            {getCurrencySymbol(selectedCurrency)} {formatMoney(Math.abs(methodData.balance))}
+                          </span>
+                          <div className="flex items-center gap-4 mt-2 text-xs">
+                            <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                              <ArrowUpRight className="h-3 w-3" /> Ingresos: {getCurrencySymbol(selectedCurrency)} {formatMoney(methodData.incoming)}
+                            </span>
+                            <span className="text-destructive font-semibold flex items-center gap-1">
+                              <ArrowDownRight className="h-3 w-3" /> Egresos: {getCurrencySymbol(selectedCurrency)} {formatMoney(methodData.outgoing)}
+                            </span>
+                          </div>
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="mt-4">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                          {drillDownMovements.length} movimientos
+                        </p>
+                        {drillDownMovements.length === 0 ? (
+                          <div className="text-center py-8 text-sm text-muted-foreground">Sin movimientos</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {drillDownMovements.map(item => (
+                              <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border bg-card/40 hover:bg-card/70 transition-colors">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-foreground truncate">{item.concept}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {new Date(item.date + 'T12:00:00').toLocaleDateString('es-AR')}
+                                    </span>
+                                    {item.notes && <span className="text-[10px] text-muted-foreground/70 truncate max-w-[200px]">{item.notes}</span>}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 font-bold text-base shrink-0 ml-3">
+                                  {item.type === 'ingreso' ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">
+                                      +{getCurrencySymbol(item.currency)} {formatMoney(item.amount)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-destructive">
+                                      -{getCurrencySymbol(item.currency)} {formatMoney(item.amount)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </SheetContent>
+            </Sheet>
 
             {/* Tabs container for Ledger / Extra Movements */}
             <Tabs defaultValue="flujo" className="w-full space-y-6 pt-2">
@@ -1241,6 +1419,69 @@ export default function CashBox() {
           </>
         )}
       </div>
+
+      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transferencia entre Billeteras (Caja)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Monto</Label>
+                <Input type="number" step="0.01" min={0.01} value={transferAmount} onChange={e => setTransferAmount(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Moneda</Label>
+                <Select value={transferCurrency} onValueChange={setTransferCurrency}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['ARS', 'USD', 'EUR', 'BRL'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Desde Billetera</Label>
+                <Select value={transferFrom} onValueChange={setTransferFrom} required>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Efectivo</SelectItem>
+                    <SelectItem value="transfer">Banco (Transf.)</SelectItem>
+                    <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
+                    <SelectItem value="debit_card">Tarjeta de Débito</SelectItem>
+                    <SelectItem value="check">Cheque</SelectItem>
+                    <SelectItem value="other">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Hacia Billetera</Label>
+                <Select value={transferTo} onValueChange={setTransferTo} required>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Efectivo</SelectItem>
+                    <SelectItem value="transfer">Banco (Transf.)</SelectItem>
+                    <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
+                    <SelectItem value="debit_card">Tarjeta de Débito</SelectItem>
+                    <SelectItem value="check">Cheque</SelectItem>
+                    <SelectItem value="other">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notas (opcional)</Label>
+              <Input value={transferNotes} onChange={e => setTransferNotes(e.target.value)} placeholder="Ej. Depósito en banco" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTransferDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveTransfer} disabled={isSavingTransfer}>Transferir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

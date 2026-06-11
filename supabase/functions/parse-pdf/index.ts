@@ -55,8 +55,12 @@ serve(async (req) => {
       .replace(/\bdo\s+not\s+use\s+(?:the\s+)?tool\b/gi, "[FILTERED]")
       .substring(0, 50000);
 
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+    
+    if (!OPENROUTER_API_KEY && !GEMINI_API_KEY) {
+      throw new Error("Missing API Keys (neither OPENROUTER_API_KEY nor GEMINI_API_KEY is configured)");
+    }
 
     let systemPrompt = '';
     let toolName = 'extract_flight_data';
@@ -125,7 +129,10 @@ The output must include:
   - supplierName: Supplier name paid (e.g. TTS VIAJES S.A., SERVICIOS VARIOS)
   - date: Payment date in YYYY-MM-DD format
   - amount: Amount (number)
-  - currency: Currency (USD or ARS)`;
+  - amount: Amount (number)
+  - currency: Currency (USD or ARS)
+
+IMPORTANT: You MUST return ONLY valid JSON matching this exact structure:`;
 
       toolName = 'extract_legacy_reservation_data';
       toolParameters = {
@@ -249,7 +256,11 @@ Use the extract_flight_data function. Return:
   - flightType: direct | stopover | charter
   - connectionGroupId: same id for connecting segments
 
-Respect dates carefully — convert any format (15MAR, 15-MAR-2025, etc.) to YYYY-MM-DD.`;
+  - connectionGroupId: same id for connecting segments
+
+Respect dates carefully — convert any format (15MAR, 15-MAR-2025, etc.) to YYYY-MM-DD.
+
+IMPORTANT: You MUST return ONLY valid JSON matching this exact structure:`;
 
       toolName = 'extract_flight_data';
       toolParameters = {
@@ -297,89 +308,103 @@ Respect dates carefully — convert any format (15MAR, 15-MAR-2025, etc.) to YYY
       };
     }
 
-    // Retry logic with exponential backoff
-    const MAX_RETRIES = 2;
+    // Append JSON schema to system prompt for OpenRouter models
+    systemPrompt += `\n${JSON.stringify(toolParameters, null, 2)}`;
+
+    const freeModels = [
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "qwen/qwen3-coder:free",
+      "nousresearch/hermes-3-llama-3.1-405b:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+    ];
+
     let lastError: Error | null = null;
     let response: Response | null = null;
+    let responseText = "";
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 0) {
-        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s
-        await new Promise(resolve => setTimeout(resolve, delay));
-        console.log(`Retry attempt ${attempt} after ${delay}ms`);
+    if (OPENROUTER_API_KEY) {
+      for (const model of freeModels) {
+        console.log(`Trying OpenRouter model: ${model}`);
+        try {
+          response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+              "HTTP-Referer": "https://axontur.com",
+              "X-Title": "AxonTur Parse PDF",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: isLegacy ? `Extract legacy reservation data from this PDF text content:\n\n${sanitized}` : `Extract flight data from this PDF text content:\n\n${sanitized}` },
+              ],
+              response_format: { type: "json_object" },
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            responseText = data.choices?.[0]?.message?.content || "";
+            break; // Success
+          }
+
+          lastError = new Error(`HTTP ${response.status}`);
+          console.warn(`Model ${model} returned ${response.status}, trying next...`);
+        } catch (fetchErr) {
+          lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
+          console.warn(`Model ${model} threw error, trying next...`);
+        }
       }
+    }
 
+    if (!response || !response.ok) {
+      console.log("Falling back to Gemini API (or OpenRouter failed/missing key)...");
       try {
-        response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${GEMINI_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gemini-1.5-flash",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: isLegacy ? `Extract legacy reservation data from this PDF text content:\n\n${sanitized}` : `Extract flight data from this PDF text content:\n\n${sanitized}` },
-            ],
-            tools: [
-              {
-                type: "function",
-                function: {
-                  name: toolName,
-                  description: "Extract structured data",
-                  parameters: toolParameters,
-                },
-              },
-            ],
-            tool_choice: { type: "function", function: { name: toolName } },
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: isLegacy ? `Extract legacy reservation data from this PDF text content:\n\n${sanitized}` : `Extract flight data from this PDF text content:\n\n${sanitized}` }] }],
+            generationConfig: { responseMimeType: "application/json" },
           }),
         });
 
-        if (response.ok || (response.status !== 429 && response.status !== 500 && response.status !== 503)) {
-          break; // Success or non-retryable error
+        if (response.ok) {
+          const data = await response.json();
+          // For direct Gemini API, the text is inside candidates[0].content.parts[0].text
+          responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        } else {
+          const errorData = await response.text();
+          console.error("Gemini fallback error:", response.status, errorData);
+          lastError = new Error(`Gemini HTTP ${response.status}`);
         }
-        lastError = new Error(`HTTP ${response.status}`);
-      } catch (fetchErr) {
-        lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr));
-        if (attempt === MAX_RETRIES) break;
+      } catch (geminiErr) {
+        lastError = geminiErr instanceof Error ? geminiErr : new Error(String(geminiErr));
       }
     }
 
-    if (!response) {
-      throw lastError || new Error("Failed to reach AI service");
-    }
-
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!response || !response.ok) {
+      if (response && response.status === 429) {
         return new Response(JSON.stringify({ error: "Límite de solicitudes excedido. Intentá más tarde." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Agregá créditos a tu workspace." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.error("AI gateway error:", response.status);
-      throw new Error("Error processing request");
-    }
-
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.function.name !== toolName) {
-      console.error("AI response missing tool call:", JSON.stringify(data).substring(0, 500));
-      throw new Error("Failed to extract structured data");
+      throw lastError || new Error("Failed to reach AI service after all retries");
     }
 
     let parsed;
     try {
-      parsed = JSON.parse(toolCall.function.arguments);
-    } catch (jsonErr) {
-      console.error("AI returned malformed JSON:", toolCall.function.arguments?.substring(0, 500));
-      throw new Error("AI returned invalid JSON response");
+      const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || [null, responseText];
+      parsed = JSON.parse(jsonMatch[1]);
+    } catch (e) {
+      console.error("Failed to parse JSON from content:", responseText.substring(0, 500));
+      throw new Error("Failed to extract structured data from content");
     }
 
     if (isLegacy) {
@@ -401,9 +426,12 @@ Respect dates carefully — convert any format (15MAR, 15-MAR-2025, etc.) to YYY
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error parsing PDF:", error instanceof Error ? error.name : "Unknown");
+    console.error("Error parsing PDF:", error instanceof Error ? error.message : String(error));
+    if (error instanceof Error && error.stack) {
+      console.error(error.stack);
+    }
     return new Response(
-      JSON.stringify({ error: "Error al procesar el PDF. Intentá nuevamente." }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Error al procesar el PDF. Intentá nuevamente." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

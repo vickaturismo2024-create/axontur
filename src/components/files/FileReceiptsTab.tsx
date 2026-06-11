@@ -24,6 +24,7 @@ import { ReceiptCard } from './receipts/ReceiptCard';
 import { NewReceiptDialog } from './receipts/NewReceiptDialog';
 import { ReceiptDetailDialog } from './receipts/ReceiptDetailDialog';
 import { EmailReceiptDialog } from './receipts/EmailReceiptDialog';
+import { TransferBalanceDialog } from './TransferBalanceDialog';
 
 interface Props {
   fileId: string;
@@ -54,6 +55,11 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const [detailItems, setDetailItems] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [passengers, setPassengers] = useState<string[]>([]);
+  
+  // Transfer states
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferCurrency, setTransferCurrency] = useState('');
+  const [transferMaxAmount, setTransferMaxAmount] = useState(0);
 
   const loadFileDebts = async () => {
     const { data: svcs } = await supabase
@@ -450,9 +456,20 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
           <h3 className="font-semibold">Recibos ({receipts.length})</h3>
           <p className="text-xs text-muted-foreground">Documento no válido como factura</p>
         </div>
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />Nuevo recibo
-        </Button>
+        <div className="flex items-center gap-2">
+          {Object.entries(fileDebts).filter(([_, pend]) => pend < 0).map(([cur, pend]) => (
+            <Button key={cur} size="sm" variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100" onClick={() => {
+              setTransferCurrency(cur);
+              setTransferMaxAmount(Math.abs(pend));
+              setTransferDialogOpen(true);
+            }}>
+              Transferir Saldo ({cur} {Math.abs(pend)})
+            </Button>
+          ))}
+          <Button size="sm" onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />Nuevo recibo
+          </Button>
+        </div>
       </div>
 
       {receipts.length === 0 ? (
@@ -516,13 +533,26 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Anular
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <AlertDialogCancel onClick={() => setCancelId(null)}>Volver</AlertDialogCancel>
+          <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Anular recibo
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <TransferBalanceDialog
+      open={transferDialogOpen}
+      onOpenChange={setTransferDialogOpen}
+      sourceFileId={fileId}
+      sourceClientName={clientName}
+      maxAmount={transferMaxAmount}
+      currency={transferCurrency}
+      onSuccess={() => {
+        load();
+        loadFileDebts();
+      }}
+    />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

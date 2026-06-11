@@ -1081,6 +1081,7 @@ export type Database = {
           currency: string
           file_id: string | null
           id: string
+          linked_receipt_id: string | null
           notes: string | null
           payment_date: string
           payment_method: string | null
@@ -1096,6 +1097,7 @@ export type Database = {
           currency?: string
           file_id?: string | null
           id?: string
+          linked_receipt_id?: string | null
           notes?: string | null
           payment_date?: string
           payment_method?: string | null
@@ -1111,6 +1113,7 @@ export type Database = {
           currency?: string
           file_id?: string | null
           id?: string
+          linked_receipt_id?: string | null
           notes?: string | null
           payment_date?: string
           payment_method?: string | null
@@ -1125,6 +1128,64 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_supplier_payments_linked_receipt_id_fkey"
+            columns: ["linked_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "file_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_transfers: {
+        Row: {
+          id: string
+          source_file_id: string
+          dest_file_id: string
+          amount: number
+          currency: string
+          payment_method: string
+          user_id: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          source_file_id: string
+          dest_file_id: string
+          amount: number
+          currency?: string
+          payment_method?: string
+          user_id: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          source_file_id?: string
+          dest_file_id?: string
+          amount?: number
+          currency?: string
+          payment_method?: string
+          user_id?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_transfers_dest_file_id_fkey"
+            columns: ["dest_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_transfers_source_file_id_fkey"
+            columns: ["source_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
             referencedColumns: ["id"]
           },
         ]
@@ -1938,6 +1999,67 @@ export type Database = {
           },
         ]
       }
+      supplier_credit_transfers: {
+        Row: {
+          id: string
+          supplier_id: string
+          source_file_id: string
+          dest_file_id: string
+          amount: number
+          currency: string
+          payment_method: string
+          user_id: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          supplier_id: string
+          source_file_id: string
+          dest_file_id: string
+          amount: number
+          currency?: string
+          payment_method?: string
+          user_id: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          supplier_id?: string
+          source_file_id?: string
+          dest_file_id?: string
+          amount?: number
+          currency?: string
+          payment_method?: string
+          user_id?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_credit_transfers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_credit_transfers_dest_file_id_fkey"
+            columns: ["dest_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_credit_transfers_source_file_id_fkey"
+            columns: ["source_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           agency_id: string | null
@@ -2079,6 +2201,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wallet_transfers: {
+        Row: {
+          id: string
+          user_id: string
+          from_method: string
+          to_method: string
+          amount: number
+          currency: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          from_method: string
+          to_method: string
+          amount: number
+          currency?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          from_method?: string
+          to_method?: string
+          amount?: number
+          currency?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

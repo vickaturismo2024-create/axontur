@@ -150,9 +150,14 @@ export function parseLocator(text: string): string | undefined {
     const match = text.match(pattern);
     if (match) {
       const locator = match[1].toUpperCase();
-      // Validar que parece un localizador válido
-      if (/^[A-Z0-9]{5,8}$/.test(locator) && /[A-Z]/.test(locator) && /[0-9]/.test(locator)) {
-        return locator;
+      // Validar que parece un localizador válido (5-8 chars, at least one letter)
+      // PNR locators can be all-alpha (e.g. JFRZXA) or mixed alphanumeric
+      if (/^[A-Z0-9]{5,8}$/.test(locator) && /[A-Z]/.test(locator)) {
+        // Exclude common false positives (6-letter words that appear in PNR text)
+        const falsePositives = new Set(['AEPGIG', 'GIGAEP', 'EZEGRU', 'GRUEZE', 'EZEORD', 'RTSVC', 'FLIGHT', 'SECTOR', 'DIRECT']);
+        if (!falsePositives.has(locator) && !KNOWN_IATA_AIRPORTS.has(locator.substring(0,3) + locator.substring(3,6))) {
+          return locator;
+        }
       }
     }
   }
@@ -161,8 +166,13 @@ export function parseLocator(text: string): string | undefined {
   const genericMatch = text.match(/\s([A-Z0-9]{6})\s*$/m);
   if (genericMatch) {
     const candidate = genericMatch[1].toUpperCase();
-    if (/[A-Z]/.test(candidate) && /[0-9]/.test(candidate)) {
-      return candidate;
+    if (/[A-Z]/.test(candidate)) {
+      // Exclude origin+destination concatenations (6-char IATA pairs)
+      const orig = candidate.substring(0, 3);
+      const dest = candidate.substring(3, 6);
+      if (!KNOWN_IATA_AIRPORTS.has(orig) || !KNOWN_IATA_AIRPORTS.has(dest)) {
+        return candidate;
+      }
     }
   }
 
@@ -199,6 +209,11 @@ export function parseAirlineLocator(text: string): string | undefined {
   return undefined;
 }
 
+function isValidPassengerName(lastName: string): boolean {
+  const pseudoNames = ['RTSVC', 'SEE', 'TKT', 'VEND', 'AGE', 'AGY', 'INF', 'CHD'];
+  return !pseudoNames.includes(lastName.toUpperCase());
+}
+
 export function parsePassengers(text: string): ParsedPassenger[] {
   const passengers: ParsedPassenger[] = [];
   const lines = text.split('\n');
@@ -215,19 +230,21 @@ export function parsePassengers(text: string): ParsedPassenger[] {
       const lastName = match[2].trim();
       const firstName = match[3].trim();
       
-      // Extraer título si está al final del nombre
-      const titleMatch = firstName.match(/^(.+?)\s+(MR|MRS|MS|MISS|DR|MSTR|CHD|INF)$/i);
-      if (titleMatch) {
-        passengers.push({
-          lastName,
-          firstName: titleMatch[1].trim(),
-          title: titleMatch[2].toUpperCase()
-        });
-      } else {
-        passengers.push({
-          lastName,
-          firstName
-        });
+      if (isValidPassengerName(lastName)) {
+        // Extraer título si está al final del nombre
+        const titleMatch = firstName.match(/^(.+?)\s+(MR|MRS|MS|MISS|DR|MSTR|CHD|INF)$/i);
+        if (titleMatch) {
+          passengers.push({
+            lastName,
+            firstName: titleMatch[1].trim(),
+            title: titleMatch[2].toUpperCase()
+          });
+        } else {
+          passengers.push({
+            lastName,
+            firstName
+          });
+        }
       }
     }
     
@@ -237,35 +254,43 @@ export function parsePassengers(text: string): ParsedPassenger[] {
     const pattern1 = /\d+\.\d*\s*([A-Z]+)\/([A-Z\s]+?)(?:\s+(MR|MRS|MS|MISS|DR|MSTR|CHD|INF))?\s*$/i;
     const match1 = line.match(pattern1);
     if (match1) {
-      passengers.push({
-        lastName: match1[1].trim(),
-        firstName: match1[2].trim(),
-        title: match1[3]?.toUpperCase()
-      });
+      const lastName = match1[1].trim().toUpperCase();
+      if (isValidPassengerName(lastName)) {
+        passengers.push({
+          lastName,
+          firstName: match1[2].trim(),
+          title: match1[3]?.toUpperCase()
+        });
+      }
       continue;
     }
 
     // Formato alternativo: SURNAME/FIRSTNAME TITLE
     const pattern2 = /^([A-Z][A-Z\s]+)\/([A-Z][A-Z\s]+?)(?:\s+(MR|MRS|MS|MISS|DR|MSTR))?\s*$/i;
     const match2 = line.match(pattern2);
-    if (match2 && line.includes('/')) {
-      passengers.push({
-        lastName: match2[1].trim(),
-        firstName: match2[2].trim(),
-        title: match2[3]?.toUpperCase()
-      });
+    if (match2) {
+      const lastName = match2[1].trim().toUpperCase();
+      if (isValidPassengerName(lastName)) {
+        passengers.push({
+          lastName,
+          firstName: match2[2].trim(),
+          title: match2[3]?.toUpperCase()
+        });
+      }
       continue;
     }
 
-    // Formato con número: 1. SURNAME/FIRSTNAME
     const pattern3 = /^\s*\d+\.?\s+([A-Z]+)\/([A-Z\s]+?)(?:\s+([A-Z]{2,4}))?\s*$/i;
     const match3 = line.match(pattern3);
     if (match3) {
-      passengers.push({
-        lastName: match3[1].trim(),
-        firstName: match3[2].trim(),
-        title: match3[3]?.toUpperCase()
-      });
+      const lastName = match3[1].trim();
+      if (isValidPassengerName(lastName)) {
+        passengers.push({
+          lastName,
+          firstName: match3[2].trim(),
+          title: match3[3]?.toUpperCase()
+        });
+      }
       continue;
     }
 
@@ -352,7 +377,8 @@ export function parsePassengers(text: string): ParsedPassenger[] {
     while ((keywordMatch = keywordContext.exec(text)) !== null) {
       const name = keywordMatch[1].trim();
       const words = name.split(/\s+/);
-      if (words.length >= 2 && words.length <= 6 && words.every(w => w.length >= 2)) {
+      const hasPseudoName = words.some(w => !isValidPassengerName(w));
+      if (!hasPseudoName && words.length >= 2 && words.length <= 6 && words.every(w => w.length >= 2)) {
         potentialNames.push(name);
       }
     }
@@ -371,14 +397,22 @@ export function parsePassengers(text: string): ParsedPassenger[] {
           /^(TARIFA|FARE|TOTAL|IMPUESTO|TAX|CARGO|SERVICIO|SERVICE)/i,
           /^(NUMERO DE|NUMBER OF|CODIGO DE|BOOKING REF|RECORD LOCATOR)/i,
           /^(ITA AIRWAYS|AEROLINEAS ARGENTINAS|AMERICAN AIRLINES|LATAM AIRLINES)/i,
+          // GDS system commands and agency codes
+          /\bRTSVC\b/i,
+          /\bARNK\b/i,
+          /^SEE\s/i,
+          /\bSEE\s+RTSVC/i,
+          /^(END|TKTL|RFCK|RECEIVED|GENERAL|REMARKS?|SSR|OSI|OPW|OPC)/i,
           /^\d/,
           /^[A-Z]{2}\d/,
         ];
         
         const isExcluded = excludePatterns.some(p => p.test(name));
         const words = name.split(/\s+/);
+        // Also check each word against the pseudo-passenger name list
+        const hasPseudoName = words.some(w => !isValidPassengerName(w));
         
-        if (!isExcluded && words.length >= 2 && words.length <= 6 && name.length <= 50) {
+        if (!isExcluded && !hasPseudoName && words.length >= 2 && words.length <= 6 && name.length <= 50) {
           const validWords = words.every(w => w.length >= 2 || w === 'DE');
           if (validWords) {
             const commonWords = new Set(['CON', 'SIN', 'POR', 'PARA', 'COMO', 'MAS', 'MENOS', 'SOBRE', 'BAJO', 'ENTRE']);
@@ -1090,7 +1124,7 @@ export function parseSegments(text: string): ParsedSegment[] {
 }
 
 export function parsePNR(text: string): ParsedReservation {
-  const locator = parseLocator(text);
+  let locator = parseLocator(text);
   const passengers = parsePassengers(text);
   let segments = parseSegments(text);
 
@@ -1101,6 +1135,19 @@ export function parsePNR(text: string): ParsedReservation {
       ...seg,
       airlineLocator: seg.airlineLocator || airlineLocator
     }));
+  }
+
+  // Fallback: if no main locator found, use airline locator or segment-level locator
+  if (!locator) {
+    if (airlineLocator) {
+      locator = airlineLocator;
+    } else {
+      // Try to get locator from the first segment that has one
+      const segWithLocator = segments.find(s => s.airlineLocator);
+      if (segWithLocator?.airlineLocator) {
+        locator = segWithLocator.airlineLocator;
+      }
+    }
   }
 
   return {
@@ -1252,7 +1299,7 @@ export const AIRPORT_CITY_NAMES: Record<string, string> = {
   'POA': 'Porto Alegre',
   'BEL': 'Belém',
   'FOR': 'Fortaleza',
-  'MAN': 'Manaos',
+  'MAO': 'Manaos',
   'CNF': 'Belo Horizonte',
   'JPA': 'João Pessoa',
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,11 +19,13 @@ interface PaymentLine {
   payment_method: string;
   reference: string;
   notes: string;
+  linked_receipt_id?: string;
 }
 
 interface SupplierPaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  fileId?: string;
   editingPayment: SupplierPayment | null;
   selectedSupplier: { name: string; id: string | null } | null;
   resolvedSupplierId: string | null;
@@ -60,6 +63,7 @@ export function SupplierPaymentDialog({
   defaultCurrency = 'USD',
   supplierCosts = {},
   supplierPaid = {},
+  fileId,
 }: SupplierPaymentDialogProps) {
   const resolvedSupplierName = catalog.find(c => c.id === resolvedSupplierId)?.name;
   const showCreateOption = selectedSupplier && !findCatalogMatch(selectedSupplier.name);
@@ -77,6 +81,18 @@ export function SupplierPaymentDialog({
   // Local state for multi-line payments
   const [paymentDate, setPaymentDate] = useState('');
   const [lines, setLines] = useState<PaymentLine[]>([]);
+  const [cardReceipts, setCardReceipts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (open && fileId) {
+      supabase
+        .from('file_receipts')
+        .select('id, amount, currency, concept, receipt_number, payment_date')
+        .eq('file_id', fileId)
+        .eq('payment_method', 'tarjeta')
+        .then(({ data }) => setCardReceipts(data || []));
+    }
+  }, [open, fileId]);
 
   useEffect(() => {
     if (open) {
@@ -99,6 +115,7 @@ export function SupplierPaymentDialog({
             payment_method: 'transfer',
             reference: '',
             notes: '',
+            linked_receipt_id: undefined,
           },
         ]);
       }
@@ -118,6 +135,7 @@ export function SupplierPaymentDialog({
         payment_method: 'transfer',
         reference: '',
         notes: '',
+        linked_receipt_id: undefined,
       },
     ]);
   };
@@ -289,7 +307,9 @@ export function SupplierPaymentDialog({
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium">Método</label>
-                      <Select value={line.payment_method} onValueChange={v => updateLine(idx, { payment_method: v })}>
+                      <Select value={line.payment_method} onValueChange={v => {
+                        updateLine(idx, { payment_method: v, linked_receipt_id: undefined });
+                      }}>
                         <SelectTrigger className="h-9">
                           <SelectValue />
                         </SelectTrigger>
@@ -299,6 +319,32 @@ export function SupplierPaymentDialog({
                       </Select>
                     </div>
                   </div>
+
+                  {line.payment_method === 'tarjeta' && cardReceipts.length > 0 && (
+                    <div className="grid grid-cols-1 mb-2">
+                      <label className="mb-1 block text-xs font-medium text-blue-600 dark:text-blue-400">Enlazar con Cobro a Cliente (Tarjeta)</label>
+                      <Select value={line.linked_receipt_id || 'none'} onValueChange={v => {
+                        const rec = cardReceipts.find(r => r.id === v);
+                        if (rec) {
+                          updateLine(idx, { linked_receipt_id: v, amount: rec.amount, currency: rec.currency });
+                        } else {
+                          updateLine(idx, { linked_receipt_id: undefined });
+                        }
+                      }}>
+                        <SelectTrigger className="h-9 border-blue-200 bg-blue-50/50">
+                          <SelectValue placeholder="Seleccionar recibo de tarjeta..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No enlazar</SelectItem>
+                          {cardReceipts.map(cr => (
+                            <SelectItem key={cr.id} value={cr.id}>
+                              REC-{String(cr.receipt_number).padStart(4, '0')} - {cr.currency} {cr.amount} ({cr.concept})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-12 gap-2">
                     <div className="col-span-11">

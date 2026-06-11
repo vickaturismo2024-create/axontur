@@ -7,6 +7,7 @@ import { DollarSign, ArrowRight, CheckCircle2, AlertTriangle, Truck } from 'luci
 import { SupplierPaymentDialog } from './suppliers/SupplierPaymentDialog';
 import { CatalogSupplier, SupplierPayment } from './suppliers/types';
 import { toast } from 'sonner';
+import { TransferSupplierCreditDialog } from './TransferSupplierCreditDialog';
 
 interface Props {
   fileId: string;
@@ -48,6 +49,12 @@ export function FileDebtsTab({ fileId, currency }: Props) {
     reference: '',
     notes: '',
   });
+
+  // Transfer state
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferSupplier, setTransferSupplier] = useState<{ id: string, name: string } | null>(null);
+  const [transferCurrency, setTransferCurrency] = useState('');
+  const [transferMaxAmount, setTransferMaxAmount] = useState(0);
 
   const load = async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -172,13 +179,10 @@ export function FileDebtsTab({ fileId, currency }: Props) {
     toast.success(`Proveedor «${data.name}» creado`);
   };
 
-  const handleSavePayment = async () => {
+  const handleSavePayment = async (lines: any[], paymentDate: string) => {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData?.user || !selectedSupplier) return;
-    if (paymentForm.amount <= 0) {
-      toast.error('El monto debe ser mayor a 0');
-      return;
-    }
+    
     if (!resolvedSupplierId) {
       toast.error('Debe enlazar el pago a un proveedor del catálogo');
       return;
@@ -186,20 +190,21 @@ export function FileDebtsTab({ fileId, currency }: Props) {
 
     const supplierName = catalog.find((c) => c.id === resolvedSupplierId)?.name || selectedSupplier.name;
 
-    const payload = {
+    const payloads = lines.map(line => ({
       supplier_name: supplierName,
       supplier_id: resolvedSupplierId,
-      amount: paymentForm.amount,
-      currency: paymentForm.currency,
-      payment_date: paymentForm.payment_date,
-      payment_method: paymentForm.payment_method,
-      reference: paymentForm.reference,
-      notes: paymentForm.notes,
+      amount: line.amount,
+      currency: line.currency,
+      payment_date: paymentDate,
+      payment_method: line.payment_method,
+      reference: line.reference,
+      notes: line.notes,
+      linked_receipt_id: line.linked_receipt_id || null,
       file_id: fileId,
       user_id: userData.user.id,
-    };
+    }));
 
-    const { error } = await supabase.from('file_supplier_payments' as any).insert(payload as any);
+    const { error } = await supabase.from('file_supplier_payments' as any).insert(payloads as any);
 
     if (error) {
       toast.error('Error al registrar pago');
@@ -299,8 +304,25 @@ export function FileDebtsTab({ fileId, currency }: Props) {
                       })}
                     </div>
 
-                    {/* Pay trigger */}
-                    <div className="shrink-0 flex items-center justify-end">
+                    {/* Pay/Transfer trigger */}
+                    <div className="shrink-0 flex items-center justify-end gap-2 mt-4 sm:mt-0">
+                      {currencies.some(cur => (deb.costByCurrency[cur] || 0) - (deb.paidByCurrency[cur] || 0) < 0) && (
+                        <div className="flex gap-2 mr-2">
+                           {currencies.filter(cur => (deb.costByCurrency[cur] || 0) - (deb.paidByCurrency[cur] || 0) < 0).map(cur => {
+                             const fav = Math.abs((deb.costByCurrency[cur] || 0) - (deb.paidByCurrency[cur] || 0));
+                             return (
+                               <Button key={`tr-${cur}`} size="sm" variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100" onClick={() => {
+                                  setTransferSupplier({ id: deb.id || '', name: deb.name });
+                                  setTransferCurrency(cur);
+                                  setTransferMaxAmount(fav);
+                                  setTransferDialogOpen(true);
+                               }}>
+                                 Transferir A Favor ({cur} {fav.toLocaleString('es-AR')})
+                               </Button>
+                             )
+                           })}
+                        </div>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
@@ -324,6 +346,7 @@ export function FileDebtsTab({ fileId, currency }: Props) {
         onOpenChange={(open) => {
           setDialogOpen(open);
         }}
+        fileId={fileId}
         editingPayment={null}
         selectedSupplier={selectedSupplier}
         resolvedSupplierId={resolvedSupplierId}
@@ -339,6 +362,21 @@ export function FileDebtsTab({ fileId, currency }: Props) {
         setComboOpen={setComboOpen}
         onSave={handleSavePayment}
       />
+
+      {transferSupplier && (
+        <TransferSupplierCreditDialog
+          open={transferDialogOpen}
+          onOpenChange={setTransferDialogOpen}
+          sourceFileId={fileId}
+          supplierId={transferSupplier.id}
+          supplierName={transferSupplier.name}
+          maxAmount={transferMaxAmount}
+          currency={transferCurrency}
+          onSuccess={() => {
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }
