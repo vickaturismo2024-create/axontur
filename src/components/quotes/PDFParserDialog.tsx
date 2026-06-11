@@ -56,29 +56,31 @@ export function PDFParserDialog({ onFlightsParsed }: PDFParserDialogProps) {
         return;
       }
 
-      setProgress('Analizando con IA...');
+      setProgress('Procesando texto...');
       let flightsToUse = null;
 
-      try {
-        const { data, error } = await supabase.functions.invoke('parse-pdf', {
-          body: { text },
-        });
-
-        if (!error && data && data.flights && data.flights.length > 0) {
-          flightsToUse = data.flights;
-        } else if (error) {
-          console.warn('parse-pdf edge function returned error:', error);
-        }
-      } catch (err) {
-        console.warn('Error invoking parse-pdf edge function:', err);
+      // Intento 1: Parser local (rápido, sin costo)
+      const parsed = parsePNR(text);
+      if (parsed.segments && parsed.segments.length > 0) {
+        flightsToUse = mapSegmentsToFlights(parsed.segments);
       }
 
+      // Intento 2: Si el parser local no pudo, usar Edge Function como fallback
       if (!flightsToUse || flightsToUse.length === 0) {
-        console.info('Utilizando extractor local alternativo para procesar el PDF...');
-        const parsed = parsePNR(text);
-        if (parsed.segments && parsed.segments.length > 0) {
-          flightsToUse = mapSegmentsToFlights(parsed.segments);
-          toast.info('Vuelos extraídos localmente (sin conexión IA)');
+        console.info('Parser local no detectó vuelos, intentando con Edge Function...');
+        setProgress('Analizando con IA...');
+        try {
+          const { data, error } = await supabase.functions.invoke('parse-pdf', {
+            body: { text },
+          });
+
+          if (!error && data && data.flights && data.flights.length > 0) {
+            flightsToUse = data.flights;
+          } else if (error) {
+            console.warn('Edge Function parse-pdf error:', error);
+          }
+        } catch (err) {
+          console.warn('Error invocando Edge Function parse-pdf:', err);
         }
       }
 

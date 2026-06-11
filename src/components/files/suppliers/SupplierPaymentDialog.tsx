@@ -38,6 +38,8 @@ interface SupplierPaymentDialogProps {
   setComboOpen: (open: boolean) => void;
   onSave: (lines: PaymentLine[], paymentDate: string) => void;
   defaultCurrency?: string;
+  supplierCosts?: Record<string, number>;
+  supplierPaid?: Record<string, number>;
 }
 
 export function SupplierPaymentDialog({
@@ -56,9 +58,21 @@ export function SupplierPaymentDialog({
   setComboOpen,
   onSave,
   defaultCurrency = 'USD',
+  supplierCosts = {},
+  supplierPaid = {},
 }: SupplierPaymentDialogProps) {
   const resolvedSupplierName = catalog.find(c => c.id === resolvedSupplierId)?.name;
   const showCreateOption = selectedSupplier && !findCatalogMatch(selectedSupplier.name);
+
+  const debtsByCurrency = selectedSupplier ? Object.keys(supplierCosts || {}).reduce((acc, cur) => {
+    const cost = supplierCosts?.[cur] || 0;
+    const paid = supplierPaid?.[cur] || 0;
+    const pending = cost - paid;
+    if (pending !== 0) {
+      acc[cur] = pending;
+    }
+    return acc;
+  }, {} as Record<string, number>) : {};
 
   // Local state for multi-line payments
   const [paymentDate, setPaymentDate] = useState('');
@@ -114,12 +128,12 @@ export function SupplierPaymentDialog({
   };
 
   const handleSave = () => {
-    const validLines = lines.filter((l) => l.amount > 0);
+    const validLines = lines.filter((l) => l.amount !== 0);
     if (validLines.length === 0) return;
     onSave(validLines, paymentDate);
   };
 
-  const hasValidAmount = lines.some((l) => l.amount > 0);
+  const hasValidAmount = lines.some((l) => l.amount !== 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -138,6 +152,19 @@ export function SupplierPaymentDialog({
         )}
 
         <div className="space-y-4">
+          {selectedSupplier && Object.keys(debtsByCurrency).length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/20 p-3 text-sm dark:border-amber-900/30 dark:bg-amber-950/10">
+              <span className="font-semibold text-amber-700 dark:text-amber-500 block mb-0.5">Saldo pendiente con este operador:</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {Object.entries(debtsByCurrency).map(([cur, amt]) => (
+                  <span key={cur} className="font-mono font-bold text-amber-800 dark:text-amber-400">
+                    {cur} {amt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Proveedor del catálogo */}
           <div className="space-y-1.5">
             <label className="block text-sm font-medium">Proveedor del catálogo *</label>
@@ -244,7 +271,6 @@ export function SupplierPaymentDialog({
                       <div className="flex gap-2">
                         <Input
                           type="number"
-                          min={0}
                           step="0.01"
                           value={line.amount || ''}
                           placeholder="Monto"

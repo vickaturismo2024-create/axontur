@@ -8,6 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { ReceiptItem, METHODS, CURRENCIES, emptyItem } from './types';
 import { computeReceiptTotals } from '@/lib/receiptTotals';
+import { supabase } from '@/integrations/supabase/client';
+
+declare global {
+  interface Window {
+    __liveRates?: any[];
+  }
+}
 
 interface NewReceiptDialogProps {
   open: boolean;
@@ -16,9 +23,10 @@ interface NewReceiptDialogProps {
   defaultClientName: string;
   defaultCurrency: string;
   passengers?: string[];
+  fileDebts?: Record<string, number>;
 }
 
-export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName, defaultCurrency, passengers = [] }: NewReceiptDialogProps) {
+export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName, defaultCurrency, passengers = [], fileDebts = {} }: NewReceiptDialogProps) {
   const [form, setForm] = useState({
     client_name: defaultClientName,
     payment_date: new Date().toISOString().split('T')[0],
@@ -38,11 +46,38 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
       });
       setItems([{ ...emptyItem(), currency: defaultCurrency }]);
       setSaving(false);
+      
+      // Auto-fetch current rates for autofill
+      supabase.functions.invoke('fetch-currency-rates').then(({ data, error }) => {
+        if (!error && data?.rates) {
+          window.__liveRates = data.rates;
+        }
+      });
     }
   }, [open, defaultClientName, defaultCurrency]);
 
   const updateItem = (idx: number, patch: Partial<ReceiptItem>) => {
-    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+    setItems((prev) => {
+      const newItems = [...prev];
+      const current = newItems[idx];
+      const updated = { ...current, ...patch };
+      
+      // Auto-fill exchange rate if currencies are changed and live rates are available
+      if (patch.currency !== undefined || patch.service_currency !== undefined) {
+        if (updated.currency && updated.service_currency && updated.currency !== updated.service_currency && window.__liveRates) {
+          if (updated.currency === 'ARS' && updated.service_currency === 'USD') {
+            const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
+            if (rate?.venta) updated.exchange_rate = rate.venta;
+          } else if (updated.currency === 'USD' && updated.service_currency === 'ARS') {
+            const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
+            if (rate?.compra) updated.exchange_rate = rate.compra;
+          }
+        }
+      }
+      
+      newItems[idx] = updated;
+      return newItems;
+    });
   };
 
   const removeItem = (idx: number) => {
@@ -67,6 +102,19 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
           <DialogTitle>Nuevo recibo</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4">
+          {fileDebts && Object.keys(fileDebts).length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/20 p-3 text-sm dark:border-amber-900/30 dark:bg-amber-950/10">
+              <span className="font-semibold text-amber-700 dark:text-amber-500 block mb-0.5">Saldo pendiente del expediente:</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {Object.entries(fileDebts).map(([cur, amt]) => (
+                  <span key={cur} className="font-mono font-bold text-amber-800 dark:text-amber-400">
+                    {cur} {amt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {passengers && passengers.length > 0 && (
             <div>
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Pasajero del Expediente</label>
@@ -130,7 +178,6 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
                       <label className="mb-1 block text-xs font-medium">Monto *</label>
                       <Input
                         type="number"
-                        min={0}
                         step="0.01"
                         value={item.amount}
                         onChange={(e) => updateItem(idx, { amount: Number(e.target.value) })}

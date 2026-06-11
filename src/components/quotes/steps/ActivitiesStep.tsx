@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { SupplierSelect } from '@/components/quotes/SupplierSelect';
 import { Plus, Trash2 } from 'lucide-react';
+import { OperativeFields } from '@/components/shared/OperativeFields';
 
 interface ActivitiesStepProps {
   quote: Quote;
@@ -51,7 +52,13 @@ export function ActivitiesStep({ quote, onUpdate }: ActivitiesStepProps) {
                   Incluida en el paquete
                 </label>
               </div>
-              <div className="md:col-span-2"><SupplierSelect value={activity.supplier} onChange={(val) => updateActivity(activity.id, { supplier: val })} /></div>
+              <div className="md:col-span-2">
+                <OperativeFields 
+                  data={activity} 
+                  onChange={(updates) => updateActivity(activity.id, updates)} 
+                  currency={quote.trip.currency} 
+                />
+              </div>
               <div><Label>Costo neto ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={activity.cost || ''} onChange={(e) => updateActivity(activity.id, { cost: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
               <div><Label>Precio venta ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={activity.price || ''} onChange={(e) => updateActivity(activity.id, { price: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
               <div className="md:col-span-2"><Label>Notas</Label><Textarea value={activity.notes} onChange={(e) => updateActivity(activity.id, { notes: e.target.value })} placeholder="Incluye almuerzo, traslados..." rows={2} /></div>

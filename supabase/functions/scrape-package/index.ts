@@ -134,11 +134,11 @@ serve(async (req) => {
     }
 
     // ── Rate limiting ──────────────────────────────────────────
-    // Máximo 10 scrapes por usuario por hora.
-    // Firecrawl cobra por request — esto protege contra abuso.
+    // Máximo 100 scrapes por usuario por hora.
+    // Al usar fetch nativo en lugar de Firecrawl, el costo es menor, pero evitamos abusos a la IA.
     const rl = await checkRateLimit(supabase, user.id, {
       action:        "scrape_package",
-      maxRequests:   10,
+      maxRequests:   100,
       windowMinutes: 60,
     });
 
@@ -159,21 +159,7 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Scrape with Firecrawl
-    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!FIRECRAWL_API_KEY) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "El conector de Firecrawl no está configurado",
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
+    // Step 1: Scrape with native fetch
     let formattedUrl = url.trim();
     if (
       !formattedUrl.startsWith("http://") &&
@@ -184,28 +170,53 @@ serve(async (req) => {
 
     console.log("Scraping URL:", formattedUrl);
 
-    const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: formattedUrl,
-        formats: ["markdown"],
-        onlyMainContent: true,
-        waitFor: 3000,
-      }),
-    });
+    let markdown = "";
+    let pageTitle = "";
 
-    const scrapeData = await scrapeResponse.json();
+    try {
+      const scrapeResponse = await fetch(formattedUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+      });
 
-    if (!scrapeResponse.ok || !scrapeData.success) {
-      console.error("Firecrawl error: status", scrapeResponse.status);
+      if (!scrapeResponse.ok) {
+        console.error("Fetch error: status", scrapeResponse.status);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `No se pudo acceder a la página (Error ${scrapeResponse.status}). Verificá la URL.`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const html = await scrapeResponse.text();
+      
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      pageTitle = titleMatch ? titleMatch[1].trim() : "Página sin título";
+
+      // Limpiar scripts, styles y tags HTML para dejar solo texto
+      markdown = html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
+        .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, " ")
+        .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    } catch (err) {
+      console.error("Fetch exception:", err);
       return new Response(
         JSON.stringify({
           success: false,
-          error: "No se pudo acceder a la página. Verificá la URL.",
+          error: "Error de red al intentar acceder a la página. Es posible que el sitio esté bloqueando el acceso automático.",
         }),
         {
           status: 400,
@@ -213,11 +224,6 @@ serve(async (req) => {
         }
       );
     }
-
-    const markdown =
-      scrapeData.data?.markdown || scrapeData.markdown || "";
-    const pageTitle =
-      scrapeData.data?.metadata?.title || scrapeData.metadata?.title || "";
 
     if (!markdown || markdown.length < 50) {
       return new Response(
@@ -238,13 +244,15 @@ serve(async (req) => {
       markdown.length
     );
 
-    // Step 2: Extract structured data with Gemini AI
+    // Step 2: Extract structured data with AI (OpenRouter or Gemini)
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
+
+    if (!OPENROUTER_API_KEY && !GEMINI_API_KEY) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "GEMINI_API_KEY no está configurada",
+          error: "No hay clave de IA configurada (OPENROUTER_API_KEY o GEMINI_API_KEY)",
         }),
         {
           status: 500,
@@ -255,7 +263,7 @@ serve(async (req) => {
 
     const systemPrompt = `Sos un experto en turismo que analiza páginas web de mayoristas de viajes para extraer información estructurada de paquetes turísticos.
 
-Tu tarea es analizar el contenido de una página web y extraer todos los datos del paquete de viaje usando la herramienta proporcionada.
+Tu tarea es analizar el contenido de una página web y extraer todos los datos del paquete de viaje.
 
 Reglas importantes:
 - Extraé TODOS los datos que puedas encontrar. Si algo no está claro, dejalo vacío.
@@ -272,7 +280,25 @@ Reglas importantes:
   - Cualquier texto que indique que hay que sumar algo al precio publicado
 - Si el precio dice "por persona", el basePrice debe ser POR PERSONA.
 - Si hay múltiples opciones de habitación/categoría, elegí la más común o la primera que aparezca.
-- En observations, poné cualquier información relevante que no encaje en los campos estructurados.`;
+- En observations, poné cualquier información relevante que no encaje en los campos estructurados.
+MUY IMPORTANTE: Devolvé ÚNICAMENTE un objeto JSON válido con la siguiente estructura, sin nada más:
+{
+  "destination": "string",
+  "startDate": "YYYY-MM-DD",
+  "endDate": "YYYY-MM-DD",
+  "travelers": 2,
+  "currency": "USD",
+  "coverTitle": "string",
+  "coverSubtitle": "string",
+  "flights": [{ "origin": "string", "destination": "string", "date": "YYYY-MM-DD", "departureTime": "HH:MM", "arrivalTime": "HH:MM", "airline": "string", "flightNumber": "string", "luggage": "string", "notes": "string", "cost": 0 }],
+  "lodgings": [{ "name": "string", "category": "string", "address": "string", "checkIn": "YYYY-MM-DD", "checkOut": "YYYY-MM-DD", "regime": "string", "roomType": "string", "nights": 0, "notes": "string", "costPerNight": 0, "destination": "string" }],
+  "transfers": [{ "type": "string", "description": "string", "dateTime": "string", "included": true, "cost": 0 }],
+  "activities": [{ "name": "string", "description": "string", "date": "string", "time": "string", "duration": "string", "location": "string", "included": true, "cost": 0, "notes": "string" }],
+  "insurance": { "company": "string", "plan": "string", "coverage": "string", "notes": "string", "cost": 0 },
+  "basePrice": 0,
+  "surcharges": [{ "type": "percentage", "label": "string", "value": 0 }],
+  "observations": "string"
+}`;
 
     const extractionPrompt = `Analizá el siguiente contenido de una página web de un mayorista de turismo y extraé toda la información del paquete de viaje.
 
@@ -281,245 +307,75 @@ Título de la página: ${pageTitle}
 Contenido:
 ${markdown.substring(0, 15000)}`;
 
-    const aiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GEMINI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemini-1.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: extractionPrompt },
-          ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "extract_package",
-                description:
-                  "Extrae los datos estructurados del paquete turístico desde la página web",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    destination: {
-                      type: "string",
-                      description: "Destino principal del viaje",
-                    },
-                    startDate: {
-                      type: "string",
-                      description: "Fecha de inicio (YYYY-MM-DD)",
-                    },
-                    endDate: {
-                      type: "string",
-                      description: "Fecha de fin (YYYY-MM-DD)",
-                    },
-                    travelers: {
-                      type: "number",
-                      description:
-                        "Cantidad de viajeros base del paquete (default 2)",
-                    },
-                    currency: {
-                      type: "string",
-                      description: "Moneda del precio (USD, ARS, EUR, etc.)",
-                    },
-                    coverTitle: {
-                      type: "string",
-                      description:
-                        "Título sugerido para la portada del presupuesto",
-                    },
-                    coverSubtitle: {
-                      type: "string",
-                      description: "Subtítulo sugerido para la portada",
-                    },
-                    flights: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          origin: { type: "string" },
-                          destination: { type: "string" },
-                          date: {
-                            type: "string",
-                            description: "YYYY-MM-DD",
-                          },
-                          departureTime: {
-                            type: "string",
-                            description: "HH:MM",
-                          },
-                          arrivalTime: {
-                            type: "string",
-                            description: "HH:MM",
-                          },
-                          airline: { type: "string" },
-                          flightNumber: { type: "string" },
-                          luggage: {
-                            type: "string",
-                            description: "Detalle de equipaje incluido",
-                          },
-                          notes: { type: "string" },
-                          cost: {
-                            type: "number",
-                            description: "Costo del vuelo si está detallado",
-                          },
-                        },
-                        required: ["origin", "destination"],
-                        additionalProperties: false,
-                      },
-                    },
-                    lodgings: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          name: { type: "string" },
-                          category: {
-                            type: "string",
-                            description: "Ej: 4 estrellas, 5 estrellas",
-                          },
-                          address: { type: "string" },
-                          checkIn: {
-                            type: "string",
-                            description: "YYYY-MM-DD",
-                          },
-                          checkOut: {
-                            type: "string",
-                            description: "YYYY-MM-DD",
-                          },
-                          regime: {
-                            type: "string",
-                            description:
-                              "Ej: Desayuno, Media pensión, All Inclusive",
-                          },
-                          roomType: {
-                            type: "string",
-                            description: "Ej: Doble, Triple, Suite",
-                          },
-                          nights: { type: "number" },
-                          notes: { type: "string" },
-                          costPerNight: { type: "number" },
-                          destination: {
-                            type: "string",
-                            description: "Ciudad/destino del alojamiento",
-                          },
-                        },
-                        required: ["name"],
-                        additionalProperties: false,
-                      },
-                    },
-                    transfers: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          type: {
-                            type: "string",
-                            description:
-                              "Ej: Aeropuerto-Hotel, Hotel-Aeropuerto",
-                          },
-                          description: { type: "string" },
-                          dateTime: { type: "string" },
-                          included: { type: "boolean" },
-                          cost: { type: "number" },
-                        },
-                        required: ["type", "description"],
-                        additionalProperties: false,
-                      },
-                    },
-                    activities: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          name: { type: "string" },
-                          description: { type: "string" },
-                          date: { type: "string" },
-                          time: { type: "string" },
-                          duration: { type: "string" },
-                          location: { type: "string" },
-                          included: { type: "boolean" },
-                          cost: { type: "number" },
-                          notes: { type: "string" },
-                        },
-                        required: ["name"],
-                        additionalProperties: false,
-                      },
-                    },
-                    insurance: {
-                      type: "object",
-                      properties: {
-                        company: { type: "string" },
-                        plan: { type: "string" },
-                        coverage: { type: "string" },
-                        notes: { type: "string" },
-                        cost: { type: "number" },
-                      },
-                      additionalProperties: false,
-                    },
-                    basePrice: {
-                      type: "number",
-                      description:
-                        "Precio base publicado por el mayorista (sin recargos adicionales)",
-                    },
-                    surcharges: {
-                      type: "array",
-                      description:
-                        "Recargos, impuestos, tasas o fees que se deben agregar al precio base. MUY IMPORTANTE: buscá cualquier mención de porcentajes o montos adicionales.",
-                      items: {
-                        type: "object",
-                        properties: {
-                          type: {
-                            type: "string",
-                            enum: [
-                              "percentage",
-                              "fixed_total",
-                              "fixed_per_person",
-                            ],
-                            description:
-                              "percentage: porcentaje sobre precio base. fixed_total: monto fijo total. fixed_per_person: monto fijo por pasajero.",
-                          },
-                          label: {
-                            type: "string",
-                            description:
-                              "Nombre del recargo (ej: Gastos administrativos, IVA, Impuesto PAIS)",
-                          },
-                          value: {
-                            type: "number",
-                            description:
-                              "Valor numérico (porcentaje sin %, o monto fijo)",
-                          },
-                        },
-                        required: ["type", "label", "value"],
-                        additionalProperties: false,
-                      },
-                    },
-                    observations: {
-                      type: "string",
-                      description:
-                        "Información adicional relevante (condiciones, restricciones, notas del mayorista)",
-                    },
-                  },
-                  required: [
-                    "destination",
-                    "basePrice",
-                    "surcharges",
-                    "currency",
-                  ],
-                  additionalProperties: false,
-                },
-              },
-            },
-          ],
-          tool_choice: {
-            type: "function",
-            function: { name: "extract_package" },
+    let aiResponse: Response;
+
+    if (OPENROUTER_API_KEY) {
+      // ── OpenRouter con retry y múltiples modelos free ──
+      const freeModels = [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "qwen/qwen3-coder:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+      ];
+
+      let lastResponse: Response | null = null;
+
+      for (const model of freeModels) {
+        console.log(`Trying OpenRouter model: ${model}`);
+        const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "HTTP-Referer": "https://axontur.com",
+            "X-Title": "AxonTur Presupuestos",
           },
-        }),
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: extractionPrompt },
+            ],
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (resp.ok) {
+          lastResponse = resp;
+          console.log(`Success with model: ${model}`);
+          break;
+        }
+
+        console.warn(`Model ${model} returned ${resp.status}, trying next...`);
+        lastResponse = resp;
+
+        if (resp.status === 429) {
+          // Wait 2 seconds before trying next model
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+
+        // For non-429 errors, still try next model
+        continue;
       }
-    );
+
+      aiResponse = lastResponse!;
+    } else {
+      // ── Gemini directo (fallback) ──
+      console.log("Using Gemini direct API...");
+      aiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: extractionPrompt }] }],
+            generationConfig: { responseMimeType: "application/json" },
+          }),
+        }
+      );
+    }
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
@@ -549,11 +405,20 @@ ${markdown.substring(0, 15000)}`;
         );
       }
       const errorText = await aiResponse.text();
-      console.error("AI gateway error: status", aiResponse.status);
+      console.error("AI gateway error: status", aiResponse.status, errorText);
+      
+      let parsedError = errorText;
+      try {
+        const jsonErr = JSON.parse(errorText);
+        if (jsonErr.error && jsonErr.error.message) parsedError = jsonErr.error.message;
+      } catch (e) {
+        // use raw text
+      }
+
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Error al procesar la página con IA",
+          error: `Error de IA (${aiResponse.status}): ${typeof parsedError === 'string' ? parsedError.substring(0, 150) : 'Error desconocido'}`,
         }),
         {
           status: 500,
@@ -565,10 +430,16 @@ ${markdown.substring(0, 15000)}`;
     const aiData = await aiResponse.json();
     console.log("AI response received");
 
-    // Extract tool call arguments
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.function.name !== "extract_package") {
-      console.error("No tool call in AI response");
+    // Extract text from response (different format for OpenRouter vs Gemini)
+    let responseText: string | undefined;
+    if (OPENROUTER_API_KEY) {
+      responseText = aiData.choices?.[0]?.message?.content;
+    } else {
+      responseText = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    }
+
+    if (!responseText) {
+      console.error("No text in AI response", JSON.stringify(aiData).substring(0, 500));
       return new Response(
         JSON.stringify({
           success: false,
@@ -584,9 +455,9 @@ ${markdown.substring(0, 15000)}`;
 
     let extracted: ExtractedPackage;
     try {
-      extracted = JSON.parse(toolCall.function.arguments);
+      extracted = JSON.parse(responseText);
     } catch {
-      console.error("Failed to parse tool call arguments");
+      console.error("Failed to parse AI JSON response");
       return new Response(
         JSON.stringify({
           success: false,

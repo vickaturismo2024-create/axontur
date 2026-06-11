@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity, AlertTriangle, ChevronDown, Search, Store, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -144,6 +145,11 @@ export function FileServicesTab({ fileId, currency }: Props) {
   const [form, setForm]           = useState({ ...emptyService, currency });
   const [deleteId, setDeleteId]   = useState<string | null>(null);
 
+  // Supplier CRM search
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [selectedSupplier, setSelectedSupplier] = useState<{ id: string; name: string } | null>(null);
+
   const load = async () => {
     const { data } = await supabase
       .from('file_services')
@@ -161,6 +167,21 @@ export function FileServicesTab({ fileId, currency }: Props) {
   };
 
   useEffect(() => { load(); }, [fileId]);
+
+  // Load suppliers for CRM search
+  useEffect(() => {
+    const loadSuppliers = async () => {
+      const { data } = await supabase.from('suppliers').select('id, name').order('name');
+      if (data) setSuppliers(data);
+    };
+    loadSuppliers();
+  }, []);
+
+  const filteredSuppliers = useMemo(() => {
+    const q = supplierSearch.toLowerCase().trim();
+    if (!q) return suppliers;
+    return suppliers.filter(s => s.name.toLowerCase().includes(q));
+  }, [suppliers, supplierSearch]);
 
   // helpers
   const getIcon      = (type: string) => { const t = SERVICE_TYPES.find(x => x.value === type); const I = t?.icon || Activity; return <I className="h-5 w-5" />; };
@@ -211,11 +232,15 @@ export function FileServicesTab({ fileId, currency }: Props) {
   const openNew = () => {
     setEditing(null);
     setForm({ ...emptyService, currency });
+    setSupplierSearch('');
+    setSelectedSupplier(null);
     setDialogOpen(true);
   };
 
   const openEdit = (s: ServiceRecord) => {
     setEditing(s);
+    setSupplierSearch(s.supplier_name || '');
+    setSelectedSupplier(s.supplier_id ? { id: s.supplier_id, name: s.supplier_name } : null);
     setForm({
       ...emptyService,
       ...s,
@@ -260,8 +285,8 @@ export function FileServicesTab({ fileId, currency }: Props) {
     const payload = {
       service_type:        form.service_type,
       description:         finalDesc,
-      supplier_name:       form.supplier_name,
-      supplier_id:         form.supplier_id || null,
+      supplier_name:       selectedSupplier ? selectedSupplier.name : supplierSearch.trim(),
+      supplier_id:         selectedSupplier ? selectedSupplier.id : null,
       status:              form.status,
       confirmation_number: form.confirmation_number,
       cost:                Number(form.cost) || 0,
@@ -413,15 +438,70 @@ export function FileServicesTab({ fileId, currency }: Props) {
               />
             </div>
 
-            {/* Proveedor + Confirmación */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700 uppercase">{lbl.supplier}</label>
-                <Input value={form.supplier_name} onChange={e => setForm({ ...form, supplier_name: e.target.value })} className="h-10" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700 uppercase">{lbl.confirmation}</label>
-                <Input value={form.confirmation_number} onChange={e => setForm({ ...form, confirmation_number: e.target.value })} className="h-10" />
+            {/* Proveedor (CRM Search) + Confirmación */}
+            <div className="border p-3.5 rounded-xl bg-slate-50/50 space-y-3">
+              <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Proveedor / Operador</p>
+              
+              {selectedSupplier ? (
+                <div className="flex items-center justify-between p-2 border rounded-lg bg-card text-sm">
+                  <div className="flex items-center gap-2">
+                    <Store className="h-4 w-4 text-primary shrink-0" />
+                    <span className="font-semibold">{selectedSupplier.name}</span>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => { setSelectedSupplier(null); setSupplierSearch(''); }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold">Buscar en CRM</label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar operador..."
+                        value={supplierSearch}
+                        onChange={e => setSupplierSearch(e.target.value)}
+                        className="pl-8 h-9 text-xs bg-card"
+                      />
+                    </div>
+                    {supplierSearch && (
+                      <div className="max-h-[140px] overflow-y-auto border rounded-md bg-card divide-y mt-1 text-xs shadow-sm [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20">
+                        {filteredSuppliers.length === 0 ? (
+                          <p className="p-2 text-center text-muted-foreground">Sin resultados</p>
+                        ) : (
+                          filteredSuppliers.slice(0, 10).map(s => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => { setSelectedSupplier({ id: s.id, name: s.name }); setSupplierSearch(s.name); }}
+                              className="w-full text-left p-2 hover:bg-accent/60 transition-colors flex justify-between items-center"
+                            >
+                              <span>{s.name}</span>
+                              <span className="text-[10px] text-primary">Vincular</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold">Nombre Manual</label>
+                    <Input
+                      placeholder="Escribir nombre..."
+                      value={supplierSearch}
+                      onChange={e => setSupplierSearch(e.target.value)}
+                      className="h-9 text-xs bg-card"
+                      disabled={!!selectedSupplier}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-1">
+                <label className="text-[10px] text-muted-foreground uppercase font-bold">{lbl.confirmation}</label>
+                <Input value={form.confirmation_number} onChange={e => setForm({ ...form, confirmation_number: e.target.value })} className="h-9 text-xs bg-card" placeholder="Código de confirmación / localizador" />
               </div>
             </div>
 
@@ -445,183 +525,121 @@ export function FileServicesTab({ fileId, currency }: Props) {
               )}
             </div>
 
-            {/* ── CAMPOS ESPECÍFICOS POR TIPO DE SERVICIO ── */}
+            {/* ── CAMPOS ESPECÍFICOS POR TIPO DE SERVICIO (UNIFICADOS CON PRESUPUESTOS) ── */}
             {form.service_type === 'flight' && (
-              <div className="border border-border bg-slate-50/50 p-3.5 rounded-lg space-y-3">
-                <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Detalles de Vuelo</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Origen (EZE, MAD)</label>
-                    <Input value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Destino</label>
-                    <Input value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) })} className="h-9" />
-                  </div>
+              <div className="border border-border bg-slate-50/50 p-4 rounded-lg space-y-4">
+                <p className="text-sm font-semibold text-gold tracking-wider">✈️ Detalles de Vuelo</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Origen</Label><Input value={form.origin || ''} onChange={e => setForm({ ...form, origin: e.target.value })} placeholder="Buenos Aires (EZE)" className="h-10" /></div>
+                  <div><Label>Destino</Label><Input value={form.destination || ''} onChange={e => setForm({ ...form, destination: e.target.value })} placeholder="Cancún (CUN)" className="h-10" /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Aerolínea</label>
-                    <Input value={form.airline} onChange={e => setForm({ ...form, airline: e.target.value.toUpperCase() })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Nro Vuelo</label>
-                    <Input value={form.flight_number} onChange={e => setForm({ ...form, flight_number: e.target.value.toUpperCase() })} className="h-9" />
-                  </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Aerolínea</Label><Input value={form.airline || ''} onChange={e => setForm({ ...form, airline: e.target.value })} placeholder="Aeromexico" className="h-10" /></div>
+                  <div><Label>Número de vuelo</Label><Input value={form.flight_number || ''} onChange={e => setForm({ ...form, flight_number: e.target.value })} placeholder="AM456" className="h-10" /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Hora Salida</label>
-                    <Input placeholder="Ej: 14:30" value={form.departure_time} onChange={e => setForm({ ...form, departure_time: e.target.value })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Hora Llegada</label>
-                    <Input placeholder="Ej: 06:15" value={form.arrival_time} onChange={e => setForm({ ...form, arrival_time: e.target.value })} className="h-9" />
-                  </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div><Label>Hora de Salida</Label><Input type="time" value={form.departure_time || ''} onChange={e => setForm({ ...form, departure_time: e.target.value })} className="h-10" /></div>
+                  <div><Label>Hora de Llegada</Label><Input value={form.arrival_time || ''} onChange={e => setForm({ ...form, arrival_time: e.target.value })} placeholder="16:45" className="h-10" /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Cabina / Clase</label>
-                    <Select value={form.cabin_class} onValueChange={v => setForm({ ...form, cabin_class: v })}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <Label>Cabina / Clase</Label>
+                    <Select value={form.cabin_class || 'Economy'} onValueChange={v => setForm({ ...form, cabin_class: v })}>
+                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                       <SelectContent>{CLASES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Equipaje permitido</label>
-                    <Input placeholder="Ej: 1x23kg + Carry-on" value={form.luggage} onChange={e => setForm({ ...form, luggage: e.target.value })} className="h-9" />
+                    <Label>Equipaje permitido</Label>
+                    <Input placeholder="Ej: 1x23kg + Carry-on" value={form.luggage || ''} onChange={e => setForm({ ...form, luggage: e.target.value })} className="h-10" />
                   </div>
                 </div>
               </div>
             )}
 
             {form.service_type === 'lodging' && (
-              <div className="border border-border bg-slate-50/50 p-3.5 rounded-lg space-y-3">
-                <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Detalles de Alojamiento</p>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="border border-border bg-slate-50/50 p-4 rounded-lg space-y-4">
+                <p className="text-sm font-semibold text-gold tracking-wider">🏨 Detalles de Alojamiento</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Tipo de Habitación</label>
-                    <Input placeholder="Ej: Standard Doble, Suite" value={form.room_type} onChange={e => setForm({ ...form, room_type: e.target.value })} className="h-9" />
+                    <Label>Categoría</Label>
+                    <Input placeholder="Ej: 5 estrellas, Boutique" value={form.hotel_category || ''} onChange={e => setForm({ ...form, hotel_category: e.target.value })} className="h-10" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Régimen</label>
-                    <Select value={form.regime} onValueChange={v => setForm({ ...form, regime: v })}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <Label>Tipo de Habitación</Label>
+                    <Input placeholder="Ej: Standard Doble, Suite" value={form.room_type || ''} onChange={e => setForm({ ...form, room_type: e.target.value })} className="h-10" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Régimen</Label>
+                    <Select value={form.regime || 'Sin régimen'} onValueChange={v => setForm({ ...form, regime: v })}>
+                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                       <SelectContent>{REGIMENES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase">Categoría del hotel</label>
-                  <Input placeholder="Ej: 5 estrellas, Boutique" value={form.hotel_category} onChange={e => setForm({ ...form, hotel_category: e.target.value })} className="h-9" />
                 </div>
               </div>
             )}
 
             {form.service_type === 'rental_car' && (
-              <div className="border border-border bg-slate-50/50 p-3.5 rounded-lg space-y-3">
-                <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Detalles de Auto</p>
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase">Compañía Rentadora</label>
-                  <Input placeholder="Ej: Hertz, Avis" value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} className="h-9" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Lugar de Retiro</label>
-                    <Input value={form.pickup_location} onChange={e => setForm({ ...form, pickup_location: e.target.value })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Lugar de Devolución</label>
-                    <Input value={form.dropoff_location} onChange={e => setForm({ ...form, dropoff_location: e.target.value })} className="h-9" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase">Categoría / Tipo de Auto</label>
-                  <Input placeholder="Ej: Mediano Automatico, SUV" value={form.room_type} onChange={e => setForm({ ...form, room_type: e.target.value })} className="h-9" />
+              <div className="border border-border bg-slate-50/50 p-4 rounded-lg space-y-4">
+                <p className="text-sm font-semibold text-gold tracking-wider">🚗 Vehículo de Alquiler</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Compañía</Label><Input value={form.company || ''} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="Ej: Hertz, Avis" className="h-10" /></div>
+                  <div><Label>Categoría / Modelo</Label><Input value={form.hotel_category || ''} onChange={e => setForm({ ...form, hotel_category: e.target.value })} placeholder="Ej: SUV Compacto" className="h-10" /></div>
+                  <div><Label>Retiro</Label><Input value={form.pickup_location || ''} onChange={e => setForm({ ...form, pickup_location: e.target.value })} placeholder="Lugar de retiro" className="h-10" /></div>
+                  <div><Label>Devolución</Label><Input value={form.dropoff_location || ''} onChange={e => setForm({ ...form, dropoff_location: e.target.value })} placeholder="Lugar de devolución" className="h-10" /></div>
                 </div>
               </div>
             )}
 
-            {form.service_type === 'insurance' && (
-              <div className="border border-border bg-slate-50/50 p-3.5 rounded-lg space-y-3">
-                <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Detalles de Asistencia / Seguro</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Plan de Seguro</label>
-                    <Input placeholder="Ej: Gold 150k" value={form.insurance_plan} onChange={e => setForm({ ...form, insurance_plan: e.target.value })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Cobertura</label>
-                    <Input placeholder="Ej: USD 150.000" value={form.coverage} onChange={e => setForm({ ...form, coverage: e.target.value })} className="h-9" />
-                  </div>
+            {form.service_type === 'transfer' && (
+              <div className="border border-border bg-slate-50/50 p-4 rounded-lg space-y-4">
+                <p className="text-sm font-semibold text-gold tracking-wider">🚐 Detalles de Traslado</p>
+                <div className="grid grid-cols-1 gap-4">
+                  <div><Label>Tipo / Descripción adicional</Label><Input value={form.company || ''} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="Ej: Privado, Regular..." className="h-10" /></div>
                 </div>
               </div>
             )}
 
             {form.service_type === 'cruise' && (
-              <div className="border border-border bg-slate-50/50 p-3.5 rounded-lg space-y-3">
-                <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Detalles de Crucero</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Nombre del Barco</label>
-                    <Input value={form.ship_name} onChange={e => setForm({ ...form, ship_name: e.target.value })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Naviera / Compañía</label>
-                    <Input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} className="h-9" />
-                  </div>
+              <div className="border border-border bg-slate-50/50 p-4 rounded-lg space-y-4">
+                <p className="text-sm font-semibold text-gold tracking-wider">🚢 Crucero</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Naviera</Label><Input value={form.company || ''} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="MSC, Royal Caribbean..." className="h-10" /></div>
+                  <div><Label>Barco</Label><Input value={form.ship_name || ''} onChange={e => setForm({ ...form, ship_name: e.target.value })} placeholder="Ej: MSC Bellissima" className="h-10" /></div>
+                  <div><Label>Puerto de Embarque</Label><Input value={form.embarkation_port || ''} onChange={e => setForm({ ...form, embarkation_port: e.target.value })} placeholder="Ej: Miami" className="h-10" /></div>
+                  <div><Label>Puerto de Desembarque</Label><Input value={form.disembarkation_port || ''} onChange={e => setForm({ ...form, disembarkation_port: e.target.value })} placeholder="Ej: Bahamas" className="h-10" /></div>
+                  <div><Label>Tipo Cabina</Label><Input value={form.room_type || ''} onChange={e => setForm({ ...form, room_type: e.target.value })} placeholder="Ej: Balcón, Interior" className="h-10" /></div>
+                  <div><Label>Número Cabina</Label><Input value={form.cabin_number || ''} onChange={e => setForm({ ...form, cabin_number: e.target.value })} placeholder="Ej: 9024" className="h-10" /></div>
+                  <div className="md:col-span-2"><Label>Cubierta / Deck</Label><Input value={form.deck || ''} onChange={e => setForm({ ...form, deck: e.target.value })} placeholder="Ej: Deck 9" className="h-10" /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Nro Cabina</label>
-                    <Input value={form.cabin_number} onChange={e => setForm({ ...form, cabin_number: e.target.value })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Cubierta (Deck)</label>
-                    <Input value={form.deck} onChange={e => setForm({ ...form, deck: e.target.value })} className="h-9" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Puerto de Embarque</label>
-                    <Input value={form.embarkation_port} onChange={e => setForm({ ...form, embarkation_port: e.target.value })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Puerto de Desembarque</label>
-                    <Input value={form.disembarkation_port} onChange={e => setForm({ ...form, disembarkation_port: e.target.value })} className="h-9" />
-                  </div>
+              </div>
+            )}
+
+            {form.service_type === 'insurance' && (
+              <div className="border border-border bg-slate-50/50 p-4 rounded-lg space-y-4">
+                <p className="text-sm font-semibold text-gold tracking-wider">☂️ Seguro / Asistencia</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Compañía</Label><Input value={form.company || ''} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="Ej: Assist Card" className="h-10" /></div>
+                  <div><Label>Plan</Label><Input value={form.insurance_plan || ''} onChange={e => setForm({ ...form, insurance_plan: e.target.value })} placeholder="Ej: Classic" className="h-10" /></div>
+                  <div className="md:col-span-2"><Label>Cobertura Máxima</Label><Input value={form.coverage || ''} onChange={e => setForm({ ...form, coverage: e.target.value })} placeholder="Ej: USD 60.000" className="h-10" /></div>
                 </div>
               </div>
             )}
 
             {(form.service_type === 'train' || form.service_type === 'ferry') && (
-              <div className="border border-border bg-slate-50/50 p-3.5 rounded-lg space-y-3">
-                <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Detalles de {form.service_type === 'train' ? 'Tren' : 'Ferry'}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Compañía Operadora</label>
-                    <Input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">{form.service_type === 'train' ? 'Nro Tren' : 'Nombre Barco'}</label>
-                    <Input value={form.ship_name} onChange={e => setForm({ ...form, ship_name: e.target.value })} className="h-9" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Origen</label>
-                    <Input value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value })} className="h-9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Destino</label>
-                    <Input value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value })} className="h-9" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase">Clase</label>
-                    <Input placeholder="Ej: Standard, VIP" value={form.cabin_class} onChange={e => setForm({ ...form, cabin_class: e.target.value })} className="h-9" />
-                  </div>
+              <div className="border border-border bg-slate-50/50 p-4 rounded-lg space-y-4">
+                <p className="text-sm font-semibold text-gold tracking-wider">{form.service_type === 'train' ? '🚆 Detalles de Tren' : '⛴️ Detalles de Ferry'}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Compañía Operadora</Label><Input value={form.company || ''} onChange={e => setForm({ ...form, company: e.target.value })} className="h-10" /></div>
+                  <div><Label>{form.service_type === 'train' ? 'Nro Tren' : 'Nombre Barco'}</Label><Input value={form.ship_name || ''} onChange={e => setForm({ ...form, ship_name: e.target.value })} className="h-10" /></div>
+                  <div><Label>Origen</Label><Input value={form.origin || ''} onChange={e => setForm({ ...form, origin: e.target.value })} className="h-10" /></div>
+                  <div><Label>Destino</Label><Input value={form.destination || ''} onChange={e => setForm({ ...form, destination: e.target.value })} className="h-10" /></div>
+                  <div><Label>Clase</Label><Input placeholder="Ej: Standard, VIP" value={form.cabin_class || ''} onChange={e => setForm({ ...form, cabin_class: e.target.value })} className="h-10" /></div>
                   <div>
                     <label className="text-[10px] font-semibold text-slate-600 uppercase">Nro Asiento / Cabina</label>
                     <Input value={form.cabin_number} onChange={e => setForm({ ...form, cabin_number: e.target.value })} className="h-9" />

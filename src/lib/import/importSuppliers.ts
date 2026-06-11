@@ -47,12 +47,16 @@ export function parseSuppliers(rows: Record<string, unknown>[]): SupplierImportR
     // DESUSO = "S" significa que está en desuso → is_active = false
     const desuso = toBool(get(r, 'DESUSO', 'desuso'));
 
-    // Notas: combinar campos sin columna directa
+    // Notes: combine address, locality, and detail fields since no dedicated columns
     const noteParts: string[] = [];
     const domOpe = clean(get(r, 'DOM_OPE', 'dom_ope'));
     if (domOpe) noteParts.push(`Dirección: ${domOpe}`);
+    const locOpe = clean(get(r, 'LOC_OPE', 'loc_ope'));
+    if (locOpe) noteParts.push(`Localidad: ${locOpe}`);
     const detalle = clean(get(r, 'DETALLE', 'detalle'));
     if (detalle) noteParts.push(`Detalle: ${detalle}`);
+    const prov = clean(get(r, 'PROVINCIA', 'provincia'));
+    if (prov) noteParts.push(`Provincia: ${prov}`);
 
     return {
       name: clean(get(r, 'NOM_OPE', 'nom_ope')),
@@ -83,15 +87,22 @@ export interface SupplierImportResult {
 
 export async function enrichSuppliers(
   suppliers: SupplierImportRow[],
+  agencyId: string | null,
 ): Promise<SupplierImportRow[]> {
   const existingNames = new Set<string>();
+  const existingCuits = new Set<string>();
   let from = 0;
   const PAGE = 1000;
   while (true) {
-    const { data } = await supabase.from('suppliers').select('name').range(from, from + PAGE - 1);
+    let query = supabase.from('suppliers').select('name, cuit');
+    if (agencyId) {
+      query = query.eq('agency_id', agencyId);
+    }
+    const { data } = await query.range(from, from + PAGE - 1);
     if (!data || data.length === 0) break;
     data.forEach((s: any) => {
       if (s.name) existingNames.add(s.name.toLowerCase().trim());
+      if (s.cuit) existingCuits.add(s.cuit.trim());
     });
     if (data.length < PAGE) break;
     from += PAGE;
@@ -99,7 +110,8 @@ export async function enrichSuppliers(
 
   return suppliers.map(s => ({
     ...s,
-    isDuplicate: existingNames.has(s.name.toLowerCase().trim()),
+    isDuplicate: existingNames.has(s.name.toLowerCase().trim()) ||
+                 (!!s.cuit && existingCuits.has(s.cuit.trim())),
   }));
 }
 

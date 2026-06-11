@@ -98,7 +98,7 @@ const dbToQuote = (row: any): Quote => ({
 // Helper to convert Quote to DB row
 const quoteToDb = (quote: Quote, userId: string) => ({
   id: quote.id,
-  template_id: quote.templateId,
+  template_id: quote.templateId && quote.templateId !== 'default' ? quote.templateId : null,
   client: quote.client,
   trip: quote.trip,
   cover: quote.cover,

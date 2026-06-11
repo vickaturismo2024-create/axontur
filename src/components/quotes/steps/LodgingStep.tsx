@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { SupplierSelect } from '@/components/quotes/SupplierSelect';
 import { OccupancyConfig } from '@/components/quotes/OccupancyConfig';
 import { Plus, Trash2 } from 'lucide-react';
+import { OperativeFields } from '@/components/shared/OperativeFields';
 
 interface LodgingStepProps {
   quote: Quote;
@@ -114,7 +115,11 @@ export function LodgingStep({ quote, onUpdate }: LodgingStepProps) {
                   <Input value={lodging.notes} onChange={(e) => updateLodging(lodging.id!, { notes: e.target.value })} placeholder="Vista al mar..." />
                 </div>
                 <div className="md:col-span-2">
-                  <SupplierSelect value={lodging.supplier} onChange={(val) => updateLodging(lodging.id!, { supplier: val })} />
+                  <OperativeFields 
+                    data={lodging} 
+                    onChange={(updates) => updateLodging(lodging.id!, updates)} 
+                    currency={quote.trip.currency} 
+                  />
                 </div>
 
                 {/* Pricing Mode */}

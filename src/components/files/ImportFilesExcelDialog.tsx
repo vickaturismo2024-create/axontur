@@ -298,10 +298,32 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
             const svcCurrency = s.saleUsd > 0 || s.costUsd > 0 ? 'USD' : 'ARS';
             const price = svcCurrency === 'USD' ? s.saleUsd : s.saleArs;
             const cost = svcCurrency === 'USD' ? s.costUsd : s.costArs;
+            
+            // Infer service type based on operator name keywords
+            let serviceType = 'other';
+            const opNorm = (s.operatorName || '').toLowerCase();
+            if (opNorm.includes('aereo') || opNorm.includes('vuelo') || opNorm.includes('airline') || opNorm.includes('latam') || opNorm.includes('aerolineas') || opNorm.includes('iberia') || opNorm.includes('american')) {
+              serviceType = 'flight';
+            } else if (opNorm.includes('hotel') || opNorm.includes('alojamiento') || opNorm.includes('hostel') || opNorm.includes('resort') || opNorm.includes('sheraton') || opNorm.includes('marriott') || opNorm.includes('terrestre')) {
+              serviceType = 'lodging';
+            } else if (opNorm.includes('traslado') || opNorm.includes('transfer') || opNorm.includes('shuttle')) {
+              serviceType = 'transfer';
+            } else if (opNorm.includes('asistencia') || opNorm.includes('seguro') || opNorm.includes('assist') || opNorm.includes('universal assistance') || opNorm.includes('assist card')) {
+              serviceType = 'insurance';
+            } else if (opNorm.includes('crucero') || opNorm.includes('cruise') || opNorm.includes('royal caribbean') || opNorm.includes('msc')) {
+              serviceType = 'cruise';
+            } else if (opNorm.includes('tren') || opNorm.includes('train') || opNorm.includes('renfe') || opNorm.includes('amtrak')) {
+              serviceType = 'train';
+            } else if (opNorm.includes('ferry') || opNorm.includes('barco') || opNorm.includes('buquebus') || opNorm.includes('colonia express')) {
+              serviceType = 'ferry';
+            } else if (opNorm.includes('auto') || opNorm.includes('car') || opNorm.includes('rent') || opNorm.includes('hertz') || opNorm.includes('avis') || opNorm.includes('localiza')) {
+              serviceType = 'rental_car';
+            }
+
             return {
               user_id: user.id,
               file_id: fileId,
-              service_type: 'other',
+              service_type: serviceType,
               description: s.operatorName || 'Servicio',
               supplier_name: s.operatorName || '',
               currency: svcCurrency,

@@ -53,6 +53,28 @@ interface LegacyService {
   cost: number;
   price: number;
   currency: 'USD' | 'ARS';
+  origin?: string | null;
+  destination?: string | null;
+  airline?: string | null;
+  flightNumber?: string | null;
+  cabinClass?: string | null;
+  regime?: string | null;
+  roomType?: string | null;
+  pickupLocation?: string | null;
+  dropoffLocation?: string | null;
+  company?: string | null;
+  departureTime?: string | null;
+  arrivalTime?: string | null;
+  luggage?: string | null;
+  luggageType?: string | null;
+  hotelCategory?: string | null;
+  shipName?: string | null;
+  embarkationPort?: string | null;
+  disembarkationPort?: string | null;
+  deck?: string | null;
+  cabinNumber?: string | null;
+  coverage?: string | null;
+  insurancePlan?: string | null;
 }
 
 interface LegacyReceipt {
@@ -92,7 +114,9 @@ const LEGACY_NOTE_PREFIX = 'Importado del sistema antiguo';
 // Local Fallback Parser using Regex
 function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
   console.log('[Local Parser] Running regex fallback parser...');
-  const text = rawText.replace(/[\r\n]+/g, ' ');
+  // Preserve line structure for section splitting - only normalize CRLF
+  const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const flatText = text.replace(/\n+/g, ' '); // flattened version for single-line patterns
 
   const parseDateStr = (dStr: string | null) => {
     if (!dStr) return null;
@@ -105,34 +129,39 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
 
   // 1. Reserva N°
   let legacyId = 'S/N';
-  const legacyIdMatch = text.match(/Reserva\s+N[°ºo\.\s]*(\d+)/i) || 
-                        text.match(/(\d+)\s+Tel\.\s+Emision/i) || 
-                        text.match(/^\s*(\d+)/);
+  const legacyIdMatch = flatText.match(/Reserva\s+N[°ºo\.\s]*(\d+)/i) || 
+                        flatText.match(/(\d+)\s+Tel\.\s+Emision/i) || 
+                        flatText.match(/^\s*(\d{3,})/);
   if (legacyIdMatch) {
     legacyId = legacyIdMatch[1];
   }
 
-  // 2. Client Header (Name, Phone, Code, Address)
-  const clientMatch = text.match(/([A-Z\s\-]+?)\s+(\d{10})\s+(\d+)\s+(\d+\s+[A-Z\s\-]+?)\s+\d{1,2}\/\d{1,2}\/\d{2,4}/i);
+  // 2. Client Header - try multiple patterns
   let clientName = 'Cliente Histórico';
   let clientPhone = '';
   let clientLegacyId = '';
   let clientAddress = '';
+  const clientMatch = flatText.match(/([A-Z\s\-]+?)\s+(\d{7,12})\s+(\d+)\s+(\d+\s+[A-Z\s\-]+?)\s+\d{1,2}\/\d{1,2}\/\d{2,4}/i);
   if (clientMatch) {
     clientName = clientMatch[1].trim();
     clientPhone = clientMatch[2].trim();
     clientLegacyId = clientMatch[3].trim();
     clientAddress = clientMatch[4].trim();
+  } else {
+    // Fallback: Cliente N° XXXX followed by name
+    const clientMatch2 = flatText.match(/Cliente\s+N[°ºo\.\s]*(\d+)\s+([A-Z][A-Z\s\-]{3,40})/i);
+    if (clientMatch2) {
+      clientLegacyId = clientMatch2[1].trim();
+      clientName = clientMatch2[2].trim();
+    }
   }
 
   // 3. Dates
-  const emisionMatch = text.match(/Emision\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
-  const travelDatesMatch = text.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+Solicitud\s+Salida/i) ||
-                           text.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+Salida\s+Solicitud/i);
+  const travelDatesMatch = flatText.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(?:Solicitud|Salida)/i);
   const startDate = travelDatesMatch ? parseDateStr(travelDatesMatch[2]) : null;
 
   // 4. Vendedor
-  const sellerMatch = text.match(/([A-Z\s]+?)\s+Cliente\s+N[°ºo\.\s]*/i);
+  const sellerMatch = flatText.match(/([A-Z\s]+?)\s+Cliente\s+N[°ºo\.\s]*/i);
   const agent = sellerMatch ? sellerMatch[1].replace(/Solicitud\s+Salida|Salida\s+Solicitud/gi, '').trim() : '';
 
   // 5. Passengers (PAX)
@@ -140,15 +169,16 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
   const paxSectionMatch = text.match(/PAX\s+([\s\S]+?)(?=SERVICIOS|$)/);
   if (paxSectionMatch) {
     const paxSection = paxSectionMatch[1];
-    const paxRegex = /([A-Z\s\-]+?)\s+(ADULTO|MENOR|INFANTE|-)\s*(?:-)?\s*(?:-)?\s*DNI\s*(\d+)\s*(\d{1,2}\/\d{1,2}\/\d{2,4})\s*(\d+)/gi;
+    // More flexible: NAME TYPE [-] [DNI|CI|PASAPORTE] NUMBER [DATE]?
+    const paxRegex = /([A-Z][A-Z\s\-]{3,40}?)\s+(ADULTO|MENOR|INFANTE|-)\s*[-\s]*(?:DNI|CI|PASAPORTE)?\s*(\d{6,12})\s*(\d{1,2}\/\d{1,2}\/\d{2,4})?/gi;
     const paxMatches = [...paxSection.matchAll(paxRegex)];
     for (const m of paxMatches) {
-      let name = m[1].trim().replace(/^PAX\s+/i, '');
+      let name = m[1].trim().replace(/^PAX\s+/i, '').replace(/\s+/g, ' ');
       passengers.push({
         name,
-        type: m[2],
+        type: m[2] || 'ADULTO',
         dni: m[3],
-        birthDate: parseDateStr(m[4])
+        birthDate: parseDateStr(m[4] || null)
       });
     }
   }
@@ -168,7 +198,8 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
     const endIdx = totalIdx !== -1 ? totalIdx : (cobrosIdx !== -1 ? cobrosIdx : servicesText.length);
     servicesText = servicesText.substring(0, endIdx);
 
-    const headerRegex = /([A-Z\.\s\-]+?)\s*:\s*([A-Z\.\s\-\/\(\)\+\*]+?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/gi;
+    // More flexible: SUPPLIER [:|-]? DESCRIPTION DATE DATE (colon optional)
+    const headerRegex = /([A-Z][A-Z\.\s\-&,]{2,40}?)\s*[:\-]?\s*([A-Z][A-Z\.\s\-\/\(\)\+\*,]{2,60}?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/gi;
     const headers = [...servicesText.matchAll(headerRegex)];
 
     for (let i = 0; i < headers.length; i++) {
@@ -183,29 +214,36 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
       const sDate = parseDateStr(curr[3]);
       const eDate = parseDateStr(curr[4]);
 
-      const numbers = remainingText.match(/(\d+[\.\,]\d{2})/g) || remainingText.match(/(\d+)/g);
+      // Extract amounts - handle decimal separators (1.234,56 or 1234.56)
+      const numbers = remainingText.match(/(\d[\d\.\,]*\d)/g) || [];
+      const amounts = numbers.map(n => {
+        const cleaned = n.replace(/\./g, '').replace(/,/g, '.');
+        return parseFloat(cleaned);
+      }).filter(n => Number.isFinite(n) && n > 0);
+      
       let cost = 0;
       let price = 0;
-      if (numbers && numbers.length >= 2) {
-        cost = parseFloat(numbers[0].replace(/,/g, ''));
-        price = parseFloat(numbers[1].replace(/,/g, ''));
-      }
-
-      const descSuffix = remainingText.replace(/(\d+[\.\,]\d{2})/g, '').replace(/(\d+)/g, '').trim().replace(/\s+/g, ' ');
-      if (descSuffix && descSuffix !== 'Pesos' && descSuffix !== 'Dolares' && descSuffix !== '-') {
-        description += ' ' + descSuffix;
+      // Common layout: Costo Iva Importe (or just Costo Importe)
+      if (amounts.length >= 3) {
+        cost = amounts[0];
+        price = amounts[2]; // skip IVA (index 1)
+      } else if (amounts.length >= 2) {
+        cost = amounts[0];
+        price = amounts[1];
+      } else if (amounts.length === 1) {
+        price = amounts[0];
       }
 
       let serviceType = 'other';
       const descNorm = (supplierName + ' ' + description).toLowerCase();
-      if (descNorm.includes('aereo') || descNorm.includes('vuelo')) serviceType = 'flight';
-      else if (descNorm.includes('hotel') || descNorm.includes('alojamiento') || descNorm.includes('terrestre')) serviceType = 'lodging';
-      else if (descNorm.includes('traslado') || descNorm.includes('transfer')) serviceType = 'transfer';
-      else if (descNorm.includes('seguro') || descNorm.includes('asistencia') || descNorm.includes('assist')) serviceType = 'insurance';
-      else if (descNorm.includes('crucero') || descNorm.includes('naviera')) serviceType = 'cruise';
-      else if (descNorm.includes('tren')) serviceType = 'train';
-      else if (descNorm.includes('ferry') || descNorm.includes('barco')) serviceType = 'ferry';
-      else if (descNorm.includes('auto') || descNorm.includes('car')) serviceType = 'rental_car';
+      if (descNorm.includes('aereo') || descNorm.includes('vuelo') || descNorm.includes('airline') || descNorm.includes('air ')) serviceType = 'flight';
+      else if (descNorm.includes('hotel') || descNorm.includes('alojamiento') || descNorm.includes('terrestre') || descNorm.includes('hospedaje')) serviceType = 'lodging';
+      else if (descNorm.includes('traslado') || descNorm.includes('transfer') || descNorm.includes('shuttle')) serviceType = 'transfer';
+      else if (descNorm.includes('seguro') || descNorm.includes('asistencia') || descNorm.includes('assist') || descNorm.includes('universal assist')) serviceType = 'insurance';
+      else if (descNorm.includes('crucero') || descNorm.includes('naviera') || descNorm.includes('cruise') || descNorm.includes('msc')) serviceType = 'cruise';
+      else if (descNorm.includes('tren') || descNorm.includes('train') || descNorm.includes('renfe')) serviceType = 'train';
+      else if (descNorm.includes('ferry') || descNorm.includes('barco') || descNorm.includes('buquebus')) serviceType = 'ferry';
+      else if (descNorm.includes('auto') || descNorm.includes('car') || descNorm.includes('rent') || descNorm.includes('hertz') || descNorm.includes('avis')) serviceType = 'rental_car';
 
       services.push({
         supplierName,
@@ -265,7 +303,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
   }
 
   // Detect main currency
-  const currency = text.includes('U$S') || text.includes('USD') ? 'USD' : 'ARS';
+  const currency = flatText.includes('U$S') || flatText.includes('USD') || flatText.includes('Dolares') ? 'USD' : 'ARS';
 
   return {
     legacyId,
@@ -363,6 +401,36 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
       if (!parsedData || !parsedData.legacyId) {
         parsedData = parseLegacyReservationPDFText(text);
         toast.info('Expediente decodificado con procesador local');
+      } else {
+        // AI returned a legacyId but possibly missing data — merge with local parser
+        const localParsed = parseLegacyReservationPDFText(text);
+        
+        // If AI returned no services, use local ones
+        if (!parsedData.services || parsedData.services.length === 0) {
+          parsedData.services = localParsed.services;
+          console.log('[Merge] Using local parser services:', localParsed.services.length);
+        }
+        // If AI returned no passengers, use local ones
+        if (!parsedData.passengers || parsedData.passengers.length === 0) {
+          parsedData.passengers = localParsed.passengers;
+          console.log('[Merge] Using local parser passengers:', localParsed.passengers.length);
+        }
+        // If AI returned no receipts, use local ones
+        if (!parsedData.receipts || parsedData.receipts.length === 0) {
+          parsedData.receipts = localParsed.receipts;
+          console.log('[Merge] Using local parser receipts:', localParsed.receipts.length);
+        }
+        // If AI returned no payments, use local ones
+        if (!parsedData.payments || parsedData.payments.length === 0) {
+          parsedData.payments = localParsed.payments;
+          console.log('[Merge] Using local parser payments:', localParsed.payments.length);
+        }
+        // Fill missing header fields from local
+        if (!parsedData.agent) parsedData.agent = localParsed.agent;
+        if (!parsedData.clientPhone) parsedData.clientPhone = localParsed.clientPhone;
+        if (!parsedData.clientAddress) parsedData.clientAddress = localParsed.clientAddress;
+        if (!parsedData.startDate) parsedData.startDate = localParsed.startDate;
+        if (!parsedData.endDate) parsedData.endDate = localParsed.endDate;
       }
 
       setReservation(parsedData);
@@ -534,7 +602,29 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
           price: s.price,
           service_date: s.startDate,
           end_date: s.endDate,
-          status: 'confirmed'
+          status: 'confirmed',
+          origin: s.origin || null,
+          destination: s.destination || null,
+          airline: s.airline || null,
+          flight_number: s.flightNumber || null,
+          cabin_class: s.cabinClass || null,
+          regime: s.regime || null,
+          room_type: s.roomType || null,
+          pickup_location: s.pickupLocation || null,
+          dropoff_location: s.dropoffLocation || null,
+          company: s.company || null,
+          departure_time: s.departureTime || null,
+          arrival_time: s.arrivalTime || null,
+          luggage: s.luggage || null,
+          luggage_type: s.luggageType || null,
+          hotel_category: s.hotelCategory || null,
+          ship_name: s.shipName || null,
+          embarkation_port: s.embarkationPort || null,
+          disembarkation_port: s.disembarkationPort || null,
+          deck: s.deck || null,
+          cabin_number: s.cabinNumber || null,
+          coverage: s.coverage || null,
+          insurance_plan: s.insurancePlan || null,
         }));
         const { error: svcErr } = await supabase.from('file_services').insert(serviceRows);
         if (svcErr) throw svcErr;
@@ -554,7 +644,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
             currency: r.currency,
             amount: r.amount,
             notes: `${LEGACY_NOTE_PREFIX} - cobro pasajero`,
-            status: 'confirmed'
+            status: 'paid'
           })
           .select('id')
           .single();

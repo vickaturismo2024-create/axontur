@@ -106,9 +106,10 @@ const CENTENAS = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'Q
 
 function decenaALetras(n: number): string {
   if (n === 0) return '';
+  if (n < 10) return UNIDADES[n];
   if (ESPECIALES[n]) return ESPECIALES[n];
-  if (n < 20) return 'DIEC' + UNIDADES[n - 10].toLowerCase().replace(/^./, (c) => c.toUpperCase()).toUpperCase();
-  if (n < 30) return 'VEINTI' + UNIDADES[n - 20].toLowerCase();
+  if (n < 20) return 'DIECI' + UNIDADES[n - 10];
+  if (n < 30) return 'VEINTI' + UNIDADES[n - 20];
   const dec = Math.floor(n / 10) * 10;
   const uni = n % 10;
   return ESPECIALES[dec] + (uni > 0 ? ' Y ' + UNIDADES[uni] : '');
@@ -392,6 +393,12 @@ function drawReceipt(
     const headerLine2 = [agency.cuit ? `CUIT: ${agency.cuit}` : '', agency.email].filter(Boolean).join('  ·  ');
     if (headerLine1) doc.text(headerLine1, margin + 30, yOffset + 19);
     if (headerLine2) doc.text(headerLine2, margin + 30, yOffset + 23);
+
+    // Disclaimer "no válido como factura"
+    doc.setFontSize(7);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Documento no válido como factura', w - margin - 4, yOffset + 28, { align: 'right' });
   }
 
   // Label de la copia arriba a la derecha
@@ -525,7 +532,15 @@ function drawReceipt(
       const currencyName = getCurrencyName(it.currency);
       const formattedAmount = it.amount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       doc.text(`${currencyName}  ${formattedAmount}`, margin, iy);
-      doc.text(`${getCurrencySymbol(it.currency)}:  ${formattedAmount}`, w - margin, iy, { align: 'right' });
+
+      let rightAmount = it.amount;
+      let rightCurrency = it.currency;
+      if (it.service_currency && it.exchange_rate && it.exchange_rate > 0 && it.service_currency !== it.currency) {
+        rightAmount = it.amount / it.exchange_rate;
+        rightCurrency = it.service_currency;
+      }
+      const formattedRight = rightAmount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      doc.text(`${getCurrencySymbol(rightCurrency)}:  ${formattedRight}`, w - margin, iy, { align: 'right' });
       iy += spacing;
     }
   });

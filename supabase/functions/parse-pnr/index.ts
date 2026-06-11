@@ -106,7 +106,7 @@ Convert city codes to readable names when possible (EZE = Buenos Aires, CUN = Ca
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Parse the following PNR/flight information:\n\n${sanitizedPnr}` }

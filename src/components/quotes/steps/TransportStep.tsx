@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SupplierSelect } from '@/components/quotes/SupplierSelect';
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { OperativeFields } from '@/components/shared/OperativeFields';
 
 interface TransportStepProps {
   quote: Quote;
@@ -103,7 +104,11 @@ export function TransportStep({ quote, onUpdate }: TransportStepProps) {
                     </label>
                   </div>
                   <div className="md:col-span-3">
-                    <SupplierSelect value={transfer.supplier} onChange={(val) => updateTransfer(transfer.id, { supplier: val })} />
+                    <OperativeFields 
+                      data={transfer} 
+                      onChange={(updates) => updateTransfer(transfer.id, updates)} 
+                      currency={quote.trip.currency} 
+                    />
                   </div>
                   <div>
                     <Label>Costo neto ({quote.trip.currency})</Label>
@@ -153,7 +158,13 @@ export function TransportStep({ quote, onUpdate }: TransportStepProps) {
                       Incluido en el paquete
                     </label>
                   </div>
-                  <div className="md:col-span-2"><SupplierSelect value={train.supplier} onChange={(val) => updateTrain(train.id, { supplier: val })} /></div>
+                  <div className="md:col-span-2">
+                    <OperativeFields 
+                      data={train} 
+                      onChange={(updates) => updateTrain(train.id, updates)} 
+                      currency={quote.trip.currency} 
+                    />
+                  </div>
                   <div><Label>Costo neto ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={train.cost || ''} onChange={(e) => updateTrain(train.id, { cost: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
                   <div><Label>Precio venta ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={train.price || ''} onChange={(e) => updateTrain(train.id, { price: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
                 </div>
@@ -193,7 +204,13 @@ export function TransportStep({ quote, onUpdate }: TransportStepProps) {
                       Incluido en el paquete
                     </label>
                   </div>
-                  <div className="md:col-span-2"><SupplierSelect value={ferry.supplier} onChange={(val) => updateFerry(ferry.id, { supplier: val })} /></div>
+                  <div className="md:col-span-2">
+                    <OperativeFields 
+                      data={ferry} 
+                      onChange={(updates) => updateFerry(ferry.id, updates)} 
+                      currency={quote.trip.currency} 
+                    />
+                  </div>
                   <div><Label>Costo neto ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={ferry.cost || ''} onChange={(e) => updateFerry(ferry.id, { cost: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
                   <div><Label>Precio venta ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={ferry.price || ''} onChange={(e) => updateFerry(ferry.id, { price: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
                 </div>
@@ -229,7 +246,13 @@ export function TransportStep({ quote, onUpdate }: TransportStepProps) {
                       Incluido en el paquete
                     </label>
                   </div>
-                  <div className="md:col-span-2"><SupplierSelect value={car.supplier} onChange={(val) => updateRentalCar(car.id, { supplier: val })} /></div>
+                  <div className="md:col-span-2">
+                    <OperativeFields 
+                      data={car} 
+                      onChange={(updates) => updateRentalCar(car.id, updates)} 
+                      currency={quote.trip.currency} 
+                    />
+                  </div>
                   <div><Label>Costo neto ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={car.cost || ''} onChange={(e) => updateRentalCar(car.id, { cost: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
                   <div><Label>Precio venta ({quote.trip.currency})</Label><Input type="number" min={0} step="0.01" value={car.price || ''} onChange={(e) => updateRentalCar(car.id, { price: parseFloat(e.target.value) || undefined })} placeholder="0.00" /></div>
                 </div>

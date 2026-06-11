@@ -1,13 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 
 import { ServiceRecord, SupplierPayment, CatalogSupplier, METHODS } from './suppliers/types';
 import { SupplierCard } from './suppliers/SupplierCard';
 import { SupplierPaymentDialog } from './suppliers/SupplierPaymentDialog';
+import { SupplierPaymentDetailDialog } from './suppliers/SupplierPaymentDetailDialog';
 
 interface Props { fileId: string; currency: string; }
 
@@ -26,6 +30,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
   const [comboOpen, setComboOpen] = useState(false);
   
   const [editingPayment, setEditingPayment] = useState<SupplierPayment | null>(null);
+  const [detailPayment, setDetailPayment] = useState<SupplierPayment | null>(null);
 
   const load = async () => {
     if (!user) return;
@@ -53,13 +58,55 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     return Array.from(map.values());
   }, [services]);
 
-  const getSupplierPayments = (name: string) => payments.filter(p => p.supplier_name === name);
+  const getSupplierPayments = (supName: string, supId: string | null) => {
+    return payments.filter(p => {
+      if (supId && p.supplier_id && p.supplier_id === supId) {
+        return true;
+      }
+      if (p.supplier_id) {
+        const matched = catalog.find(c => c.id === p.supplier_id);
+        if (matched && matched.name.trim().toLowerCase() === supName.trim().toLowerCase()) {
+          return true;
+        }
+      }
+      const pName = (p.supplier_name || '').trim().toLowerCase();
+      const sName = (supName || '').trim().toLowerCase();
+      if (pName === sName) {
+        return true;
+      }
+      if (p.supplier_id) {
+        const linked = catalog.find(c => c.id === p.supplier_id);
+        if (linked && linked.name.trim().toLowerCase() === sName) {
+          return true;
+        }
+      }
+      return false;
+    });
+  };
 
-  const getSupplierPaid = (name: string) => {
+  const getSupplierPaid = (supName: string, supId: string | null) => {
     const paid: Record<string, number> = {};
-    getSupplierPayments(name).forEach(p => { paid[p.currency] = (paid[p.currency] || 0) + p.amount; });
+    getSupplierPayments(supName, supId).forEach(p => { paid[p.currency] = (paid[p.currency] || 0) + p.amount; });
     return paid;
   };
+
+  const orphanedPayments = useMemo(() => {
+    return payments.filter(p => {
+      return !suppliers.some(sup => {
+        if (sup.id && p.supplier_id && p.supplier_id === sup.id) return true;
+        if (p.supplier_id) {
+          const matched = catalog.find(c => c.id === p.supplier_id);
+          if (matched && matched.name.trim().toLowerCase() === sup.name.trim().toLowerCase()) return true;
+        }
+        if ((p.supplier_name || '').trim().toLowerCase() === (sup.name || '').trim().toLowerCase()) return true;
+        if (p.supplier_id) {
+          const linked = catalog.find(c => c.id === p.supplier_id);
+          if (linked && linked.name.trim().toLowerCase() === (sup.name || '').trim().toLowerCase()) return true;
+        }
+        return false;
+      });
+    });
+  }, [payments, suppliers, catalog]);
 
   const findCatalogMatch = (name: string): CatalogSupplier | null => {
     const norm = name.trim().toLowerCase();
@@ -187,11 +234,12 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
             <SupplierCard
               key={sup.name}
               supplier={sup}
-              paid={getSupplierPaid(sup.name)}
-              payments={getSupplierPayments(sup.name)}
+              paid={getSupplierPaid(sup.name, sup.id)}
+              payments={getSupplierPayments(sup.name, sup.id)}
               catalog={catalog}
               onOpenPayment={openPayment}
               onOpenEdit={openEdit}
+              onOpenDetail={setDetailPayment}
               onDelete={setDeleteId}
               getMethodLabel={getMethodLabel}
               formatMoney={formatMoney}
@@ -216,7 +264,48 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
         setComboOpen={setComboOpen}
         onSave={handleSave}
         defaultCurrency={currency}
+        supplierCosts={selectedSupplier ? (suppliers.find(s => s.name === selectedSupplier.name)?.costs || {}) : {}}
+        supplierPaid={selectedSupplier ? getSupplierPaid(selectedSupplier.name, selectedSupplier.id) : {}}
       />
+
+      <SupplierPaymentDetailDialog
+        payment={detailPayment}
+        onOpenChange={(open) => !open && setDetailPayment(null)}
+        catalog={catalog}
+        getMethodLabel={getMethodLabel}
+      />
+
+      {orphanedPayments.length > 0 && (
+        <div className="mt-6 space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Otros pagos en este expediente</h4>
+          <Card className="border-amber-200/60 bg-amber-50/5">
+            <CardContent className="p-3 sm:p-4 space-y-2">
+              {orphanedPayments.map(p => (
+                <div key={p.id} className="flex items-start justify-between gap-2 rounded bg-muted/50 px-3 py-2 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
+                      <span className="font-semibold text-amber-600 dark:text-amber-500">{p.supplier_name}</span>
+                      <span className="font-medium">{p.currency} {p.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span className="text-xs text-muted-foreground">{new Date(p.payment_date).toLocaleDateString('es-AR')} · {getMethodLabel(p.payment_method)}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => setDetailPayment(p)} title="Ver detalle">
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => openEdit(p)} title="Editar pago">
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => setDeleteId(p.id)} title="Eliminar pago">
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

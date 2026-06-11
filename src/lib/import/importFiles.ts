@@ -4,8 +4,12 @@ import { ParsedLegacyReservation, buildLegacyNotes } from '@/lib/reservationExce
 const LEGACY_NOTE_PREFIX = 'Importado del sistema antiguo';
 
 const detectCurrency = (r: ParsedLegacyReservation): string => {
-  if (r.totals.saleUsd > 0 || r.totals.costUsd > 0) return 'USD';
-  if (r.totals.saleArs > 0 || r.totals.costArs > 0) return 'ARS';
+  // Primary currency based on which total is larger
+  const usdTotal = r.totals.saleUsd + r.totals.costUsd;
+  const arsTotal = r.totals.saleArs + r.totals.costArs;
+  if (usdTotal > 0 && arsTotal > 0) return usdTotal >= arsTotal ? 'USD' : 'ARS';
+  if (usdTotal > 0) return 'USD';
+  if (arsTotal > 0) return 'ARS';
   return 'USD';
 };
 
@@ -128,28 +132,68 @@ export async function insertFiles(
 
       // Services
       const servicesToInsert = r.services.filter(s => s.operatorName || s.saleArs || s.costArs || s.saleUsd || s.costUsd).map(s => {
-        const svcCurrency = s.saleUsd > 0 || s.costUsd > 0 ? 'USD' : 'ARS';
+        // Determine per-service currency: prefer USD if has USD amounts, else ARS
+        const hasUsd = (s.saleUsd || 0) > 0 || (s.costUsd || 0) > 0;
+        const hasArs = (s.saleArs || 0) > 0 || (s.costArs || 0) > 0;
+        const svcCurrency = hasUsd ? 'USD' : 'ARS';
+        
+        // Infer service type based on operator name keywords
+        let serviceType = 'other';
+        const opNorm = (s.operatorName || '').toLowerCase();
+        if (opNorm.includes('aereo') || opNorm.includes('vuelo') || opNorm.includes('airline') || opNorm.includes('latam') || opNorm.includes('aerolineas') || opNorm.includes('iberia') || opNorm.includes('american') || opNorm.includes('gol') || opNorm.includes('avianca') || opNorm.includes('copa')) {
+          serviceType = 'flight';
+        } else if (opNorm.includes('hotel') || opNorm.includes('alojamiento') || opNorm.includes('hostel') || opNorm.includes('resort') || opNorm.includes('sheraton') || opNorm.includes('marriott') || opNorm.includes('terrestre') || opNorm.includes('hospedaje') || opNorm.includes('apart') || opNorm.includes('posada')) {
+          serviceType = 'lodging';
+        } else if (opNorm.includes('traslado') || opNorm.includes('transfer') || opNorm.includes('shuttle') || opNorm.includes('taxi')) {
+          serviceType = 'transfer';
+        } else if (opNorm.includes('asistencia') || opNorm.includes('seguro') || opNorm.includes('assist') || opNorm.includes('universal assistance') || opNorm.includes('assist card') || opNorm.includes('coris')) {
+          serviceType = 'insurance';
+        } else if (opNorm.includes('crucero') || opNorm.includes('cruise') || opNorm.includes('royal caribbean') || opNorm.includes('msc') || opNorm.includes('costa crucer')) {
+          serviceType = 'cruise';
+        } else if (opNorm.includes('tren') || opNorm.includes('train') || opNorm.includes('renfe') || opNorm.includes('amtrak') || opNorm.includes('eurostar')) {
+          serviceType = 'train';
+        } else if (opNorm.includes('ferry') || opNorm.includes('barco') || opNorm.includes('buquebus') || opNorm.includes('colonia express') || opNorm.includes('gnv')) {
+          serviceType = 'ferry';
+        } else if (opNorm.includes('auto') || opNorm.includes('car') || opNorm.includes('rent') || opNorm.includes('hertz') || opNorm.includes('avis') || opNorm.includes('localiza') || opNorm.includes('alamo')) {
+          serviceType = 'rental_car';
+        }
+
+        // Build descriptive text based on type
+        const typeLabel: Record<string, string> = {
+          flight: 'Aéreos', lodging: 'Alojamiento', transfer: 'Traslados',
+          insurance: 'Asistencia al viajero', cruise: 'Crucero', train: 'Tren',
+          ferry: 'Ferry', rental_car: 'Alquiler de auto', other: 'Servicios',
+          activity: 'Actividad'
+        };
+        const descText = typeLabel[serviceType] || 'Servicios';
+
         return {
           user_id: userId,
           agency_id: agencyId,
           file_id: fileId,
-          service_type: 'other',
-          description: s.operatorName || 'Servicio',
+          service_type: serviceType,
+          description: descText,
           supplier_name: s.operatorName || '',
           currency: svcCurrency,
-          price: svcCurrency === 'USD' ? s.saleUsd : s.saleArs,
-          cost: svcCurrency === 'USD' ? s.costUsd : s.costArs,
+          price: svcCurrency === 'USD' ? (s.saleUsd || 0) : (s.saleArs || 0),
+          cost: svcCurrency === 'USD' ? (s.costUsd || 0) : (s.costArs || 0),
           status: 'confirmed' as const,
         };
       });
       if (servicesToInsert.length) await supabase.from('file_services').insert(servicesToInsert);
 
-      // Receipts
-      const receiptsArs = r.services.reduce((a, s) => a + s.receivedArs, 0);
-      const receiptsUsd = r.services.reduce((a, s) => a + s.receivedUsd, 0);
+      // Receipts - create per-service items for better detail
+      const receiptItems: { currency: 'ARS' | 'USD'; amount: number; serviceName: string }[] = [];
+      for (const s of r.services) {
+        if ((s.receivedArs || 0) > 0) receiptItems.push({ currency: 'ARS', amount: s.receivedArs, serviceName: s.operatorName || 'Servicio' });
+        if ((s.receivedUsd || 0) > 0) receiptItems.push({ currency: 'USD', amount: s.receivedUsd, serviceName: s.operatorName || 'Servicio' });
+      }
+      // Group by currency for header
+      const arsTotal = receiptItems.filter(it => it.currency === 'ARS').reduce((a, it) => a + it.amount, 0);
+      const usdTotal = receiptItems.filter(it => it.currency === 'USD').reduce((a, it) => a + it.amount, 0);
       const items: { currency: 'ARS' | 'USD'; amount: number }[] = [];
-      if (receiptsArs > 0) items.push({ currency: 'ARS', amount: receiptsArs });
-      if (receiptsUsd > 0) items.push({ currency: 'USD', amount: receiptsUsd });
+      if (arsTotal > 0) items.push({ currency: 'ARS', amount: arsTotal });
+      if (usdTotal > 0) items.push({ currency: 'USD', amount: usdTotal });
 
       if (items.length) {
         const headerCurrency = items.find(it => it.currency === currency)?.currency || items[0].currency;

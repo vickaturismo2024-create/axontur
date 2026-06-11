@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Header } from '@/components/layout/Header';
 import { toast } from 'sonner';
-import { parsePNR, ParsedPassenger, ParsedSegment, mapSegmentsToFlights } from '@/lib/pnrParser';
+import { parsePNR, ParsedPassenger, ParsedSegment, mapSegmentsToFlights, postProcessParsedFlights } from '@/lib/pnrParser';
 import { extractTextFromPDF } from '@/lib/pdfTextExtractor';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -254,12 +254,13 @@ export default function ReservationImport() {
       }
 
       // Map parsed flights to ParsedSegment format
-      const mappedSegments: EditableSegment[] = (apiData.flights || []).map((f: any, i: number) => {
+      const processedFlights = postProcessParsedFlights(apiData.flights || []);
+      const mappedSegments: EditableSegment[] = processedFlights.map((f: any, i: number) => {
         const dep = f.date && f.departureTime ? new Date(`${f.date}T${f.departureTime}:00`) : undefined;
         const arr = f.date && f.arrivalTime ? new Date(`${f.date}T${(f.arrivalTime || '').replace('+1', '')}:00`) : undefined;
         const [airlineCode, ...rest] = (f.flightNumber || '').match(/^([A-Z0-9]{2})\s*(\d+)/) || [];
-        const code = (f.flightNumber || '').match(/^([A-Z]{2})/)?.[1] || '';
-        const num = (f.flightNumber || '').replace(/^[A-Z]{2}\s*/, '');
+        const code = (f.flightNumber || '').match(/^([A-Z0-9]{2})/i)?.[1]?.toUpperCase() || '';
+        const num = (f.flightNumber || '').replace(/^[A-Z0-9]{2}\s*/i, '');
         const originIata = (f.origin || '').match(/\(([A-Z]{3})\)/)?.[1] || (f.origin || '').slice(0, 3).toUpperCase();
         const destIata = (f.destination || '').match(/\(([A-Z]{3})\)/)?.[1] || (f.destination || '').slice(0, 3).toUpperCase();
         return {

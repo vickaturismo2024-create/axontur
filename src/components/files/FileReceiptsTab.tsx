@@ -36,6 +36,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const { user } = useAuth();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fileDebts, setFileDebts] = useState<Record<string, number>>({});
   
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -54,6 +55,46 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const [detailLoading, setDetailLoading] = useState(false);
   const [passengers, setPassengers] = useState<string[]>([]);
 
+  const loadFileDebts = async () => {
+    const { data: svcs } = await supabase
+      .from('file_services')
+      .select('price, currency, status')
+      .eq('file_id', fileId);
+    
+    const { data: recs } = await supabase
+      .from('file_receipts')
+      .select('amount, currency, status')
+      .eq('file_id', fileId);
+
+    const prices: Record<string, number> = {};
+    const charges: Record<string, number> = {};
+
+    if (svcs) {
+      svcs.filter(s => s.status !== 'cancelled').forEach(s => {
+        prices[s.currency] = (prices[s.currency] || 0) + (s.price || 0);
+      });
+    }
+
+    if (recs) {
+      recs.filter(r => r.status !== 'cancelled').forEach(r => {
+        charges[r.currency] = (charges[r.currency] || 0) + (r.amount || 0);
+      });
+    }
+
+    const debts: Record<string, number> = {};
+    const allCurrencies = new Set([...Object.keys(prices), ...Object.keys(charges)]);
+    allCurrencies.forEach(cur => {
+      const price = prices[cur] || 0;
+      const charge = charges[cur] || 0;
+      const pending = price - charge;
+      if (pending !== 0) {
+        debts[cur] = pending;
+      }
+    });
+
+    setFileDebts(debts);
+  };
+
   const load = async () => {
     const { data } = await supabase
       .from('file_receipts')
@@ -66,6 +107,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
   useEffect(() => {
     load();
+    loadFileDebts();
   }, [fileId]);
 
   useEffect(() => {
@@ -108,8 +150,8 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
   const handleSaveReceipt = async (form: any, items: ReceiptItem[], totalAmount: number) => {
     if (!user) return;
-    if (items.every((it) => it.amount <= 0)) {
-      toast.error('Al menos una línea debe tener monto > 0');
+    if (items.every((it) => it.amount === 0)) {
+      toast.error('Al menos una línea debe tener un monto distinto de cero');
       return;
     }
     if (!form.concept.trim()) {
@@ -148,7 +190,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     const receiptId = (receiptData as any).id;
     const itemsToInsert = items
-      .filter((it) => it.amount > 0)
+      .filter((it) => it.amount !== 0)
       .map((it) => ({
         receipt_id: receiptId,
         user_id: user.id,
@@ -166,7 +208,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     if (clientId) {
       const movements = items
-        .filter((i) => i.amount > 0)
+        .filter((i) => i.amount !== 0)
         .map((it) => ({
           user_id: user.id,
           account_type: 'client',
@@ -188,6 +230,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     toast.success(`Recibo REC-${String(receiptNumber).padStart(4, '0')} generado`);
     setDialogOpen(false);
     load();
+    loadFileDebts();
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
@@ -207,6 +250,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     if (!cancelId) return;
     await handleStatusChange(cancelId, 'cancelled');
     setCancelId(null);
+    loadFileDebts();
   };
 
   const handleDelete = async () => {
@@ -217,6 +261,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     setDeleteId(null);
     toast.success('Recibo eliminado');
     load();
+    loadFileDebts();
   };
 
   const downloadReceipt = async (r: Receipt) => {
@@ -401,7 +446,10 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold">Recibos ({receipts.length})</h3>
+        <div>
+          <h3 className="font-semibold">Recibos ({receipts.length})</h3>
+          <p className="text-xs text-muted-foreground">Documento no válido como factura</p>
+        </div>
         <Button size="sm" onClick={() => setDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />Nuevo recibo
         </Button>
@@ -436,6 +484,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         defaultClientName={clientName}
         defaultCurrency={currency}
         passengers={passengers}
+        fileDebts={fileDebts}
       />
 
       <ReceiptDetailDialog

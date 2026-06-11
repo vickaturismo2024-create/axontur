@@ -33,47 +33,20 @@ export function PNRParserDialog({ onFlightsParsed }: PNRParserDialogProps) {
     }
 
     setIsLoading(true);
-    let flightsToUse: Omit<Flight, 'id'>[] | null = null;
-    let isLocalFallback = false;
 
     try {
-      // 1. Intentar analizar con la función Edge de Supabase
-      try {
-        const { data, error } = await supabase.functions.invoke('parse-pnr', {
-          body: { pnrText },
-        });
+      // Utilizar extractor local para procesar el PNR (Sin IA)
+      const parsed = parsePNR(pnrText);
+      const flightsToUse = parsed.segments && parsed.segments.length > 0 ? mapSegmentsToFlights(parsed.segments) : null;
 
-        if (!error && data && data.flights && data.flights.length > 0) {
-          flightsToUse = data.flights;
-        } else if (error) {
-          console.warn('Edge function parse-pnr error, trying local parser fallback:', error);
-        }
-      } catch (invokeError) {
-        console.warn('Failed to invoke parse-pnr edge function, trying local parser fallback:', invokeError);
-      }
-
-      // 2. Si no se extrajeron vuelos por IA, utilizar el parsePNR local
-      if (!flightsToUse || flightsToUse.length === 0) {
-        console.info('Utilizando extractor local alternativo para procesar el PNR...');
-        const parsed = parsePNR(pnrText);
-        if (parsed.segments && parsed.segments.length > 0) {
-          flightsToUse = mapSegmentsToFlights(parsed.segments);
-          isLocalFallback = true;
-        }
-      }
-
-      // 3. Si ambos métodos fallan en extraer vuelos
       if (!flightsToUse || flightsToUse.length === 0) {
         toast.error('No se pudieron extraer vuelos del PNR. Por favor, verifica el formato del texto.');
         return;
       }
 
       onFlightsParsed(flightsToUse);
-      if (isLocalFallback) {
-        toast.info(`${flightsToUse.length} vuelo(s) extraído(s) localmente (sin IA)`);
-      } else {
-        toast.success(`${flightsToUse.length} vuelo(s) importado(s) correctamente`);
-      }
+      toast.success(`${flightsToUse.length} vuelo(s) importado(s) correctamente`);
+      
       setPnrText('');
       setOpen(false);
     } catch (error) {

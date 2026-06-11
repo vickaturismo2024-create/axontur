@@ -10,6 +10,8 @@ import { SupplierSelect } from '@/components/quotes/SupplierSelect';
 import { PNRParserDialog } from '@/components/quotes/PNRParserDialog';
 import { PDFParserDialog } from '@/components/quotes/PDFParserDialog';
 import { Plus, Trash2 } from 'lucide-react';
+import { postProcessParsedFlights } from '@/lib/pnrParser';
+import { OperativeFields } from '@/components/shared/OperativeFields';
 
 interface FlightsStepProps {
   quote: Quote;
@@ -38,11 +40,13 @@ export function FlightsStep({ quote, onUpdate }: FlightsStepProps) {
   };
 
   const handleFlightsParsed = (parsedFlights: Omit<Flight, 'id'>[]) => {
-    const flightsWithIds = parsedFlights.map(flight => ({
+    const processedFlights = postProcessParsedFlights(parsedFlights);
+    const flightsWithIds = processedFlights.map(flight => ({
       ...flight, id: crypto.randomUUID(), luggage: flight.luggage || '', notes: flight.notes || '',
     }));
     onUpdate({ flights: [...quote.flights, ...flightsWithIds] });
   };
+
 
   return (
     <div className="space-y-4">
@@ -175,9 +179,15 @@ export function FlightsStep({ quote, onUpdate }: FlightsStepProps) {
                 <Label>Notas</Label>
                 <Textarea value={flight.notes} onChange={(e) => updateFlight(flight.id, { notes: e.target.value })} placeholder="Escala, observaciones..." rows={2} />
               </div>
+
               <div className="md:col-span-2">
-                <SupplierSelect value={flight.supplier} onChange={(val) => updateFlight(flight.id, { supplier: val })} />
+                <OperativeFields 
+                  data={flight} 
+                  onChange={(updates) => updateFlight(flight.id, updates)} 
+                  currency={quote.trip.currency} 
+                />
               </div>
+
               <div className="grid grid-cols-2 gap-2 md:col-span-2">
                 <div>
                   <Label>Costo neto ({quote.trip.currency})</Label>

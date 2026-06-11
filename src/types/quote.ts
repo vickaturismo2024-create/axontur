@@ -35,6 +35,11 @@ export interface Flight {
   groupId?: string;
   flightType?: 'direct' | 'stopover' | 'charter';
   connectionGroupId?: string;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface FlightGroup {
@@ -81,6 +86,11 @@ export interface Lodging {
   occupancies?: RoomOccupancy[];
   useOccupancies?: boolean;
   supplier?: string;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface LodgingGroup {
@@ -101,6 +111,11 @@ export interface Transfer {
   cost?: number;
   price?: number;
   supplier?: string;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface Train {
@@ -119,6 +134,11 @@ export interface Train {
   price?: number;
   supplier?: string;
   included?: boolean;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface Ferry {
@@ -136,6 +156,11 @@ export interface Ferry {
   price?: number;
   supplier?: string;
   included?: boolean;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface RentalCar {
@@ -154,6 +179,11 @@ export interface RentalCar {
   price?: number;
   supplier?: string;
   included?: boolean;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface Activity {
@@ -169,6 +199,11 @@ export interface Activity {
   price?: number;
   notes: string;
   supplier?: string;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface Cruise {
@@ -190,6 +225,11 @@ export interface Cruise {
   cost?: number;
   price?: number;
   supplier?: string;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface CruisePort {
@@ -220,6 +260,11 @@ export interface Insurance {
   cost?: number;
   price?: number;
   supplier?: string;
+  // Campos operativos / Expediente
+  status?: string;
+  confirmationNumber?: string;
+  supplierId?: string;
+  paymentDueDate?: string;
 }
 
 export interface LodgingOptionPricing {

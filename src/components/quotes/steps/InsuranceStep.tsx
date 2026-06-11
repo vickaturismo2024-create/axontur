@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SupplierSelect } from '@/components/quotes/SupplierSelect';
+import { OperativeFields } from '@/components/shared/OperativeFields';
 
 interface InsuranceStepProps {
   quote: Quote;
@@ -29,7 +30,11 @@ export function InsuranceStep({ quote, onUpdate }: InsuranceStepProps) {
         <Textarea value={quote.insurance.notes} onChange={(e) => onUpdate({ insurance: { ...quote.insurance, notes: e.target.value } })} placeholder="Cobertura COVID-19 incluida..." rows={2} />
       </div>
       <div className="md:col-span-2">
-        <SupplierSelect value={quote.insurance.supplier} onChange={(val) => onUpdate({ insurance: { ...quote.insurance, supplier: val } })} />
+        <OperativeFields 
+          data={quote.insurance} 
+          onChange={(updates) => onUpdate({ insurance: { ...quote.insurance, ...updates } })} 
+          currency={quote.trip.currency} 
+        />
       </div>
       <div>
         <Label>Costo neto ({quote.trip.currency})</Label>

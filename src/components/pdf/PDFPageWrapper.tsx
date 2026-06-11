@@ -62,7 +62,7 @@ export function PDFPageWrapper({
   };
 
   return (
-    <div className={`${isMobile ? 'pdf-page-mobile' : 'pdf-page'} mb-8 print:mb-0`} style={{ backgroundColor }}>
+    <div className={`${isMobile ? 'pdf-page-mobile' : 'pdf-page'} mb-8 print:mb-0`} style={{ backgroundColor, color: '#1e293b' }}>
       {renderTitle()}
       {children}
     </div>

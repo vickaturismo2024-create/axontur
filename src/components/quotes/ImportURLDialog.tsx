@@ -125,7 +125,19 @@ export function ImportURLDialog({ open, onOpenChange, onImport }: ImportURLDialo
       });
 
       if (error) {
-        toast.error(error.message || 'Error al procesar la URL');
+        let msg = error.message;
+        try {
+          if (error.context && typeof error.context.json === 'function') {
+            const body = await error.context.json();
+            if (body && body.error) msg = body.error;
+          }
+        } catch (e) {
+          // ignore
+        }
+        if (msg === 'Edge Function returned a non-2xx status code') {
+          msg = 'Error interno en la importación. Verificá si la URL es accesible.';
+        }
+        toast.error(msg || 'Error al procesar la URL');
         return;
       }
 

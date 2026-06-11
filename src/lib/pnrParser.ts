@@ -315,6 +315,25 @@ export function parsePassengers(text: string): ParsedPassenger[] {
         firstName: latamMatch[2].trim(),
         title: title === 'SRA' || title === 'SEÑORA' ? 'MRS' : 'MR'
       });
+      continue;
+    }
+
+    // Formato e-ticket sin /: "1. APELLIDO NOMBRE" o "1 APELLIDO NOMBRE NOMBRE2"
+    // Must have at least 2 uppercase words, preceded by a number
+    const noSlashPattern = /^\s*\d+\.?\s+([A-Z]{2,}(?:\s+[A-Z]{2,})+)\s*$/i;
+    const noSlashMatch = line.match(noSlashPattern);
+    if (noSlashMatch && !line.includes('/')) {
+      const parts = noSlashMatch[1].trim().split(/\s+/);
+      // Exclude lines that look like flight info, dates, or common headers
+      const excludeWords = new Set(['VUELO', 'FLIGHT', 'CLASE', 'CLASS', 'ECONOMY', 'BUSINESS', 'PREMIUM', 'FIRST', 'DESDE', 'HACIA', 'FECHA', 'HORA', 'SALIDA', 'LLEGADA', 'EQUIPAJE', 'BAGGAGE', 'TERMINAL', 'GATE', 'SEAT', 'ASIENTO', 'CONFIRMADO', 'CANCELADO']);
+      const isExcluded = parts.some(p => excludeWords.has(p.toUpperCase()));
+      if (!isExcluded && parts.length >= 2 && parts.length <= 5) {
+        passengers.push({
+          lastName: parts[0].toUpperCase(),
+          firstName: parts.slice(1).join(' ').toUpperCase()
+        });
+        continue;
+      }
     }
   }
 
@@ -450,6 +469,18 @@ function parseTime(timeStr: string): { hours: number; minutes: number } | undefi
 }
 
 function extractDateFromLine(line: string): Date | undefined {
+  // Try dd/mm/yyyy format common in Argentine PDFs
+  const slashDatePattern = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+  const slashMatch = line.match(slashDatePattern);
+  if (slashMatch) {
+    const day = parseInt(slashMatch[1]);
+    const month = parseInt(slashMatch[2]) - 1;
+    const year = parseInt(slashMatch[3]);
+    if (day >= 1 && day <= 31 && month >= 0 && month <= 11 && year >= 2024 && year <= 2030) {
+      return new Date(year, month, day);
+    }
+  }
+
   // Try Spanish/English text dates like "Vie. 4 Sep. 2026" or "4 Sep. 2026" or "11 Sep 2026"
   const textDatePattern = /(\d{1,2})\s+(?:DE\s+)?([A-Z]{3,9})\.?\s*(?:DE\s+)?(\d{4})/i;
   const match = line.match(textDatePattern);
@@ -542,7 +573,8 @@ export function parseSegments(text: string): ParsedSegment[] {
       continue;
     }
     // Patrón Amadeus específico: 3  AR1328 I 17APR 5 EZEPUJ HK2  0830 1530  17APR  E  AR/JFRZXA
-    // Formato: [num] [airline][flight] [class] [date] [dayofweek] [ORIG+DEST(6chars)] [status] [deptime] [arrtime] [arrdate?] [E] [airline/locator]
+    // Also handles: 2  LA8131 A 20AUG 4*EZEGRU DK1  0230 0500  20AUG  E  0 320 S
+    // Formato: [num] [airline][flight] [class] [date] [dayofweek(+optional*)] [ORIG+DEST(6chars)] [status] [deptime] [arrtime] [arrdate?] [E] [airline/locator]
     const amadeusPattern = /^\s*(\d+)\s+([A-Z0-9]{2})\s?(\d{1,4})\s+([A-Z])\s+(\d{1,2}[A-Z]{3})\s+\d\*?\s*([A-Z]{6})\s+([A-Z]{2}\d?)\s+(\d{4})\s+(\d{4})(?:\s+(\d{1,2}[A-Z]{3}))?(?:\s+[A-Z])?(?:\s+[A-Z]{2}\/([A-Z0-9]{5,8}))?/i;
     const amadeusMatch = line.match(amadeusPattern);
     if (amadeusMatch) {
@@ -595,7 +627,8 @@ export function parseSegments(text: string): ParsedSegment[] {
 
     // Patrón Amadeus alternativo sin el día de la semana separado
     // Formato: 3 AR1328 I 17APR EZEPUJ HK2 0830 1530
-    const amadeusAltPattern = /^\s*(\d+)\s+([A-Z0-9]{2})\s?(\d{1,4})\s+([A-Z])\s+(\d{1,2}[A-Z]{3})\s+([A-Z]{6})\s+([A-Z]{2}\d?)\s+(\d{4})\s+(\d{4})?/i;
+    // Also handles: 3 AR1328 I 17APR 5*EZEPUJ HK2 0830 1530 (with asterisk day)
+    const amadeusAltPattern = /^\s*(\d+)\s+([A-Z0-9]{2})\s?(\d{1,4})\s+([A-Z])\s+(\d{1,2}[A-Z]{3})\s+(?:\d\*?\s*)?([A-Z]{6})\s+([A-Z]{2}\d?)\s+(\d{4})\s+(\d{4})?/i;
     const amadeusAltMatch = line.match(amadeusAltPattern);
     if (amadeusAltMatch) {
       const originDest = amadeusAltMatch[6].toUpperCase();
@@ -733,11 +766,11 @@ export function parseSegments(text: string): ParsedSegment[] {
       const depTime = parseTime(eticketLineMatch[5]);
       const arrTime = parseTime(eticketLineMatch[6]);
       
-      // Look for IATA codes in surrounding lines
+      // Look for IATA codes in surrounding lines (narrowed window to avoid cross-segment contamination)
       let originIata = '';
       let destIata = '';
       const lineIndex = lines.indexOf(line);
-      const contextLines = lines.slice(Math.max(0, lineIndex - 5), lineIndex + 5).join(' ').toUpperCase();
+      const contextLines = lines.slice(Math.max(0, lineIndex - 2), lineIndex + 3).join(' ').toUpperCase();
       
       // Look for IATA pairs in context
       const iataInContext = contextLines.match(/\b([A-Z]{3})\b/g) || [];
@@ -814,6 +847,17 @@ export function parseSegments(text: string): ParsedSegment[] {
       /\b([A-Z]{2})\s*(\d{3,4})\b/gi,
     ];
     
+    // Identify codeshare/operated-by line ranges to exclude
+    const codeshareRanges: Array<{start: number, end: number}> = [];
+    const codesharePatterns = /(?:^\s*010\s+|OPERATED BY|CODESHARE|SEE RTSVC|\d{3}\s+[A-Z]{5,})/gim;
+    let csMatch;
+    while ((csMatch = codesharePatterns.exec(normalizedText)) !== null) {
+      // Find the line boundaries for this codeshare match
+      const lineStart = normalizedText.lastIndexOf('\n', csMatch.index) + 1;
+      const lineEnd = normalizedText.indexOf('\n', csMatch.index + csMatch[0].length);
+      codeshareRanges.push({ start: lineStart, end: lineEnd === -1 ? normalizedText.length : lineEnd });
+    }
+    
     const flights: Array<{airline: string, flight: string, index: number}> = [];
     const seenFlights = new Set<string>();
     
@@ -823,6 +867,10 @@ export function parseSegments(text: string): ParsedSegment[] {
         const airline = m[1].toUpperCase();
         const flightNum = m[2];
         const key = `${airline}${flightNum}`;
+        
+        // Skip flights found inside codeshare/operated-by lines
+        const inCodeshare = codeshareRanges.some(r => m!.index >= r.start && m!.index <= r.end);
+        if (inCodeshare) continue;
         
         if (!seenFlights.has(key) && COMMON_AIRLINES.includes(airline)) {
           seenFlights.add(key);
@@ -1384,4 +1432,81 @@ export function mapSegmentsToFlights(segments: ParsedSegment[]): Omit<Flight, 'i
 
   return flights;
 }
+
+/**
+ * Post-processes parsed flights (whether from AI or local parser) to ensure:
+ * 1. Airport city names are expanded to "City Name (IATA)" if only IATA was returned or if they match.
+ * 2. Layovers/connections are grouped and mapped to "stopover" flightType with a connectionGroupId.
+ */
+export function postProcessParsedFlights(flights: Omit<Flight, 'id'>[]): Omit<Flight, 'id'>[] {
+  const processed = flights.map(flight => {
+    let origin = (flight.origin || '').trim();
+    let destination = (flight.destination || '').trim();
+
+    // 1. Extract IATA code if it exists
+    const originIataMatch = origin.match(/\(([A-Z]{3})\)/i) || origin.match(/\b([A-Z]{3})\b/i);
+    const originIata = originIataMatch ? originIataMatch[1].toUpperCase() : '';
+    
+    // If IATA is found and exists in our city mapping, expand it
+    if (originIata && AIRPORT_CITY_NAMES[originIata]) {
+      origin = `${AIRPORT_CITY_NAMES[originIata]} (${originIata})`;
+    } else if (origin.length === 3 && AIRPORT_CITY_NAMES[origin.toUpperCase()]) {
+      origin = `${AIRPORT_CITY_NAMES[origin.toUpperCase()]} (${origin.toUpperCase()})`;
+    }
+
+    const destIataMatch = destination.match(/\(([A-Z]{3})\)/i) || destination.match(/\b([A-Z]{3})\b/i);
+    const destIata = destIataMatch ? destIataMatch[1].toUpperCase() : '';
+    
+    if (destIata && AIRPORT_CITY_NAMES[destIata]) {
+      destination = `${AIRPORT_CITY_NAMES[destIata]} (${destIata})`;
+    } else if (destination.length === 3 && AIRPORT_CITY_NAMES[destination.toUpperCase()]) {
+      destination = `${AIRPORT_CITY_NAMES[destination.toUpperCase()]} (${destination.toUpperCase()})`;
+    }
+
+    return {
+      ...flight,
+      origin,
+      destination,
+      flightType: flight.flightType || 'direct',
+    };
+  });
+
+  // 2. Auto-group connections/stopovers
+  for (let i = 0; i < processed.length - 1; i++) {
+    const current = processed[i];
+    const next = processed[i + 1];
+
+    if (!current.date || !next.date) continue;
+
+    // Extract IATA codes
+    const currentIataMatch = current.destination.match(/\(([A-Z]{3})\)/i) || current.destination.match(/\b([A-Z]{3})\b/i);
+    const currentIata = currentIataMatch ? currentIataMatch[1].toUpperCase() : '';
+
+    const nextIataMatch = next.origin.match(/\(([A-Z]{3})\)/i) || next.origin.match(/\b([A-Z]{3})\b/i);
+    const nextIata = nextIataMatch ? nextIataMatch[1].toUpperCase() : '';
+
+    // If destination matches origin of next flight leg
+    if (currentIata && nextIata && currentIata === nextIata) {
+      const currentDate = new Date(current.date);
+      const nextDate = new Date(next.date);
+      const diffTime = Math.abs(nextDate.getTime() - currentDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 1) {
+        // Stopover / connection found!
+        let groupId = current.connectionGroupId || next.connectionGroupId;
+        if (!groupId) {
+          groupId = `conn_${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9)}`;
+        }
+        current.connectionGroupId = groupId;
+        current.flightType = 'stopover';
+        next.connectionGroupId = groupId;
+        next.flightType = 'stopover';
+      }
+    }
+  }
+
+  return processed;
+}
+
 

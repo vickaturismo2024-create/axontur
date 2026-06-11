@@ -187,6 +187,7 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
+    color: #1e293b;
   }
 
   /* Mobile PDF pages - used via isMobile prop, no media query needed */
@@ -201,6 +202,7 @@
     word-break: break-word;
     overflow-wrap: break-word;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    color: #1e293b;
   }
 
   .pdf-page-mobile h1, .pdf-page-mobile h2, .pdf-page-mobile h3 {
@@ -404,6 +406,7 @@
     page-break-inside: avoid;
     break-after: page;
     overflow: visible !important;
+    color: #1e293b !important;
   }
 
   .pdf-page:last-child {

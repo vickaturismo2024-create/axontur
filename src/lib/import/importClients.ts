@@ -138,6 +138,7 @@ export interface ClientImportResult {
 export async function enrichClients(
   clients: ClientImportRow[],
   userId: string,
+  agencyId: string | null,
 ): Promise<ClientImportRow[]> {
   // Cargar legacy_ids existentes
   const existingLegacy = new Set<number>();
@@ -145,10 +146,15 @@ export async function enrichClients(
   let from = 0;
   const PAGE = 1000;
   while (true) {
-    const { data } = await supabase
+    let query = supabase
       .from('clients')
-      .select('legacy_id, dni')
-      .range(from, from + PAGE - 1);
+      .select('legacy_id, dni');
+
+    if (agencyId) {
+      query = query.eq('agency_id', agencyId);
+    }
+
+    const { data } = await query.range(from, from + PAGE - 1);
     if (!data || data.length === 0) break;
     data.forEach((c: any) => {
       if (c.legacy_id) existingLegacy.add(Number(c.legacy_id));

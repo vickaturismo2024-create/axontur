@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parsePNR, mapSegmentsToFlights } from './pnrParser';
+import { parsePNR, mapSegmentsToFlights, postProcessParsedFlights } from './pnrParser';
 
 describe('pnrParser tests', () => {
   it('should parse the user PNR with 4*EZEGRU modifiers correctly without extra segments', () => {
@@ -97,5 +97,43 @@ GOL JPA 12:25 ------- AEP 21:00 8h 25m`;
     expect(flights[1].departureTime).toBe('12:25');
     expect(flights[1].arrivalTime).toBe('21:00');
     expect(flights[1].airline).toBe('GOL');
+  });
+
+  it('should post-process raw airport codes and group stopovers correctly', () => {
+    const rawFlights = [
+      {
+        origin: 'EZE',
+        destination: 'GRU',
+        date: '2026-10-12',
+        departureTime: '10:00',
+        arrivalTime: '13:00',
+        airline: 'AR',
+        flightNumber: 'AR1240',
+        notes: '',
+      },
+      {
+        origin: 'GRU',
+        destination: 'MIA',
+        date: '2026-10-12',
+        departureTime: '16:00',
+        arrivalTime: '23:00',
+        airline: 'AR',
+        flightNumber: 'AR1242',
+        notes: '',
+      }
+    ];
+
+    const processed = postProcessParsedFlights(rawFlights);
+
+    expect(processed).toHaveLength(2);
+    expect(processed[0].origin).toBe('Buenos Aires (EZE)');
+    expect(processed[0].destination).toBe('São Paulo (GRU)');
+    expect(processed[0].flightType).toBe('stopover');
+    expect(processed[0].connectionGroupId).toBeDefined();
+
+    expect(processed[1].origin).toBe('São Paulo (GRU)');
+    expect(processed[1].destination).toBe('Miami (MIA)');
+    expect(processed[1].flightType).toBe('stopover');
+    expect(processed[1].connectionGroupId).toBe(processed[0].connectionGroupId);
   });
 });

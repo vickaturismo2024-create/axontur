@@ -11,8 +11,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Users, Store,
   FolderOpen, UserCheck, Briefcase, ArrowRight, X, Loader2, FileWarning,
-  ArrowLeft, FileUp,
+  ArrowLeft, FileUp, Trash2,
 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { detectImportType, IMPORT_ORDER, type ImportType, type DetectionResult } from '@/lib/importDetector';
 import { parseClients, enrichClients, insertClients, type ClientImportRow } from '@/lib/import/importClients';
@@ -62,10 +66,54 @@ export default function DataImport() {
   const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<'files' | 'clients' | 'suppliers' | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const reset = () => {
     setStep('upload'); setQueue([]); setDragOver(false);
     setDetecting(false); setCurrentIdx(-1); setProgress({ current: 0, total: 0 });
+  };
+
+  const handleBulkDelete = async (target: 'files' | 'clients' | 'suppliers') => {
+    if (!user) return;
+    setDeleting(true);
+    try {
+      if (target === 'files') {
+        // Delete dependents first
+        const { data: files } = await supabase.from('files').select('id').eq('user_id', user.id);
+        const fileIds = (files || []).map(f => f.id);
+        if (fileIds.length > 0) {
+          for (const fid of fileIds) {
+            // Delete receipt items via receipts
+            const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fid);
+            const rcptIds = (receipts || []).map(r => r.id);
+            if (rcptIds.length) await supabase.from('file_receipt_items').delete().in('receipt_id', rcptIds);
+            await supabase.from('file_receipts').delete().eq('file_id', fid);
+            await supabase.from('file_supplier_payments').delete().eq('file_id', fid);
+            await supabase.from('account_movements').delete().eq('file_id', fid);
+            await supabase.from('file_services').delete().eq('file_id', fid);
+            await supabase.from('file_passengers').delete().eq('file_id', fid);
+          }
+          await supabase.from('files').delete().eq('user_id', user.id);
+        }
+        toast.success(`${fileIds.length} expedientes eliminados`);
+      } else if (target === 'clients') {
+        const { count } = await supabase.from('clients').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+        await supabase.from('clients').delete().eq('user_id', user.id);
+        toast.success(`${count || 0} clientes eliminados`);
+      } else if (target === 'suppliers') {
+        const { count } = await supabase.from('suppliers').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+        await supabase.from('suppliers').delete().eq('user_id', user.id);
+        toast.success(`${count || 0} proveedores eliminados`);
+      }
+      queryClient.invalidateQueries();
+    } catch (e) {
+      console.error(e);
+      toast.error('Error al eliminar');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
   };
 
   // --- Procesar archivos subidos o arrastrados ---
@@ -163,19 +211,19 @@ export default function DataImport() {
 
         if (type === 'clients') {
           const parsed = parseClients(rows);
-          const enriched = await enrichClients(parsed, user.id);
+          const enriched = await enrichClients(parsed, user.id, agencyId);
           res = await insertClients(enriched, user.id, agencyId, onProg);
         } else if (type === 'suppliers') {
           const parsed = parseSuppliers(rows);
-          const enriched = await enrichSuppliers(parsed);
+          const enriched = await enrichSuppliers(parsed, agencyId);
           res = await insertSuppliers(enriched, user.id, agencyId, onProg);
         } else if (type === 'passengers') {
           const parsed = parsePassengers(rows);
-          const enriched = await enrichPassengers(parsed);
-          res = await insertPassengers(parsed, user.id, agencyId, onProg);
+          const enriched = await enrichPassengers(parsed, agencyId);
+          res = await insertPassengers(enriched, user.id, agencyId, onProg);
         } else if (type === 'file_operators') {
           const parsed = parseFileOperators(rows);
-          const enriched = await enrichFileOperators(parsed);
+          const enriched = await enrichFileOperators(parsed, agencyId);
           res = await insertFileOperators(enriched, user.id, agencyId, onProg);
         } else if (type === 'files') {
           const { reservations } = await parseReservationsExcel(item.file);
@@ -448,6 +496,55 @@ export default function DataImport() {
           onOpenChange={setPdfImportOpen}
           initialFile={selectedPdfFile}
         />
+
+        {/* DANGER ZONE - Bulk Delete */}
+        <Card className="mt-8 border-destructive/30 bg-destructive/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-sans text-sm font-bold text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" /> Zona de limpieza (testing)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-4">
+              Usá estos botones para borrar todos los datos y volver a importar desde cero. Esta acción es irreversible.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="destructive" size="sm" className="gap-2" onClick={() => setDeleteTarget('files')}>
+                <Trash2 className="h-3.5 w-3.5" /> Borrar todos los expedientes
+              </Button>
+              <Button variant="destructive" size="sm" className="gap-2" onClick={() => setDeleteTarget('clients')}>
+                <Trash2 className="h-3.5 w-3.5" /> Borrar todos los clientes
+              </Button>
+              <Button variant="destructive" size="sm" className="gap-2" onClick={() => setDeleteTarget('suppliers')}>
+                <Trash2 className="h-3.5 w-3.5" /> Borrar todos los proveedores
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Confirmation Dialog */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget === 'files' && 'Se borrarán TODOS los expedientes, incluyendo sus servicios, pasajeros, recibos y pagos. Esta acción no se puede deshacer.'}
+                {deleteTarget === 'clients' && 'Se borrarán TODOS los clientes. Los expedientes que los referencian quedarán sin cliente vinculado. Esta acción no se puede deshacer.'}
+                {deleteTarget === 'suppliers' && 'Se borrarán TODOS los proveedores. Esta acción no se puede deshacer.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleting}
+                onClick={() => deleteTarget && handleBulkDelete(deleteTarget)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? 'Eliminando...' : 'Sí, borrar todo'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );

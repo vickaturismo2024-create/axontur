@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Building2, DollarSign, Pencil, Trash2 } from 'lucide-react';
+import { Building2, DollarSign, Pencil, Trash2, Eye } from 'lucide-react';
 import { SupplierPayment, CatalogSupplier } from './types';
 
 interface SupplierCardProps {
@@ -11,6 +11,7 @@ interface SupplierCardProps {
   catalog: CatalogSupplier[];
   onOpenPayment: (sup: { name: string; id: string | null }) => void;
   onOpenEdit: (p: SupplierPayment) => void;
+  onOpenDetail: (p: SupplierPayment) => void;
   onDelete: (id: string) => void;
   getMethodLabel: (v: string) => string;
   formatMoney: (amounts: Record<string, number>) => string;
@@ -23,6 +24,7 @@ export function SupplierCard({
   catalog,
   onOpenPayment,
   onOpenEdit,
+  onOpenDetail,
   onDelete,
   getMethodLabel,
   formatMoney,
@@ -81,10 +83,13 @@ export function SupplierCard({
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onOpenEdit(p)}>
+                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onOpenDetail(p)} title="Ver detalle">
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onOpenEdit(p)} title="Editar pago">
                       <Pencil className="h-3 w-3" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onDelete(p.id)}>
+                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onDelete(p.id)} title="Eliminar pago">
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
                   </div>

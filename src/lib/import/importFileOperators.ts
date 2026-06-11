@@ -58,6 +58,7 @@ export interface FileOperatorImportResult {
 
 export async function enrichFileOperators(
   operators: FileOperatorImportRow[],
+  agencyId: string | null,
 ): Promise<FileOperatorImportRow[]> {
   // Resolver legacy file IDs
   const legacyFileIds = [...new Set(operators.map(o => o.legacyFileId))];
@@ -65,7 +66,11 @@ export async function enrichFileOperators(
   const BATCH = 200;
   for (let i = 0; i < legacyFileIds.length; i += BATCH) {
     const batch = legacyFileIds.slice(i, i + BATCH);
-    const { data } = await supabase.from('files').select('id, legacy_id').in('legacy_id', batch);
+    let query = supabase.from('files').select('id, legacy_id').in('legacy_id', batch);
+    if (agencyId) {
+      query = query.eq('agency_id', agencyId);
+    }
+    const { data } = await query;
     (data || []).forEach((f: any) => {
       if (f.legacy_id) fileMap.set(String(f.legacy_id), f.id);
     });
@@ -77,7 +82,11 @@ export async function enrichFileOperators(
   let from = 0;
   const PAGE = 1000;
   while (true) {
-    const { data } = await supabase.from('suppliers').select('id, name').range(from, from + PAGE - 1);
+    let query = supabase.from('suppliers').select('id, name');
+    if (agencyId) {
+      query = query.eq('agency_id', agencyId);
+    }
+    const { data } = await query.range(from, from + PAGE - 1);
     if (!data || data.length === 0) break;
     data.forEach((s: any) => {
       if (s.name) supplierMap.set(s.name.toLowerCase().trim(), s.id);

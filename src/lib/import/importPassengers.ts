@@ -85,6 +85,7 @@ export interface PassengerImportResult {
  */
 export async function enrichPassengers(
   passengers: PassengerImportRow[],
+  agencyId: string | null,
 ): Promise<PassengerImportRow[]> {
   const legacyIds = [...new Set(passengers.map(p => p.legacyFileId))];
   const fileMap = new Map<string, string>();
@@ -93,10 +94,14 @@ export async function enrichPassengers(
   const BATCH = 200;
   for (let i = 0; i < legacyIds.length; i += BATCH) {
     const batch = legacyIds.slice(i, i + BATCH);
-    const { data } = await supabase
+    let query = supabase
       .from('files')
       .select('id, legacy_id')
       .in('legacy_id', batch);
+    if (agencyId) {
+      query = query.eq('agency_id', agencyId);
+    }
+    const { data } = await query;
     (data || []).forEach((f: any) => {
       if (f.legacy_id) fileMap.set(String(f.legacy_id), f.id);
     });
@@ -121,23 +126,129 @@ export async function insertPassengers(
     errors: [],
   };
 
+  // 1. Cargar todos los clientes del CRM de la agencia actual en memoria de manera paginada
+  const clients: { id: string; name: string; dni: string | null }[] = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    let query = supabase.from('clients').select('id, name, dni');
+    if (agencyId) {
+      query = query.eq('agency_id', agencyId);
+    }
+    const { data } = await query.range(from, from + PAGE - 1);
+    const batch = data || [];
+    clients.push(...batch);
+    if (batch.length < PAGE) break;
+    from += PAGE;
+  }
+
+  // 2. Normalizar nombres y DNI para matchear eficientemente en memoria
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  const byName = new Map<string, string>();
+  const byDni = new Map<string, string>();
+  for (const c of clients) {
+    const n = norm(c.name || '');
+    if (n && !byName.has(n)) byName.set(n, c.id);
+    const d = (c.dni || '').trim();
+    if (d && !byDni.has(d)) byDni.set(d, c.id);
+  }
+
+  // 3. Agrupar pasajeros que no existen como clientes en el CRM
+  const clientsToCreateMap = new Map<string, {
+    name: string;
+    dni: string | null;
+    birth_date: string | null;
+    nationality: string | null;
+    occupation: string | null;
+    iva_condition: string | null;
+    cuil_cuit: string | null;
+  }>();
+
+  for (const p of valid) {
+    const passengerDni = (p.dni || '').trim();
+    const passengerNameNorm = norm(p.name || '');
+    
+    let matchedClientId = passengerDni ? byDni.get(passengerDni) : null;
+    if (!matchedClientId && passengerNameNorm) {
+      matchedClientId = byName.get(passengerNameNorm);
+    }
+
+    if (!matchedClientId) {
+      // Clave única para evitar duplicar el mismo cliente en este mismo lote de pasajeros
+      const key = passengerDni ? `dni:${passengerDni}` : `name:${passengerNameNorm}`;
+      if (!clientsToCreateMap.has(key)) {
+        clientsToCreateMap.set(key, {
+          name: p.name,
+          dni: p.dni || null,
+          birth_date: p.birth_date || null,
+          nationality: p.nationality || null,
+          occupation: p.occupation || null,
+          iva_condition: p.iva_condition || null,
+          cuil_cuit: p.cuil_cuit || null,
+        });
+      }
+    }
+  }
+
+  // 4. Crear clientes en lote
+  const newClientsList = Array.from(clientsToCreateMap.values());
+  if (newClientsList.length > 0) {
+    const CLIENT_BATCH = 200;
+    for (let j = 0; j < newClientsList.length; j += CLIENT_BATCH) {
+      const clientBatch = newClientsList.slice(j, j + CLIENT_BATCH).map(c => ({
+        user_id: userId,
+        agency_id: agencyId,
+        name: c.name,
+        dni: c.dni,
+        birth_date: c.birth_date,
+        nationality: c.nationality,
+        occupation: c.occupation,
+        iva_condition: c.iva_condition,
+        cuil_cuit: c.cuil_cuit,
+      }));
+      const { data, error } = await supabase.from('clients').insert(clientBatch as any).select('id, name, dni');
+      if (error) {
+        result.errors.push(`Error creando clientes en lote ${Math.floor(j / CLIENT_BATCH) + 1}: ${error.message}`);
+      } else if (data) {
+        for (const created of data) {
+          const n = norm(created.name || '');
+          if (n && !byName.has(n)) byName.set(n, created.id);
+          const d = (created.dni || '').trim();
+          if (d && !byDni.has(d)) byDni.set(d, created.id);
+        }
+      }
+    }
+  }
+
+  // 5. Insertar pasajeros en file_passengers vinculando su client_id
   const BATCH = 100;
   for (let i = 0; i < valid.length; i += BATCH) {
-    const batch = valid.slice(i, i + BATCH).map(p => ({
-      user_id: userId,
-      agency_id: agencyId,
-      file_id: p.resolvedFileId!,
-      name: p.name,
-      birth_date: p.birth_date || null,
-      nationality: p.nationality || null,
-      dni: p.dni || null,
-      occupation: p.occupation || null,
-      iva_condition: p.iva_condition || null,
-      cuil_cuit: p.cuil_cuit || null,
-    }));
+    const batch = valid.slice(i, i + BATCH).map(p => {
+      const passengerDni = (p.dni || '').trim();
+      const passengerNameNorm = norm(p.name || '');
+      let matchedClientId = passengerDni ? byDni.get(passengerDni) : null;
+      if (!matchedClientId && passengerNameNorm) {
+        matchedClientId = byName.get(passengerNameNorm);
+      }
+
+      return {
+        user_id: userId,
+        agency_id: agencyId,
+        file_id: p.resolvedFileId!,
+        client_id: matchedClientId || null,
+        name: p.name,
+        birth_date: p.birth_date || null,
+        nationality: p.nationality || null,
+        dni: p.dni || null,
+        occupation: p.occupation || null,
+        iva_condition: p.iva_condition || null,
+        cuil_cuit: p.cuil_cuit || null,
+      };
+    });
+
     const { error } = await supabase.from('file_passengers').insert(batch as any);
     if (error) {
-      result.errors.push(`Lote ${Math.floor(i / BATCH) + 1}: ${error.message}`);
+      result.errors.push(`Lote pasajeros ${Math.floor(i / BATCH) + 1}: ${error.message}`);
     } else {
       result.imported += batch.length;
     }
