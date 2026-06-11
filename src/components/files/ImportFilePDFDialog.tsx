@@ -221,21 +221,31 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
       // Extract amounts - handle decimal separators (1.234,56 or 1234.56)
       const numbers = remainingText.match(/(\d[\d\.\,]*\d)/g) || [];
       const amounts = numbers.map(n => {
-        const cleaned = n.replace(/\./g, '').replace(/,/g, '.');
-        return parseFloat(cleaned);
+        // Check if it matches US format: 1,234.56 or 1234.56
+        if (/^(\d{1,3}(,\d{3})*|\d+)\.\d{2}$/.test(n)) {
+          return parseFloat(n.replace(/,/g, ''));
+        }
+        // Check if it matches AR format: 1.234,56 or 1234,56
+        if (/^(\d{1,3}(\.\d{3})*|\d+),\d{2}$/.test(n)) {
+          return parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
+        }
+        // If it just has a period: 13879.40
+        if (n.includes('.') && !n.includes(',')) {
+          return parseFloat(n);
+        }
+        // If it just has a comma: 13879,40
+        if (n.includes(',') && !n.includes('.')) {
+          return parseFloat(n.replace(/,/g, '.'));
+        }
+        // Fallback
+        return parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
       }).filter(n => Number.isFinite(n) && n > 0);
       
       let cost = 0;
       let price = 0;
-      // Common layout: Costo Iva Importe (or just Costo Importe)
-      if (amounts.length >= 3) {
+      if (amounts.length > 0) {
         cost = amounts[0];
-        price = amounts[2]; // skip IVA (index 1)
-      } else if (amounts.length >= 2) {
-        cost = amounts[0];
-        price = amounts[1];
-      } else if (amounts.length === 1) {
-        price = amounts[0];
+        price = amounts.length >= 2 ? Math.max(...amounts) : cost;
       }
 
       let serviceType = 'other';
@@ -274,7 +284,14 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
     const cobrosRegex = /(ER\s+\d+[\-\d]+)\s+([\s\S]+?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s*([A-Z0-9\.\s\-\/\(\)\+\*]*?)\s*(\d+[\.\,]\d{2})/gi;
     const cobrosMatches = [...cobrosText.matchAll(cobrosRegex)];
     for (const m of cobrosMatches) {
-      const amount = parseFloat(m[5].replace(/,/g, ''));
+      let n = m[5];
+      let amount = 0;
+      if (/^(\d{1,3}(,\d{3})*|\d+)\.\d{2}$/.test(n)) amount = parseFloat(n.replace(/,/g, ''));
+      else if (/^(\d{1,3}(\.\d{3})*|\d+),\d{2}$/.test(n)) amount = parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
+      else if (n.includes('.') && !n.includes(',')) amount = parseFloat(n);
+      else if (n.includes(',') && !n.includes('.')) amount = parseFloat(n.replace(/,/g, '.'));
+      else amount = parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
+      
       const rDate = parseDateStr(m[3]);
       const suffix = m[4].trim();
       const concept = `${m[1]} ${m[2].trim()}${suffix ? ' ' + suffix : ''}`.replace(/\s+/g, ' ');
@@ -297,10 +314,18 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
     for (const m of pagosMatches) {
       if (m[1].includes('TOTAL') || m[1].includes('Reserva') || m[1].includes('Saldo')) continue;
       const supplierName = m[1].replace(/Reserva\s+N[°ºo\.\s]*\d+\s*Hoja\s*:\s*\d+/gi, '').trim();
+      let n = m[3];
+      let amount = 0;
+      if (/^(\d{1,3}(,\d{3})*|\d+)\.\d{2}$/.test(n)) amount = parseFloat(n.replace(/,/g, ''));
+      else if (/^(\d{1,3}(\.\d{3})*|\d+),\d{2}$/.test(n)) amount = parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
+      else if (n.includes('.') && !n.includes(',')) amount = parseFloat(n);
+      else if (n.includes(',') && !n.includes('.')) amount = parseFloat(n.replace(/,/g, '.'));
+      else amount = parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
+
       payments.push({
         supplierName,
         date: parseDateStr(m[2]),
-        amount: parseFloat(m[3].replace(/,/g, '')),
+        amount: amount,
         currency: detectedCurrency
       });
     }
