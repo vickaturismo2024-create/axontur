@@ -221,8 +221,11 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
     const endIdx = totalIdx !== -1 ? totalIdx : (cobrosIdx !== -1 ? cobrosIdx : servicesText.length);
     servicesText = servicesText.substring(0, endIdx);
 
+    // Check if the services section has separate Pesos / Dolares columns
+    const hasDualColumns = /\b(Pesos|Dolares|D[óo]lares)\b/i.test(servicesText.substring(0, 200));
+
     // More flexible: SUPPLIER [:|-]? DESCRIPTION DATE DATE (colon optional)
-    const headerRegex = /([A-Z][A-Z\.\s\-&,]{2,40}?)\s*[:\-]?\s*([A-Z][A-Z\.\s\-\/\(\)\+\*,]{2,60}?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/gi;
+    const headerRegex = /([A-Z][A-Z\.\s\-\&,]{2,40}?)\s*[:\-]?\s*([A-Z][A-Z\.\s\-\/\(\)\+\*,]{2,60}?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/gi;
     const headers = [...servicesText.matchAll(headerRegex)];
 
     for (let i = 0; i < headers.length; i++) {
@@ -232,7 +235,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
       const end = nextHeader ? nextHeader.index : servicesText.length;
       const remainingText = servicesText.substring(start, end).trim();
 
-      let supplierName = curr[1].replace(/^(?:SERVICIOS|Costo|Iva|Importe|Dif|Pesos|Dolares|\s)+/gi, '').trim();
+      let supplierName = curr[1].replace(/^(?:SERVICIOS|Costo|Iva|Importe|Dif|Pesos|Dolares|D[óo]lares|\s)+/gi, '').trim();
       let description = curr[2].trim();
       const sDate = parseDateStr(curr[3]);
       const eDate = parseDateStr(curr[4]);
@@ -267,6 +270,39 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
         price = amounts.length >= 2 ? Math.max(...amounts) : cost;
       }
 
+      // Per-service currency detection
+      let serviceCurrency: 'USD' | 'ARS' = detectedCurrency;
+      if (hasDualColumns) {
+        // When the PDF has Pesos and Dolares columns, analyze position/context of the service block
+        const blockText = (curr[0] + ' ' + remainingText).toLowerCase();
+        const hasDollarIndicator = /\bu\$s\b|dol[aá]r|dolares|usd/i.test(blockText);
+        const hasPesoIndicator = /\bpesos\b|\$\s*\d/i.test(blockText);
+
+        // Look for amounts specifically labeled with currency in the remaining text
+        const dollarAmount = remainingText.match(/(?:u\$s|USD|[Dd]ol[aá]r(?:es)?)\s*[:\s]?\s*(\d[\d\.\,]*\d)/);
+        const pesoAmount = remainingText.match(/(?:[Pp]esos?)\s*[:\s]?\s*(\d[\d\.\,]*\d)/);
+
+        if (dollarAmount && !pesoAmount) {
+          serviceCurrency = 'USD';
+        } else if (pesoAmount && !dollarAmount) {
+          serviceCurrency = 'ARS';
+        } else if (hasDollarIndicator && !hasPesoIndicator) {
+          serviceCurrency = 'USD';
+        } else if (hasPesoIndicator && !hasDollarIndicator) {
+          serviceCurrency = 'ARS';
+        }
+        // If both or neither, fall back to analyzing the amount magnitude
+        // (USD amounts tend to be much smaller than ARS for similar services)
+      } else {
+        // Single-column: check per-service text for currency indicators
+        const blockText = (curr[0] + ' ' + remainingText).toLowerCase();
+        if (/\bu\$s\b|dol[aá]r|dolares|usd/i.test(blockText)) {
+          serviceCurrency = 'USD';
+        } else if (/\bpesos?\b|\bars\b/i.test(blockText)) {
+          serviceCurrency = 'ARS';
+        }
+      }
+
       let serviceType = 'other';
       const descNorm = (supplierName + ' ' + description).toLowerCase();
       if (descNorm.includes('aereo') || descNorm.includes('vuelo') || descNorm.includes('airline') || descNorm.includes('air ')) serviceType = 'flight';
@@ -286,7 +322,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
         endDate: eDate,
         cost,
         price,
-        currency: detectedCurrency
+        currency: serviceCurrency
       });
     }
   }
@@ -435,9 +471,34 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
               dni: p.documentNumber || p.dni || null,
               birthDate: p.birthDate || null,
             })),
-            services: data.services || [],
-            receipts: data.receipts || [],
-            payments: data.payments || [],
+            services: (data.services || []).map((s: any) => {
+              // Determine per-service currency
+              const svcCurrency = s.currency || data.currency || 'USD';
+              // If AI provided split columns (costArs/costUsd), use the correct one
+              let cost = s.cost || 0;
+              let price = s.price || 0;
+              if (svcCurrency === 'USD' && s.costUsd && s.costUsd > 0) {
+                cost = s.costUsd;
+                price = s.priceUsd || s.costUsd;
+              } else if (svcCurrency === 'ARS' && s.costArs && s.costArs > 0) {
+                cost = s.costArs;
+                price = s.priceArs || s.costArs;
+              }
+              return {
+                ...s,
+                currency: svcCurrency,
+                cost,
+                price,
+              };
+            }),
+            receipts: (data.receipts || []).map((r: any) => ({
+              ...r,
+              currency: r.currency || data.currency || 'USD',
+            })),
+            payments: (data.payments || []).map((p: any) => ({
+              ...p,
+              currency: p.currency || data.currency || 'USD',
+            })),
           };
           toast.success('Expediente decodificado con IA');
         } else if (error) {

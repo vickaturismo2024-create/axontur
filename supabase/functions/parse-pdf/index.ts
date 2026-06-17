@@ -91,13 +91,13 @@ The output must include:
   - serviceType: The service type, which MUST be one of: flight, lodging, transfer, activity, insurance, cruise, train, rental_car, ferry, or other.
   - startDate: Service start/departure date in YYYY-MM-DD format
   - endDate: Service end/arrival date in YYYY-MM-DD format
-  - cost: Cost amount in the primary currency (number). If there are separate Pesos and Dolares columns, use the one with data.
-  - price: Sale price/importe amount in the primary currency (number). If there are separate Pesos and Dolares columns, use the one with data.
-  - costArs: Cost in ARS (pesos) if available separately (number, 0 if not available)
-  - costUsd: Cost in USD (dolares) if available separately (number, 0 if not available)
-  - priceArs: Sale price in ARS if available separately (number, 0 if not available)
-  - priceUsd: Sale price in USD if available separately (number, 0 if not available)
-  - currency: Primary currency of the service (USD or ARS). If the PDF has both Pesos and Dolares columns, set this to the one with the larger amount.
+  - cost: Cost amount for this service in its own currency (number). Use the column that has a non-zero value.
+  - price: Sale price/importe for this service in its own currency (number). Use the column that has a non-zero value.
+  - costArs: Cost in ARS (pesos) column if available (number, 0 if empty or not available)
+  - costUsd: Cost in USD (dolares) column if available (number, 0 if empty or not available)
+  - priceArs: Sale price in ARS column if available (number, 0 if empty or not available)
+  - priceUsd: Sale price in USD column if available (number, 0 if empty or not available)
+  - currency: CRITICAL - The currency of THIS SPECIFIC service (USD or ARS). EACH service can have a DIFFERENT currency! If the PDF has Pesos and Dolares columns, check which column has non-zero amounts for this specific service row. If the Pesos column has data, set currency to "ARS". If the Dolares column has data, set currency to "USD". Do NOT use a single currency for all services - analyze each row independently.
   - origin: For flight/train/ferry, 3-letter IATA code or city name of origin (e.g. EZE, MAD)
   - destination: For flight/train/ferry, 3-letter IATA code or city name of destination (e.g. MIA, CDG)
   - airline: For flights, the airline name (e.g. Aerolineas Argentinas)
