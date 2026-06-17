@@ -55,7 +55,7 @@ export default function Reservations() {
       if (!reservationIds.length) return [];
       const { data } = await supabase
         .from('reservation_passengers')
-        .select('*')
+        .select('id, reservation_id, first_name, last_name, document, date_of_birth, gender, type')
         .in('reservation_id', reservationIds);
       return (data || []) as unknown as ReservationPassenger[];
     },
@@ -68,7 +68,7 @@ export default function Reservations() {
       if (!reservationIds.length) return [];
       const { data } = await supabase
         .from('flight_segments')
-        .select('*')
+        .select('id, reservation_id, seq, airline_code, flight_number, origin_iata, destination_iata, dep_datetime_local, arr_datetime_local, has_changes, cabin_class, status')
         .in('reservation_id', reservationIds)
         .order('seq');
       return (data || []) as unknown as FlightSegment[];
@@ -82,7 +82,7 @@ export default function Reservations() {
       if (!reservationIds.length) return [];
       const { data } = await supabase
         .from('reservation_changes')
-        .select('*')
+        .select('id, reservation_id, field, old_value, new_value, status, detected_at')
         .in('reservation_id', reservationIds)
         .eq('status', 'pending');
       return (data || []) as unknown as ReservationChange[];

@@ -155,11 +155,12 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
         setDefaultTemplateId(defaultTemplate.id);
       }
 
-      // Fetch quotes
+      // Fetch quotes (optimized: limit to 300 most recent, select only needed columns)
       const { data: quotesData, error: quotesError } = await supabase
         .from('quotes')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, created_at, updated_at, template_id, client, trip, cover, flights, lodging, lodgings, transfers, trains, ferries, rental_cars, activities, cruise, insurance, pricing, itinerary_days, status, archived, favorited, approved_at, approved_by_name, approved_ip')
+        .order('created_at', { ascending: false })
+        .limit(300);
 
       if (quotesError) throw quotesError;
 

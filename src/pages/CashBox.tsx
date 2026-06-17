@@ -18,7 +18,8 @@ import { ArrowLeft, Wallet, ChevronRight as ChevronRightIcon,
   Plus,
   Pencil,
   Trash2,
-  ArrowRightLeft } from 'lucide-react';
+  ArrowRightLeft,
+  CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,40 +62,55 @@ const METHOD_LABELS: Record<string, string> = {
 
 const getMethodLabel = (val: string) => METHOD_LABELS[val] || val || 'Otro';
 
-async function fetchCajaData() {
+async function fetchCajaData(dateFrom?: string, dateTo?: string) {
   // 1. Fetch receipts (incoming items)
-  const { data: receiptItems, error: rError } = await supabase
+  let receiptItemsQuery = supabase
     .from('file_receipt_items')
     .select('id, amount, currency, receipt_id, payment_method, notes, created_at');
+  if (dateFrom) receiptItemsQuery = receiptItemsQuery.gte('created_at', dateFrom);
+  if (dateTo) receiptItemsQuery = receiptItemsQuery.lte('created_at', dateTo + 'T23:59:59');
+  const { data: receiptItems, error: rError } = await receiptItemsQuery;
 
   if (rError) throw rError;
 
   // 2. Fetch receipts to check status and get client details
-  const { data: receipts, error: receiptsError } = await supabase
+  let receiptsQuery = supabase
     .from('file_receipts')
     .select('id, status, client_name, concept, payment_date, file_id');
+  if (dateFrom) receiptsQuery = receiptsQuery.gte('payment_date', dateFrom);
+  if (dateTo) receiptsQuery = receiptsQuery.lte('payment_date', dateTo);
+  const { data: receipts, error: receiptsError } = await receiptsQuery;
 
   if (receiptsError) throw receiptsError;
 
   // 3. Fetch supplier payments (outgoing)
-  const { data: supplierPayments, error: pError } = await supabase
+  let supplierQuery = supabase
     .from('file_supplier_payments' as any)
     .select('id, amount, currency, payment_method, payment_date, supplier_name, reference, notes, file_id');
+  if (dateFrom) supplierQuery = supplierQuery.gte('payment_date', dateFrom);
+  if (dateTo) supplierQuery = supplierQuery.lte('payment_date', dateTo);
+  const { data: supplierPayments, error: pError } = await supplierQuery;
 
   if (pError) throw pError;
 
   // 4. Fetch incident payments (outgoing costs)
-  const { data: incidents, error: iError } = await supabase
+  let incidentQuery = supabase
     .from('file_incidencias' as any)
     .select('id, monto, moneda, descripcion, fecha, file_id')
     .eq('impacto_caja', true);
+  if (dateFrom) incidentQuery = incidentQuery.gte('fecha', dateFrom);
+  if (dateTo) incidentQuery = incidentQuery.lte('fecha', dateTo);
+  const { data: incidents, error: iError } = await incidentQuery;
 
   if (iError) throw iError;
 
-  // 5. Fetch wallet transfers
-  const { data: walletTransfers, error: wtError } = await supabase
+  // 5. Fetch wallet transfers (optimized columns)
+  let walletQuery = supabase
     .from('wallet_transfers' as any)
-    .select('*');
+    .select('id, from_method, to_method, amount, currency, from_currency, to_currency, to_amount, exchange_rate, transfer_date, notes, created_at');
+  if (dateFrom) walletQuery = walletQuery.gte('created_at', dateFrom);
+  if (dateTo) walletQuery = walletQuery.lte('created_at', dateTo + 'T23:59:59');
+  const { data: walletTransfers, error: wtError } = await walletQuery;
 
   if (wtError) throw wtError;
 
@@ -214,16 +230,25 @@ export default function CashBox() {
   const [currencyFilter, setCurrencyFilter] = useState('all');
   const [walletFilter, setWalletFilter] = useState('all');
 
+  // Date range filter (default: last 3 months)
+  const defaultDateFrom = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return d.toISOString().split('T')[0];
+  }, []);
+  const [dateFrom, setDateFrom] = useState(defaultDateFrom);
+  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
 
   useEffect(() => {
     setPage(1);
-  }, [search, typeFilter, currencyFilter, walletFilter]);
+  }, [search, typeFilter, currencyFilter, walletFilter, dateFrom, dateTo]);
 
   const { data: cajaData, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['caja-ledger', user?.id],
-    queryFn: fetchCajaData,
+    queryKey: ['caja-ledger', user?.id, dateFrom, dateTo],
+    queryFn: () => fetchCajaData(dateFrom, dateTo),
     enabled: !!user,
   });
 
@@ -840,6 +865,36 @@ export default function CashBox() {
               Sincronizar
             </Button>
           </div>
+        </div>
+
+        {/* Date range filter */}
+        <div className="flex flex-wrap items-center gap-2 mb-1">
+          <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-xs text-muted-foreground font-medium shrink-0">Período:</span>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            className="h-8 w-[140px] text-xs"
+          />
+          <span className="text-xs text-muted-foreground">—</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            className="h-8 w-[140px] text-xs"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-[10px]"
+            onClick={() => {
+              setDateFrom('2020-01-01');
+              setDateTo(new Date().toISOString().split('T')[0]);
+            }}
+          >
+            Ver todo
+          </Button>
         </div>
 
         {error ? (

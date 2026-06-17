@@ -64,7 +64,7 @@ export default function Accounts() {
   const { data: movements = [], isLoading: lm } = useQuery({
     queryKey: queryKeys.accounts.movements(user?.id),
     queryFn: async () => {
-      const { data } = await supabase.from('account_movements').select('*');
+      const { data } = await supabase.from('account_movements').select('id, account_type, account_id, amount, currency, movement_type, description, created_at');
       return (data as any[]) || [];
     },
     enabled: !!user,
