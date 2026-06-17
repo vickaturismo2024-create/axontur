@@ -154,32 +154,44 @@ async function fetchCajaData() {
     });
   });
 
-  // Map wallet transfers
+  // Map wallet transfers (supports cross-currency)
   (walletTransfers || []).forEach((wt: any) => {
-    // Outgoing from source method
+    const fromCurrency = wt.from_currency || wt.currency;
+    const toCurrency = wt.to_currency || wt.currency;
+    const toAmount = Number(wt.to_amount) || Number(wt.amount) || 0;
+    const fromAmount = Number(wt.amount) || 0;
+    const wtDate = wt.transfer_date || wt.created_at?.split('T')[0];
+    const isCrossCurrency = fromCurrency !== toCurrency;
+    const rateNote = isCrossCurrency && wt.exchange_rate ? ` (TC: ${wt.exchange_rate})` : '';
+
+    // Outgoing from source method (in source currency)
     ledger.push({
       id: wt.id + '-out',
       type: 'egreso',
-      date: wt.created_at?.split('T')[0],
-      concept: `Transferencia a ${getMethodLabel(wt.to_method)}`,
+      date: wtDate,
+      concept: isCrossCurrency
+        ? `Conversión ${fromCurrency} → ${toCurrency} (${getMethodLabel(wt.from_method)} → ${getMethodLabel(wt.to_method)})${rateNote}`
+        : `Transferencia a ${getMethodLabel(wt.to_method)}`,
       notes: wt.notes || 'Movimiento entre billeteras',
-      currency: wt.currency,
-      amount: Number(wt.amount) || 0,
+      currency: fromCurrency,
+      amount: fromAmount,
       payment_method: wt.from_method,
-      partyName: 'Transferencia Interna',
+      partyName: isCrossCurrency ? 'Conversión de Moneda' : 'Transferencia Interna',
       file_id: null,
     });
-    // Incoming to dest method
+    // Incoming to dest method (in dest currency)
     ledger.push({
       id: wt.id + '-in',
       type: 'ingreso',
-      date: wt.created_at?.split('T')[0],
-      concept: `Transferencia desde ${getMethodLabel(wt.from_method)}`,
+      date: wtDate,
+      concept: isCrossCurrency
+        ? `Conversión ${fromCurrency} → ${toCurrency} (${getMethodLabel(wt.from_method)} → ${getMethodLabel(wt.to_method)})${rateNote}`
+        : `Transferencia desde ${getMethodLabel(wt.from_method)}`,
       notes: wt.notes || 'Movimiento entre billeteras',
-      currency: wt.currency,
-      amount: Number(wt.amount) || 0,
+      currency: toCurrency,
+      amount: toAmount,
       payment_method: wt.to_method,
-      partyName: 'Transferencia Interna',
+      partyName: isCrossCurrency ? 'Conversión de Moneda' : 'Transferencia Interna',
       file_id: null,
     });
   });
@@ -217,25 +229,81 @@ export default function CashBox() {
 
   const ledger = cajaData?.ledger || [];
   const extraMovements = useMemo(() => {
-    return ledger.filter(item => item.partyName === 'Ajuste Extra' || item.partyName === 'Transferencia Interna');
+    return ledger.filter(item => item.partyName === 'Ajuste Extra' || item.partyName === 'Transferencia Interna' || item.partyName === 'Conversión de Moneda');
   }, [ledger]);
 
   // Wallet transfer state
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [transferAmount, setTransferAmount] = useState('');
-  const [transferCurrency, setTransferCurrency] = useState('ARS');
+  const [transferFromCurrency, setTransferFromCurrency] = useState('ARS');
+  const [transferToCurrency, setTransferToCurrency] = useState('USD');
+  const [transferExchangeRate, setTransferExchangeRate] = useState('');
+  const [transferConvertedAmount, setTransferConvertedAmount] = useState('');
   const [transferFrom, setTransferFrom] = useState('');
   const [transferTo, setTransferTo] = useState('');
   const [transferNotes, setTransferNotes] = useState('');
+  const [transferDate, setTransferDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSavingTransfer, setIsSavingTransfer] = useState(false);
+  const [liveRates, setLiveRates] = useState<any[] | null>(null);
+  const [loadingRates, setLoadingRates] = useState(false);
 
   // Drill-down state for wallet hierarchy
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
+  // Auto-calculate converted amount when rate or amount changes
+  useEffect(() => {
+    const amt = parseFloat(transferAmount);
+    const rate = parseFloat(transferExchangeRate);
+    if (!isNaN(amt) && amt > 0 && !isNaN(rate) && rate > 0 && transferFromCurrency !== transferToCurrency) {
+      // Rate means: 1 unit of fromCurrency = rate units of toCurrency
+      // e.g. 1 ARS -> rate USD? No. For ARS->USD, rate = how many ARS per 1 USD (e.g. 1200)
+      // So convertedAmount = amt / rate
+      setTransferConvertedAmount((amt / rate).toFixed(2));
+    } else if (transferFromCurrency === transferToCurrency) {
+      setTransferConvertedAmount(transferAmount);
+    } else {
+      setTransferConvertedAmount('');
+    }
+  }, [transferAmount, transferExchangeRate, transferFromCurrency, transferToCurrency]);
+
+  // Fetch live rates when dialog opens
+  useEffect(() => {
+    if (isTransferDialogOpen && !liveRates) {
+      setLoadingRates(true);
+      supabase.functions.invoke('fetch-currency-rates').then(({ data, error }) => {
+        if (!error && data?.rates) {
+          setLiveRates(data.rates);
+        }
+        setLoadingRates(false);
+      });
+    }
+  }, [isTransferDialogOpen]);
+
+  // Auto-fill exchange rate when currencies change
+  useEffect(() => {
+    if (!liveRates || transferFromCurrency === transferToCurrency) {
+      setTransferExchangeRate('');
+      return;
+    }
+    // Try to find the right rate
+    const blueRate = liveRates.find((r: any) => r.key === 'usd_blue');
+    const eurRate = liveRates.find((r: any) => r.key === 'eur_oficial');
+    
+    if (transferFromCurrency === 'ARS' && transferToCurrency === 'USD' && blueRate?.venta) {
+      setTransferExchangeRate(String(blueRate.venta));
+    } else if (transferFromCurrency === 'USD' && transferToCurrency === 'ARS' && blueRate?.compra) {
+      setTransferExchangeRate(String(blueRate.compra));
+    } else if (transferFromCurrency === 'ARS' && transferToCurrency === 'EUR' && eurRate?.venta) {
+      setTransferExchangeRate(String(eurRate.venta));
+    } else if (transferFromCurrency === 'EUR' && transferToCurrency === 'ARS' && eurRate?.compra) {
+      setTransferExchangeRate(String(eurRate.compra));
+    }
+  }, [transferFromCurrency, transferToCurrency, liveRates]);
+
   const handleSaveTransfer = async () => {
     if (!user) return;
-    if (transferFrom === transferTo) {
+    if (transferFrom === transferTo && transferFromCurrency === transferToCurrency) {
       toast.error('El origen y destino deben ser diferentes');
       return;
     }
@@ -244,6 +312,14 @@ export default function CashBox() {
       toast.error('El monto debe ser mayor a 0');
       return;
     }
+    
+    const isCrossCurrency = transferFromCurrency !== transferToCurrency;
+    const rate = parseFloat(transferExchangeRate);
+    if (isCrossCurrency && (isNaN(rate) || rate <= 0)) {
+      toast.error('La cotización debe ser mayor a 0 para convertir monedas');
+      return;
+    }
+    const destAmount = isCrossCurrency ? parseFloat((amt / rate).toFixed(2)) : amt;
 
     setIsSavingTransfer(true);
     try {
@@ -252,11 +328,42 @@ export default function CashBox() {
         from_method: transferFrom,
         to_method: transferTo,
         amount: amt,
-        currency: transferCurrency,
-        notes: transferNotes.trim(),
+        currency: transferFromCurrency,
+        from_currency: transferFromCurrency,
+        to_currency: transferToCurrency,
+        to_amount: destAmount,
+        exchange_rate: isCrossCurrency ? rate : null,
+        transfer_date: transferDate,
+        notes: transferNotes.trim() || (isCrossCurrency
+          ? `Conversión ${transferFromCurrency} → ${transferToCurrency} (TC: ${rate})`
+          : 'Movimiento entre billeteras'),
       });
       if (error) throw error;
-      toast.success('Transferencia entre billeteras registrada');
+
+      // Log exchange rate if cross-currency
+      if (isCrossCurrency) {
+        const { data: profile } = await supabase
+          .from('agency_members')
+          .select('agency_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        const agencyId = (profile as any)?.agency_id || null;
+
+        await supabase.from('exchange_rate_log' as any).insert({
+          user_id: user.id,
+          agency_id: agencyId,
+          from_currency: transferFromCurrency,
+          to_currency: transferToCurrency,
+          rate: rate,
+          rate_date: transferDate,
+          source: 'wallet_conversion',
+          source_type: 'wallet_transfer',
+        });
+      }
+
+      toast.success(isCrossCurrency
+        ? `Conversión registrada: ${transferFromCurrency} ${formatMoney(amt)} → ${transferToCurrency} ${formatMoney(destAmount)}`
+        : 'Transferencia entre billeteras registrada');
       setIsTransferDialogOpen(false);
       refetch();
     } catch (err: any) {
@@ -707,10 +814,15 @@ export default function CashBox() {
               size="sm"
               onClick={() => {
                 setTransferAmount('');
-                setTransferCurrency('ARS');
+                setTransferFromCurrency('ARS');
+                setTransferToCurrency('USD');
+                setTransferExchangeRate('');
+                setTransferConvertedAmount('');
                 setTransferFrom('');
                 setTransferTo('');
                 setTransferNotes('');
+                setTransferDate(new Date().toISOString().split('T')[0]);
+                setLiveRates(null);
                 setIsTransferDialogOpen(true);
               }}
               className="h-9 px-3 gap-2"
@@ -1421,31 +1533,25 @@ export default function CashBox() {
       </div>
 
       <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Transferencia entre Billeteras (Caja)</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-[hsl(var(--gold))]" />
+              {transferFromCurrency !== transferToCurrency ? 'Conversión de Moneda' : 'Transferencia entre Billeteras'}
+            </DialogTitle>
+            <DialogDescription>
+              {transferFromCurrency !== transferToCurrency
+                ? 'Convertí fondos de una moneda a otra entre tus billeteras. La cotización se actualiza automáticamente.'
+                : 'Mové dinero entre métodos de pago dentro de la misma moneda.'}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Monto</Label>
-                <Input type="number" step="0.01" min={0.01} value={transferAmount} onChange={e => setTransferAmount(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Moneda</Label>
-                <Select value={transferCurrency} onValueChange={setTransferCurrency}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {['ARS', 'USD', 'EUR', 'BRL'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Desde Billetera</Label>
-                <Select value={transferFrom} onValueChange={setTransferFrom} required>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+          <div className="space-y-4 py-3">
+            {/* Row 1: From method + currency */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Desde Billetera</Label>
+                <Select value={transferFrom} onValueChange={setTransferFrom}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">Efectivo</SelectItem>
                     <SelectItem value="transfer">Banco (Transf.)</SelectItem>
@@ -1456,10 +1562,23 @@ export default function CashBox() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Hacia Billetera</Label>
-                <Select value={transferTo} onValueChange={setTransferTo} required>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Moneda Origen</Label>
+                <Select value={transferFromCurrency} onValueChange={setTransferFromCurrency}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['ARS', 'USD', 'EUR', 'BRL'].map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Row 2: To method + currency */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Hacia Billetera</Label>
+                <Select value={transferTo} onValueChange={setTransferTo}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">Efectivo</SelectItem>
                     <SelectItem value="transfer">Banco (Transf.)</SelectItem>
@@ -1470,15 +1589,89 @@ export default function CashBox() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Moneda Destino</Label>
+                <Select value={transferToCurrency} onValueChange={setTransferToCurrency}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['ARS', 'USD', 'EUR', 'BRL'].map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Notas (opcional)</Label>
-              <Input value={transferNotes} onChange={e => setTransferNotes(e.target.value)} placeholder="Ej. Depósito en banco" />
+
+            {/* Row 3: Amount + Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Monto Origen ({transferFromCurrency})</Label>
+                <Input type="number" step="0.01" min={0.01} value={transferAmount} onChange={e => setTransferAmount(e.target.value)} className="h-9 text-xs" placeholder="0.00" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Fecha</Label>
+                <Input type="date" value={transferDate} onChange={e => setTransferDate(e.target.value)} className="h-9 text-xs" />
+              </div>
+            </div>
+
+            {/* Exchange rate section (only if cross-currency) */}
+            {transferFromCurrency !== transferToCurrency && (
+              <div className="rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/20 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Cotización</Label>
+                  {loadingRates && <span className="text-[10px] text-muted-foreground animate-pulse">Cargando cotizaciones...</span>}
+                  {!loadingRates && liveRates && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">✓ Cotización en vivo</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">1 {transferToCurrency} =</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0.01}
+                      value={transferExchangeRate}
+                      onChange={e => setTransferExchangeRate(e.target.value)}
+                      className="h-9 text-xs font-mono font-bold"
+                      placeholder={`Ej: ${transferFromCurrency === 'ARS' ? '1200' : '0.00083'}`}
+                    />
+                    <p className="text-[9px] text-muted-foreground">{transferFromCurrency} por cada {transferToCurrency}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Monto Destino ({transferToCurrency})</Label>
+                    <div className="h-9 flex items-center px-3 rounded-md border bg-muted/30">
+                      <span className={`text-sm font-black ${transferConvertedAmount ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {transferConvertedAmount ? `${getCurrencySymbol(transferToCurrency)} ${formatMoney(parseFloat(transferConvertedAmount))}` : '—'}
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground">Calculado automáticamente</p>
+                  </div>
+                </div>
+                {transferAmount && transferConvertedAmount && (
+                  <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/30">
+                    <p className="text-xs text-center font-medium text-amber-800 dark:text-amber-300">
+                      {getCurrencySymbol(transferFromCurrency)} {formatMoney(parseFloat(transferAmount))} → {getCurrencySymbol(transferToCurrency)} {formatMoney(parseFloat(transferConvertedAmount))}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Notes */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Notas (opcional)</Label>
+              <Input value={transferNotes} onChange={e => setTransferNotes(e.target.value)} className="h-9 text-xs" placeholder="Ej. Compra de dólares, Depósito en banco" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTransferDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveTransfer} disabled={isSavingTransfer}>Transferir</Button>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setIsTransferDialogOpen(false)} className="h-9 text-xs">Cancelar</Button>
+            <Button
+              size="sm"
+              onClick={handleSaveTransfer}
+              disabled={isSavingTransfer || !transferFrom || !transferTo}
+              className="h-9 text-xs bg-[hsl(var(--gold))] hover:bg-[hsl(var(--gold))/80] text-black font-semibold"
+            >
+              {isSavingTransfer ? 'Procesando...' : (transferFromCurrency !== transferToCurrency ? 'Convertir y Transferir' : 'Transferir')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
