@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Trash2 } from 'lucide-react';
@@ -100,6 +100,7 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nuevo recibo</DialogTitle>
+          <DialogDescription className="sr-only">Formulario para crear un nuevo recibo</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           {fileDebts && Object.keys(fileDebts).length > 0 && (

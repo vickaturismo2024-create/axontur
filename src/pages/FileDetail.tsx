@@ -81,6 +81,11 @@ const FileDetail = () => {
   const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
 
+  // Dynamic header totals from services (per-currency)
+  const [headerTotals, setHeaderTotals] = useState<Record<string, { price: number; cost: number }>>({
+    USD: { price: 0, cost: 0 },
+  });
+
   // Email dialogs
   const [confirmEmailOpen, setConfirmEmailOpen] = useState(false);
   const [voucherEmailOpen, setVoucherEmailOpen] = useState(false);
@@ -104,6 +109,26 @@ const FileDetail = () => {
       if (f.client_id) {
         const { data: c } = await supabase.from('clients').select('email').eq('id', f.client_id).maybeSingle();
         if (c?.email) setClientEmail(c.email);
+      }
+
+      // Compute real header totals from services grouped by currency
+      const { data: services } = await supabase
+        .from('file_services')
+        .select('price, cost, currency, status')
+        .eq('file_id', id);
+      if (services && services.length > 0) {
+        const totals: Record<string, { price: number; cost: number }> = {};
+        services.forEach((s: any) => {
+          if (s.status === 'cancelled') return;
+          const cur = s.currency || 'USD';
+          if (!totals[cur]) totals[cur] = { price: 0, cost: 0 };
+          totals[cur].price += Number(s.price) || 0;
+          totals[cur].cost += Number(s.cost) || 0;
+        });
+        setHeaderTotals(totals);
+      } else {
+        // Fallback to static file values if no services
+        setHeaderTotals({ [f.currency]: { price: f.total_price, cost: f.total_cost } });
       }
     };
     load();
@@ -433,17 +458,53 @@ const FileDetail = () => {
               {/* Lado derecho — precio */}
               <div className="flex flex-row items-center justify-between sm:flex-col sm:items-end sm:text-right gap-2 border-t sm:border-0 pt-3 sm:pt-0">
                 <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Costo: {file.currency} {file.total_cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                  </p>
-                  {file.total_price > 0 && file.total_cost > 0 && (
-                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      Margen: {(((file.total_price - file.total_cost) / file.total_cost) * 100).toFixed(1)}%
-                    </p>
-                  )}
+                  {(() => {
+                    const currencies = Object.keys(headerTotals).sort();
+                    const isMulti = currencies.length > 1;
+                    const fmt = (v: number) => v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                    if (!isMulti && currencies.length === 1) {
+                      // Single currency — show clean total
+                      const cur = currencies[0];
+                      const t = headerTotals[cur];
+                      const marginPct = t.cost > 0 ? (((t.price - t.cost) / t.cost) * 100) : 0;
+                      return (
+                        <>
+                          <p className="text-2xl font-bold text-foreground">
+                            {cur} {fmt(t.price)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Costo: {cur} {fmt(t.cost)}
+                          </p>
+                          {t.price > 0 && t.cost > 0 && (
+                            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
+                              Margen: {marginPct.toFixed(1)}%
+                            </p>
+                          )}
+                        </>
+                      );
+                    }
+
+                    // Multi currency — show each currency line
+                    return (
+                      <div className="space-y-1">
+                        {currencies.map(cur => {
+                          const t = headerTotals[cur];
+                          return (
+                            <div key={cur}>
+                              <p className="text-lg font-bold text-foreground leading-tight">
+                                {cur} {fmt(t.price)}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Costo: {cur} {fmt(t.cost)}
+                              </p>
+                            </div>
+                          );
+                        })}
+                        <p className="text-[10px] text-muted-foreground/70 mt-1 italic">Múltiples monedas</p>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

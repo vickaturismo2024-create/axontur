@@ -195,7 +195,7 @@ export function TransferSupplierCreditDialog({ open, onOpenChange, sourceFileId,
                 </SelectTrigger>
                 <SelectContent>
                   {METHODS.map(m => (
-                    <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

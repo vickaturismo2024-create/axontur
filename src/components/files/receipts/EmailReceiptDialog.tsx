@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Mail } from 'lucide-react';
 import { Receipt } from './types';
@@ -31,6 +31,7 @@ export function EmailReceiptDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Enviar recibo por email</DialogTitle>
+          <DialogDescription className="sr-only">Formulario para enviar recibo por email</DialogDescription>
         </DialogHeader>
         {receipt && (
           <div className="grid gap-4">

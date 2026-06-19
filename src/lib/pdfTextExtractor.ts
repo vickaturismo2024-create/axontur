@@ -4,14 +4,24 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Use the official CDN matching the installed pdfjs-dist version (3.11.174)
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-export async function extractTextFromPDF(
+export interface PdfTextItem {
+  text: string;
+  x: number;
+  y: number;
+}
+
+export interface PdfExtractionResult {
+  text: string;
+  items: PdfTextItem[];
+}
+
+async function extractPdfPages(
   file: File,
   onProgress?: (msg: string) => void
-): Promise<string> {
+): Promise<{ lines: { y: number; items: { x: number; text: string }[] }[] }[]> {
   onProgress?.('Leyendo PDF...');
   const arrayBuffer = await file.arrayBuffer();
 
-  // Validate PDF header
   const header = new Uint8Array(arrayBuffer.slice(0, 5));
   const headerStr = String.fromCharCode(...header);
   if (!headerStr.startsWith('%PDF-')) {
@@ -21,29 +31,21 @@ export async function extractTextFromPDF(
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
 
-  let fullText = '';
+  const pages: { lines: { y: number; items: { x: number; text: string }[] }[] }[] = [];
+
   for (let i = 1; i <= pdf.numPages; i++) {
     onProgress?.(`Extrayendo página ${i} de ${pdf.numPages}...`);
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
 
-    // Reconstruct line structure using Y coordinates from transform matrix
-    // transform[5] = Y position (higher = closer to top of page)
-    // transform[4] = X position (higher = further right)
     const items = content.items
       .filter((item: any) => 'str' in item && item.str.trim() !== '')
       .map((item: any) => ({
         text: item.str,
         x: item.transform[4],
-        y: Math.round(item.transform[5] * 10) / 10, // round to 0.1 to group similar Y positions
+        y: Math.round(item.transform[5] * 10) / 10,
       }));
 
-    if (items.length === 0) {
-      fullText += '\n\n';
-      continue;
-    }
-
-    // Group by Y coordinate (same line), with tolerance of ~2 units
     const lines: { y: number; items: { x: number; text: string }[] }[] = [];
     const Y_TOLERANCE = 2;
 
@@ -56,11 +58,18 @@ export async function extractTextFromPDF(
       }
     }
 
-    // Sort lines top-to-bottom (highest Y first), then items left-to-right
     lines.sort((a, b) => b.y - a.y);
-    const pageText = lines.map(line => {
+    pages.push({ lines });
+  }
+
+  return pages;
+}
+
+function reconstructText(pages: { lines: { y: number; items: { x: number; text: string }[] }[] }[]): string {
+  let fullText = '';
+  for (const page of pages) {
+    const pageText = page.lines.map(line => {
       line.items.sort((a, b) => a.x - b.x);
-      // Insert spaces between items based on X gap
       let lineText = '';
       for (let j = 0; j < line.items.length; j++) {
         if (j > 0) {
@@ -71,9 +80,40 @@ export async function extractTextFromPDF(
       }
       return lineText;
     }).join('\n');
-
     fullText += pageText + '\n\n';
   }
-
   return fullText.trim();
+}
+
+export async function extractTextFromPDF(
+  file: File,
+  onProgress?: (msg: string) => void
+): Promise<string> {
+  const pages = await extractPdfPages(file, onProgress);
+  return reconstructText(pages);
+}
+
+/**
+ * Extract text AND positioned items from PDF.
+ * The items array preserves X/Y positions for each text fragment,
+ * enabling column-aware parsing (e.g., Pesos vs Dolares columns).
+ */
+export async function extractTextWithPositionsFromPDF(
+  file: File,
+  onProgress?: (msg: string) => void
+): Promise<PdfExtractionResult> {
+  const pages = await extractPdfPages(file, onProgress);
+  const text = reconstructText(pages);
+
+  // Flatten all items across all pages
+  const items: PdfTextItem[] = [];
+  for (const page of pages) {
+    for (const line of page.lines) {
+      for (const item of line.items) {
+        items.push({ text: item.text, x: item.x, y: line.y });
+      }
+    }
+  }
+
+  return { text, items };
 }

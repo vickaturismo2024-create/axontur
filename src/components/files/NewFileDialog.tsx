@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -689,6 +689,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
               <Plus className="h-5 w-5 text-primary" />
               Nuevo Expediente Completo
             </DialogTitle>
+            <DialogDescription className="sr-only">Formulario para crear un nuevo expediente</DialogDescription>
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2">
@@ -1043,6 +1044,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
               <UserPlus className="h-5 w-5 text-primary" />
               {editingPassengerIdx !== null ? 'Editar Pasajero' : 'Nuevo Pasajero'}
             </DialogTitle>
+            <DialogDescription className="sr-only">Formulario de pasajero</DialogDescription>
           </DialogHeader>
 
           {!editingPassengerIdx && !importPassengerMode && (
@@ -1219,6 +1221,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
               <Activity className="h-5 w-5 text-primary" />
               {editingServiceIdx !== null ? 'Editar Servicio' : 'Nuevo Servicio'}
             </DialogTitle>
+            <DialogDescription className="sr-only">Formulario de servicio</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 mt-2">

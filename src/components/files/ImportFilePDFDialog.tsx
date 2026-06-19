@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { extractTextFromPDF } from '@/lib/pdfTextExtractor';
+import { extractTextWithPositionsFromPDF, type PdfTextItem } from '@/lib/pdfTextExtractor';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -112,14 +112,14 @@ const LEGACY_NOTE_PREFIX = 'Importado del sistema antiguo';
 
 // Local Fallback Parser using Regex
 // Local Fallback Parser using Regex
-function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
-  console.log('[Local Parser] Running regex fallback parser...');
+function parseLegacyReservationPDFText(rawText: string, pdfItems?: PdfTextItem[]): LegacyReservation {
+  console.log('[Local Parser] Running regex fallback parser...', pdfItems ? `(with ${pdfItems.length} positioned items)` : '(no positions)');
   // Preserve line structure for section splitting - only normalize CRLF
   const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const flatText = text.replace(/\n+/g, ' '); // flattened version for single-line patterns
 
   // Detect main currency
-  const currencyMatch = flatText.match(/(?:u\$s|usd|d[óo]lar)/i);
+  const currencyMatch = flatText.match(/(?:u\$s|usd|d[Ã³o]lar)/i);
   const detectedCurrency: 'USD' | 'ARS' = currencyMatch ? 'USD' : 'ARS';
 
   const parseDateStr = (dStr: string | null) => {
@@ -131,9 +131,9 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
     return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
   };
 
-  // 1. Reserva N°
+  // 1. Reserva NÂ°
   let legacyId = 'S/N';
-  const legacyIdMatch = flatText.match(/Reserva\s+N[°ºo\.\s]*(\d+)/i) || 
+  const legacyIdMatch = flatText.match(/Reserva\s+N[Â°Âºo\.\s]*(\d+)/i) || 
                         flatText.match(/(\d+)\s+Tel\.\s+Emision/i) || 
                         flatText.match(/^\s*(\d{3,})/);
   if (legacyIdMatch) {
@@ -141,7 +141,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
   }
 
   // 2. Client Header - try multiple patterns
-  let clientName = 'Cliente Histórico';
+  let clientName = 'Cliente HistÃ³rico';
   let clientPhone = '';
   let clientLegacyId = '';
   let clientAddress = '';
@@ -152,8 +152,8 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
     clientLegacyId = clientMatch[3].trim();
     clientAddress = clientMatch[4].trim();
   } else {
-    // Fallback: Cliente N° XXXX followed by name
-    const clientMatch2 = flatText.match(/Cliente\s+N[°ºo\.\s]*(\d+)\s+([A-Z][A-Z\s\-]{3,40})/i);
+    // Fallback: Cliente NÂ° XXXX followed by name
+    const clientMatch2 = flatText.match(/Cliente\s+N[Â°Âºo\.\s]*(\d+)\s+([A-Z][A-Z\s\-]{3,40})/i);
     if (clientMatch2) {
       clientLegacyId = clientMatch2[1].trim();
       clientName = clientMatch2[2].trim();
@@ -165,7 +165,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
   const startDate = travelDatesMatch ? parseDateStr(travelDatesMatch[2]) : null;
 
   // 4. Vendedor
-  const sellerMatch = flatText.match(/([A-Z\s]+?)\s+Cliente\s+N[°ºo\.\s]*/i);
+  const sellerMatch = flatText.match(/([A-Z\s]+?)\s+Cliente\s+N[Â°Âºo\.\s]*/i);
   const agent = sellerMatch ? sellerMatch[1].replace(/Solicitud\s+Salida|Salida\s+Solicitud/gi, '').trim() : '';
 
   // 5. Passengers (PAX)
@@ -207,183 +207,208 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
   }
 
   // If clientName is not set, use first passenger
-  if (clientName === 'Cliente Histórico' && passengers.length > 0) {
+  if (clientName === 'Cliente HistÃ³rico' && passengers.length > 0) {
     clientName = passengers[0].name;
   }
 
-  // 6. Services
+  // ============================================================
+  // FINANCIAL SECTIONS: Position-based parser using pdfItems
+  // ============================================================
+
+  // Helper to parse a number string handling AR/US decimal formats
+  const parseAmount = (n: string): number => {
+    const s = n.trim();
+    if (/^(\d{1,3}(,\d{3})*|\d+)\.\d{2}$/.test(s)) return parseFloat(s.replace(/,/g, ''));
+    if (/^(\d{1,3}(\.\d{3})*|\d+),\d{2}$/.test(s)) return parseFloat(s.replace(/\./g, '').replace(/,/g, '.'));
+    if (s.includes('.') && !s.includes(',')) return parseFloat(s);
+    if (s.includes(',') && !s.includes('.')) return parseFloat(s.replace(/,/g, '.'));
+    return parseFloat(s.replace(/\./g, '').replace(/,/g, '.'));
+  };
+
+  // Detect service type from text
+  const detectServiceType = (t: string): string => {
+    const d = t.toLowerCase();
+    if (d.includes('aereo') || d.includes('vuelo') || d.includes('airline')) return 'flight';
+    if (d.includes('hotel') || d.includes('alojamiento') || d.includes('terrestre') || d.includes('hospedaje')) return 'lodging';
+    if (d.includes('traslado') || d.includes('transfer') || d.includes('shuttle')) return 'transfer';
+    if (d.includes('seguro') || d.includes('asistencia') || d.includes('assist')) return 'insurance';
+    if (d.includes('crucero') || d.includes('naviera') || d.includes('cruise') || d.includes('msc')) return 'cruise';
+    if (d.includes('tren') || d.includes('train') || d.includes('renfe')) return 'train';
+    if (d.includes('ferry') || d.includes('barco') || d.includes('buquebus')) return 'ferry';
+    if (d.includes('auto') || d.includes('car') || d.includes('rent') || d.includes('hertz') || d.includes('avis')) return 'rental_car';
+    return 'other';
+  };
+
   const services: LegacyService[] = [];
-  const servicesSectionIndex = text.indexOf('SERVICIOS');
-  if (servicesSectionIndex !== -1) {
-    let servicesText = text.substring(servicesSectionIndex);
-    const totalIdx = servicesText.indexOf('TOTAL SERVICIOS');
-    const cobrosIdx = servicesText.indexOf('COBROS');
-    const endIdx = totalIdx !== -1 ? totalIdx : (cobrosIdx !== -1 ? cobrosIdx : servicesText.length);
-    servicesText = servicesText.substring(0, endIdx);
-
-    // Check if the services section has separate Pesos / Dolares columns
-    const hasDualColumns = /\b(Pesos|Dolares|D[óo]lares)\b/i.test(servicesText.substring(0, 200));
-
-    // More flexible: SUPPLIER [:|-]? DESCRIPTION DATE DATE (colon optional)
-    const headerRegex = /([A-Z][A-Z\.\s\-\&,]{2,40}?)\s*[:\-]?\s*([A-Z][A-Z\.\s\-\/\(\)\+\*,]{2,60}?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/gi;
-    const headers = [...servicesText.matchAll(headerRegex)];
-
-    for (let i = 0; i < headers.length; i++) {
-      const curr = headers[i];
-      const start = curr.index + curr[0].length;
-      const nextHeader = headers[i + 1];
-      const end = nextHeader ? nextHeader.index : servicesText.length;
-      const remainingText = servicesText.substring(start, end).trim();
-
-      let supplierName = curr[1].replace(/^(?:SERVICIOS|Costo|Iva|Importe|Dif|Pesos|Dolares|D[óo]lares|\s)+/gi, '').trim();
-      let description = curr[2].trim();
-      const sDate = parseDateStr(curr[3]);
-      const eDate = parseDateStr(curr[4]);
-
-      // Extract amounts - handle decimal separators (1.234,56 or 1234.56)
-      const numbers = remainingText.match(/(\d[\d\.\,]*\d)/g) || [];
-      const amounts = numbers.map(n => {
-        // Check if it matches US format: 1,234.56 or 1234.56
-        if (/^(\d{1,3}(,\d{3})*|\d+)\.\d{2}$/.test(n)) {
-          return parseFloat(n.replace(/,/g, ''));
-        }
-        // Check if it matches AR format: 1.234,56 or 1234,56
-        if (/^(\d{1,3}(\.\d{3})*|\d+),\d{2}$/.test(n)) {
-          return parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
-        }
-        // If it just has a period: 13879.40
-        if (n.includes('.') && !n.includes(',')) {
-          return parseFloat(n);
-        }
-        // If it just has a comma: 13879,40
-        if (n.includes(',') && !n.includes('.')) {
-          return parseFloat(n.replace(/,/g, '.'));
-        }
-        // Fallback
-        return parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
-      }).filter(n => Number.isFinite(n) && n > 0);
-      
-      let cost = 0;
-      let price = 0;
-      if (amounts.length > 0) {
-        cost = amounts[0];
-        price = amounts.length >= 2 ? Math.max(...amounts) : cost;
-      }
-
-      // Per-service currency detection
-      let serviceCurrency: 'USD' | 'ARS' = detectedCurrency;
-      if (hasDualColumns) {
-        // When the PDF has Pesos and Dolares columns, analyze position/context of the service block
-        const blockText = (curr[0] + ' ' + remainingText).toLowerCase();
-        const hasDollarIndicator = /\bu\$s\b|dol[aá]r|dolares|usd/i.test(blockText);
-        const hasPesoIndicator = /\bpesos\b|\$\s*\d/i.test(blockText);
-
-        // Look for amounts specifically labeled with currency in the remaining text
-        const dollarAmount = remainingText.match(/(?:u\$s|USD|[Dd]ol[aá]r(?:es)?)\s*[:\s]?\s*(\d[\d\.\,]*\d)/);
-        const pesoAmount = remainingText.match(/(?:[Pp]esos?)\s*[:\s]?\s*(\d[\d\.\,]*\d)/);
-
-        if (dollarAmount && !pesoAmount) {
-          serviceCurrency = 'USD';
-        } else if (pesoAmount && !dollarAmount) {
-          serviceCurrency = 'ARS';
-        } else if (hasDollarIndicator && !hasPesoIndicator) {
-          serviceCurrency = 'USD';
-        } else if (hasPesoIndicator && !hasDollarIndicator) {
-          serviceCurrency = 'ARS';
-        }
-        // If both or neither, fall back to analyzing the amount magnitude
-        // (USD amounts tend to be much smaller than ARS for similar services)
-      } else {
-        // Single-column: check per-service text for currency indicators
-        const blockText = (curr[0] + ' ' + remainingText).toLowerCase();
-        if (/\bu\$s\b|dol[aá]r|dolares|usd/i.test(blockText)) {
-          serviceCurrency = 'USD';
-        } else if (/\bpesos?\b|\bars\b/i.test(blockText)) {
-          serviceCurrency = 'ARS';
-        }
-      }
-
-      let serviceType = 'other';
-      const descNorm = (supplierName + ' ' + description).toLowerCase();
-      if (descNorm.includes('aereo') || descNorm.includes('vuelo') || descNorm.includes('airline') || descNorm.includes('air ')) serviceType = 'flight';
-      else if (descNorm.includes('hotel') || descNorm.includes('alojamiento') || descNorm.includes('terrestre') || descNorm.includes('hospedaje')) serviceType = 'lodging';
-      else if (descNorm.includes('traslado') || descNorm.includes('transfer') || descNorm.includes('shuttle')) serviceType = 'transfer';
-      else if (descNorm.includes('seguro') || descNorm.includes('asistencia') || descNorm.includes('assist') || descNorm.includes('universal assist')) serviceType = 'insurance';
-      else if (descNorm.includes('crucero') || descNorm.includes('naviera') || descNorm.includes('cruise') || descNorm.includes('msc')) serviceType = 'cruise';
-      else if (descNorm.includes('tren') || descNorm.includes('train') || descNorm.includes('renfe')) serviceType = 'train';
-      else if (descNorm.includes('ferry') || descNorm.includes('barco') || descNorm.includes('buquebus')) serviceType = 'ferry';
-      else if (descNorm.includes('auto') || descNorm.includes('car') || descNorm.includes('rent') || descNorm.includes('hertz') || descNorm.includes('avis')) serviceType = 'rental_car';
-
-      services.push({
-        supplierName,
-        description,
-        serviceType,
-        startDate: sDate,
-        endDate: eDate,
-        cost,
-        price,
-        currency: serviceCurrency
-      });
-    }
-  }
-
-  // 7. Cobros
   const receipts: LegacyReceipt[] = [];
-  const cobrosSectionIndex = text.indexOf('COBROS');
-  if (cobrosSectionIndex !== -1) {
-    let cobrosText = text.substring(cobrosSectionIndex);
-    const pagosIdx = cobrosText.indexOf('PAGOS');
-    const endIdx = pagosIdx !== -1 ? pagosIdx : cobrosText.length;
-    cobrosText = cobrosText.substring(0, endIdx);
-
-    const cobrosRegex = /(ER\s+\d+[\-\d]+)\s+([\s\S]+?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s*([A-Z0-9\.\s\-\/\(\)\+\*]*?)\s*(\d+[\.\,]\d{2})/gi;
-    const cobrosMatches = [...cobrosText.matchAll(cobrosRegex)];
-    for (const m of cobrosMatches) {
-      let n = m[5];
-      let amount = 0;
-      if (/^(\d{1,3}(,\d{3})*|\d+)\.\d{2}$/.test(n)) amount = parseFloat(n.replace(/,/g, ''));
-      else if (/^(\d{1,3}(\.\d{3})*|\d+),\d{2}$/.test(n)) amount = parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
-      else if (n.includes('.') && !n.includes(',')) amount = parseFloat(n);
-      else if (n.includes(',') && !n.includes('.')) amount = parseFloat(n.replace(/,/g, '.'));
-      else amount = parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
-      
-      const rDate = parseDateStr(m[3]);
-      const suffix = m[4].trim();
-      const concept = `${m[1]} ${m[2].trim()}${suffix ? ' ' + suffix : ''}`.replace(/\s+/g, ' ');
-      receipts.push({
-        concept,
-        date: rDate,
-        amount,
-        currency: detectedCurrency
-      });
-    }
-  }
-
-  // 8. Pagos
   const payments: LegacyPayment[] = [];
-  const pagosSectionIndex = text.indexOf('PAGOS');
-  if (pagosSectionIndex !== -1) {
-    const pagosText = text.substring(pagosSectionIndex);
-    const pagosRegex = /([A-Z0-9\.\s\-\:\/\,]+?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d+[\.\,]\d{2})(?!\s+\d+[\.\,]\d{2})/gi;
-    const pagosMatches = [...pagosText.matchAll(pagosRegex)];
-    for (const m of pagosMatches) {
-      if (m[1].includes('TOTAL') || m[1].includes('Reserva') || m[1].includes('Saldo')) continue;
-      const supplierName = m[1].replace(/Reserva\s+N[°ºo\.\s]*\d+\s*Hoja\s*:\s*\d+/gi, '').trim();
-      let n = m[3];
-      let amount = 0;
-      if (/^(\d{1,3}(,\d{3})*|\d+)\.\d{2}$/.test(n)) amount = parseFloat(n.replace(/,/g, ''));
-      else if (/^(\d{1,3}(\.\d{3})*|\d+),\d{2}$/.test(n)) amount = parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
-      else if (n.includes('.') && !n.includes(',')) amount = parseFloat(n);
-      else if (n.includes(',') && !n.includes('.')) amount = parseFloat(n.replace(/,/g, '.'));
-      else amount = parseFloat(n.replace(/\./g, '').replace(/,/g, '.'));
 
-      payments.push({
-        supplierName,
-        date: parseDateStr(m[2]),
-        amount: amount,
-        currency: detectedCurrency
-      });
+  if (pdfItems && pdfItems.length > 0) {
+    // --- Step 1: Group pdfItems into lines by Y coordinate ---
+    const Y_TOL = 2;
+    const lineMap = new Map<number, PdfTextItem[]>();
+    for (const item of pdfItems) {
+      let foundY: number | null = null;
+      for (const y of lineMap.keys()) {
+        if (Math.abs(y - item.y) < Y_TOL) { foundY = y; break; }
+      }
+      if (foundY !== null) {
+        lineMap.get(foundY)!.push(item);
+      } else {
+        lineMap.set(item.y, [item]);
+      }
     }
+    const pdfLines = [...lineMap.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([y, items]) => ({ y, items: items.sort((a, b) => a.x - b.x) }));
+
+    // --- Step 2: Find column boundary (Pesos vs Dolares) ---
+    const pesosItem = pdfItems.find(it => /^Pesos$/i.test(it.text.trim()));
+    const dolaresItem = pdfItems.find(it => /^Dolares$/i.test(it.text.trim()));
+    const hasDualCols = !!(pesosItem && dolaresItem);
+    const colBoundX = hasDualCols ? (pesosItem!.x + dolaresItem!.x) / 2 : 0;
+    console.log(`[PDF Parser] Dual columns: ${hasDualCols}, boundary X: ${colBoundX}`);
+
+    // --- Step 3: Find section Y boundaries ---
+    // Section headers are ALL-CAPS and at the left margin (x < 50).
+    // This prevents matching table column headers like "Pagos" (x=321) or "Cobros" (x=316).
+    const serviciosY = pdfItems.find(it => it.text.trim() === 'SERVICIOS' && it.x < 50)?.y ?? null;
+    const cobrosY = pdfItems.find(it => it.text.trim() === 'COBROS' && it.x < 50)?.y ?? null;
+    const pagosY = pdfItems.find(it => it.text.trim() === 'PAGOS' && it.x < 50)?.y ?? null;
+    const totalServY = pdfItems.find(it => /^TOTAL\s+SERVICIOS$/i.test(it.text.trim()))?.y ?? null;
+    const totalCobrosY = pdfItems.find(it => /^TOTAL\s+COBROS$/i.test(it.text.trim()))?.y ?? null;
+    const totalPagosY = pdfItems.find(it => /^TOTAL\s+PAGOS$/i.test(it.text.trim()))?.y ?? null;
+
+    // Helper: get currency for a line based on X position of its numeric items
+    const getCurrencyForLine = (lineItems: PdfTextItem[]): 'USD' | 'ARS' => {
+      if (!hasDualCols) return detectedCurrency;
+      const nums = lineItems.filter(it => /^\d[\d\.\,]*\d$/.test(it.text.trim()) || /^\d+\.\d{2}$/.test(it.text.trim()));
+      const inPesos = nums.filter(it => it.x < colBoundX);
+      const inDolares = nums.filter(it => it.x >= colBoundX);
+      if (inPesos.length > 0 && inDolares.length === 0) return 'ARS';
+      if (inDolares.length > 0 && inPesos.length === 0) return 'USD';
+      if (inPesos.length > 0 && inDolares.length > 0) {
+        const pMax = Math.max(...inPesos.map(it => parseAmount(it.text)));
+        const dMax = Math.max(...inDolares.map(it => parseAmount(it.text)));
+        return pMax > dMax ? 'ARS' : 'USD';
+      }
+      return detectedCurrency;
+    };
+
+    // Helper: get amounts from correct column
+    const getColumnAmounts = (lineItems: PdfTextItem[], cur: 'USD' | 'ARS'): number[] => {
+      const nums = lineItems.filter(it => /^\d[\d\.\,]*\d$/.test(it.text.trim()) || /^\d+\.\d{2}$/.test(it.text.trim()));
+      if (!hasDualCols) return nums.map(it => parseAmount(it.text)).filter(n => Number.isFinite(n) && n > 0);
+      return nums
+        .filter(it => cur === 'ARS' ? it.x < colBoundX : it.x >= colBoundX)
+        .map(it => parseAmount(it.text))
+        .filter(n => Number.isFinite(n) && n > 0);
+    };
+
+    // --- Step 4: Parse SERVICIOS ---
+    if (serviciosY !== null) {
+      const svcEndY = totalServY ?? cobrosY ?? pagosY ?? -Infinity;
+      const svcLines = pdfLines.filter(l => l.y < serviciosY && l.y > svcEndY);
+      const headerLineY = pdfItems.find(it => it.text.trim() === 'Costo' && it.y < serviciosY && it.y > svcEndY)?.y;
+
+      for (const line of svcLines) {
+        if (headerLineY && Math.abs(line.y - headerLineY) < Y_TOL) continue;
+        const firstItem = line.items[0];
+        if (!firstItem || /^\d/.test(firstItem.text.trim())) continue;
+        if (/^TOTAL/i.test(firstItem.text.trim())) continue;
+
+        const dateItems = line.items.filter(it => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(it.text.trim()));
+        if (dateItems.length === 0) continue;
+
+        const date1 = parseDateStr(dateItems[0].text.trim());
+        const date2 = dateItems.length >= 2 ? parseDateStr(dateItems[1].text.trim()) : null;
+        const firstDateX = dateItems[0].x;
+        const textBeforeDate = line.items
+          .filter(it => it.x < firstDateX && !/^\d{1,2}\//.test(it.text.trim()))
+          .map(it => it.text.trim()).join(' ');
+
+        let sName = textBeforeDate;
+        let desc = '';
+        const ci = textBeforeDate.indexOf(':');
+        if (ci > 0) { sName = textBeforeDate.substring(0, ci).trim(); desc = textBeforeDate.substring(ci + 1).trim(); }
+        sName = sName.replace(/^(?:SERVICIOS|Costo|Iva|Importe|Dif|Pesos|Dolares|\s)+/gi, '').trim();
+        if (!sName) continue;
+
+        const currency = getCurrencyForLine(line.items);
+        const amounts = getColumnAmounts(line.items, currency);
+        let cost = 0, price = 0;
+        if (amounts.length > 0) {
+          cost = amounts[0];
+          price = amounts.length >= 2 ? amounts[1] : cost;
+          if (amounts.length >= 3) price = Math.max(...amounts);
+        }
+
+        services.push({
+          supplierName: sName, description: desc,
+          serviceType: detectServiceType(sName + ' ' + desc),
+          startDate: date1, endDate: date2, cost, price, currency,
+        });
+        console.log(`[SVC] ${sName}: ${currency} cost=${cost} price=${price}`);
+      }
+    }
+
+    // --- Step 5: Parse COBROS ---
+    if (cobrosY !== null) {
+      const cobEndY = totalCobrosY ?? pagosY ?? -Infinity;
+      const cobLines = pdfLines.filter(l => l.y < cobrosY && l.y > cobEndY);
+      let curCobro: { parts: string[]; date: string | null; amount: number; currency: 'USD' | 'ARS' } | null = null;
+
+      for (const line of cobLines) {
+        const lt = line.items.map(it => it.text).join(' ').trim();
+        if (!lt || /^TOTAL/i.test(lt)) continue;
+        const isNew = /^ER\s+\d/i.test(lt);
+
+        if (isNew) {
+          if (curCobro && curCobro.amount > 0) {
+            receipts.push({ concept: curCobro.parts.join(' ').replace(/\s+/g, ' ').trim(), date: curCobro.date, amount: curCobro.amount, currency: curCobro.currency });
+          }
+          const dateItem = line.items.find(it => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(it.text.trim()));
+          const currency = getCurrencyForLine(line.items);
+          const amounts = getColumnAmounts(line.items, currency);
+          const amount = amounts.length > 0 ? Math.max(...amounts) : 0;
+          const conceptText = line.items
+            .filter(it => it !== dateItem && !/^\d[\d\.\,]*\d$/.test(it.text.trim()))
+            .map(it => it.text.trim()).join(' ');
+          curCobro = { parts: [conceptText], date: dateItem ? parseDateStr(dateItem.text.trim()) : null, amount, currency };
+        } else if (curCobro) {
+          const txt = line.items.filter(it => !/^\d[\d\.\,]*\d$/.test(it.text.trim())).map(it => it.text.trim()).join(' ');
+          if (txt) curCobro.parts.push(txt);
+        }
+      }
+      if (curCobro && curCobro.amount > 0) {
+        receipts.push({ concept: curCobro.parts.join(' ').replace(/\s+/g, ' ').trim(), date: curCobro.date, amount: curCobro.amount, currency: curCobro.currency });
+      }
+    }
+
+    // --- Step 6: Parse PAGOS ---
+    if (pagosY !== null) {
+      const pagEndY = totalPagosY ?? -Infinity;
+      const pagLines = pdfLines.filter(l => l.y < pagosY && l.y > pagEndY);
+
+      for (const line of pagLines) {
+        const lt = line.items.map(it => it.text).join(' ').trim();
+        if (!lt || /^TOTAL/i.test(lt) || /Saldo/i.test(lt) || /Reserva\s+N/i.test(lt)) continue;
+        const dateItem = line.items.find(it => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(it.text.trim()));
+        if (!dateItem) continue;
+        const sName = line.items.filter(it => it.x < dateItem.x && !/^\d/.test(it.text.trim())).map(it => it.text.trim()).join(' ');
+        if (!sName) continue;
+        const currency = getCurrencyForLine(line.items);
+        const amounts = getColumnAmounts(line.items, currency);
+        const amount = amounts.length > 0 ? Math.max(...amounts) : 0;
+        if (amount > 0) {
+          payments.push({ supplierName: sName, date: parseDateStr(dateItem.text.trim()), amount, currency });
+          console.log(`[PAG] ${sName}: ${currency} ${amount}`);
+        }
+      }
+    }
+  } else {
+    // Fallback: text-only parser (no position data)
+    console.warn('[PDF Parser] No position data, text-only fallback');
   }
 
   return {
@@ -403,6 +428,7 @@ function parseLegacyReservationPDFText(rawText: string): LegacyReservation {
     payments
   };
 }
+
 
 
 export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
@@ -441,7 +467,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
     setProgress('Extrayendo texto del PDF...');
 
     try {
-      const text = await extractTextFromPDF(file, setProgress);
+      const { text, items: pdfItems } = await extractTextWithPositionsFromPDF(file, setProgress);
       if (!text || text.length < 50) {
         throw new Error('No se pudo extraer suficiente texto del PDF.');
       }
@@ -458,7 +484,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
             legacyId: data.legacyId,
             agent: data.agent || '',
             clientLegacyId: data.clientLegacyId || '',
-            clientName: data.clientName || data.passengers?.[0]?.name || 'Cliente Histórico',
+            clientName: data.clientName || data.passengers?.[0]?.name || 'Cliente HistÃ³rico',
             clientPhone: data.clientPhone || '',
             clientAddress: data.clientAddress || '',
             startDate: data.startDate || null,
@@ -510,16 +536,16 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
 
       // Fallback local regex parsing
       if (!parsedData || !parsedData.legacyId) {
-        parsedData = parseLegacyReservationPDFText(text);
+        parsedData = parseLegacyReservationPDFText(text, pdfItems);
         toast.info('Expediente decodificado con procesador local');
       } else {
-        // AI returned a legacyId but possibly missing data — merge with local parser
-        const localParsed = parseLegacyReservationPDFText(text);
+        // AI returned a legacyId but possibly missing data â€” merge with local parser
+        const localParsed = parseLegacyReservationPDFText(text, pdfItems);
         
-        // If AI returned no services, use local ones
-        if (!parsedData.services || parsedData.services.length === 0) {
+        // Use local services if AI returned fewer services (local parser often catches more)
+        if (!parsedData.services || parsedData.services.length === 0 || localParsed.services.length > parsedData.services.length) {
           parsedData.services = localParsed.services;
-          console.log('[Merge] Using local parser services:', localParsed.services.length);
+          console.log('[Merge] Using local parser services (found more):', localParsed.services.length, 'vs AI:', parsedData.services?.length || 0);
         }
         // If AI returned no passengers, use local ones
         if (!parsedData.passengers || parsedData.passengers.length === 0) {
@@ -617,7 +643,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
             name: reservation.clientName,
             phone: reservation.clientPhone || null,
             address: reservation.clientAddress || null,
-            notes: `Creado automáticamente durante importación de PDF Nº ${reservation.legacyId}`
+            notes: `Creado automÃ¡ticamente durante importaciÃ³n de PDF NÂº ${reservation.legacyId}`
           })
           .select('id')
           .single();
@@ -632,7 +658,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
       const totalPrice = reservation.services.reduce((sum, s) => sum + s.price, 0);
       const destination = reservation.services.find(s => s.serviceType === 'lodging')?.description || 
                           reservation.services[0]?.description || 
-                          'Viaje Histórico';
+                          'Viaje HistÃ³rico';
 
       let fileId = '';
 
@@ -654,7 +680,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         currency: reservation.currency,
         total_price: totalPrice,
         total_cost: totalCost,
-        internal_notes: `${LEGACY_NOTE_PREFIX} (Nº ${reservation.legacyId}). Vendedor: ${reservation.agent}`,
+        internal_notes: `${LEGACY_NOTE_PREFIX} (NÂº ${reservation.legacyId}). Vendedor: ${reservation.agent}`,
         status: 'confirmed'
       };
 
@@ -812,13 +838,13 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         if (payErr) throw payErr;
       }
 
-      toast.success(existing ? 'Expediente actualizado con éxito' : 'Expediente importado con éxito');
+      toast.success(existing ? 'Expediente actualizado con Ã©xito' : 'Expediente importado con Ã©xito');
       qc.invalidateQueries({ queryKey: ['files'] });
       handleClose(false);
       navigate(`/files/${fileId}`);
     } catch (e) {
       console.error(e);
-      toast.error('Error al guardar la importación');
+      toast.error('Error al guardar la importaciÃ³n');
     } finally {
       setImporting(false);
     }
@@ -833,10 +859,10 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
           <div>
             <DialogTitle className="flex items-center gap-2 font-sans text-xl font-bold text-primary">
               <FileText className="h-6 w-6" />
-              Importar Expediente desde PDF Histórico
+              Importar Expediente desde PDF HistÃ³rico
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-1">
-              Subí el PDF detallado del expediente de la app anterior para migrar todos sus pasajeros, servicios, cobros y pagos.
+              SubÃ­ el PDF detallado del expediente de la app anterior para migrar todos sus pasajeros, servicios, cobros y pagos.
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -865,7 +891,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
 
             {parsing && (
               <div className="w-full max-w-md space-y-2 mt-2">
-                <Progress value={progress.includes('IA') ? 85 : progress.includes('página') ? 50 : 20} className="h-2" />
+                <Progress value={progress.includes('IA') ? 85 : progress.includes('pÃ¡gina') ? 50 : 20} className="h-2" />
                 <p className="text-xs text-muted-foreground text-center animate-pulse">{progress}</p>
               </div>
             )}
@@ -880,7 +906,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                 <div className="flex items-start gap-2.5 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-yellow-600 text-sm">
                   <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Expediente Duplicado</span>: Ya existe una reserva con el número <span className="font-mono font-bold">#{reservation.legacyId}</span>. Si continúas, se sobrescribirán los servicios, pasajeros y cobros antiguos de este expediente.
+                    <span className="font-bold">Expediente Duplicado</span>: Ya existe una reserva con el nÃºmero <span className="font-mono font-bold">#{reservation.legacyId}</span>. Si continÃºas, se sobrescribirÃ¡n los servicios, pasajeros y cobros antiguos de este expediente.
                   </div>
                 </div>
               )}
@@ -888,14 +914,14 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                 <div className="flex items-start gap-2.5 p-3 rounded-lg border border-green-500/30 bg-green-500/5 text-green-600 text-sm">
                   <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Cliente Vinculado</span>: Se asociará automáticamente con el cliente existente <span className="font-bold">"{reservation.clientName}"</span>.
+                    <span className="font-bold">Cliente Vinculado</span>: Se asociarÃ¡ automÃ¡ticamente con el cliente existente <span className="font-bold">"{reservation.clientName}"</span>.
                   </div>
                 </div>
               ) : (
                 <div className="flex items-start gap-2.5 p-3 rounded-lg border border-blue-500/30 bg-blue-500/5 text-blue-600 text-sm">
                   <Users className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Nuevo Cliente</span>: No se encontró un cliente en el CRM con el nombre <span className="font-bold">"{reservation.clientName}"</span>. Se creará un nuevo registro de cliente automáticamente para vincular la cuenta corriente.
+                    <span className="font-bold">Nuevo Cliente</span>: No se encontrÃ³ un cliente en el CRM con el nombre <span className="font-bold">"{reservation.clientName}"</span>. Se crearÃ¡ un nuevo registro de cliente automÃ¡ticamente para vincular la cuenta corriente.
                   </div>
                 </div>
               )}
@@ -915,7 +941,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                 <TabsContent value="general" className="flex-1 overflow-y-auto pt-4 space-y-4 pr-1">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-muted/30 p-3 rounded-xl border border-border/40">
-                      <p className="text-xs text-muted-foreground uppercase font-semibold">Reserva N°</p>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Reserva NÂ°</p>
                       <p className="font-mono text-lg font-bold text-primary mt-1">#{reservation.legacyId}</p>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-xl border border-border/40">
@@ -939,31 +965,53 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm mt-1">
                       <div><span className="text-muted-foreground">Nombre:</span> <strong className="font-semibold text-foreground">{reservation.clientName}</strong></div>
                       <div><span className="text-muted-foreground">Celular:</span> <span className="font-medium text-foreground">{reservation.clientPhone || 'No indica'}</span></div>
-                      <div><span className="text-muted-foreground">Dirección:</span> <span className="font-medium text-foreground">{reservation.clientAddress || 'No indica'}</span></div>
+                      <div><span className="text-muted-foreground">DirecciÃ³n:</span> <span className="font-medium text-foreground">{reservation.clientAddress || 'No indica'}</span></div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/5 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-green-600">Total Venta</p>
-                        <p className="text-2xl font-bold mt-1 text-green-700">
-                          {reservation.currency} {fmt(reservation.services.reduce((sum, s) => sum + s.price, 0))}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="border-green-500/30 text-green-700 bg-green-500/10">Venta</Badge>
-                    </div>
+                  {(() => {
+                    // Group by currency
+                    const priceByCur: Record<string, number> = {};
+                    const costByCur: Record<string, number> = {};
+                    reservation.services.forEach(s => {
+                      const cur = s.currency || reservation.currency;
+                      priceByCur[cur] = (priceByCur[cur] || 0) + s.price;
+                      costByCur[cur] = (costByCur[cur] || 0) + s.cost;
+                    });
+                    const curs = Array.from(new Set([...Object.keys(priceByCur), ...Object.keys(costByCur)])).sort();
 
-                    <div className="p-4 rounded-xl border border-orange-500/20 bg-orange-500/5 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-orange-600">Total Costo</p>
-                        <p className="text-2xl font-bold mt-1 text-orange-700">
-                          {reservation.currency} {fmt(reservation.services.reduce((sum, s) => sum + s.cost, 0))}
-                        </p>
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/5">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold uppercase text-green-600">Total Venta</p>
+                            <Badge variant="outline" className="border-green-500/30 text-green-700 bg-green-500/10">Venta</Badge>
+                          </div>
+                          <div className="space-y-1">
+                            {curs.map(cur => (
+                              <p key={cur} className="text-xl font-bold text-green-700">
+                                {cur} {fmt(priceByCur[cur] || 0)}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl border border-orange-500/20 bg-orange-500/5">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold uppercase text-orange-600">Total Costo</p>
+                            <Badge variant="outline" className="border-orange-500/30 text-orange-700 bg-orange-500/10">Costo</Badge>
+                          </div>
+                          <div className="space-y-1">
+                            {curs.map(cur => (
+                              <p key={cur} className="text-xl font-bold text-orange-700">
+                                {cur} {fmt(costByCur[cur] || 0)}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <Badge variant="outline" className="border-orange-500/30 text-orange-700 bg-orange-500/10">Costo</Badge>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </TabsContent>
 
                 {/* Tab Pasajeros */}
@@ -1028,7 +1076,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap">
                                 {s.startDate ? new Date(s.startDate).toLocaleDateString('es-AR') : '-'}
-                                {s.endDate && ` → ${new Date(s.endDate).toLocaleDateString('es-AR')}`}
+                                {s.endDate && ` â†’ ${new Date(s.endDate).toLocaleDateString('es-AR')}`}
                               </td>
                               <td className="px-4 py-3 text-right font-mono font-medium text-orange-600">
                                 {s.currency} {fmt(s.cost)}
@@ -1131,7 +1179,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                 ) : (
                   <>
                     <Check className="h-4 w-4" />
-                    {isDuplicate ? 'Reemplazar Expediente' : 'Confirmar Importación'}
+                    {isDuplicate ? 'Reemplazar Expediente' : 'Confirmar ImportaciÃ³n'}
                   </>
                 )}
               </Button>

@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
@@ -21,6 +21,7 @@ export function ReceiptDetailDialog({ receipt, items, loading, onOpenChange, get
           <DialogTitle>
             {receipt && `Recibo REC-${String(receipt.receipt_number).padStart(4, '0')}`}
           </DialogTitle>
+          <DialogDescription className="sr-only">Detalle del recibo</DialogDescription>
         </DialogHeader>
         {receipt && (
           <div className="space-y-4">

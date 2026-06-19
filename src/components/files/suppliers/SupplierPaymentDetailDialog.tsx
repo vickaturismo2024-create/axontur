@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { SupplierPayment, CatalogSupplier } from './types';
 import { FileText, Calendar, DollarSign, Tag, Info, User } from 'lucide-react';
@@ -26,6 +26,7 @@ export function SupplierPaymentDetailDialog({
             <FileText className="h-5 w-5 text-primary" />
             Detalle de Pago
           </DialogTitle>
+          <DialogDescription className="sr-only">Detalle del pago al proveedor</DialogDescription>
         </DialogHeader>
         {payment && (
           <div className="space-y-4 pt-2">
