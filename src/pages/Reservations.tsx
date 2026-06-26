@@ -48,15 +48,16 @@ export default function Reservations() {
     setPage(1);
   }, [search, airlineFilter, dateFilter, onlyChanges]);
 
-  const reservationIds = reservations?.map(r => r.id) || [];
+  const reservationIds = useMemo(() => reservations?.map(r => r.id) || [], [reservations]);
   const { data: allPassengers } = useQuery({
     queryKey: queryKeys.reservations.allPassengers(reservationIds),
     queryFn: async () => {
       if (!reservationIds.length) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('reservation_passengers')
-        .select('id, reservation_id, first_name, last_name, document, date_of_birth, gender, type')
+        .select('*')
         .in('reservation_id', reservationIds);
+      if (error) { console.error('Error loading passengers:', error); return []; }
       return (data || []) as unknown as ReservationPassenger[];
     },
     enabled: reservationIds.length > 0,
