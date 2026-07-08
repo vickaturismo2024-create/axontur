@@ -67,11 +67,12 @@ export default function Reservations() {
     queryKey: queryKeys.reservations.allSegments(reservationIds),
     queryFn: async () => {
       if (!reservationIds.length) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('flight_segments')
-        .select('id, reservation_id, seq, airline_code, flight_number, origin_iata, destination_iata, dep_datetime_local, arr_datetime_local, has_changes, cabin_class, status')
+        .select('*')
         .in('reservation_id', reservationIds)
         .order('seq');
+      if (error) { console.error('Error loading segments:', error); return []; }
       return (data || []) as unknown as FlightSegment[];
     },
     enabled: reservationIds.length > 0,
@@ -81,11 +82,12 @@ export default function Reservations() {
     queryKey: queryKeys.reservations.allChanges(reservationIds),
     queryFn: async () => {
       if (!reservationIds.length) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('reservation_changes')
-        .select('id, reservation_id, field, old_value, new_value, status, detected_at')
+        .select('*')
         .in('reservation_id', reservationIds)
         .eq('status', 'pending');
+      if (error) { console.error('Error loading changes:', error); return []; }
       return (data || []) as unknown as ReservationChange[];
     },
     enabled: reservationIds.length > 0,
