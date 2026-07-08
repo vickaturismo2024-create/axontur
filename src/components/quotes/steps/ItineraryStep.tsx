@@ -19,26 +19,27 @@ interface ItineraryStepProps {
 
 export function ItineraryStep({ quote, onUpdate, itineraryVisible, onItineraryVisibleChange }: ItineraryStepProps) {
   const [generatingItinerary, setGeneratingItinerary] = useState(false);
+  const days = quote.itineraryDays || [];
 
   const addItineraryDay = () => {
     const newDay: ItineraryDay = {
-      id: crypto.randomUUID(), dayNumber: quote.itineraryDays.length + 1,
+      id: crypto.randomUUID(), dayNumber: days.length + 1,
       date: '', title: '', description: '', activities: [],
     };
-    onUpdate({ itineraryDays: [...quote.itineraryDays, newDay] });
+    onUpdate({ itineraryDays: [...days, newDay] });
   };
 
   const updateItineraryDay = (id: string, updates: Partial<ItineraryDay>) => {
-    onUpdate({ itineraryDays: quote.itineraryDays.map(d => d.id === id ? { ...d, ...updates } : d) });
+    onUpdate({ itineraryDays: days.map(d => d.id === id ? { ...d, ...updates } : d) });
   };
 
   const removeItineraryDay = (id: string) => {
-    const updatedDays = quote.itineraryDays.filter(d => d.id !== id).map((d, idx) => ({ ...d, dayNumber: idx + 1 }));
+    const updatedDays = days.filter(d => d.id !== id).map((d, idx) => ({ ...d, dayNumber: idx + 1 }));
     onUpdate({ itineraryDays: updatedDays });
   };
 
   const generateItineraryWithAI = async () => {
-    if (quote.itineraryDays.length > 0) {
+    if (days.length > 0) {
       const confirmed = window.confirm('Ya tenés días cargados. ¿Querés reemplazarlos con el itinerario generado por IA?');
       if (!confirmed) return;
     }
@@ -53,12 +54,12 @@ export function ItineraryStep({ quote, onUpdate, itineraryVisible, onItineraryVi
       });
       if (error) throw new Error(error.message || 'Error al generar el itinerario');
       if (data?.error) { toast.error(data.error); return; }
-      const days: ItineraryDay[] = (data.days || []).map((day: any, idx: number) => ({
+      const generatedDays: ItineraryDay[] = (data.days || []).map((day: any, idx: number) => ({
         id: crypto.randomUUID(), dayNumber: day.dayNumber || idx + 1,
         date: day.date || '', title: day.title || '', description: day.description || '', activities: day.activities || [],
       }));
-      onUpdate({ itineraryDays: days });
-      toast.success(`Se generaron ${days.length} días de itinerario`);
+      onUpdate({ itineraryDays: generatedDays });
+      toast.success(`Se generaron ${generatedDays.length} días de itinerario`);
     } catch (err: any) {
       console.error('Error generating itinerary:', err);
       toast.error(err.message || 'Error al generar el itinerario con IA');
@@ -79,7 +80,7 @@ export function ItineraryStep({ quote, onUpdate, itineraryVisible, onItineraryVi
         </div>
       </div>
 
-      {quote.itineraryDays.map((day) => (
+      {days.map((day) => (
         <Card key={day.id} className="relative">
           <Button variant="ghost" size="icon" className="absolute right-2 top-2 h-8 w-8 text-destructive" onClick={() => removeItineraryDay(day.id)}>
             <Trash2 className="h-4 w-4" />
