@@ -21,6 +21,155 @@ interface ItineraryPDFDialogProps {
   existingDaysCount: number;
 }
 
+/**
+ * Client-side parser for itinerary PDFs.
+ * Detects patterns like "Día 1 ...: Title" or "Day 1: Title"
+ * and extracts the description text between days.
+ */
+function parseItineraryText(text: string): ItineraryDay[] {
+  // Normalize whitespace but keep line breaks
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Pattern to match day headers:
+  // "Día 1 Miércoles: Como"
+  // "Día 2 Jueves: Como – Lago de Como (Bellagio - Cernobbio) - Como"
+  // "DIA 1: Título"
+  // "Day 1: Title"
+  // Also matches "Día 1:" without day-of-week
+  const dayPattern = /(?:^|\n)\s*[Dd][ií]a\s+(\d+)\s*[^\n:]*?:\s*([^\n]+)/g;
+
+  const matches: { index: number; dayNumber: number; title: string }[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = dayPattern.exec(normalized)) !== null) {
+    matches.push({
+      index: match.index,
+      dayNumber: parseInt(match[1], 10),
+      title: match[2].trim(),
+    });
+  }
+
+  if (matches.length === 0) return [];
+
+  const days: ItineraryDay[] = [];
+
+  for (let i = 0; i < matches.length; i++) {
+    const current = matches[i];
+    const headerEnd = normalized.indexOf('\n', current.index + 1);
+    const startOfDescription = headerEnd > 0 ? headerEnd + 1 : current.index;
+
+    // End of this day's text is the start of the next day header, or end of text
+    let endOfDescription: number;
+    if (i + 1 < matches.length) {
+      endOfDescription = matches[i + 1].index;
+    } else {
+      // For the last day, stop at common ending sections
+      const stopPatterns = [
+        /\n\s*(?:HOTELES|CONDICIONES|PRECIOS|El precio incluye|El precio NO incluye|NOCHES ADICIONALES|NOCHES PRE)/i,
+        /\n\s*Por motivos organizativos/i,
+      ];
+      endOfDescription = normalized.length;
+      for (const sp of stopPatterns) {
+        const stopMatch = sp.exec(normalized.substring(startOfDescription));
+        if (stopMatch) {
+          const pos = startOfDescription + stopMatch.index;
+          if (pos < endOfDescription) endOfDescription = pos;
+        }
+      }
+    }
+
+    const rawDescription = normalized.substring(startOfDescription, endOfDescription).trim();
+
+    // Clean up the description: remove excessive whitespace, headers, page info
+    const cleanedDescription = rawDescription
+      .replace(/Via Mulini.*?(?:\n|$)/gi, '')
+      .replace(/Tel\..*?(?:\n|$)/gi, '')
+      .replace(/info@.*?(?:\n|$)/gi, '')
+      .replace(/Partita Iva.*?(?:\n|$)/gi, '')
+      .replace(/SALES\s*&\s*MARKETING.*?(?:\n|$)/gi, '')
+      .replace(/DEPARTMENT.*?(?:\n|$)/gi, '')
+      .replace(/LAGOS DEL NORTE.*?(?:\n|$)/gi, '')
+      .replace(/MIERCOLES-SABADO.*?(?:\n|$)/gi, '')
+      .replace(/\d+\s*DIAS\/\d+\s*NOCHES.*?(?:\n|$)/gi, '')
+      .replace(/^\d+\s*$/gm, '') // page numbers
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    // Extract activities from the description
+    const activities = extractActivities(cleanedDescription, current.title);
+
+    days.push({
+      id: crypto.randomUUID(),
+      dayNumber: current.dayNumber,
+      date: '',
+      title: `Día ${current.dayNumber}: ${current.title}`,
+      description: cleanedDescription,
+      activities,
+    });
+  }
+
+  return days;
+}
+
+/**
+ * Extract meaningful activities from a day's description text.
+ */
+function extractActivities(description: string, title: string): string[] {
+  const activities: string[] = [];
+  const lowerDesc = description.toLowerCase();
+
+  // Common travel activities detection
+  const activityPatterns: [RegExp, string][] = [
+    [/traslado\s+(?:grupal\s+)?(?:de\s+)?(?:llegada|al|del|de salida)[^.]*\./i, ''],
+    [/llegada\s+al\s+aeropuerto[^.]*\./i, ''],
+    [/desayuno\s+(?:en\s+el\s+hotel|buffet)[^.]*/i, ''],
+    [/cena\s+y\s+alojamiento[^.]*/i, ''],
+    [/alojamiento[^.]*/i, ''],
+    [/check[- ]?in[^.]*/i, ''],
+    [/check[- ]?out[^.]*/i, ''],
+    [/visita(?:remos)?\s+[^.]+\./i, ''],
+    [/excursi[oó]n\s+[^.]+\./i, ''],
+    [/salida\s+(?:en|hacia)\s+[^.]+\./i, ''],
+  ];
+
+  // Extract sentences that contain activity-like content
+  const sentences = description
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 10);
+
+  // Key activity keywords
+  const keywords = [
+    'traslado', 'llegada', 'desayuno', 'almuerzo', 'cena', 'alojamiento',
+    'excursión', 'visita', 'recorrido', 'paseo', 'ferry', 'barco',
+    'check-in', 'check-out', 'salida', 'regreso', 'tiempo libre',
+    'embarque', 'tour', 'explorar',
+  ];
+
+  for (const sentence of sentences) {
+    const lower = sentence.toLowerCase();
+    if (keywords.some(k => lower.includes(k))) {
+      // Truncate long sentences
+      const activity = sentence.length > 120
+        ? sentence.substring(0, 117) + '...'
+        : sentence;
+      if (!activities.includes(activity)) {
+        activities.push(activity);
+      }
+    }
+  }
+
+  // If no activities extracted, create basic ones from key phrases
+  if (activities.length === 0) {
+    if (lowerDesc.includes('desayuno')) activities.push('Desayuno en el hotel');
+    if (lowerDesc.includes('cena')) activities.push('Cena');
+    if (lowerDesc.includes('alojamiento')) activities.push('Alojamiento');
+    if (title) activities.push(title);
+  }
+
+  return activities;
+}
+
 export function ItineraryPDFDialog({ onDaysParsed, existingDaysCount }: ItineraryPDFDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,32 +213,37 @@ export function ItineraryPDFDialog({ onDaysParsed, existingDaysCount }: Itinerar
         return;
       }
 
-      // Step 2: Send text to AI edge function for structured extraction
-      setProgress('Analizando itinerario con IA...');
-      const { data, error } = await supabase.functions.invoke('generate-itinerary', {
-        body: { pdfText: text },
-      });
+      // Step 2: Try local parser first (fast, no cost)
+      setProgress('Analizando estructura del itinerario...');
+      let parsedDays = parseItineraryText(text);
 
-      if (error) throw new Error(error.message || 'Error al procesar el itinerario');
-      if (data?.error) {
-        toast.error(data.error);
-        return;
+      // Step 3: If local parser found days, use them. Otherwise try AI fallback.
+      if (parsedDays.length === 0) {
+        setProgress('Parser local no detectó días, intentando con IA...');
+        try {
+          const { data, error } = await supabase.functions.invoke('generate-itinerary', {
+            body: { pdfText: text },
+          });
+
+          if (!error && data?.days && data.days.length > 0) {
+            parsedDays = data.days.map((day: any, idx: number) => ({
+              id: crypto.randomUUID(),
+              dayNumber: day.dayNumber || idx + 1,
+              date: day.date || '',
+              title: day.title || '',
+              description: day.description || '',
+              activities: Array.isArray(day.activities) ? day.activities : [],
+            }));
+          }
+        } catch (aiErr) {
+          console.warn('AI fallback failed:', aiErr);
+        }
       }
 
-      if (!data?.days || data.days.length === 0) {
-        toast.error('No se pudieron extraer días de itinerario del PDF');
+      if (parsedDays.length === 0) {
+        toast.error('No se pudieron extraer días de itinerario del PDF. Verificá que el PDF contenga un itinerario día por día.');
         return;
       }
-
-      // Step 3: Map to ItineraryDay format
-      const parsedDays: ItineraryDay[] = data.days.map((day: any, idx: number) => ({
-        id: crypto.randomUUID(),
-        dayNumber: day.dayNumber || idx + 1,
-        date: day.date || '',
-        title: day.title || '',
-        description: day.description || '',
-        activities: Array.isArray(day.activities) ? day.activities : [],
-      }));
 
       onDaysParsed(parsedDays);
       toast.success(`Se importaron ${parsedDays.length} día(s) de itinerario desde el PDF`);
@@ -119,7 +273,7 @@ export function ItineraryPDFDialog({ onDaysParsed, existingDaysCount }: Itinerar
             Importar itinerario desde PDF
           </DialogTitle>
           <DialogDescription>
-            Subí un PDF con un itinerario de viaje y la IA extraerá automáticamente los días, descripciones y actividades.
+            Subí un PDF con un itinerario de viaje y se extraerán automáticamente los días, descripciones y actividades.
           </DialogDescription>
         </DialogHeader>
 
