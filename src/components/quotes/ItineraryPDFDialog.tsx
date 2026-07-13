@@ -21,153 +21,127 @@ interface ItineraryPDFDialogProps {
   existingDaysCount: number;
 }
 
+/* ─────────────────────────────────────────────────────────────────
+ * Header / footer lines that repeat on every PDF page.
+ * We remove ONLY full lines that match these patterns.
+ * We never touch partial content inside descriptive paragraphs.
+ * ───────────────────────────────────────────────────────────────── */
+const PAGE_NOISE_LINE_PATTERNS = [
+  /^Via\s+Mulini\b.*$/i,
+  /^Tel\.\s*\+?\d.*$/i,          // "Tel. +39 091..." — only at line start
+  /^info@\S+\s*[–—-]\s*www\.\S+.*$/i,
+  /^Partita\s+Iva\b.*$/i,
+  /^SALES\s*[&]\s*MARKETING.*$/i,
+  /^DEPARTMENT\s*$/i,
+  /^\d{1,3}\s*$/,                // standalone page numbers
+];
+
 /**
- * Client-side parser for itinerary PDFs.
- * Detects patterns like "Día 1 ...: Title" or "Day 1: Title"
- * and extracts the description text between days.
+ * Remove header/footer noise from the extracted text.
+ * Only removes WHOLE LINES that match known patterns.
  */
-function parseItineraryText(text: string): ItineraryDay[] {
-  // Normalize whitespace but keep line breaks
-  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+function removePageNoise(text: string): string {
+  return text
+    .split('\n')
+    .filter(line => {
+      const trimmed = line.trim();
+      if (trimmed === '') return true; // keep blank lines
+      return !PAGE_NOISE_LINE_PATTERNS.some(p => p.test(trimmed));
+    })
+    .join('\n');
+}
 
-  // Pattern to match day headers:
-  // "Día 1 Miércoles: Como"
-  // "Día 2 Jueves: Como – Lago de Como (Bellagio - Cernobbio) - Como"
-  // "DIA 1: Título"
-  // "Day 1: Title"
-  // Also matches "Día 1:" without day-of-week
-  const dayPattern = /(?:^|\n)\s*[Dd][ií]a\s+(\d+)\s*[^\n:]*?:\s*([^\n]+)/g;
+/**
+ * Parse the extracted PDF text into itinerary days.
+ *
+ * Looks for "Día N …: Title" headers and captures everything
+ * between one header and the next as the day's content.
+ */
+function parseItineraryText(rawText: string): ItineraryDay[] {
+  // 1. Clean page noise (headers/footers) first
+  const text = removePageNoise(rawText)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
 
-  const matches: { index: number; dayNumber: number; title: string }[] = [];
-  let match: RegExpExecArray | null;
+  // 2. Find all "Día N …: Title" headers
+  //    Matches: "Día 1 Miércoles: Como" or "Día 2: Lago de Como" etc.
+  const dayHeaderRegex = /^[ \t]*[Dd][ií]a\s+(\d+)\s*([^:\n]*?):\s*(.+)$/gm;
+  const headers: { index: number; fullMatch: string; dayNumber: number; title: string }[] = [];
+  let m: RegExpExecArray | null;
 
-  while ((match = dayPattern.exec(normalized)) !== null) {
-    matches.push({
-      index: match.index,
-      dayNumber: parseInt(match[1], 10),
-      title: match[2].trim(),
+  while ((m = dayHeaderRegex.exec(text)) !== null) {
+    const dayOfWeek = m[2].trim(); // "Miércoles", "Jueves", etc. (may be empty)
+    const rawTitle = m[3].trim();
+    const title = dayOfWeek ? `${rawTitle}` : rawTitle;
+    headers.push({
+      index: m.index,
+      fullMatch: m[0],
+      dayNumber: parseInt(m[1], 10),
+      title,
     });
   }
 
-  if (matches.length === 0) return [];
+  if (headers.length === 0) return [];
 
+  // 3. Known section headers that signal end of itinerary content
+  const stopSections = [
+    /^(?:HOTELES|CONDICIONES|PRECIOS|FECHAS\s+DE\s+SALIDA)\b/im,
+    /^El precio incluye/im,
+    /^El precio NO incluye/im,
+    /^NOCHES\s+(?:ADICIONALES|PRE)/im,
+    /^Por motivos organizativos/im,
+    /^PRECIOS\s+VENTA/im,
+  ];
+
+  // Find where itinerary content ends
+  let contentEnd = text.length;
+  for (const sp of stopSections) {
+    const stopMatch = sp.exec(text);
+    if (stopMatch && stopMatch.index > headers[0].index && stopMatch.index < contentEnd) {
+      contentEnd = stopMatch.index;
+    }
+  }
+
+  // 4. Extract each day's content
   const days: ItineraryDay[] = [];
 
-  for (let i = 0; i < matches.length; i++) {
-    const current = matches[i];
-    const headerEnd = normalized.indexOf('\n', current.index + 1);
-    const startOfDescription = headerEnd > 0 ? headerEnd + 1 : current.index;
+  for (let i = 0; i < headers.length; i++) {
+    const hdr = headers[i];
 
-    // End of this day's text is the start of the next day header, or end of text
-    let endOfDescription: number;
-    if (i + 1 < matches.length) {
-      endOfDescription = matches[i + 1].index;
-    } else {
-      // For the last day, stop at common ending sections
-      const stopPatterns = [
-        /\n\s*(?:HOTELES|CONDICIONES|PRECIOS|El precio incluye|El precio NO incluye|NOCHES ADICIONALES|NOCHES PRE)/i,
-        /\n\s*Por motivos organizativos/i,
-      ];
-      endOfDescription = normalized.length;
-      for (const sp of stopPatterns) {
-        const stopMatch = sp.exec(normalized.substring(startOfDescription));
-        if (stopMatch) {
-          const pos = startOfDescription + stopMatch.index;
-          if (pos < endOfDescription) endOfDescription = pos;
-        }
-      }
-    }
+    // Skip headers that are beyond the content end
+    if (hdr.index >= contentEnd) break;
 
-    const rawDescription = normalized.substring(startOfDescription, endOfDescription).trim();
+    // Description starts after the header line
+    const headerLineEnd = text.indexOf('\n', hdr.index);
+    const descStart = headerLineEnd > 0 ? headerLineEnd + 1 : hdr.index + hdr.fullMatch.length;
 
-    // Clean up the description: remove excessive whitespace, headers, page info
-    const cleanedDescription = rawDescription
-      .replace(/Via Mulini.*?(?:\n|$)/gi, '')
-      .replace(/Tel\..*?(?:\n|$)/gi, '')
-      .replace(/info@.*?(?:\n|$)/gi, '')
-      .replace(/Partita Iva.*?(?:\n|$)/gi, '')
-      .replace(/SALES\s*&\s*MARKETING.*?(?:\n|$)/gi, '')
-      .replace(/DEPARTMENT.*?(?:\n|$)/gi, '')
-      .replace(/LAGOS DEL NORTE.*?(?:\n|$)/gi, '')
-      .replace(/MIERCOLES-SABADO.*?(?:\n|$)/gi, '')
-      .replace(/\d+\s*DIAS\/\d+\s*NOCHES.*?(?:\n|$)/gi, '')
-      .replace(/^\d+\s*$/gm, '') // page numbers
+    // Description ends at the next day header or content end
+    const descEnd = (i + 1 < headers.length)
+      ? Math.min(headers[i + 1].index, contentEnd)
+      : contentEnd;
+
+    // Get the raw description and clean it up
+    let description = text.substring(descStart, descEnd).trim();
+
+    // Remove any repeated circuit title lines (e.g. "LAGOS DEL NORTE VERANO 2027 (COD. CO-ELCA)")
+    description = description
+      .replace(/^.*\(COD\.\s*\S+\).*$/gm, '')
+      .replace(/^MI[EÉ]RCOLES-S[AÁ]BADO.*$/gm, '')
+      .replace(/^\d+\s*D[IÍ]AS?\s*\/\s*\d+\s*NOCHES?\s*$/gm, '')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    // Extract activities from the description
-    const activities = extractActivities(cleanedDescription, current.title);
-
     days.push({
       id: crypto.randomUUID(),
-      dayNumber: current.dayNumber,
+      dayNumber: hdr.dayNumber,
       date: '',
-      title: `Día ${current.dayNumber}: ${current.title}`,
-      description: cleanedDescription,
-      activities,
+      title: hdr.title,
+      description,
+      activities: [],
     });
   }
 
   return days;
-}
-
-/**
- * Extract meaningful activities from a day's description text.
- */
-function extractActivities(description: string, title: string): string[] {
-  const activities: string[] = [];
-  const lowerDesc = description.toLowerCase();
-
-  // Common travel activities detection
-  const activityPatterns: [RegExp, string][] = [
-    [/traslado\s+(?:grupal\s+)?(?:de\s+)?(?:llegada|al|del|de salida)[^.]*\./i, ''],
-    [/llegada\s+al\s+aeropuerto[^.]*\./i, ''],
-    [/desayuno\s+(?:en\s+el\s+hotel|buffet)[^.]*/i, ''],
-    [/cena\s+y\s+alojamiento[^.]*/i, ''],
-    [/alojamiento[^.]*/i, ''],
-    [/check[- ]?in[^.]*/i, ''],
-    [/check[- ]?out[^.]*/i, ''],
-    [/visita(?:remos)?\s+[^.]+\./i, ''],
-    [/excursi[oó]n\s+[^.]+\./i, ''],
-    [/salida\s+(?:en|hacia)\s+[^.]+\./i, ''],
-  ];
-
-  // Extract sentences that contain activity-like content
-  const sentences = description
-    .split(/(?<=[.!?])\s+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 10);
-
-  // Key activity keywords
-  const keywords = [
-    'traslado', 'llegada', 'desayuno', 'almuerzo', 'cena', 'alojamiento',
-    'excursión', 'visita', 'recorrido', 'paseo', 'ferry', 'barco',
-    'check-in', 'check-out', 'salida', 'regreso', 'tiempo libre',
-    'embarque', 'tour', 'explorar',
-  ];
-
-  for (const sentence of sentences) {
-    const lower = sentence.toLowerCase();
-    if (keywords.some(k => lower.includes(k))) {
-      // Truncate long sentences
-      const activity = sentence.length > 120
-        ? sentence.substring(0, 117) + '...'
-        : sentence;
-      if (!activities.includes(activity)) {
-        activities.push(activity);
-      }
-    }
-  }
-
-  // If no activities extracted, create basic ones from key phrases
-  if (activities.length === 0) {
-    if (lowerDesc.includes('desayuno')) activities.push('Desayuno en el hotel');
-    if (lowerDesc.includes('cena')) activities.push('Cena');
-    if (lowerDesc.includes('alojamiento')) activities.push('Alojamiento');
-    if (title) activities.push(title);
-  }
-
-  return activities;
 }
 
 export function ItineraryPDFDialog({ onDaysParsed, existingDaysCount }: ItineraryPDFDialogProps) {
@@ -206,25 +180,24 @@ export function ItineraryPDFDialog({ onDaysParsed, existingDaysCount }: Itinerar
 
     setIsLoading(true);
     try {
-      // Step 1: Extract text from PDF client-side
+      // Step 1: Extract text from PDF (client-side)
       const text = await extractTextFromPDF(file, setProgress);
       if (!text || text.length < 30) {
         toast.error('No se pudo extraer texto del PDF (puede ser una imagen escaneada)');
         return;
       }
 
-      // Step 2: Try local parser first (fast, no cost)
+      // Step 2: Parse with local parser
       setProgress('Analizando estructura del itinerario...');
       let parsedDays = parseItineraryText(text);
 
-      // Step 3: If local parser found days, use them. Otherwise try AI fallback.
+      // Step 3: AI fallback if local parser finds nothing
       if (parsedDays.length === 0) {
         setProgress('Parser local no detectó días, intentando con IA...');
         try {
           const { data, error } = await supabase.functions.invoke('generate-itinerary', {
             body: { pdfText: text },
           });
-
           if (!error && data?.days && data.days.length > 0) {
             parsedDays = data.days.map((day: any, idx: number) => ({
               id: crypto.randomUUID(),
@@ -236,12 +209,12 @@ export function ItineraryPDFDialog({ onDaysParsed, existingDaysCount }: Itinerar
             }));
           }
         } catch (aiErr) {
-          console.warn('AI fallback failed:', aiErr);
+          console.warn('AI fallback failed, local parser also found 0 days:', aiErr);
         }
       }
 
       if (parsedDays.length === 0) {
-        toast.error('No se pudieron extraer días de itinerario del PDF. Verificá que el PDF contenga un itinerario día por día.');
+        toast.error('No se pudieron extraer días de itinerario del PDF.');
         return;
       }
 

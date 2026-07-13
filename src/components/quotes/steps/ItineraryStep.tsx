@@ -92,16 +92,20 @@ export function ItineraryStep({ quote, onUpdate, itineraryVisible, onItineraryVi
           <Button variant="ghost" size="icon" className="absolute right-2 top-2 h-8 w-8 text-destructive" onClick={() => removeItineraryDay(day.id)}>
             <Trash2 className="h-4 w-4" />
           </Button>
-          <CardContent className="pt-6">
-            <p className="mb-4 font-medium text-gold">Día {day.dayNumber}</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div><Label>Fecha (opcional)</Label><Input type="date" value={day.date} onChange={(e) => updateItineraryDay(day.id, { date: e.target.value })} /></div>
-              <div><Label>Título</Label><Input value={day.title} onChange={(e) => updateItineraryDay(day.id, { title: e.target.value })} placeholder="Llegada a Cancún" /></div>
-              <div className="md:col-span-2"><Label>Descripción</Label><Textarea value={day.description} onChange={(e) => updateItineraryDay(day.id, { description: e.target.value })} placeholder="Arribo al aeropuerto..." rows={2} /></div>
-              <div className="md:col-span-2">
-                <Label>Actividades (una por línea)</Label>
-                <Textarea value={day.activities.join('\n')} onChange={(e) => updateItineraryDay(day.id, { activities: e.target.value.split('\n').filter(Boolean) })} placeholder="Recepción en el aeropuerto&#10;Traslado al hotel&#10;Check-in" rows={4} />
-              </div>
+          <CardContent className="pt-6 space-y-3">
+            <div className="flex items-center gap-3">
+              <p className="font-medium text-gold whitespace-nowrap">Día {day.dayNumber}</p>
+              <Input value={day.title} onChange={(e) => updateItineraryDay(day.id, { title: e.target.value })} placeholder="Título del día (ej: Como – Lago de Como)" className="flex-1" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Contenido del día</Label>
+              <Textarea
+                value={day.description}
+                onChange={(e) => updateItineraryDay(day.id, { description: e.target.value })}
+                placeholder="Descripción completa del día: actividades, traslados, comidas, excursiones..."
+                rows={8}
+                className="mt-1 text-sm leading-relaxed"
+              />
             </div>
           </CardContent>
         </Card>
