@@ -58,76 +58,45 @@ function removePageNoise(text: string): string {
  * between one header and the next as the day's content.
  */
 function parseItineraryText(rawText: string): ItineraryDay[] {
-  // 1. Clean page noise (headers/footers) first
+  // 1. Clean ONLY page noise (headers/footers from the PDF template)
   const text = removePageNoise(rawText)
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 
   // 2. Find all "Día N …: Title" headers
-  //    Matches: "Día 1 Miércoles: Como" or "Día 2: Lago de Como" etc.
   const dayHeaderRegex = /^[ \t]*[Dd][ií]a\s+(\d+)\s*([^:\n]*?):\s*(.+)$/gm;
   const headers: { index: number; fullMatch: string; dayNumber: number; title: string }[] = [];
   let m: RegExpExecArray | null;
 
   while ((m = dayHeaderRegex.exec(text)) !== null) {
-    const dayOfWeek = m[2].trim(); // "Miércoles", "Jueves", etc. (may be empty)
     const rawTitle = m[3].trim();
-    const title = dayOfWeek ? `${rawTitle}` : rawTitle;
     headers.push({
       index: m.index,
       fullMatch: m[0],
       dayNumber: parseInt(m[1], 10),
-      title,
+      title: rawTitle,
     });
   }
 
   if (headers.length === 0) return [];
 
-  // 3. Known section headers that signal end of itinerary content
-  const stopSections = [
-    /^(?:HOTELES|CONDICIONES|PRECIOS|FECHAS\s+DE\s+SALIDA)\b/im,
-    /^El precio incluye/im,
-    /^El precio NO incluye/im,
-    /^NOCHES\s+(?:ADICIONALES|PRE)/im,
-    /^Por motivos organizativos/im,
-    /^PRECIOS\s+VENTA/im,
-  ];
-
-  // Find where itinerary content ends
-  let contentEnd = text.length;
-  for (const sp of stopSections) {
-    const stopMatch = sp.exec(text);
-    if (stopMatch && stopMatch.index > headers[0].index && stopMatch.index < contentEnd) {
-      contentEnd = stopMatch.index;
-    }
-  }
-
-  // 4. Extract each day's content
+  // 3. Extract each day's FULL content — NO FILTERING
   const days: ItineraryDay[] = [];
 
   for (let i = 0; i < headers.length; i++) {
     const hdr = headers[i];
 
-    // Skip headers that are beyond the content end
-    if (hdr.index >= contentEnd) break;
-
     // Description starts after the header line
     const headerLineEnd = text.indexOf('\n', hdr.index);
     const descStart = headerLineEnd > 0 ? headerLineEnd + 1 : hdr.index + hdr.fullMatch.length;
 
-    // Description ends at the next day header or content end
+    // Description ends at the next day header
     const descEnd = (i + 1 < headers.length)
-      ? Math.min(headers[i + 1].index, contentEnd)
-      : contentEnd;
+      ? headers[i + 1].index
+      : text.length;
 
-    // Get the raw description and clean it up
-    let description = text.substring(descStart, descEnd).trim();
-
-    // Remove any repeated circuit title lines (e.g. "LAGOS DEL NORTE VERANO 2027 (COD. CO-ELCA)")
-    description = description
-      .replace(/^.*\(COD\.\s*\S+\).*$/gm, '')
-      .replace(/^MI[EÉ]RCOLES-S[AÁ]BADO.*$/gm, '')
-      .replace(/^\d+\s*D[IÍ]AS?\s*\/\s*\d+\s*NOCHES?\s*$/gm, '')
+    // Get the FULL description, only collapse excessive blank lines
+    const description = text.substring(descStart, descEnd)
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
@@ -139,6 +108,65 @@ function parseItineraryText(rawText: string): ItineraryDay[] {
       description,
       activities: [],
     });
+  }
+
+  // 4. Capture ALL remaining content AFTER the last day's description
+  //    (prices, dates, hotels, inclusions, conditions, etc.)
+  const lastDay = days[days.length - 1];
+  const lastDayHeaderIndex = headers[headers.length - 1].index;
+  const lastDayHeaderEnd = text.indexOf('\n', lastDayHeaderIndex);
+  const lastDayDescStart = lastDayHeaderEnd > 0 ? lastDayHeaderEnd + 1 : lastDayHeaderIndex;
+
+  // Find where the last day's itinerary description actually ends
+  // and where the "additional info" section begins.
+  // Look for known section markers AFTER the last day header.
+  const additionalInfoMarkers = [
+    /^(?:HOTELES|CONDICIONES|PRECIOS|FECHAS\s+DE\s+SALIDA)\b/im,
+    /^El precio incluye/im,
+    /^Por motivos organizativos/im,
+    /^PRECIOS\s+VENTA/im,
+    /^NOCHES\s+(?:ADICIONALES|PRE)/im,
+  ];
+
+  let additionalInfoStart = -1;
+  const textAfterLastDayHeader = text.substring(lastDayDescStart);
+
+  for (const pattern of additionalInfoMarkers) {
+    const match = pattern.exec(textAfterLastDayHeader);
+    if (match) {
+      const absIndex = lastDayDescStart + match.index;
+      if (additionalInfoStart === -1 || absIndex < additionalInfoStart) {
+        additionalInfoStart = absIndex;
+      }
+    }
+  }
+
+  if (additionalInfoStart > 0) {
+    // Split the last day: itinerary part vs additional info
+    const lastDayItinerary = text.substring(lastDayDescStart, additionalInfoStart)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    const additionalInfo = text.substring(additionalInfoStart)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    // Update the last day with only its itinerary content
+    if (lastDayItinerary) {
+      lastDay.description = lastDayItinerary;
+    }
+
+    // Add additional info as a separate section
+    if (additionalInfo && additionalInfo.length > 20) {
+      days.push({
+        id: crypto.randomUUID(),
+        dayNumber: days.length + 1,
+        date: '',
+        title: 'Información General del Paquete',
+        description: additionalInfo,
+        activities: [],
+      });
+    }
   }
 
   return days;
