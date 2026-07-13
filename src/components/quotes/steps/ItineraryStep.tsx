@@ -9,6 +9,7 @@ import { Plus, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ItineraryPDFDialog } from '@/components/quotes/ItineraryPDFDialog';
 
 interface ItineraryStepProps {
   quote: Quote;
@@ -71,9 +72,15 @@ export function ItineraryStep({ quote, onUpdate, itineraryVisible, onItineraryVi
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button onClick={generateItineraryWithAI} disabled={generatingItinerary} className="bg-gradient-to-r from-primary to-accent text-primary-foreground">
-          {generatingItinerary ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generando...</>) : (<><Sparkles className="mr-2 h-4 w-4" />Generar itinerario con IA</>)}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={generateItineraryWithAI} disabled={generatingItinerary} className="bg-gradient-to-r from-primary to-accent text-primary-foreground">
+            {generatingItinerary ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generando...</>) : (<><Sparkles className="mr-2 h-4 w-4" />Generar itinerario con IA</>)}
+          </Button>
+          <ItineraryPDFDialog
+            existingDaysCount={days.length}
+            onDaysParsed={(parsedDays) => onUpdate({ itineraryDays: parsedDays })}
+          />
+        </div>
         <div className="flex items-center gap-2">
           <Switch id="itinerary-visible" checked={itineraryVisible} onCheckedChange={onItineraryVisibleChange} />
           <Label htmlFor="itinerary-visible" className="text-sm">Mostrar itinerario en el PDF</Label>
