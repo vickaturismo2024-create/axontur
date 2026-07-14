@@ -63,39 +63,74 @@ function parseItineraryText(rawText: string): ItineraryDay[] {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 
-  // 2. Find all "Día N …: Title" headers
-  const dayHeaderRegex = /^[ \t]*[Dd][ií]a\s+(\d+)\s*([^:\n]*?):\s*(.+)$/gm;
-  const headers: { index: number; fullMatch: string; dayNumber: number; title: string }[] = [];
-  let m: RegExpExecArray | null;
+  // 2. Try multiple day-header patterns (international formats)
+  const dayPatterns = [
+    // Spanish: "Día 1 Miércoles: Como", "DÍA 1: Título", "Dia 1 - Titulo"
+    /^[ \t]*[Dd][ií]a\s+(\d+)\s*[^:\n\-–—]*?[:\-–—]\s*(.+)$/gm,
+    // English: "Day 1: Title", "Day 1 - Title"
+    /^[ \t]*[Dd]ay\s+(\d+)\s*[:\-–—]\s*(.+)$/gm,
+    // Italian: "Giorno 1: Titolo", "Giorno 1 - Titolo"
+    /^[ \t]*[Gg]iorno\s+(\d+)\s*[:\-–—]\s*(.+)$/gm,
+    // French: "Jour 1: Titre", "Jour 1 - Titre"
+    /^[ \t]*[Jj]our\s+(\d+)\s*[:\-–—]\s*(.+)$/gm,
+    // German: "Tag 1: Titel"
+    /^[ \t]*[Tt]ag\s+(\d+)\s*[:\-–—]\s*(.+)$/gm,
+    // Portuguese: "Dia 1: Título"
+    /^[ \t]*[Dd]ia\s+(\d+)\s*[:\-–—]\s*(.+)$/gm,
+    // Ordinal: "1° Día: ...", "1er día:", "2do día:"
+    /^[ \t]*(\d+)[°ºªer|do|to|mo]\s*[Dd][ií]a\s*[:\-–—]\s*(.+)$/gm,
+    // Bare numbered: "1. Título del día" or "1) Título del día" (only if line starts with number)
+    /^[ \t]*(\d+)\s*[.)]\s+([A-ZÁÉÍÓÚÑ][^\n]{5,})$/gm,
+  ];
 
-  while ((m = dayHeaderRegex.exec(text)) !== null) {
-    const rawTitle = m[3].trim();
-    headers.push({
-      index: m.index,
-      fullMatch: m[0],
-      dayNumber: parseInt(m[1], 10),
-      title: rawTitle,
-    });
+  const headers: { index: number; fullMatch: string; dayNumber: number; title: string }[] = [];
+
+  for (const pattern of dayPatterns) {
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      const dayNum = parseInt(m[1], 10);
+      const title = m[2].trim();
+      // Avoid duplicates (same position)
+      if (!headers.some(h => Math.abs(h.index - m!.index) < 5)) {
+        headers.push({
+          index: m.index,
+          fullMatch: m[0],
+          dayNumber: dayNum,
+          title,
+        });
+      }
+    }
   }
 
-  if (headers.length === 0) return [];
+  // Sort headers by position in text
+  headers.sort((a, b) => a.index - b.index);
 
-  // 3. Extract each day's FULL content — NO FILTERING
+  // Re-number if needed (some PDFs repeat day numbers across pages)
+  for (let i = 0; i < headers.length; i++) {
+    headers[i].dayNumber = i + 1;
+  }
+
+  if (headers.length === 0) {
+    // FALLBACK: No day structure detected — import ALL text as one block
+    return [{
+      id: crypto.randomUUID(),
+      dayNumber: 1,
+      date: '',
+      title: 'Itinerario importado desde PDF',
+      description: text.replace(/\n{3,}/g, '\n\n').trim(),
+      activities: [],
+    }];
+  }
+
+  // 3. Extract each day's FULL content
   const days: ItineraryDay[] = [];
 
   for (let i = 0; i < headers.length; i++) {
     const hdr = headers[i];
-
-    // Description starts after the header line
     const headerLineEnd = text.indexOf('\n', hdr.index);
     const descStart = headerLineEnd > 0 ? headerLineEnd + 1 : hdr.index + hdr.fullMatch.length;
+    const descEnd = (i + 1 < headers.length) ? headers[i + 1].index : text.length;
 
-    // Description ends at the next day header
-    const descEnd = (i + 1 < headers.length)
-      ? headers[i + 1].index
-      : text.length;
-
-    // Get the FULL description, only collapse excessive blank lines
     const description = text.substring(descStart, descEnd)
       .replace(/\n{3,}/g, '\n\n')
       .trim();
@@ -110,53 +145,33 @@ function parseItineraryText(rawText: string): ItineraryDay[] {
     });
   }
 
-  // 4. Capture ALL remaining content AFTER the last day's description
-  //    (prices, dates, hotels, inclusions, conditions, etc.)
+  // 4. Separate additional info from last day (prices, hotels, etc.)
   const lastDay = days[days.length - 1];
-  const lastDayHeaderIndex = headers[headers.length - 1].index;
-  const lastDayHeaderEnd = text.indexOf('\n', lastDayHeaderIndex);
-  const lastDayDescStart = lastDayHeaderEnd > 0 ? lastDayHeaderEnd + 1 : lastDayHeaderIndex;
-
-  // Find where the last day's itinerary description actually ends
-  // and where the "additional info" section begins.
-  // Look for known section markers AFTER the last day header.
   const additionalInfoMarkers = [
     /^(?:HOTELES|CONDICIONES|PRECIOS|FECHAS\s+DE\s+SALIDA)\b/im,
     /^El precio incluye/im,
     /^Por motivos organizativos/im,
     /^PRECIOS\s+VENTA/im,
     /^NOCHES\s+(?:ADICIONALES|PRE)/im,
+    /^(?:INCLUYE|NO INCLUYE|INCLUDES|NOT INCLUDED)\s*[:\-]/im,
+    /^(?:The price includes|Price includes)/im,
+    /^(?:TARIFAS|RATES|TARIFFE)\b/im,
   ];
 
-  let additionalInfoStart = -1;
-  const textAfterLastDayHeader = text.substring(lastDayDescStart);
-
+  let splitPos = -1;
   for (const pattern of additionalInfoMarkers) {
-    const match = pattern.exec(textAfterLastDayHeader);
-    if (match) {
-      const absIndex = lastDayDescStart + match.index;
-      if (additionalInfoStart === -1 || absIndex < additionalInfoStart) {
-        additionalInfoStart = absIndex;
-      }
+    const match = pattern.exec(lastDay.description);
+    if (match && (splitPos === -1 || match.index < splitPos)) {
+      splitPos = match.index;
     }
   }
 
-  if (additionalInfoStart > 0) {
-    // Split the last day: itinerary part vs additional info
-    const lastDayItinerary = text.substring(lastDayDescStart, additionalInfoStart)
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+  if (splitPos > 0) {
+    const itineraryPart = lastDay.description.substring(0, splitPos).trim();
+    const additionalInfo = lastDay.description.substring(splitPos).trim();
 
-    const additionalInfo = text.substring(additionalInfoStart)
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    if (itineraryPart) lastDay.description = itineraryPart;
 
-    // Update the last day with only its itinerary content
-    if (lastDayItinerary) {
-      lastDay.description = lastDayItinerary;
-    }
-
-    // Add additional info as a separate section
     if (additionalInfo && additionalInfo.length > 20) {
       days.push({
         id: crypto.randomUUID(),
@@ -215,35 +230,32 @@ export function ItineraryPDFDialog({ onDaysParsed, existingDaysCount }: Itinerar
         return;
       }
 
-      // Step 2: Parse with local parser
-      setProgress('Analizando estructura del itinerario...');
-      let parsedDays = parseItineraryText(text);
+      // Step 2: Try AI first (best quality), then local parser as fallback
+      setProgress('Analizando itinerario con IA...');
+      let parsedDays: ItineraryDay[] = [];
 
-      // Step 3: AI fallback if local parser finds nothing
-      if (parsedDays.length === 0) {
-        setProgress('Parser local no detectó días, intentando con IA...');
-        try {
-          const { data, error } = await supabase.functions.invoke('generate-itinerary', {
-            body: { pdfText: text },
-          });
-          if (!error && data?.days && data.days.length > 0) {
-            parsedDays = data.days.map((day: any, idx: number) => ({
-              id: crypto.randomUUID(),
-              dayNumber: day.dayNumber || idx + 1,
-              date: day.date || '',
-              title: day.title || '',
-              description: day.description || '',
-              activities: Array.isArray(day.activities) ? day.activities : [],
-            }));
-          }
-        } catch (aiErr) {
-          console.warn('AI fallback failed, local parser also found 0 days:', aiErr);
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-itinerary', {
+          body: { pdfText: text },
+        });
+        if (!error && data?.days && data.days.length > 0) {
+          parsedDays = data.days.map((day: any, idx: number) => ({
+            id: crypto.randomUUID(),
+            dayNumber: day.dayNumber || idx + 1,
+            date: day.date || '',
+            title: day.title || '',
+            description: day.description || '',
+            activities: Array.isArray(day.activities) ? day.activities : [],
+          }));
         }
+      } catch (aiErr) {
+        console.warn('AI extraction failed, using local parser:', aiErr);
       }
 
+      // Step 3: Local parser fallback (always returns at least 1 day)
       if (parsedDays.length === 0) {
-        toast.error('No se pudieron extraer días de itinerario del PDF.');
-        return;
+        setProgress('Procesando con parser local...');
+        parsedDays = parseItineraryText(text);
       }
 
       onDaysParsed(parsedDays);
