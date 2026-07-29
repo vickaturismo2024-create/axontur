@@ -31,7 +31,11 @@ dev-dist
 dist/bundle-stats.html
 
 .env*.local
+.env
+
+# Bun lockfiles (project uses npm)
+bun.lock
+bun.lockb
 
 # Scratch folder
 scratch/
-

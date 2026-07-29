@@ -119,7 +119,7 @@ function parseLegacyReservationPDFText(rawText: string, pdfItems?: PdfTextItem[]
   const flatText = text.replace(/\n+/g, ' '); // flattened version for single-line patterns
 
   // Detect main currency
-  const currencyMatch = flatText.match(/(?:u\$s|usd|d[Ã³o]lar)/i);
+  const currencyMatch = flatText.match(/(?:u\$s|usd|d[óo]lar)/i);
   const detectedCurrency: 'USD' | 'ARS' = currencyMatch ? 'USD' : 'ARS';
 
   const parseDateStr = (dStr: string | null) => {
@@ -141,7 +141,7 @@ function parseLegacyReservationPDFText(rawText: string, pdfItems?: PdfTextItem[]
   }
 
   // 2. Client Header - try multiple patterns
-  let clientName = 'Cliente HistÃ³rico';
+  let clientName = 'Cliente Histórico';
   let clientPhone = '';
   let clientLegacyId = '';
   let clientAddress = '';
@@ -207,7 +207,7 @@ function parseLegacyReservationPDFText(rawText: string, pdfItems?: PdfTextItem[]
   }
 
   // If clientName is not set, use first passenger
-  if (clientName === 'Cliente HistÃ³rico' && passengers.length > 0) {
+  if (clientName === 'Cliente Histórico' && passengers.length > 0) {
     clientName = passengers[0].name;
   }
 
@@ -484,7 +484,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
             legacyId: data.legacyId,
             agent: data.agent || '',
             clientLegacyId: data.clientLegacyId || '',
-            clientName: data.clientName || data.passengers?.[0]?.name || 'Cliente HistÃ³rico',
+            clientName: data.clientName || data.passengers?.[0]?.name || 'Cliente Histórico',
             clientPhone: data.clientPhone || '',
             clientAddress: data.clientAddress || '',
             startDate: data.startDate || null,
@@ -643,7 +643,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
             name: reservation.clientName,
             phone: reservation.clientPhone || null,
             address: reservation.clientAddress || null,
-            notes: `Creado automÃ¡ticamente durante importaciÃ³n de PDF NÂº ${reservation.legacyId}`
+            notes: `Creado automáticamente durante importación de PDF Nº ${reservation.legacyId}`
           })
           .select('id')
           .single();
@@ -658,7 +658,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
       const totalPrice = reservation.services.reduce((sum, s) => sum + s.price, 0);
       const destination = reservation.services.find(s => s.serviceType === 'lodging')?.description || 
                           reservation.services[0]?.description || 
-                          'Viaje HistÃ³rico';
+                          'Viaje Histórico';
 
       let fileId = '';
 
@@ -680,7 +680,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         currency: reservation.currency,
         total_price: totalPrice,
         total_cost: totalCost,
-        internal_notes: `${LEGACY_NOTE_PREFIX} (NÂº ${reservation.legacyId}). Vendedor: ${reservation.agent}`,
+        internal_notes: `${LEGACY_NOTE_PREFIX} (Nº ${reservation.legacyId}). Vendedor: ${reservation.agent}`,
         status: 'confirmed'
       };
 
@@ -838,13 +838,13 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         if (payErr) throw payErr;
       }
 
-      toast.success(existing ? 'Expediente actualizado con Ã©xito' : 'Expediente importado con Ã©xito');
+      toast.success(existing ? 'Expediente actualizado con éxito' : 'Expediente importado con éxito');
       qc.invalidateQueries({ queryKey: ['files'] });
       handleClose(false);
       navigate(`/files/${fileId}`);
     } catch (e) {
       console.error(e);
-      toast.error('Error al guardar la importaciÃ³n');
+      toast.error('Error al guardar la importación');
     } finally {
       setImporting(false);
     }
@@ -859,10 +859,10 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
           <div>
             <DialogTitle className="flex items-center gap-2 font-sans text-xl font-bold text-primary">
               <FileText className="h-6 w-6" />
-              Importar Expediente desde PDF HistÃ³rico
+              Importar Expediente desde PDF Histórico
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-1">
-              SubÃ­ el PDF detallado del expediente de la app anterior para migrar todos sus pasajeros, servicios, cobros y pagos.
+              Subí el PDF detallado del expediente de la app anterior para migrar todos sus pasajeros, servicios, cobros y pagos.
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -891,7 +891,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
 
             {parsing && (
               <div className="w-full max-w-md space-y-2 mt-2">
-                <Progress value={progress.includes('IA') ? 85 : progress.includes('pÃ¡gina') ? 50 : 20} className="h-2" />
+                <Progress value={progress.includes('IA') ? 85 : progress.includes('página') ? 50 : 20} className="h-2" />
                 <p className="text-xs text-muted-foreground text-center animate-pulse">{progress}</p>
               </div>
             )}
@@ -906,7 +906,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                 <div className="flex items-start gap-2.5 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-yellow-600 text-sm">
                   <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Expediente Duplicado</span>: Ya existe una reserva con el nÃºmero <span className="font-mono font-bold">#{reservation.legacyId}</span>. Si continÃºas, se sobrescribirÃ¡n los servicios, pasajeros y cobros antiguos de este expediente.
+                    <span className="font-bold">Expediente Duplicado</span>: Ya existe una reserva con el número <span className="font-mono font-bold">#{reservation.legacyId}</span>. Si continúas, se sobrescribirán los servicios, pasajeros y cobros antiguos de este expediente.
                   </div>
                 </div>
               )}
@@ -914,14 +914,14 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                 <div className="flex items-start gap-2.5 p-3 rounded-lg border border-green-500/30 bg-green-500/5 text-green-600 text-sm">
                   <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Cliente Vinculado</span>: Se asociarÃ¡ automÃ¡ticamente con el cliente existente <span className="font-bold">"{reservation.clientName}"</span>.
+                    <span className="font-bold">Cliente Vinculado</span>: Se asociará automáticamente con el cliente existente <span className="font-bold">"{reservation.clientName}"</span>.
                   </div>
                 </div>
               ) : (
                 <div className="flex items-start gap-2.5 p-3 rounded-lg border border-blue-500/30 bg-blue-500/5 text-blue-600 text-sm">
                   <Users className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Nuevo Cliente</span>: No se encontrÃ³ un cliente en el CRM con el nombre <span className="font-bold">"{reservation.clientName}"</span>. Se crearÃ¡ un nuevo registro de cliente automÃ¡ticamente para vincular la cuenta corriente.
+                    <span className="font-bold">Nuevo Cliente</span>: No se encontró un cliente en el CRM con el nombre <span className="font-bold">"{reservation.clientName}"</span>. Se creará un nuevo registro de cliente automáticamente para vincular la cuenta corriente.
                   </div>
                 </div>
               )}
@@ -965,7 +965,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm mt-1">
                       <div><span className="text-muted-foreground">Nombre:</span> <strong className="font-semibold text-foreground">{reservation.clientName}</strong></div>
                       <div><span className="text-muted-foreground">Celular:</span> <span className="font-medium text-foreground">{reservation.clientPhone || 'No indica'}</span></div>
-                      <div><span className="text-muted-foreground">DirecciÃ³n:</span> <span className="font-medium text-foreground">{reservation.clientAddress || 'No indica'}</span></div>
+                      <div><span className="text-muted-foreground">Dirección:</span> <span className="font-medium text-foreground">{reservation.clientAddress || 'No indica'}</span></div>
                     </div>
                   </div>
 
@@ -1179,7 +1179,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                 ) : (
                   <>
                     <Check className="h-4 w-4" />
-                    {isDuplicate ? 'Reemplazar Expediente' : 'Confirmar ImportaciÃ³n'}
+                    {isDuplicate ? 'Reemplazar Expediente' : 'Confirmar Importación'}
                   </>
                 )}
               </Button>
