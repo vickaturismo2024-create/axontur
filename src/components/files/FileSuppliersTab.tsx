@@ -37,7 +37,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     const [svcRes, payRes, supRes] = await Promise.all([
       supabase.from('file_services').select('supplier_name,supplier_id,cost,currency,status').eq('file_id', fileId),
       supabase.from('file_supplier_payments' as any).select('*').eq('file_id', fileId).order('payment_date', { ascending: false }),
-      supabase.from('suppliers').select('id,name').eq('user_id', user.id).order('name'),
+      supabase.from('suppliers').select('id,name').order('name'),
     ]);
     setServices((svcRes.data as any[]) || []);
     setPayments((payRes.data as any[]) || []);

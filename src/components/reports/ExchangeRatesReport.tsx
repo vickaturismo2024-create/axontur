@@ -51,7 +51,6 @@ export function ExchangeRatesReport() {
     const { data, error } = await supabase
       .from('exchange_rate_log' as any)
       .select('*')
-      .eq('user_id', user.id)
       .gte('rate_date', from)
       .lte('rate_date', to)
       .order('rate_date', { ascending: false });

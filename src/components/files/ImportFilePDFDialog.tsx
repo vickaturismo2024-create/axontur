@@ -578,7 +578,6 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         const { data: existingFile } = await supabase
           .from('files')
           .select('id')
-          .eq('user_id', user.id)
           .eq('legacy_id', parsedData.legacyId)
           .maybeSingle();
 
@@ -587,8 +586,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         // Check client lookup in clients
         const { data: matchedClients } = await supabase
           .from('clients')
-          .select('id, name')
-          .eq('user_id', user.id);
+          .select('id, name');
 
         const norm = (s: string) =>
           s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
@@ -616,15 +614,14 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
       .from('file_receipts')
       .select('id')
       .eq('file_id', fileId)
-      .eq('user_id', user.id)
       .like('notes', `%${LEGACY_NOTE_PREFIX}%`);
     const oldReceiptIds = (oldReceipts || []).map(r => r.id);
     if (oldReceiptIds.length) {
-      await supabase.from('file_receipt_items').delete().in('receipt_id', oldReceiptIds).eq('user_id', user.id);
-      await supabase.from('file_receipts').delete().in('id', oldReceiptIds).eq('user_id', user.id);
+      await supabase.from('file_receipt_items').delete().in('receipt_id', oldReceiptIds);
+      await supabase.from('file_receipts').delete().in('id', oldReceiptIds);
     }
-    await supabase.from('file_supplier_payments').delete().eq('file_id', fileId).eq('user_id', user.id);
-    await supabase.from('account_movements').delete().eq('file_id', fileId).eq('user_id', user.id);
+    await supabase.from('file_supplier_payments').delete().eq('file_id', fileId);
+    await supabase.from('account_movements').delete().eq('file_id', fileId);
   };
 
   const handleImport = async () => {
@@ -676,7 +673,6 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
       const { data: existing } = await supabase
         .from('files')
         .select('id')
-        .eq('user_id', user.id)
         .eq('legacy_id', reservation.legacyId)
         .maybeSingle();
 
@@ -704,8 +700,8 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         fileId = existing.id;
 
         // Clean dependent rows for replacement
-        await supabase.from('file_services').delete().eq('file_id', fileId).eq('user_id', user.id);
-        await supabase.from('file_passengers').delete().eq('file_id', fileId).eq('user_id', user.id);
+        await supabase.from('file_services').delete().eq('file_id', fileId);
+        await supabase.from('file_passengers').delete().eq('file_id', fileId);
         await deleteLegacyFinancials(fileId);
       } else {
         const { data: created, error: createErr } = await supabase

@@ -80,7 +80,7 @@ export default function DataImport() {
     try {
       if (target === 'files') {
         // Delete dependents first
-        const { data: files } = await supabase.from('files').select('id').eq('user_id', user.id);
+        const { data: files } = await supabase.from('files').select('id');
         const fileIds = (files || []).map(f => f.id);
         if (fileIds.length > 0) {
           for (const fid of fileIds) {
@@ -94,16 +94,16 @@ export default function DataImport() {
             await supabase.from('file_services').delete().eq('file_id', fid);
             await supabase.from('file_passengers').delete().eq('file_id', fid);
           }
-          await supabase.from('files').delete().eq('user_id', user.id);
+          await supabase.from('files').delete().in('id', fileIds);
         }
         toast.success(`${fileIds.length} expedientes eliminados`);
       } else if (target === 'clients') {
-        const { count } = await supabase.from('clients').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-        await supabase.from('clients').delete().eq('user_id', user.id);
+        const { count } = await supabase.from('clients').select('*', { count: 'exact', head: true });
+        await supabase.from('clients').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         toast.success(`${count || 0} clientes eliminados`);
       } else if (target === 'suppliers') {
-        const { count } = await supabase.from('suppliers').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-        await supabase.from('suppliers').delete().eq('user_id', user.id);
+        const { count } = await supabase.from('suppliers').select('*', { count: 'exact', head: true });
+        await supabase.from('suppliers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         toast.success(`${count || 0} proveedores eliminados`);
       }
       queryClient.invalidateQueries();

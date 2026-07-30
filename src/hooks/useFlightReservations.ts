@@ -27,7 +27,6 @@ export function useReservationsList() {
       const { data, error } = await supabase
         .from('reservations')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as unknown as Reservation[];
@@ -92,8 +91,7 @@ export function useUpcomingFlights(limit = 10) {
 
       const { data: reservations } = await supabase
         .from('reservations')
-        .select('*')
-        .eq('user_id', user.id);
+        .select('*');
       if (!reservations?.length) return [];
 
       const reservationMap = new Map(reservations.map(r => [r.id, r]));
@@ -415,7 +413,6 @@ export function useFindReservationByLocator() {
     const { data } = await supabase
       .from('reservations')
       .select('*')
-      .eq('user_id', user.id)
       .eq('locator', locator.toUpperCase())
       .maybeSingle();
     return (data as unknown as Reservation) || null;
@@ -431,8 +428,7 @@ export function usePendingChangesCount() {
       if (!user) return 0;
       const { data: reservations } = await supabase
         .from('reservations')
-        .select('id')
-        .eq('user_id', user.id);
+        .select('id');
       const ids = (reservations || []).map(r => r.id);
       if (ids.length === 0) return 0;
       const { count } = await supabase
@@ -618,7 +614,6 @@ export function useBulkImportReservations() {
         const { data, error } = await supabase
           .from('clients')
           .select('id, name, dni')
-          .eq('user_id', user.id)
           .range(from, from + PAGE - 1);
         if (error) throw error;
         const batch = (data || []) as ClientMatchRow[];
@@ -651,7 +646,6 @@ export function useBulkImportReservations() {
           const { data: existing } = await supabase
             .from('reservations')
             .select('id, notes')
-            .eq('user_id', user.id)
             .eq('legacy_id', r.legacyId)
             .maybeSingle();
 

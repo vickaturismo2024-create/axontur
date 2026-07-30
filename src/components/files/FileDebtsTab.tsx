@@ -73,7 +73,6 @@ export function FileDebtsTab({ fileId, currency }: Props) {
       supabase
         .from('suppliers')
         .select('id, name')
-        .eq('user_id', userData.user.id)
         .order('name'),
     ]);
 

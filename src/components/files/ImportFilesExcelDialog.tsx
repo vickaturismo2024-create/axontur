@@ -130,7 +130,6 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
       const { data } = await supabase
         .from('files')
         .select('legacy_id')
-        .eq('user_id', user.id)
         .in('legacy_id', legacyIds);
       (data || []).forEach((r: { legacy_id: string | null }) => {
         if (r.legacy_id) dupIds.add(r.legacy_id);
@@ -145,7 +144,6 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
       const { data } = await supabase
         .from('clients')
         .select('id, name')
-        .eq('user_id', user.id)
         .range(from, from + PAGE - 1);
       const batch = data || [];
       clients.push(...batch);
@@ -191,26 +189,23 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
       .from('file_receipts')
       .select('id')
       .eq('file_id', fileId)
-      .eq('user_id', user.id)
       .like('notes', `${LEGACY_NOTE_PREFIX}%`);
     const oldReceiptIds = (oldReceipts || []).map(r => r.id);
     if (oldReceiptIds.length) {
-      await supabase.from('file_receipt_items').delete().in('receipt_id', oldReceiptIds).eq('user_id', user.id);
-      await supabase.from('file_receipts').delete().in('id', oldReceiptIds).eq('user_id', user.id);
+      await supabase.from('file_receipt_items').delete().in('receipt_id', oldReceiptIds);
+      await supabase.from('file_receipts').delete().in('id', oldReceiptIds);
     }
     // Pagos a operadores importados
     await supabase
       .from('file_supplier_payments')
       .delete()
       .eq('file_id', fileId)
-      .eq('user_id', user.id)
       .like('notes', `${LEGACY_NOTE_PREFIX}%`);
     // Movimientos en cuenta corriente importados
     await supabase
       .from('account_movements')
       .delete()
       .eq('file_id', fileId)
-      .eq('user_id', user.id)
       .like('notes', `${LEGACY_NOTE_PREFIX}%`);
   };
 
@@ -241,7 +236,6 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
         const { data: existing } = await supabase
           .from('files')
           .select('id')
-          .eq('user_id', user.id)
           .eq('legacy_id', r.legacyId)
           .maybeSingle();
 
@@ -264,7 +258,7 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
             .eq('id', existing.id);
           fileId = existing.id;
           // Limpiar servicios y financieros previos para reemplazar
-          await supabase.from('file_services').delete().eq('file_id', fileId).eq('user_id', user.id);
+          await supabase.from('file_services').delete().eq('file_id', fileId);
           await deleteLegacyFinancials(fileId);
           res.updated++;
         } else {
