@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -782,7 +783,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
             file_id: fileId,
             client_name: reservation.clientName,
             concept: r.concept,
-            payment_date: r.date || reservation.startDate || new Date().toISOString().slice(0, 10),
+            payment_date: r.date || reservation.startDate || localDateStr(),
             payment_method: 'transfer',
             currency: r.currency,
             amount: r.amount,
@@ -820,7 +821,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
               amount: r.amount,
               concept: r.concept,
               reference: `LEG-${reservation.legacyId}`,
-              movement_date: r.date || reservation.startDate || new Date().toISOString().slice(0, 10),
+              movement_date: r.date || reservation.startDate || localDateStr(),
               notes: `${LEGACY_NOTE_PREFIX} - cobro pasajero`
             });
           if (movErr) throw movErr;
@@ -835,7 +836,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
           supplier_name: p.supplierName,
           currency: p.currency,
           amount: p.amount,
-          payment_date: p.date || reservation.startDate || new Date().toISOString().slice(0, 10),
+          payment_date: p.date || reservation.startDate || localDateStr(),
           payment_method: 'transfer',
           reference: `LEG-${reservation.legacyId}`,
           notes: `${LEGACY_NOTE_PREFIX} - pago a ${p.supplierName}`

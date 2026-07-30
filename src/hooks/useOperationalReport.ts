@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +15,7 @@ export function getPeriodRange(period: ReportPeriod, custom?: PeriodRange): Peri
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const fmt = (d: Date) => localDateStr(d);
 
   if (period === 'custom' && custom) return custom;
 
@@ -84,7 +85,7 @@ export function useOperationalReport(period: ReportPeriod, custom?: PeriodRange)
         };
       }
 
-      const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
+      const yearStart = localDateStr(new Date(new Date().getFullYear(), 0, 1));
 
       const [receiptsRes, paymentsRes, servicesPeriodRes, servicesYTDRes, allReceiptsRes, allPaymentsRes, allServicesRes] = await Promise.all([
         // Collections in period

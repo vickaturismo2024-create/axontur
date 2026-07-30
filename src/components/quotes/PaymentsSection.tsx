@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +50,7 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice, clientId }
   const [newPayment, setNewPayment] = useState({
     amount: 0,
     currency: quoteCurrency || 'USD',
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: localDateStr(),
     method: 'transfer',
     status: 'confirmed',
     notes: '',
@@ -103,7 +104,7 @@ export function PaymentsSection({ quoteId, quoteCurrency, totalPrice, clientId }
 
       toast.success('Pago registrado');
       setAdding(false);
-      setNewPayment({ amount: 0, currency: quoteCurrency, payment_date: new Date().toISOString().split('T')[0], method: 'transfer', status: 'pending', notes: '' });
+      setNewPayment({ amount: 0, currency: quoteCurrency, payment_date: localDateStr(), method: 'transfer', status: 'pending', notes: '' });
       fetchPayments();
     } catch (e) {
       console.error(e);

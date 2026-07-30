@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,7 @@ interface NewReceiptDialogProps {
 export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName, defaultCurrency, passengers = [], fileDebts = {} }: NewReceiptDialogProps) {
   const [form, setForm] = useState({
     client_name: defaultClientName,
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: localDateStr(),
     concept: '',
     notes: '',
   });
@@ -40,7 +41,7 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
     if (open) {
       setForm({
         client_name: defaultClientName,
-        payment_date: new Date().toISOString().split('T')[0],
+        payment_date: localDateStr(),
         concept: '',
         notes: '',
       });

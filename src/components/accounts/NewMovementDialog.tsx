@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,7 @@ export function NewMovementDialog({ open, onClose, accountId, accountType, onSav
     currency: 'USD',
     concept: '',
     reference: '',
-    movement_date: new Date().toISOString().split('T')[0],
+    movement_date: localDateStr(),
     notes: '',
   });
 
@@ -48,7 +49,7 @@ export function NewMovementDialog({ open, onClose, accountId, accountType, onSav
 
     if (error) { toast.error('Error al guardar'); return; }
     toast.success('Movimiento registrado');
-    setForm({ movement_type: 'credit', amount: 0, currency: 'USD', concept: '', reference: '', movement_date: new Date().toISOString().split('T')[0], notes: '' });
+    setForm({ movement_type: 'credit', amount: 0, currency: 'USD', concept: '', reference: '', movement_date: localDateStr(), notes: '' });
     onSaved();
     onClose();
   };

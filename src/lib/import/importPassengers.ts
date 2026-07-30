@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
 
@@ -30,7 +31,7 @@ function parseDate(val: unknown): string {
   if (val instanceof Date) {
     const y = val.getFullYear();
     if (y < 1900 || y > 2100) return '';
-    return val.toISOString().slice(0, 10);
+    return localDateStr(val);
   }
   if (typeof val === 'number') {
     if (val <= 366 || val > 60000) return '';

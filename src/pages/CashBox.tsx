@@ -1,3 +1,4 @@
+import { localDateStr } from '@/lib/utils';
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -234,10 +235,10 @@ export default function CashBox() {
   const defaultDateFrom = useMemo(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 3);
-    return d.toISOString().split('T')[0];
+    return localDateStr(d);
   }, []);
   const [dateFrom, setDateFrom] = useState(defaultDateFrom);
-  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+  const [dateTo, setDateTo] = useState(localDateStr());
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
@@ -267,7 +268,7 @@ export default function CashBox() {
   const [transferFrom, setTransferFrom] = useState('');
   const [transferTo, setTransferTo] = useState('');
   const [transferNotes, setTransferNotes] = useState('');
-  const [transferDate, setTransferDate] = useState(new Date().toISOString().split('T')[0]);
+  const [transferDate, setTransferDate] = useState(localDateStr());
   const [isSavingTransfer, setIsSavingTransfer] = useState(false);
   const [liveRates, setLiveRates] = useState<any[] | null>(null);
   const [loadingRates, setLoadingRates] = useState(false);
@@ -416,7 +417,7 @@ export default function CashBox() {
     setExtraMonto('');
     setExtraMoneda('ARS');
     setExtraMedioPago('cash');
-    setExtraFecha(new Date().toISOString().split('T')[0]);
+    setExtraFecha(localDateStr());
     setExtraNotes('');
     setIsExtraDialogOpen(true);
   };
@@ -846,7 +847,7 @@ export default function CashBox() {
                 setTransferFrom('');
                 setTransferTo('');
                 setTransferNotes('');
-                setTransferDate(new Date().toISOString().split('T')[0]);
+                setTransferDate(localDateStr());
                 setLiveRates(null);
                 setIsTransferDialogOpen(true);
               }}
@@ -890,7 +891,7 @@ export default function CashBox() {
             className="h-8 px-2 text-[10px]"
             onClick={() => {
               setDateFrom('2020-01-01');
-              setDateTo(new Date().toISOString().split('T')[0]);
+              setDateTo(localDateStr());
             }}
           >
             Ver todo

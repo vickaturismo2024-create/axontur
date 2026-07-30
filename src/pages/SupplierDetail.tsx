@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -123,7 +124,7 @@ export default function SupplierDetail() {
 
   // YTD: facturación + cantidad de expedientes asociados
   const ytdMetrics = useMemo(() => {
-    const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
+    const yearStart = localDateStr(new Date(new Date().getFullYear(), 0, 1));
     const ytdServices = services.filter(s => (s.service_date || '') >= yearStart);
     const fileSet = new Set(services.map(s => s.file_id));
     const totalsByCurr: Record<string, number> = {};

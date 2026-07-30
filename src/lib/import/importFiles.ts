@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { ParsedLegacyReservation, buildLegacyNotes } from '@/lib/reservationExcelParser';
 
@@ -70,7 +71,7 @@ export async function insertFiles(
       const fullName = (r.clientLastName + ' ' + r.clientFirstName).trim();
       const clientName = fullName || 'Sin cliente';
       const notes = buildLegacyNotes(r);
-      const opDate = r.travelDate || r.openDate || new Date().toISOString().slice(0, 10);
+      const opDate = r.travelDate || r.openDate || localDateStr();
       
       const match = byName.get(norm(fullName)) || byName.get(norm(r.clientLastName)) || null;
       const matchedClientId = match?.id || null;

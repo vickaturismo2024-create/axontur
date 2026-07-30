@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import ExcelJS from 'exceljs';
 import { Quote } from '@/types/quote';
 import { SupplierStat } from '@/hooks/useSupplierAnalytics';
@@ -266,5 +267,5 @@ export async function exportReportsToExcel(
     });
   }
 
-  await download(wb, `reportes-${sym}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  await download(wb, `reportes-${sym}-${localDateStr()}.xlsx`);
 }

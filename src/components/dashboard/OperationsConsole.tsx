@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState } from 'react';
 import { AlertTriangle, Plane, Cake, ArrowRight, CheckSquare } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -67,7 +68,7 @@ export function OperationsConsole() {
       if (!user) return 0;
       let count = 0;
       const today = new Date();
-      const todayIso = today.toISOString().split('T')[0];
+      const todayIso = localDateStr(today);
 
       // 1) Payments due
       const in3 = new Date();
@@ -77,7 +78,7 @@ export function OperationsConsole() {
         .select('id')
         .not('payment_due_date', 'is', null)
         .neq('status', 'paid')
-        .lte('payment_due_date', in3.toISOString().split('T')[0]);
+        .lte('payment_due_date', localDateStr(in3));
       count += services?.length || 0;
 
       // 2) Documents expiring

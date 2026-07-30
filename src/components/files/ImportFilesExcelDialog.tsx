@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -230,7 +231,7 @@ export function ImportFilesExcelDialog({ open, onOpenChange }: Props) {
         const totalCost = currency === 'USD' ? r.totals.costUsd : r.totals.costArs;
         const clientName = `${r.clientLastName} ${r.clientFirstName}`.trim() || 'Sin cliente';
         const notes = buildLegacyNotes(r);
-        const opDate = r.travelDate || r.openDate || new Date().toISOString().slice(0, 10);
+        const opDate = r.travelDate || r.openDate || localDateStr();
 
         // Buscar duplicado
         const { data: existing } = await supabase

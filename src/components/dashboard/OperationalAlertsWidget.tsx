@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +30,7 @@ export function OperationalAlertsWidget({ defaultOpen, raw }: { defaultOpen?: bo
       if (!user) return [];
       const items: AlertItem[] = [];
       const today = new Date();
-      const todayIso = today.toISOString().split('T')[0];
+      const todayIso = localDateStr(today);
 
       // 1) Servicios con payment_due_date vencido o en <3 días
       const in3 = new Date();
@@ -39,7 +40,7 @@ export function OperationalAlertsWidget({ defaultOpen, raw }: { defaultOpen?: bo
         .select('id, description, payment_due_date, file_id, supplier_name, status')
         .not('payment_due_date', 'is', null)
         .neq('status', 'paid')
-        .lte('payment_due_date', in3.toISOString().split('T')[0]);
+        .lte('payment_due_date', localDateStr(in3));
       (services || []).forEach((s: any) => {
         const dueDate = parseISO(s.payment_due_date);
         const days = differenceInDays(dueDate, today);

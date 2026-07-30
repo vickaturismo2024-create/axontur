@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,7 +45,7 @@ export function FileDebtsTab({ fileId, currency }: Props) {
   const [paymentForm, setPaymentForm] = useState({
     amount: 0,
     currency,
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: localDateStr(),
     payment_method: 'transfer',
     reference: '',
     notes: '',
@@ -147,7 +148,7 @@ export function FileDebtsTab({ fileId, currency }: Props) {
     setPaymentForm({
       amount: 0,
       currency,
-      payment_date: new Date().toISOString().split('T')[0],
+      payment_date: localDateStr(),
       payment_method: 'transfer',
       reference: '',
       notes: '',

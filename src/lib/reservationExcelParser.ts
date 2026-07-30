@@ -1,3 +1,4 @@
+﻿import { localDateStr } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 
 // Estructura de cada servicio dentro de una reserva legada
@@ -40,7 +41,7 @@ const num = (v: unknown): number => {
 
 const str = (v: unknown): string => {
   if (v === null || v === undefined) return '';
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (v instanceof Date) return localDateStr(v);
   return String(v).trim();
 };
 

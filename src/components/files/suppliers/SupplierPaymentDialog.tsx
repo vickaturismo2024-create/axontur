@@ -10,7 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card } from '@/components/ui/card';
 import { Plus, Check, ChevronsUpDown, CheckCircle2, AlertTriangle, Trash2, PlusCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, localDateStr } from '@/lib/utils';
 import { SupplierPayment, CatalogSupplier, METHODS, CURRENCIES, isGenericName } from './types';
 
 interface PaymentLine {
@@ -96,7 +96,7 @@ export function SupplierPaymentDialog({
 
   useEffect(() => {
     if (open) {
-      setPaymentDate(editingPayment?.payment_date || new Date().toISOString().split('T')[0]);
+      setPaymentDate(editingPayment?.payment_date || localDateStr());
       if (editingPayment) {
         setLines([
           {
