@@ -653,9 +653,19 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         }
       }
 
-      // 2. Calculations
-      const totalCost = reservation.services.reduce((sum, s) => sum + s.cost, 0);
-      const totalPrice = reservation.services.reduce((sum, s) => sum + s.price, 0);
+      // 2. Calculations — group by currency, never sum across currencies
+      const totalsByCurrency: Record<string, { price: number; cost: number }> = {};
+      reservation.services.forEach(s => {
+        const cur = s.currency || reservation.currency || 'USD';
+        if (!totalsByCurrency[cur]) totalsByCurrency[cur] = { price: 0, cost: 0 };
+        totalsByCurrency[cur].price += s.price;
+        totalsByCurrency[cur].cost += s.cost;
+      });
+      // Dominant currency = the one with the highest total price
+      const dominantCurrency = Object.entries(totalsByCurrency)
+        .sort(([, a], [, b]) => b.price - a.price)[0]?.[0] || reservation.currency || 'USD';
+      const totalPrice = totalsByCurrency[dominantCurrency]?.price || 0;
+      const totalCost = totalsByCurrency[dominantCurrency]?.cost || 0;
       const destination = reservation.services.find(s => s.serviceType === 'lodging')?.description || 
                           reservation.services[0]?.description || 
                           'Viaje Histórico';
@@ -677,7 +687,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         start_date: reservation.startDate,
         end_date: reservation.endDate,
         travelers: reservation.numPax,
-        currency: reservation.currency,
+        currency: dominantCurrency,
         total_price: totalPrice,
         total_cost: totalCost,
         internal_notes: `${LEGACY_NOTE_PREFIX} (Nº ${reservation.legacyId}). Vendedor: ${reservation.agent}`,

@@ -31,6 +31,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
+interface CurrencyTotal {
+  currency: string;
+  total_price: number;
+  total_cost: number;
+}
+
 interface FileRecord {
   id: string;
   file_number: number;
@@ -47,6 +53,7 @@ interface FileRecord {
   internal_notes: string;
   quote_id: string | null;
   created_at: string;
+  serviceTotals?: CurrencyTotal[];
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -85,7 +92,26 @@ const Files = () => {
         if (data.length < PAGE) break;
         from += PAGE;
       }
-      return all as FileRecord[];
+
+      // Enrich with real totals from file_services (multi-currency)
+      const { data: totals } = await supabase
+        .from('file_totals_by_currency' as any)
+        .select('file_id, currency, total_price, total_cost');
+
+      const totalsMap = new Map<string, CurrencyTotal[]>();
+      (totals || []).forEach((t: any) => {
+        if (!totalsMap.has(t.file_id)) totalsMap.set(t.file_id, []);
+        totalsMap.get(t.file_id)!.push({
+          currency: t.currency,
+          total_price: Number(t.total_price) || 0,
+          total_cost: Number(t.total_cost) || 0,
+        });
+      });
+
+      return all.map(f => ({
+        ...f,
+        serviceTotals: totalsMap.get(f.id) || [],
+      })) as FileRecord[];
     },
     enabled: !!user,
   });
@@ -280,12 +306,29 @@ const Files = () => {
                             {file.travelers} pax
                           </td>
                           <td className="px-6 py-4">
-                            <p className="font-semibold text-sm">
-                              {file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">
-                              Costo: {file.currency} {file.total_cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                            </p>
+                            {(file.serviceTotals && file.serviceTotals.length > 0) ? (
+                              <div className="space-y-0.5">
+                                {file.serviceTotals.sort((a, b) => b.total_price - a.total_price).map(t => (
+                                  <div key={t.currency}>
+                                    <p className="font-semibold text-sm">
+                                      {t.currency} {t.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      Costo: {t.currency} {t.total_cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <>
+                                <p className="font-semibold text-sm">
+                                  {file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Costo: {file.currency} {file.total_cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                </p>
+                              </>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             <Badge variant={st.variant} className="text-xs">
@@ -367,7 +410,12 @@ const Files = () => {
                           </div>
                           {/* Precio visible solo en mobile, a la derecha del badge */}
                           <p className="sm:hidden text-sm font-bold whitespace-nowrap">
-                            {file.currency} {file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+                            {(file.serviceTotals && file.serviceTotals.length > 0)
+                              ? file.serviceTotals.sort((a, b) => b.total_price - a.total_price).map(t =>
+                                  `${t.currency} ${t.total_price.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
+                                ).join(' + ')
+                              : `${file.currency} ${file.total_price.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
+                            }
                           </p>
                         </div>
 

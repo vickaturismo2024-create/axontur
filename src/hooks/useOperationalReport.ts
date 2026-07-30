@@ -42,11 +42,11 @@ export interface TopEntry {
 export interface OperationalReportData {
   collections: ByCurrency;            // file_receipts within period
   supplierPayments: ByCurrency;       // file_supplier_payments within period
-  invoiced: ByCurrency;               // files.total_price for files in period
-  costInvoiced: ByCurrency;           // files.total_cost for files in period
-  receivable: ByCurrency;             // (sum file.total_price) - (sum receipts) per currency
+  invoiced: ByCurrency;               // sum of file_services.price for files created in period
+  costInvoiced: ByCurrency;           // sum of file_services.cost for files created in period
+  receivable: ByCurrency;             // (sum all services.price) - (sum all receipts) per currency
   payable: ByCurrency;                // (sum file_services.cost) - (sum supplier payments) per currency
-  topClients: TopEntry[];             // YTD by file.total_price
+  topClients: TopEntry[];             // YTD by services.price
   topSuppliers: TopEntry[];           // YTD by supplier_payments
   collectionsCount: number;
   paymentsCount: number;
@@ -86,90 +86,75 @@ export function useOperationalReport(period: ReportPeriod, custom?: PeriodRange)
 
       const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
 
-      const [receiptsRes, paymentsRes, filesPeriodRes, filesYTDRes, allReceiptsRes, allPaymentsRes, servicesRes] = await Promise.all([
+      const [receiptsRes, paymentsRes, servicesPeriodRes, servicesYTDRes, allReceiptsRes, allPaymentsRes, allServicesRes] = await Promise.all([
         // Collections in period
         supabase
           .from('file_receipts')
           .select('amount, currency, payment_date, file_id, client_name')
-          .eq('user_id', user.id)
           .gte('payment_date', range.from)
           .lte('payment_date', range.to),
         // Supplier payments in period
         supabase
           .from('file_supplier_payments')
           .select('amount, currency, payment_date, supplier_name, supplier_id')
-          .eq('user_id', user.id)
           .gte('payment_date', range.from)
           .lte('payment_date', range.to),
-        // Files in period (for invoiced)
+        // File services in period (for invoiced — multi-currency correct)
         supabase
-          .from('files')
-          .select('id, total_price, total_cost, currency, client_name, created_at')
-          .eq('user_id', user.id)
-          .gte('created_at', range.from + 'T00:00:00')
-          .lte('created_at', range.to + 'T23:59:59'),
-        // Files YTD (for top clients)
+          .from('file_services')
+          .select('price, cost, currency, file_id, status, files!inner(client_name, created_at)')
+          .gte('files.created_at', range.from + 'T00:00:00')
+          .lte('files.created_at', range.to + 'T23:59:59'),
+        // File services YTD (for top clients)
         supabase
-          .from('files')
-          .select('id, total_price, currency, client_name, created_at')
-          .eq('user_id', user.id)
-          .gte('created_at', yearStart + 'T00:00:00'),
+          .from('file_services')
+          .select('price, cost, currency, file_id, status, files!inner(client_name, created_at)')
+          .gte('files.created_at', yearStart + 'T00:00:00'),
         // ALL receipts (to compute global receivable)
         supabase
           .from('file_receipts')
-          .select('amount, currency, file_id')
-          .eq('user_id', user.id),
+          .select('amount, currency, file_id'),
         // ALL supplier payments (to compute global payable + top suppliers YTD)
         supabase
           .from('file_supplier_payments')
-          .select('amount, currency, supplier_name, payment_date')
-          .eq('user_id', user.id),
-        // ALL services (to compute payable: cost owed)
+          .select('amount, currency, supplier_name, payment_date'),
+        // ALL services (to compute payable: cost owed + receivable)
         supabase
           .from('file_services')
-          .select('cost, currency, supplier_name, supplier_id, status')
-          .eq('user_id', user.id),
+          .select('price, cost, currency, supplier_name, supplier_id, status'),
       ]);
 
       const receipts = receiptsRes.data || [];
       const payments = paymentsRes.data || [];
-      const filesPeriod = filesPeriodRes.data || [];
-      const filesYTD = filesYTDRes.data || [];
+      const servicesPeriod = (servicesPeriodRes.data || []).filter((s: any) => s.status !== 'cancelled');
+      const servicesYTD = (servicesYTDRes.data || []).filter((s: any) => s.status !== 'cancelled');
       const allReceipts = allReceiptsRes.data || [];
       const allPayments = allPaymentsRes.data || [];
-      const allServices = servicesRes.data || [];
+      const allServices = (allServicesRes.data || []).filter((s: any) => s.status !== 'cancelled');
 
       const collections = sumByCurrency(receipts);
       const supplierPayments = sumByCurrency(payments);
-      const invoiced = sumByCurrency(filesPeriod, 'total_price');
-      const costInvoiced = sumByCurrency(filesPeriod, 'total_cost');
+      // Invoiced from services (multi-currency correct)
+      const invoiced = sumByCurrency(servicesPeriod, 'price');
+      const costInvoiced = sumByCurrency(servicesPeriod, 'cost');
 
-      // Receivable = sum(all files.total_price) - sum(all receipts) per currency
-      const allFilesRes = await supabase
-        .from('files')
-        .select('total_price, currency, status')
-        .eq('user_id', user.id)
-        .neq('status', 'cancelled');
-      const allFiles = allFilesRes.data || [];
-      const totalInvoicedAll = sumByCurrency(allFiles, 'total_price');
+      // Receivable = sum(all services.price) - sum(all receipts) per currency
+      const totalInvoicedAll = sumByCurrency(allServices, 'price');
       const totalCollectedAll = sumByCurrency(allReceipts);
       const receivable = subtractByCurrency(totalInvoicedAll, totalCollectedAll);
 
       // Payable = sum(file_services.cost) - sum(all supplier payments)
-      const totalCostAll = sumByCurrency(
-        allServices.filter(s => s.status !== 'cancelled'),
-        'cost',
-      );
+      const totalCostAll = sumByCurrency(allServices, 'cost');
       const totalPaidAll = sumByCurrency(allPayments);
       const payable = subtractByCurrency(totalCostAll, totalPaidAll);
 
-      // Top clients YTD by file.total_price
+      // Top clients YTD from services (multi-currency correct)
       const clientMap = new Map<string, ByCurrency>();
-      filesYTD.forEach((f: any) => {
-        const name = f.client_name || 'Sin nombre';
-        const c = f.currency || 'USD';
+      servicesYTD.forEach((s: any) => {
+        const name = (s.files as any)?.client_name || 'Sin nombre';
+        const c = s.currency || 'USD';
         const m = clientMap.get(name) || {};
-        m[c] = (m[c] || 0) + Number(f.total_price || 0);
+        m[c] = (m[c] || 0) + Number(s.price || 0);
         clientMap.set(name, m);
       });
       const topClients: TopEntry[] = Array.from(clientMap.entries())
