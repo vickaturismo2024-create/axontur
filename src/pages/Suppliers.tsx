@@ -29,10 +29,11 @@ interface Supplier {
   phone: string;
   type: string;
   notes: string;
+  cuit_tax_id?: string;
   created_at: string;
 }
 
-const emptySupplier = { name: '', email: '', phone: '', type: '', notes: '' };
+const emptySupplier = { name: '', email: '', phone: '', type: '', notes: '', cuit_tax_id: '' };
 const PAGE_SIZE = 15;
 
 const Suppliers = () => {
@@ -74,6 +75,7 @@ const Suppliers = () => {
       const { error } = await supabase.from('suppliers').update({
         name: editing.name, email: editing.email || '', phone: editing.phone || '',
         type: editing.type || '', notes: editing.notes || '',
+        cuit_tax_id: editing.cuit_tax_id || null,
       } as any).eq('id', editing.id);
       if (error) { toast.error('Error al actualizar'); return; }
       toast.success('Proveedor actualizado');
@@ -81,6 +83,7 @@ const Suppliers = () => {
       const { error } = await supabase.from('suppliers').insert({
         name: editing.name, email: editing.email || '', phone: editing.phone || '',
         type: editing.type || '', notes: editing.notes || '', user_id: user.id,
+        cuit_tax_id: editing.cuit_tax_id || null,
       } as any);
       if (error) { toast.error('Error al crear'); return; }
       toast.success('Proveedor creado');
@@ -340,6 +343,7 @@ const Suppliers = () => {
               </div>
               <div><Label>Email</Label><Input type="email" value={editing.email || ''} onChange={e => setEditing({ ...editing, email: e.target.value })} /></div>
               <div><Label>Teléfono</Label><Input value={editing.phone || ''} onChange={e => setEditing({ ...editing, phone: e.target.value })} /></div>
+              <div><Label>CUIT / Tax ID</Label><Input placeholder="Ej: 30-71234567-8" value={editing.cuit_tax_id || ''} onChange={e => setEditing({ ...editing, cuit_tax_id: e.target.value })} className="font-mono text-xs" /></div>
               <div><Label>Notas</Label><Textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} rows={3} /></div>
             </div>
           )}
