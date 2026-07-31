@@ -10,6 +10,9 @@ export interface Receipt {
   notes: string;
   status: string;
   created_at: string;
+  cancelled_at?: string;
+  cancelled_by?: string;
+  cancel_reason?: string;
 }
 
 export interface ReceiptItem {

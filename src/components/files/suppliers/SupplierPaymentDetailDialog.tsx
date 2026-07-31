@@ -25,11 +25,19 @@ export function SupplierPaymentDetailDialog({
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
             Detalle de Pago
+            {payment?.status === 'cancelled' && <Badge variant="destructive">ANULADO</Badge>}
           </DialogTitle>
           <DialogDescription className="sr-only">Detalle del pago al proveedor</DialogDescription>
         </DialogHeader>
         {payment && (
           <div className="space-y-4 pt-2">
+            {payment.status === 'cancelled' && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
+                <p className="font-semibold">Este pago al proveedor se encuentra ANULADO</p>
+                {payment.cancel_reason && <p className="mt-0.5">Motivo: {payment.cancel_reason}</p>}
+                {payment.cancelled_at && <p className="mt-0.5 text-[11px] opacity-80">Fecha de anulación: {new Date(payment.cancelled_at).toLocaleString()}</p>}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="col-span-2 space-y-1">
                 <span className="text-xs text-muted-foreground flex items-center gap-1">

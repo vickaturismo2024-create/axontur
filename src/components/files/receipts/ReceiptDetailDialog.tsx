@@ -18,13 +18,23 @@ export function ReceiptDetailDialog({ receipt, items, loading, onOpenChange, get
     <Dialog open={!!receipt} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
             {receipt && `Recibo REC-${String(receipt.receipt_number).padStart(4, '0')}`}
+            {receipt?.status === 'cancelled' && (
+              <Badge variant="destructive">ANULADO</Badge>
+            )}
           </DialogTitle>
           <DialogDescription className="sr-only">Detalle del recibo</DialogDescription>
         </DialogHeader>
         {receipt && (
           <div className="space-y-4">
+            {receipt.status === 'cancelled' && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
+                <p className="font-semibold">Este recibo se encuentra ANULADO</p>
+                {receipt.cancel_reason && <p className="mt-0.5">Motivo: {receipt.cancel_reason}</p>}
+                {receipt.cancelled_at && <p className="mt-0.5 text-[11px] opacity-80">Fecha de anulación: {new Date(receipt.cancelled_at).toLocaleString()}</p>}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-muted-foreground">Cliente</span>
