@@ -48,6 +48,7 @@ const Reservations      = lazy(() => import("./pages/Reservations"));
 const ReservationImport = lazy(() => import("./pages/ReservationImport"));
 const ReservationDetail = lazy(() => import("./pages/ReservationDetail"));
 const DataImport        = lazy(() => import("./pages/DataImport"));
+const Communications    = lazy(() => import("./pages/Communications"));
 
 // ── Fallback de carga ────────────────────────────────────────────────────────
 // Pantalla mínima mientras se descarga el chunk de la ruta.
@@ -182,6 +183,7 @@ const App = () => (
                       <Route path="/reservations/import" element={<ProtectedRoute><ReservationImport /></ProtectedRoute>} />
                       <Route path="/reservations/:id"    element={<ProtectedRoute><ReservationDetail /></ProtectedRoute>} />
                       <Route path="/importar"            element={<ProtectedRoute><DataImport /></ProtectedRoute>} />
+                      <Route path="/communications"      element={<ProtectedRoute><Communications /></ProtectedRoute>} />
 
                       <Route path="*"                    element={<NotFound />} />
                     </Routes>

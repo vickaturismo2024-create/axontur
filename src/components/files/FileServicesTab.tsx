@@ -9,12 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity, AlertTriangle, ChevronDown, Search, Store, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Plane, Hotel, Bus, Anchor, Umbrella, Car, Train, Ship, Activity, AlertTriangle, ChevronDown, Search, Store, X, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatDateSafe } from '@/lib/utils';
 import { isPast, isToday, differenceInDays } from 'date-fns';
+import { sendSupplierVoucher } from '@/lib/emailService';
 
 type ServiceType = 'flight' | 'lodging' | 'transfer' | 'activity' | 'insurance' |
                    'cruise' | 'train' | 'rental_car' | 'ferry' | 'other';
@@ -145,10 +146,81 @@ export function FileServicesTab({ fileId, currency }: Props) {
   const [form, setForm]           = useState({ ...emptyService, currency });
   const [deleteId, setDeleteId]   = useState<string | null>(null);
 
+  // Voucher Email Dialog States
+  const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
+  const [voucherService, setVoucherService] = useState<ServiceRecord | null>(null);
+  const [voucherEmail, setVoucherEmail] = useState('');
+  const [sendingVoucher, setSendingVoucher] = useState(false);
+
   // Supplier CRM search
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<{ id: string; name: string } | null>(null);
+
+  const handleOpenVoucherDialog = async (s: ServiceRecord) => {
+    setVoucherService(s);
+    let defaultEmail = '';
+
+    if (s.supplier_id) {
+      const { data: contacts } = await supabase
+        .from('supplier_contacts' as any)
+        .select('email')
+        .eq('supplier_id', s.supplier_id)
+        .eq('is_primary', true)
+        .maybeSingle();
+
+      if ((contacts as any)?.email) {
+        defaultEmail = (contacts as any).email;
+      } else {
+        const { data: sup } = await supabase
+          .from('suppliers')
+          .select('email')
+          .eq('id', s.supplier_id)
+          .maybeSingle();
+        if (sup?.email) defaultEmail = sup.email;
+      }
+    }
+
+    setVoucherEmail(defaultEmail);
+    setVoucherDialogOpen(true);
+  };
+
+  const handleSendVoucher = async () => {
+    if (!voucherService || !voucherEmail.trim() || !user) {
+      toast.error('Ingresá un email de destino válido');
+      return;
+    }
+    setSendingVoucher(true);
+    try {
+      const { data: file } = await supabase.from('files').select('file_number, client_name, destination').eq('id', fileId).maybeSingle();
+
+      const result = await sendSupplierVoucher({
+        to: voucherEmail.trim(),
+        userId: user.id,
+        fileId: fileId,
+        data: {
+          supplierName: voucherService.supplier_name || 'Operador',
+          fileNumber: `FILE-${String(file?.file_number || 0).padStart(3, '0')}`,
+          serviceDescription: voucherService.description,
+          serviceDate: voucherService.service_date ?? undefined,
+          passengerNames: [file?.client_name || 'Pasajero'],
+          confirmationNumber: voucherService.confirmation_number ?? undefined,
+        },
+      });
+
+      if (result.success) {
+        toast.success('Voucher enviado al proveedor exitosamente');
+        setVoucherDialogOpen(false);
+      } else {
+        toast.error(`Error al enviar: ${result.error || 'desconocido'}`);
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Error al procesar el envío');
+    } finally {
+      setSendingVoucher(false);
+    }
+  };
 
   const load = async () => {
     const { data } = await supabase
@@ -686,6 +758,49 @@ export function FileServicesTab({ fileId, currency }: Props) {
         </DialogContent>
       </Dialog>
 
+      {/* ── Voucher Email Dialog ── */}
+      <Dialog open={voucherDialogOpen} onOpenChange={setVoucherDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-primary">
+              <Mail className="h-5 w-5 text-primary" /> Enviar Voucher al Proveedor
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Servicio</p>
+              <p className="text-sm font-semibold text-foreground mt-0.5">{voucherService?.description}</p>
+              {voucherService?.supplier_name && (
+                <p className="text-xs text-muted-foreground">Operador: {voucherService.supplier_name}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="voucher_email" className="text-xs font-semibold">Email Destinatario del Operador *</Label>
+              <Input
+                id="voucher_email"
+                type="email"
+                placeholder="reservas@proveedor.com"
+                value={voucherEmail}
+                onChange={e => setVoucherEmail(e.target.value)}
+                className="mt-1 font-mono text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Se enviará una plantilla formal de voucher notificando los detalles del servicio y pasajeros.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setVoucherDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button size="sm" disabled={sendingVoucher} onClick={handleSendVoucher}>
+              {sendingVoucher ? 'Enviando...' : 'Enviar Voucher'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -710,9 +825,10 @@ interface SGProps {
   getStatusBadge: (s: string) => React.ReactNode;
   getDueBadge: (d: string | null, s: string) => React.ReactNode;
   onEdit: (s: ServiceRecord) => void; onDelete: (id: string) => void;
+  onSendVoucher: (s: ServiceRecord) => void;
 }
 
-function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel, getStatusBadge, getDueBadge, onEdit, onDelete }: SGProps) {
+function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel, getStatusBadge, getDueBadge, onEdit, onDelete, onSendVoucher }: SGProps) {
   const [open, setOpen] = useState(true);
   const lbl = LABELS[type] || LABELS.other;
 
@@ -827,6 +943,7 @@ function ServiceGroup({ type, supplier, items, subtotals, getIcon, getTypeLabel,
                   <p className="text-xs text-muted-foreground mt-0.5">Costo: {s.currency} {s.cost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" title="Enviar Voucher al Proveedor" onClick={() => onSendVoucher(s)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"><Mail className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => onEdit(s)} className="text-muted-foreground hover:text-foreground hover:bg-muted"><Pencil className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => onDelete(s.id)} className="text-destructive/80 hover:text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
                 </div>

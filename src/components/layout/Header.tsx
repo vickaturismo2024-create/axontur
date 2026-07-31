@@ -34,6 +34,7 @@ const navItems = [
   { label: 'Cuentas Ctes.', href: '/accounts' },
   { label: 'Caja', href: '/caja' },
   { label: 'Reportes', href: '/reportes' },
+  { label: 'Correos', href: '/communications' },
   { label: 'Importación', href: '/importar' },
   { label: 'Configuración', href: '/settings' },
   { label: 'Calendario', href: '/calendar' },
