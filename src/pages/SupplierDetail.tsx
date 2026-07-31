@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { NewMovementDialog } from '@/components/accounts/NewMovementDialog';
 import {
   ArrowLeft,
   Save,
@@ -37,6 +39,8 @@ import {
   Globe,
   MapPin,
   Check,
+  Wallet,
+  FolderOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -114,6 +118,19 @@ interface SupplierBankAccount {
   is_primary: boolean;
 }
 
+interface MovementRow {
+  id: string;
+  movement_date: string;
+  movement_type: string;
+  amount: number;
+  currency: string;
+  concept: string;
+  reference: string | null;
+  file_id: string | null;
+  receipt_id: string | null;
+  notes: string | null;
+}
+
 const fmt = (n: number) => n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function SupplierDetail() {
@@ -125,6 +142,12 @@ export default function SupplierDetail() {
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [savingNotes, setSavingNotes] = useState(false);
   const [notes, setNotes] = useState('');
+
+  // Cuenta Corriente States
+  const [newMovOpen, setNewMovOpen] = useState(false);
+  const [currencyFilter, setCurrencyFilter] = useState<string>('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   // Contact Dialog States
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
@@ -253,6 +276,61 @@ export default function SupplierDetail() {
     },
     enabled: !!id && !!user,
   });
+
+  // Account Movements Query (Cuenta Corriente Global)
+  const { data: movements = [], refetch: refetchMovements } = useQuery<MovementRow[]>({
+    queryKey: ['supplier-movements', id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('account_movements' as any)
+        .select('*')
+        .eq('account_type', 'supplier')
+        .eq('account_id', id!)
+        .order('movement_date', { ascending: false });
+      return (data as any[]) || [];
+    },
+    enabled: !!id && !!user,
+  });
+
+  const { data: movementFileNumbers = {} } = useQuery<Record<string, number>>({
+    queryKey: ['supplier-movement-files', id, movements.length],
+    queryFn: async () => {
+      const fileIds = Array.from(new Set(movements.map((m) => m.file_id).filter(Boolean))) as string[];
+      if (fileIds.length === 0) return {};
+      const { data } = await supabase.from('files').select('id, file_number').in('id', fileIds);
+      const map: Record<string, number> = {};
+      ((data as any[]) || []).forEach((f) => {
+        map[f.id] = f.file_number;
+      });
+      return map;
+    },
+    enabled: movements.length > 0,
+  });
+
+  const filteredMovements = useMemo(() => {
+    return movements.filter((m) => {
+      if (currencyFilter !== 'all' && m.currency !== currencyFilter) return false;
+      if (fromDate && m.movement_date < fromDate) return false;
+      if (toDate && m.movement_date > toDate) return false;
+      return true;
+    });
+  }, [movements, currencyFilter, fromDate, toDate]);
+
+  const movementCurrencies = useMemo(
+    () => Array.from(new Set(movements.map((m) => m.currency))).sort(),
+    [movements],
+  );
+
+  const balancesByMovementCurrency = useMemo(() => {
+    const map: Record<string, { credit: number; debit: number }> = {};
+    movements.forEach((m) => {
+      if (!map[m.currency]) map[m.currency] = { credit: 0, debit: 0 };
+      const amt = Number(m.amount) || 0;
+      if (m.movement_type === 'credit') map[m.currency].credit += amt;
+      else map[m.currency].debit += amt;
+    });
+    return map;
+  }, [movements]);
 
   // Saldo por moneda: costo total servicios - pagos realizados
   const balancesByCurrency = useMemo(() => {
@@ -577,6 +655,9 @@ export default function SupplierDetail() {
             </TabsTrigger>
             <TabsTrigger value="bank" className="gap-1">
               <Building2 className="h-3.5 w-3.5" /> Cuentas Bancarias ({bankAccounts.length})
+            </TabsTrigger>
+            <TabsTrigger value="account" className="gap-1">
+              <Wallet className="h-3.5 w-3.5" /> Cuenta Corriente
             </TabsTrigger>
             <TabsTrigger value="services">Servicios ({services.length})</TabsTrigger>
             <TabsTrigger value="payments">Pagos ({payments.length})</TabsTrigger>
@@ -929,7 +1010,140 @@ export default function SupplierDetail() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* TAB 7: CUENTA CORRIENTE GLOBAL */}
+          <TabsContent value="account" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="font-sans text-base font-bold text-primary flex items-center gap-2">
+                  <Wallet className="h-5 w-5" /> Saldo Cuenta Corriente Global
+                </CardTitle>
+                <Button size="sm" onClick={() => setNewMovOpen(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Movimiento Manual
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {Object.keys(balancesByMovementCurrency).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sin movimientos contables registrados.</p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                    {Object.entries(balancesByMovementCurrency).map(([c, { credit, debit }]) => {
+                      const bal = credit - debit;
+                      return (
+                        <div key={c} className="rounded-md border p-3">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">{c}</p>
+                          <p
+                            className={`text-xl font-bold ${
+                              bal > 0 ? 'text-green-600 dark:text-green-400' : bal < 0 ? 'text-destructive' : ''
+                            }`}
+                          >
+                            {fmt(bal)}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Créditos (Ingresos): {fmt(credit)} · Débitos (Pagos): {fmt(debit)}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-sans text-base font-bold text-primary">
+                  Movimientos ({filteredMovements.length})
+                </CardTitle>
+                <div className="grid gap-2 mt-3 sm:grid-cols-3">
+                  <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Moneda" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las monedas</SelectItem>
+                      {movementCurrencies.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} placeholder="Desde" />
+                  <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} placeholder="Hasta" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {filteredMovements.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    No hay movimientos registrados para este proveedor.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Concepto</TableHead>
+                        <TableHead>Expediente</TableHead>
+                        <TableHead className="text-right">Crédito</TableHead>
+                        <TableHead className="text-right">Débito</TableHead>
+                        <TableHead>Moneda</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredMovements.map((m) => (
+                        <TableRow key={m.id}>
+                          <TableCell className="whitespace-nowrap">
+                            {new Date(m.movement_date + 'T00:00:00').toLocaleDateString('es-AR')}
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm font-medium">{m.concept}</p>
+                            {m.reference && <p className="text-xs text-muted-foreground">Ref: {m.reference}</p>}
+                            {m.notes && <p className="text-xs text-muted-foreground">{m.notes}</p>}
+                          </TableCell>
+                          <TableCell>
+                            {m.file_id ? (
+                              <Link
+                                to={`/files/${m.file_id}`}
+                                className="text-xs flex items-center gap-1 text-primary hover:underline font-mono"
+                              >
+                                <FolderOpen className="h-3 w-3" />
+                                FILE-{String(movementFileNumbers[m.file_id] || '?').padStart(3, '0')}
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm text-green-600 dark:text-green-400">
+                            {m.movement_type === 'credit' ? fmt(Number(m.amount)) : ''}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm text-destructive">
+                            {m.movement_type === 'debit' ? fmt(Number(m.amount)) : ''}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">
+                              {m.currency}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
+
+        {id && (
+          <NewMovementDialog
+            open={newMovOpen}
+            onClose={() => setNewMovOpen(false)}
+            accountId={id}
+            accountType="supplier"
+            onSaved={() => refetchMovements()}
+          />
+        )}
 
         {/* DIÁLOGO CONTACTO */}
         <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>

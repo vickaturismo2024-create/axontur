@@ -132,6 +132,51 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
 
       if (destError) throw destError;
 
+      // 4. Inyectar movimientos contables (account_movements) para mantener la contabilidad limpia
+      const { data: sourceFileData } = await supabase.from('files').select('client_id, file_number').eq('id', sourceFileId).single();
+      const { data: destFileData } = await supabase.from('files').select('client_id, file_number').eq('id', destFileId).single();
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const movementsToInsert: any[] = [];
+
+      if (sourceFileData?.client_id) {
+        movementsToInsert.push({
+          user_id: user.id,
+          account_type: 'client',
+          account_id: sourceFileData.client_id,
+          file_id: sourceFileId,
+          receipt_id: sourceReceipt.id,
+          movement_type: 'debit',
+          amount: amount,
+          currency,
+          concept: `Transferencia de saldo a expediente FILE-${String(destFileData?.file_number || '?').padStart(3, '0')}`,
+          reference: `TRANSF-OUT`,
+          movement_date: todayStr,
+          notes: notes || null,
+        });
+      }
+
+      if (destFileData?.client_id) {
+        movementsToInsert.push({
+          user_id: user.id,
+          account_type: 'client',
+          account_id: destFileData.client_id,
+          file_id: destFileId,
+          receipt_id: destReceipt.id,
+          movement_type: 'credit',
+          amount: amount,
+          currency,
+          concept: `Saldo transferido desde expediente FILE-${String(sourceFileData?.file_number || '?').padStart(3, '0')}`,
+          reference: `TRANSF-IN`,
+          movement_date: todayStr,
+          notes: notes || null,
+        });
+      }
+
+      if (movementsToInsert.length > 0) {
+        await supabase.from('account_movements').insert(movementsToInsert as any);
+      }
+
       toast.success('Saldo transferido exitosamente');
       onSuccess();
       onOpenChange(false);
