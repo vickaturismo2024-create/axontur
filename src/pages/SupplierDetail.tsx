@@ -311,15 +311,23 @@ export default function SupplierDetail() {
                   <p className="text-sm text-muted-foreground py-8 text-center">Aún no hay pagos registrados.</p>
                 ) : (
                   <div className="space-y-2">
-                    {payments.map(p => (
-                      <Link to={`/files/${p.file_id}`} key={p.id} className="flex items-center justify-between rounded-md border p-3 hover:bg-accent/50">
-                        <div>
-                          <p className="font-medium">{new Date(p.payment_date).toLocaleDateString('es-AR')}</p>
-                          <p className="text-xs text-muted-foreground">{p.reference || p.payment_method || '—'}</p>
-                        </div>
-                        <p className="font-mono text-sm">{p.currency} {fmt(p.amount)}</p>
-                      </Link>
-                    ))}
+                    {payments.map(p => {
+                      const isCancelled = (p as any).status === 'cancelled';
+                      return (
+                        <Link to={`/files/${p.file_id}`} key={p.id} className={`flex items-center justify-between rounded-md border p-3 hover:bg-accent/50 ${isCancelled ? 'bg-destructive/5 opacity-60' : ''}`}>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className={`font-medium ${isCancelled ? 'line-through text-muted-foreground' : ''}`}>
+                                {new Date(p.payment_date).toLocaleDateString()}
+                              </p>
+                              {isCancelled && <Badge variant="destructive" className="text-[10px] py-0">ANULADO</Badge>}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{p.reference || p.payment_method || '—'}</p>
+                          </div>
+                          <p className={`font-mono text-sm ${isCancelled ? 'line-through text-muted-foreground' : ''}`}>{p.currency} {fmt(p.amount)}</p>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
