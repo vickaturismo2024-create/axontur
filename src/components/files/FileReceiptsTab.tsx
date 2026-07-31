@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
+import { localDateStr } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +45,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   
   // Email states
   const [emailReceipt, setEmailReceipt] = useState<Receipt | null>(null);
@@ -253,19 +256,69 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   };
 
   const handleCancel = async () => {
-    if (!cancelId) return;
-    await handleStatusChange(cancelId, 'cancelled');
+    if (!cancelId || !user) return;
+    // 1. Mark receipt as cancelled with audit data
+    const { error: updErr } = await supabase
+      .from('file_receipts')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancelled_by: user.id,
+        cancel_reason: cancelReason || null,
+      } as any)
+      .eq('id', cancelId);
+    if (updErr) {
+      toast.error('Error al anular recibo');
+      setCancelId(null);
+      setCancelReason('');
+      return;
+    }
+    // 2. Find original movements linked to this receipt
+    const { data: origMovements } = await supabase
+      .from('account_movements')
+      .select('id, account_type, account_id, file_id, movement_type, amount, currency, concept, reference, movement_date')
+      .eq('receipt_id', cancelId);
+    // 3. Create counter-movements (inverse)
+    if (origMovements && origMovements.length > 0) {
+      const counterMovements = origMovements.map((m: any) => ({
+        user_id: user.id,
+        account_type: m.account_type,
+        account_id: m.account_id,
+        file_id: m.file_id,
+        receipt_id: cancelId,
+        reversal_of: m.id,
+        movement_type: m.movement_type === 'credit' ? 'debit' : 'credit',
+        amount: m.amount,
+        currency: m.currency,
+        concept: `ANULACIÓN — ${m.concept}`,
+        reference: m.reference ? `ANUL-${m.reference}` : null,
+        movement_date: localDateStr(),
+      }));
+      await supabase.from('account_movements').insert(counterMovements as any);
+      toast.success(`Recibo anulado. Se generaron ${counterMovements.length} contramovimiento(s)`);
+    } else {
+      toast.success('Recibo anulado');
+    }
     setCancelId(null);
+    setCancelReason('');
+    load();
     loadFileDebts();
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
+    // Only allow delete for draft receipts
+    const receipt = receipts.find(r => r.id === deleteId);
+    if (receipt && receipt.status !== 'draft') {
+      toast.error('Solo se pueden eliminar recibos en estado Borrador. Usá "Anular" para recibos emitidos.');
+      setDeleteId(null);
+      return;
+    }
     await supabase.from('file_receipt_items').delete().eq('receipt_id', deleteId);
     await supabase.from('account_movements').delete().eq('receipt_id', deleteId);
     await supabase.from('file_receipts').delete().eq('id', deleteId);
     setDeleteId(null);
-    toast.success('Recibo eliminado');
+    toast.success('Borrador eliminado');
     load();
     loadFileDebts();
   };
@@ -523,17 +576,25 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         onOpenChange={(o) => !o && setEmailReceipt(null)}
       />
 
-      <AlertDialog open={!!cancelId} onOpenChange={() => setCancelId(null)}>
+      <AlertDialog open={!!cancelId} onOpenChange={() => { setCancelId(null); setCancelReason(''); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Anular recibo?</AlertDialogTitle>
             <AlertDialogDescription>
-              El recibo quedará marcado como ANULADO con marca de agua en el PDF y no se contará en el cobrado del expediente.
-              Los movimientos en cuenta corriente NO se eliminan automáticamente; podés borrarlos manualmente si corresponde.
+              El recibo quedará marcado como ANULADO con marca de agua en el PDF. Se generarán contramovimientos automáticos en la cuenta corriente para revertir el cobro.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-1 py-2">
+            <label className="text-sm font-medium mb-1 block">Motivo de anulación (opcional)</label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Ej: Error en el monto, duplicado, etc."
+              rows={2}
+            />
+          </div>
           <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setCancelId(null)}>Volver</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => { setCancelId(null); setCancelReason(''); }}>Volver</AlertDialogCancel>
           <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Anular recibo
           </AlertDialogAction>

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Building2, DollarSign, Pencil, Trash2, Eye } from 'lucide-react';
+import { Building2, DollarSign, Pencil, Trash2, Eye, Ban } from 'lucide-react';
 import { SupplierPayment, CatalogSupplier } from './types';
 
 interface SupplierCardProps {
@@ -13,6 +13,7 @@ interface SupplierCardProps {
   onOpenEdit: (p: SupplierPayment) => void;
   onOpenDetail: (p: SupplierPayment) => void;
   onDelete: (id: string) => void;
+  onCancel: (id: string) => void;
   getMethodLabel: (v: string) => string;
   formatMoney: (amounts: Record<string, number>) => string;
 }
@@ -26,6 +27,7 @@ export function SupplierCard({
   onOpenEdit,
   onOpenDetail,
   onDelete,
+  onCancel,
   getMethodLabel,
   formatMoney,
 }: SupplierCardProps) {
@@ -68,33 +70,50 @@ export function SupplierCard({
             <p className="text-xs font-medium text-muted-foreground">Historial de pagos</p>
             {payments.map(p => {
               const linked = catalog.find(c => c.id === p.supplier_id);
-              return (
-                <div key={p.id} className="flex items-start justify-between gap-2 rounded bg-muted/50 px-3 py-2 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
-                      <span className="font-medium">{p.currency} {p.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                      <span className="text-xs text-muted-foreground">{new Date(p.payment_date).toLocaleDateString('es-AR')} · {getMethodLabel(p.payment_method)}</span>
-                      {p.reference && <span className="text-xs text-muted-foreground">Ref: {p.reference}</span>}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {linked ? `→ CC: ${linked.name}` : (
-                        <span className="text-destructive">Sin enlazar a catálogo</span>
+              return (() => {
+                const isCancelled = (p as any).status === 'cancelled';
+                return (
+                  <div key={p.id} className={`flex items-start justify-between gap-2 rounded px-3 py-2 text-sm ${isCancelled ? 'bg-destructive/5 opacity-60' : 'bg-muted/50'}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className={`flex items-center flex-wrap gap-x-2 gap-y-0.5 ${isCancelled ? 'line-through' : ''}`}>
+                        <span className="font-medium">
+                          {p.currency} {p.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(p.payment_date).toLocaleDateString()} · {getMethodLabel(p.payment_method)}
+                        </span>
+                        {p.reference && <span className="text-xs text-muted-foreground">Ref: {p.reference}</span>}
+                      </div>
+                      {isCancelled && (
+                        <span className="text-xs text-destructive font-medium">ANULADO{(p as any).cancel_reason ? ` — ${(p as any).cancel_reason}` : ''}</span>
                       )}
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {linked ? `→ CC: ${linked.name}` : (
+                          <span className="text-destructive">Sin enlazar a catálogo</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onOpenDetail(p)} title="Ver detalle">
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                      {!isCancelled && (
+                        <>
+                          <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onOpenEdit(p)} title="Editar pago">
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onCancel(p.id)} title="Anular pago">
+                            <Ban className="h-3 w-3 text-amber-600" />
+                          </Button>
+                        </>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onDelete(p.id)} title="Eliminar pago">
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onOpenDetail(p)} title="Ver detalle">
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onOpenEdit(p)} title="Editar pago">
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-1" onClick={() => onDelete(p.id)} title="Eliminar pago">
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              );
+                );
+              })();
             })}
           </div>
         )}

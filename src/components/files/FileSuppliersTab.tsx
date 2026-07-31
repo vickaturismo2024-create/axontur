@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Trash2, Ban } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { localDateStr } from '@/lib/utils';
 
 import { ServiceRecord, SupplierPayment, CatalogSupplier, METHODS } from './suppliers/types';
 import { SupplierCard } from './suppliers/SupplierCard';
@@ -23,6 +25,8 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [cancelPaymentId, setCancelPaymentId] = useState<string | null>(null);
+  const [cancelPaymentReason, setCancelPaymentReason] = useState('');
   
   const [selectedSupplier, setSelectedSupplier] = useState<{ name: string; id: string | null } | null>(null);
   const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(null);
@@ -86,7 +90,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
   const getSupplierPaid = (supName: string, supId: string | null) => {
     const paid: Record<string, number> = {};
-    getSupplierPayments(supName, supId).forEach(p => { paid[p.currency] = (paid[p.currency] || 0) + p.amount; });
+    getSupplierPayments(supName, supId).filter(p => (p as any).status !== 'cancelled').forEach(p => { paid[p.currency] = (paid[p.currency] || 0) + p.amount; });
     return paid;
   };
 
@@ -213,6 +217,27 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     load();
   };
 
+  const handleCancelPayment = async () => {
+    if (!cancelPaymentId || !user) return;
+    const { error } = await supabase
+      .from('file_supplier_payments' as any)
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancelled_by: user.id,
+        cancel_reason: cancelPaymentReason || null,
+      } as any)
+      .eq('id', cancelPaymentId);
+    if (error) {
+      toast.error('Error al anular pago');
+    } else {
+      toast.success('Pago a proveedor anulado');
+    }
+    setCancelPaymentId(null);
+    setCancelPaymentReason('');
+    load();
+  };
+
   const getMethodLabel = (v: string) => METHODS.find(m => m.value === v)?.label || v;
 
   const formatMoney = (amounts: Record<string, number>) =>
@@ -241,6 +266,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
               onOpenEdit={openEdit}
               onOpenDetail={setDetailPayment}
               onDelete={setDeleteId}
+              onCancel={setCancelPaymentId}
               getMethodLabel={getMethodLabel}
               formatMoney={formatMoney}
             />
@@ -316,6 +342,32 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!cancelPaymentId} onOpenChange={() => { setCancelPaymentId(null); setCancelPaymentReason(''); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Anular pago a proveedor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              El pago quedará marcado como ANULADO. No se eliminará del historial.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-1 py-2">
+            <label className="text-sm font-medium mb-1 block">Motivo de anulación (opcional)</label>
+            <Textarea
+              value={cancelPaymentReason}
+              onChange={(e) => setCancelPaymentReason(e.target.value)}
+              placeholder="Ej: Pago duplicado, error en monto, etc."
+              rows={2}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setCancelPaymentId(null); setCancelPaymentReason(''); }}>Volver</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelPayment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Anular pago
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

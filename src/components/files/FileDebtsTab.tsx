@@ -1,4 +1,4 @@
-﻿import { localDateStr } from '@/lib/utils';
+import { localDateStr } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -108,7 +108,7 @@ export function FileDebtsTab({ fileId, currency }: Props) {
       });
 
     // 2. Group payments (even if supplier has no services but has payments recorded)
-    payments.forEach((p) => {
+    payments.filter((p) => (p as any).status !== 'cancelled').forEach((p) => {
       const key = p.supplier_name;
       if (!map.has(key)) {
         map.set(key, {

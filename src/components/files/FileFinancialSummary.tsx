@@ -77,9 +77,9 @@ export function FileFinancialSummary({ fileId }: Props) {
       }
 
       // Supplier payments
-      const { data: payments } = await supabase.from('file_supplier_payments').select('amount, currency').eq('file_id', fileId);
+      const { data: payments } = await supabase.from('file_supplier_payments').select('amount, currency, status').eq('file_id', fileId);
       if (payments) {
-        payments.forEach((p: any) => {
+        payments.filter((p: any) => p.status !== 'cancelled').forEach((p: any) => {
           const d = ensure(p.currency || 'USD');
           d.paid += Number(p.amount) || 0;
         });

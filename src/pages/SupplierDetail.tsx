@@ -1,4 +1,4 @@
-﻿import { localDateStr } from '@/lib/utils';
+import { localDateStr } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -115,7 +115,7 @@ export default function SupplierDetail() {
       if (!map[s.currency]) map[s.currency] = { owed: 0, paid: 0 };
       map[s.currency].owed += Number(s.cost) || 0;
     });
-    payments.forEach(p => {
+    payments.filter(p => (p as any).status !== 'cancelled').forEach(p => {
       if (!map[p.currency]) map[p.currency] = { owed: 0, paid: 0 };
       map[p.currency].paid += Number(p.amount) || 0;
     });

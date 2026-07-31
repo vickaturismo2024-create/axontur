@@ -87,7 +87,8 @@ async function fetchCajaData(dateFrom?: string, dateTo?: string) {
   // 3. Fetch supplier payments (outgoing)
   let supplierQuery = supabase
     .from('file_supplier_payments' as any)
-    .select('id, amount, currency, payment_method, payment_date, supplier_name, reference, notes, file_id');
+    .select('id, amount, currency, payment_method, payment_date, supplier_name, reference, notes, file_id, status')
+    .neq('status', 'cancelled');
   if (dateFrom) supplierQuery = supplierQuery.gte('payment_date', dateFrom);
   if (dateTo) supplierQuery = supplierQuery.lte('payment_date', dateTo);
   const { data: supplierPayments, error: pError } = await supplierQuery;

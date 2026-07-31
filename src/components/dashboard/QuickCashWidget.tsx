@@ -34,7 +34,8 @@ async function fetchCashBalances(): Promise<Balances> {
   // 3. Fetch supplier payments (outgoing)
   const { data: supplierPayments, error: pError } = await supabase
     .from('file_supplier_payments' as any)
-    .select('amount, currency');
+    .select('amount, currency')
+    .neq('status', 'cancelled');
 
   if (pError) throw pError;
 
