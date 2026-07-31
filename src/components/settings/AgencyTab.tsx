@@ -392,9 +392,9 @@ export function AgencyTab() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="card-last4" className="text-xs">Últimos 4 dígitos</Label>
+                <Label htmlFor="card-last4" className="text-xs">Últimos 4 dígitos *</Label>
                 <Input
                   id="card-last4"
                   placeholder="Ej: 1234"
@@ -403,16 +403,9 @@ export function AgencyTab() {
                   onChange={(e) => setCardForm(p => ({ ...p, ultimos_4: e.target.value.replace(/\D/g, '') }))}
                   className="text-xs font-mono"
                 />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="card-number" className="text-xs">Número completo (Opcional)</Label>
-                <Input
-                  id="card-number"
-                  placeholder="Número de tarjeta"
-                  value={cardForm.nro_tarjeta}
-                  onChange={(e) => setCardForm(p => ({ ...p, nro_tarjeta: e.target.value }))}
-                  className="text-xs font-mono"
-                />
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  🔒 <strong>PCI-DSS Compliant:</strong> Por razones de seguridad, nunca guarde números de tarjeta completos ni CVV.
+                </p>
               </div>
             </div>
             <Button onClick={saveCard} className="w-full mt-2 text-xs">

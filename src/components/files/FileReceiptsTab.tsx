@@ -36,7 +36,7 @@ interface Props {
 }
 
 export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Props) {
-  const { user } = useAuth();
+  const { user, agencyId } = useAuth();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [fileDebts, setFileDebts] = useState<Record<string, number>>({});
@@ -56,6 +56,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   // Detail states
   const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
   const [detailItems, setDetailItems] = useState<any[]>([]);
+  const [detailCardOps, setDetailCardOps] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [passengers, setPassengers] = useState<string[]>([]);
   
@@ -213,6 +214,34 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     if (itemsToInsert.length > 0) {
       await supabase.from('file_receipt_items').insert(itemsToInsert as any);
+    }
+
+    const cardOpsToInsert = items
+      .filter((it) => (it.payment_method === 'credit_card' || it.payment_method === 'debit_card') && it.card_details)
+      .map((it) => ({
+        receipt_id: receiptId,
+        agency_id: agencyId,
+        card_type: it.card_details!.card_type,
+        brand: it.card_details!.brand,
+        bank: it.card_details!.bank || null,
+        cardholder_name: it.card_details!.cardholder_name || null,
+        last_four: it.card_details!.last_four || null,
+        installments: it.card_details!.installments,
+        calculation_method: it.card_details!.calculation_method,
+        base_amount: it.card_details!.base_amount,
+        surcharge_percentage: it.card_details!.surcharge_percentage,
+        surcharge_amount: it.card_details!.surcharge_amount,
+        total_charged: it.card_details!.total_charged,
+        installment_amount: it.card_details!.installment_amount,
+        processor_fee_percentage: it.card_details!.processor_fee_percentage,
+        processor_fee_amount: it.card_details!.processor_fee_amount,
+        net_amount: it.card_details!.net_amount,
+        settlement_date: it.card_details!.settlement_date || null,
+        status: 'pending',
+      }));
+
+    if (cardOpsToInsert.length > 0) {
+      await supabase.from('receipt_card_operations' as any).insert(cardOpsToInsert as any);
     }
 
     if (clientId) {
@@ -417,12 +446,19 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const openDetail = async (r: Receipt) => {
     setDetailReceipt(r);
     setDetailLoading(true);
-    const { data } = await supabase
-      .from('file_receipt_items')
-      .select('*')
-      .eq('receipt_id', r.id)
-      .order('created_at', { ascending: true });
-    setDetailItems((data as any[]) || []);
+    const [itemsRes, cardsRes] = await Promise.all([
+      supabase
+        .from('file_receipt_items')
+        .select('*')
+        .eq('receipt_id', r.id)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('receipt_card_operations' as any)
+        .select('*')
+        .eq('receipt_id', r.id),
+    ]);
+    setDetailItems((itemsRes.data as any[]) || []);
+    setDetailCardOps((cardsRes.data as any[]) || []);
     setDetailLoading(false);
   };
 
@@ -560,6 +596,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
       <ReceiptDetailDialog
         receipt={detailReceipt}
         items={detailItems}
+        cardOperations={detailCardOps}
         loading={detailLoading}
         onOpenChange={(o) => !o && setDetailReceipt(null)}
         getMethodLabel={getMethodLabel}

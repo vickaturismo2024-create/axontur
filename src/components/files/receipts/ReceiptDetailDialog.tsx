@@ -1,19 +1,20 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Info } from 'lucide-react';
+import { Info, CreditCard } from 'lucide-react';
 import { Receipt } from './types';
 import { computeReceiptTotals, formatMoney } from '@/lib/receiptTotals';
 
 interface ReceiptDetailDialogProps {
   receipt: Receipt | null;
   items: any[];
+  cardOperations?: any[];
   loading: boolean;
   onOpenChange: (open: boolean) => void;
   getMethodLabel: (v: string) => string;
 }
 
-export function ReceiptDetailDialog({ receipt, items, loading, onOpenChange, getMethodLabel }: ReceiptDetailDialogProps) {
+export function ReceiptDetailDialog({ receipt, items, cardOperations = [], loading, onOpenChange, getMethodLabel }: ReceiptDetailDialogProps) {
   return (
     <Dialog open={!!receipt} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -108,6 +109,43 @@ export function ReceiptDetailDialog({ receipt, items, loading, onOpenChange, get
                 </TooltipProvider>
               )}
             </div>
+
+            {cardOperations && cardOperations.length > 0 && (
+              <div className="border-t pt-3 space-y-2">
+                <h4 className="text-xs font-semibold flex items-center gap-1">
+                  <CreditCard className="h-3.5 w-3.5 text-primary" />
+                  Operaciones de Tarjeta
+                </h4>
+                <div className="space-y-2">
+                  {cardOperations.map((cop) => (
+                    <div key={cop.id} className="rounded-md border bg-muted/40 p-2.5 text-xs space-y-1">
+                      <div className="flex justify-between items-center font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[10px] uppercase">
+                            {cop.card_type === 'credit' ? 'Crédito' : 'Débito'} · {cop.brand}
+                          </Badge>
+                          {cop.bank && <span>{cop.bank}</span>}
+                          {cop.last_four && <span className="font-mono">**** {cop.last_four}</span>}
+                        </span>
+                        <span className="font-bold">{receipt.currency} {Number(cop.total_charged).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-2 text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                        <div>Plan: {cop.installments} {cop.installments === 1 ? 'cuota' : 'cuotas de ' + receipt.currency + ' ' + Number(cop.installment_amount).toLocaleString('es-AR')}</div>
+                        <div className="text-right">Monto Base Viaje: {receipt.currency} {Number(cop.base_amount).toLocaleString('es-AR')}</div>
+                        {Number(cop.surcharge_amount) > 0 && (
+                          <div className="col-span-2 text-amber-600 font-medium mt-0.5">
+                            + Recargo financiero: {receipt.currency} {Number(cop.surcharge_amount).toLocaleString('es-AR')} ({cop.surcharge_percentage}%)
+                          </div>
+                        )}
+                        {cop.cardholder_name && (
+                          <div className="col-span-2 text-[10px] mt-0.5">Titular: {cop.cardholder_name}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {(() => {
               const detailTotals = computeReceiptTotals(items as any, receipt.currency);

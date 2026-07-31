@@ -15,6 +15,27 @@ export interface Receipt {
   cancel_reason?: string;
 }
 
+export interface CardOperationDetails {
+  id?: string;
+  card_type: 'credit' | 'debit';
+  brand: string;
+  bank: string;
+  cardholder_name: string;
+  last_four: string;
+  installments: number;
+  calculation_method: 'percentage' | 'coefficient' | 'manual';
+  base_amount: number;
+  surcharge_percentage: number;
+  surcharge_amount: number;
+  total_charged: number;
+  installment_amount: number;
+  processor_fee_percentage: number;
+  processor_fee_amount: number;
+  net_amount: number;
+  settlement_date?: string;
+  status?: string;
+}
+
 export interface ReceiptItem {
   id?: string;
   amount: number;
@@ -23,6 +44,7 @@ export interface ReceiptItem {
   exchange_rate: number | null;
   service_currency: string | null;
   notes: string;
+  card_details?: CardOperationDetails;
 }
 
 export const METHODS = [

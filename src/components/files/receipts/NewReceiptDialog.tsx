@@ -1,4 +1,4 @@
-﻿import { localDateStr } from '@/lib/utils';
+import { localDateStr } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,10 +6,11 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Trash2 } from 'lucide-react';
-import { ReceiptItem, METHODS, CURRENCIES, emptyItem } from './types';
+import { PlusCircle, Trash2, CreditCard } from 'lucide-react';
+import { ReceiptItem, METHODS, CURRENCIES, emptyItem, CardOperationDetails } from './types';
 import { computeReceiptTotals } from '@/lib/receiptTotals';
 import { supabase } from '@/integrations/supabase/client';
+import { CardDetailsDialog } from './CardDetailsDialog';
 
 declare global {
   interface Window {
@@ -36,6 +37,7 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
   });
   const [items, setItems] = useState<ReceiptItem[]>([{ ...emptyItem(), currency: defaultCurrency }]);
   const [saving, setSaving] = useState(false);
+  const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -266,6 +268,48 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
                       )}
                     </div>
                   </div>
+
+                  {(item.payment_method === 'credit_card' || item.payment_method === 'debit_card') && (
+                    <div className="border-t pt-2 mt-1">
+                      {item.card_details ? (
+                        <div className="flex items-center justify-between rounded-md bg-muted/50 p-2 text-xs border">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="h-4 w-4 text-primary shrink-0" />
+                            <div>
+                              <p className="font-semibold">
+                                {item.card_details.brand} {item.card_details.card_type === 'credit' ? 'Crédito' : 'Débito'}{' '}
+                                {item.card_details.bank && `(${item.card_details.bank})`}{' '}
+                                {item.card_details.last_four && `**** ${item.card_details.last_four}`}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {item.card_details.installments} {item.card_details.installments === 1 ? 'cuota' : 'cuotas de ' + item.currency + ' ' + item.card_details.installment_amount.toLocaleString()} · Total Tarjeta: {item.currency} {item.card_details.total_charged.toLocaleString()} (Base viaje: {item.currency} {item.card_details.base_amount.toLocaleString()})
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setActiveCardIndex(idx)}
+                          >
+                            Editar Tarjeta
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs gap-1 border-dashed text-primary border-primary/40 hover:bg-primary/5"
+                          onClick={() => setActiveCardIndex(idx)}
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Configurar Cuotas, Recargo y Datos de Tarjeta
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </Card>
             ))}
@@ -278,6 +322,24 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Generando...' : 'Generar recibo'}</Button>
         </div>
       </DialogContent>
+
+      {activeCardIndex !== null && (
+        <CardDetailsDialog
+          open={activeCardIndex !== null}
+          onOpenChange={(open) => { if (!open) setActiveCardIndex(null); }}
+          initialBaseAmount={items[activeCardIndex]?.amount || 0}
+          currency={items[activeCardIndex]?.currency || defaultCurrency}
+          initialDetails={items[activeCardIndex]?.card_details}
+          onSave={(details) => {
+            if (activeCardIndex !== null) {
+              updateItem(activeCardIndex, {
+                card_details: details,
+                amount: details.base_amount || items[activeCardIndex].amount,
+              });
+            }
+          }}
+        />
+      )}
     </Dialog>
   );
 }
