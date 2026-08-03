@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { AdminOnly } from '@/components/auth/AdminOnly';
 import { formatDateSafe } from '@/lib/utils';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
+import { FileFlightsTab } from '@/components/files/FileFlightsTab';
 import { FileReceiptsTab } from '@/components/files/FileReceiptsTab';
 import { FileSuppliersTab } from '@/components/files/FileSuppliersTab';
 import { FileFinancialSummary } from '@/components/files/FileFinancialSummary';
@@ -69,7 +71,7 @@ const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'o
 
 const FileDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/files');
   const { user } = useAuth();
   const [file, setFile] = useState<FileRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -322,7 +324,7 @@ const FileDetail = () => {
 
         {/* ── Topbar ──────────────────────────────────────────── */}
         <div className="mb-4 flex items-center justify-between gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/files')} className="gap-1.5">
+          <Button variant="ghost" size="sm" onClick={goBack} className="gap-1.5">
             <ArrowLeft className="h-4 w-4" /> Expedientes
           </Button>
           <div className="flex items-center gap-2">
@@ -556,6 +558,7 @@ const FileDetail = () => {
             <TabsList className="flex-wrap h-auto gap-0.5 w-full sm:w-auto">
               <TabsTrigger value="summary"       className="text-xs sm:text-sm">Info</TabsTrigger>
               <TabsTrigger value="services"      className="text-xs sm:text-sm">Servicios</TabsTrigger>
+              <TabsTrigger value="flights"       className="text-xs sm:text-sm">Vuelos (PNR)</TabsTrigger>
               <TabsTrigger value="payments"      className="text-xs sm:text-sm">Pagos</TabsTrigger>
               <TabsTrigger value="deudas"        className="text-xs sm:text-sm">Deudas</TabsTrigger>
               <TabsTrigger value="attachments"   className="text-xs sm:text-sm">Archivos</TabsTrigger>
@@ -577,6 +580,9 @@ const FileDetail = () => {
           </TabsContent>
           <TabsContent value="services">
             <FileServicesTab fileId={file.id} currency={file.currency} />
+          </TabsContent>
+          <TabsContent value="flights">
+            <FileFlightsTab fileId={file.id} />
           </TabsContent>
           <TabsContent value="payments">
             <FileSuppliersTab fileId={file.id} currency={file.currency} />

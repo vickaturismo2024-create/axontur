@@ -26,6 +26,7 @@ import { ImportExcelDialog } from '@/components/clients/ImportExcelDialog';
 import { GroupsManager } from '@/components/clients/GroupsManager';
 import { ClientInfoDialog } from '@/components/clients/ClientInfoDialog';
 import { Quote } from '@/types/quote';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const PAGE_SIZE = 25;
 
@@ -56,6 +57,7 @@ async function fetchAllClients(userId: string): Promise<ClientRecord[]> {
 }
 
 const Clients = () => {
+  const goBack = useGoBack('/', true);
   const { user } = useAuth();
   const { quotes } = useQuotes();
   const navigate = useNavigate();
@@ -251,11 +253,9 @@ const Clients = () => {
     <Header />
     <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8 max-w-7xl">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
 
       {/* ── Encabezado ───────────────────────────────────────── */}

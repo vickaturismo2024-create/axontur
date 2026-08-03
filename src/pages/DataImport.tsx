@@ -27,6 +27,7 @@ import { insertFiles } from '@/lib/import/importFiles';
 import { parseReservationsExcel } from '@/lib/reservationExcelParser';
 import { supabase } from '@/integrations/supabase/client';
 import { ImportFilePDFDialog } from '@/components/files/ImportFilePDFDialog';
+import { useGoBack } from '@/hooks/useGoBack';
 
 type AnyRow = ClientImportRow | SupplierImportRow | PassengerImportRow | FileOperatorImportRow;
 
@@ -55,6 +56,7 @@ interface QueuedFile {
 interface ImportResult { imported: number; skipped: number; errors: string[] }
 
 export default function DataImport() {
+  const goBack = useGoBack('/', true);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<'upload' | 'queue' | 'importing' | 'done'>('upload');
@@ -258,11 +260,9 @@ export default function DataImport() {
       <Header />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
         <div className="mb-8">
           <h1 className="font-sans text-3xl font-bold text-foreground flex items-center gap-3">

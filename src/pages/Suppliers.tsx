@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SUPPLIER_TYPES } from './SupplierDetail';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Supplier {
   id: string;
@@ -37,6 +38,7 @@ const emptySupplier = { name: '', email: '', phone: '', type: '', notes: '', cui
 const PAGE_SIZE = 15;
 
 const Suppliers = () => {
+  const goBack = useGoBack('/', true);
   const { user } = useAuth();
   const { quotes } = useQuotes();
   const qc = useQueryClient();
@@ -125,11 +127,9 @@ const Suppliers = () => {
       <Header />
       <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
 
         {/* Encabezado */}

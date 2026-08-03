@@ -11,6 +11,7 @@ import { VersionHistory } from '@/components/quotes/VersionHistory';
 import { PaymentsSection } from '@/components/quotes/PaymentsSection';
 import { CreateFileFromQuote } from '@/components/files/CreateFileFromQuote';
 import { toast } from 'sonner';
+import { useGoBack } from '@/hooks/useGoBack';
 
 function buildQuoteFromImport(data: any): Partial<Quote> {
   const flights: Flight[] = (data.flights || []).map((f: any) => ({
@@ -112,6 +113,7 @@ function buildQuoteFromImport(data: any): Partial<Quote> {
 }
 
 const QuoteEditor = () => {
+  const goBack = useGoBack('/quotes');
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -177,11 +179,9 @@ const QuoteEditor = () => {
       
       <main className="container mx-auto flex flex-1 flex-col overflow-hidden px-4 py-8">
         {/* Botón Volver a Presupuestos */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0 self-start">
-          <Link to="/quotes">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0 self-start">
             <ArrowLeft className="h-4 w-4" /> Volver a Presupuestos
-          </Link>
-        </Button>
+          </Button>
 
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>

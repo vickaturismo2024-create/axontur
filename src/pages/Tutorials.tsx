@@ -19,6 +19,7 @@ import { ArrowLeft, Rocket, UserRound, Plane, Hotel, TrainFront, Ship, Calculato
   BarChart3, Building2, Wrench, } from 'lucide-react';
 import { TutorialSectionsExisting } from '@/components/tutorials/TutorialSectionsExisting';
 import { TutorialSectionsNew } from '@/components/tutorials/TutorialSectionsNew';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const allSectionValues = [
   'primeros-pasos', 'datos-cliente', 'vuelos', 'alojamientos', 'transportes',
@@ -29,6 +30,7 @@ const allSectionValues = [
 ];
 
 export default function Tutorials() {
+  const goBack = useGoBack('/', true);
   const { startTour } = useTour();
 
   return (
@@ -36,11 +38,9 @@ export default function Tutorials() {
       <Header />
       <main className="container mx-auto max-w-3xl px-4 py-10">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
         <div className="mb-8">
           <h1 className="text-3xl font-sans font-bold text-foreground">Guía del Sistema</h1>

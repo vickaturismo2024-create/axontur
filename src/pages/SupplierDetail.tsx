@@ -43,6 +43,7 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export const SUPPLIER_TYPES = [
   'Aerolínea',
@@ -134,6 +135,7 @@ interface MovementRow {
 const fmt = (n: number) => n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function SupplierDetail() {
+  const goBack = useGoBack('/suppliers');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, agencyId } = useAuth();

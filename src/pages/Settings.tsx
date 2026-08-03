@@ -14,11 +14,13 @@ import { EmailTab } from '@/components/settings/EmailTab';
 import { InfraTab } from '@/components/settings/InfraTab';
 import { TeamTab } from '@/components/settings/TeamTab';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const ALL_TABS = ['account', 'agency', 'team', 'preferences', 'notifications', 'documents', 'email', 'infraestructura'] as const;
 type TabKey = typeof ALL_TABS[number];
 
 const Settings = () => {
+  const goBack = useGoBack('/', true);
   const { loading } = useSettings();
   const { isAdmin } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,11 +50,9 @@ const Settings = () => {
         <Header />
         <main className="container mx-auto flex items-center justify-center px-4 py-16">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </main>

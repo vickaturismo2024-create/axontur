@@ -30,23 +30,27 @@ import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { exportPassengersToExcel } from '@/lib/exportPassengersExcel';
 import type { ReservationPassenger, FlightSegment, ReservationChange } from '@/types/reservation';
+import { useGoBack } from '@/hooks/useGoBack';
 
 type DateFilter = 'all' | 'upcoming' | 'past';
+type LinkFilter = 'all' | 'linked' | 'unlinked';
 
 export default function Reservations() {
+  const goBack = useGoBack('/', true);
   const { user } = useAuth();
   const { data: reservations, isLoading } = useReservationsList();
   const deleteReservation = useDeleteReservation();
   const [search, setSearch] = useState('');
   const [airlineFilter, setAirlineFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [linkFilter, setLinkFilter] = useState<LinkFilter>('all');
   const [onlyChanges, setOnlyChanges] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 6;
 
   useEffect(() => {
     setPage(1);
-  }, [search, airlineFilter, dateFilter, onlyChanges]);
+  }, [search, airlineFilter, dateFilter, linkFilter, onlyChanges]);
 
   const reservationIds = useMemo(() => reservations?.map(r => r.id) || [], [reservations]);
   const { data: allPassengers } = useQuery({
@@ -172,6 +176,10 @@ export default function Reservations() {
           if (dateFilter === 'past' && earliest >= now) return false;
         }
 
+        // Linkage filter
+        if (linkFilter === 'linked' && !r.file_id) return false;
+        if (linkFilter === 'unlinked' && r.file_id) return false;
+
         // Pending changes filter
         if (onlyChanges && pendingCount === 0) return false;
 
@@ -180,7 +188,7 @@ export default function Reservations() {
       .sort((a, b) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
-  }, [reservations, search, airlineFilter, dateFilter, onlyChanges, segmentsByRes, passengersByRes, pendingChangesByRes, earliestDepByRes]);
+  }, [reservations, search, airlineFilter, dateFilter, linkFilter, onlyChanges, segmentsByRes, passengersByRes, pendingChangesByRes, earliestDepByRes]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -217,11 +225,9 @@ export default function Reservations() {
     <Header />
     <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8 max-w-7xl">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
       {/* Encabezado */}
       <div className="mb-4 sm:mb-8">
@@ -269,16 +275,27 @@ export default function Reservations() {
               {airlineOptions.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
-            <SelectTrigger className="h-9 sm:h-10 w-[110px] sm:w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="upcoming">Próximos</SelectItem>
-              <SelectItem value="past">Pasados</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={linkFilter} onValueChange={(v: LinkFilter) => setLinkFilter(v)}>
+              <SelectTrigger className="w-full sm:w-[210px] bg-background">
+                <SelectValue placeholder="Vinculación" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los vuelos</SelectItem>
+                <SelectItem value="linked">Vuelos en servicios</SelectItem>
+                <SelectItem value="unlinked">Vuelos sin servicio activo</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={dateFilter} onValueChange={(v: DateFilter) => setDateFilter(v)}>
+              <SelectTrigger className="w-full sm:w-[150px] bg-background">
+                <SelectValue placeholder="Fecha" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las fechas</SelectItem>
+                <SelectItem value="upcoming">Próximos vuelos</SelectItem>
+                <SelectItem value="past">Vuelos pasados</SelectItem>
+              </SelectContent>
+            </Select>
           <Button
             variant={onlyChanges ? 'default' : 'outline'}
             size="sm"

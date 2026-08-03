@@ -13,6 +13,7 @@ import { TourProvider } from "@/contexts/TourContext";
 import { TourOverlay } from "@/components/tour/TourOverlay";
 import { BirthdayNotifier } from "@/components/notifications/BirthdayNotifier";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { useHistoryTracker } from "@/hooks/useHistoryTracker";
 
 // ── Páginas públicas ─────────────────────────────────────────────────────────
 // Se cargan de forma estática porque no tienen dependencias pesadas
@@ -67,6 +68,11 @@ const PageLoader = () => (
     </div>
   </div>
 );
+
+const GlobalHistoryTracker = () => {
+  useHistoryTracker();
+  return null;
+};
 
 const RouteTransitionIndicator = () => {
   const location = useLocation();
@@ -149,6 +155,7 @@ const App = () => (
               <Sonner />
               <BrowserRouter>
                 <TourProvider>
+                  <GlobalHistoryTracker />
                   <TourOverlay />
                   <BirthdayNotifier />
                   <RouteTransitionIndicator />

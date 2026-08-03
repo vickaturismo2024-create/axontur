@@ -24,6 +24,7 @@ import { ImportURLDialog } from '@/components/quotes/ImportURLDialog';
 import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
 import { defaultTemplate } from '@/data/demoData';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface QuoteTag {
   id: string;
@@ -32,6 +33,7 @@ interface QuoteTag {
 }
 
 const Quotes = () => {
+  const goBack = useGoBack('/', true);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { quotes, templates, duplicateQuote, deleteQuote, updateQuote, isLoading, getDefaultTemplate } = useQuotes();
@@ -186,11 +188,9 @@ const Quotes = () => {
         <Header />
         <main className="container mx-auto px-4 py-16">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
           <PageLoadingScreen message="Cargando presupuestos..." />
         </main>

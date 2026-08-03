@@ -26,6 +26,7 @@ export default defineConfig(({ mode }) => ({
 
       // Service Worker — estrategia de cache
       workbox: {
+        navigateFallback: '/index.html',
         // Cachear en instalación: JS, CSS, HTML
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         // Runtime cache: llamadas a Supabase (network first, fallback a cache)

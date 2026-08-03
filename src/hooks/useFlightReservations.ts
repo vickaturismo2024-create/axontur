@@ -227,11 +227,36 @@ export function useCreateReservation() {
         }
       }
 
+      // If fileId is provided, auto-generate a file_service record for the flight
+      if (fileId) {
+        const route = (parsed.segments && parsed.segments.length > 0)
+          ? parsed.segments.map(s => `${s.originIata}-${s.destinationIata}`).join(', ')
+          : 'Vuelo';
+          
+        await supabase
+          .from('file_services')
+          .insert({
+            file_id: fileId,
+            user_id: user.id,
+            service_type: 'flight',
+            description: `Reserva ${gds || 'Vuelo'}: ${parsed.locator || 'S/N'} (${route})`,
+            price: 0,
+            cost: 0,
+            currency: 'USD',
+            status: 'pending',
+            supplier_id: null,
+          });
+      }
+
       return reservation;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
+      if (variables.fileId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.reservations.file(variables.fileId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.files.services(variables.fileId) });
+      }
     },
   });
 }
@@ -567,6 +592,86 @@ export function useUpdateReservationFromPNR() {
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations.pendingChangesCount() });
     },
+  });
+}
+
+// ============================================================================
+// File linkage
+// ============================================================================
+
+export function useFileReservations(fileId: string | undefined) {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: queryKeys.reservations.file(fileId),
+    queryFn: async () => {
+      if (!fileId || !user) return [];
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('file_id', fileId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as unknown as Reservation[];
+    },
+    enabled: !!fileId && !!user,
+  });
+}
+
+export function useLinkReservationToFile() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  return useMutation({
+    mutationFn: async ({ reservationId, fileId }: { reservationId: string; fileId: string }) => {
+      if (!user) throw new Error('Not authenticated');
+      
+      // 1. Update reservation
+      const { error: resError } = await supabase
+        .from('reservations')
+        .update({ file_id: fileId })
+        .eq('id', reservationId);
+      if (resError) throw resError;
+      
+      // 2. Fetch reservation details to create a service
+      const { data: resData } = await supabase
+        .from('reservations')
+        .select('locator, gds')
+        .eq('id', reservationId)
+        .single();
+        
+      const { data: segments } = await supabase
+        .from('flight_segments')
+        .select('*')
+        .eq('reservation_id', reservationId)
+        .order('seq', { ascending: true });
+        
+      const route = (segments && segments.length > 0)
+        ? segments.map((s: any) => `${s.origin_iata}-${s.destination_iata}`).join(', ')
+        : 'Vuelo';
+      
+      // 3. Create file_service
+      const { error: srvError } = await supabase
+        .from('file_services')
+        .insert({
+          file_id: fileId,
+          user_id: user.id,
+          service_type: 'flight',
+          description: `Reserva ${resData?.gds || 'Vuelo'}: ${resData?.locator || 'S/N'} (${route})`,
+          price: 0,
+          cost: 0,
+          currency: 'USD',
+          status: 'pending',
+          supplier_id: null,
+        });
+        
+      if (srvError) throw srvError;
+    },
+    onSuccess: (_, { fileId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.file(fileId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.services(fileId) });
+    }
   });
 }
 

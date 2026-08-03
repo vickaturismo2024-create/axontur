@@ -14,6 +14,7 @@ import { OperationalReport } from '@/components/reports/OperationalReport';
 import { ExchangeRatesReport } from '@/components/reports/ExchangeRatesReport';
 import { toast } from 'sonner';
 import { getAvailableCurrencies, getDefaultCurrency } from '@/lib/quoteFilters';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const CHART_COLORS = [
   'hsl(var(--primary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d', '#ffc658',
@@ -21,6 +22,7 @@ const CHART_COLORS = [
 ];
 
 const Reports = () => {
+  const goBack = useGoBack('/', true);
   const { quotes } = useQuotes();
   const availableCurrencies = useMemo(() => getAvailableCurrencies(quotes), [quotes]);
   const defaultCurrency = useMemo(() => getDefaultCurrency(quotes), [quotes]);
@@ -39,11 +41,9 @@ const Reports = () => {
       <Header />
       <main className="container mx-auto px-4 py-8">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
         <div className="mb-6">
           <h1 className="font-sans text-3xl font-bold text-foreground">Reportes</h1>

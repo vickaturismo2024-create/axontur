@@ -52,6 +52,7 @@ export const queryKeys = {
   // ─── FILES (Files.tsx)
   files: {
     all: (userId?: string) => ['files', userId] as const,
+    services: (fileId?: string) => ['file-services', fileId] as const,
   },
 
   // ─── REPORTS & DASHBOARDS (useOperationalReport.ts)

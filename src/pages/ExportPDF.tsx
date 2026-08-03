@@ -6,12 +6,14 @@ import { PDFDetailsPages } from '@/components/pdf/PDFDetailsPages';
 import { PDFContactPages } from '@/components/pdf/PDFContactPages';
 import { PDFItineraryPages } from '@/components/pdf/PDFItineraryPages';
 import { PDFShareMenu } from '@/components/pdf/PDFShareMenu';
+import { useGoBack } from '@/hooks/useGoBack';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 const ExportPDF = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack('/quotes');
   const { quotes, templates, updateQuote } = useQuotes();
 
   const quote = quotes.find(q => q.id === id);
@@ -49,7 +51,7 @@ const ExportPDF = () => {
       {/* Controls - Hidden when printing */}
       <div className="no-print sticky top-0 z-50 border-b bg-card p-4 shadow-sm">
         <div className="container mx-auto flex items-center justify-between">
-          <Button variant="ghost" onClick={() => navigate(-1)}>
+          <Button variant="ghost" onClick={goBack}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>

@@ -20,12 +20,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { TemplatePreviewPanel } from '@/components/templates/TemplatePreviewPanel';
 import { FontSelect } from '@/components/templates/FontSelect';
 import { presetTemplates } from '@/data/presetTemplates';
+import { useGoBack } from '@/hooks/useGoBack';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
 const Templates = () => {
+  const goBack = useGoBack('/', true);
   const { templates, addTemplate, updateTemplate, deleteTemplate, setDefaultTemplate, defaultTemplateId, isLoading, refreshData } = useQuotes();
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -203,11 +205,9 @@ const Templates = () => {
       <Header />
       <main className="container mx-auto px-4 py-8">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

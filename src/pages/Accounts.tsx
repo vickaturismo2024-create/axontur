@@ -14,6 +14,7 @@ import { ArrowLeft, Search, Users, Truck, ArrowUpRight, ArrowDownRight, ChevronL
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AccountDetail } from '@/components/accounts/AccountDetail';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface AccountSummary {
   id: string;
@@ -38,6 +39,7 @@ async function fetchAllPaged(table: 'clients' | 'suppliers', fields: string) {
 }
 
 export default function Accounts() {
+  const goBack = useGoBack('/', true);
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string; type: 'client' | 'supplier' } | null>(null);
@@ -180,11 +182,9 @@ export default function Accounts() {
       <Header />
       <div className="container mx-auto p-4 md:p-6 space-y-4">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-2 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-2 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
         <div className="mb-4 sm:mb-6">
           <h1 className="font-sans text-2xl font-bold text-foreground flex items-center gap-2 sm:text-3xl tracking-tight">

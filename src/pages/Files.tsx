@@ -30,6 +30,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface CurrencyTotal {
   currency: string;
@@ -66,6 +67,7 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
 const PAGE_SIZE = 25;
 
 const Files = () => {
+  const goBack = useGoBack('/', true);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -162,11 +164,9 @@ const Files = () => {
       <Header />
       <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
 
         {/* Encabezado */}

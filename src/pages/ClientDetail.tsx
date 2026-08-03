@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, User, Wallet, Plus, Mail, Phone, MapPin, FolderOpen } from 'lucide-react';
 import { NewMovementDialog } from '@/components/accounts/NewMovementDialog';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Client {
   id: string;
@@ -44,6 +45,7 @@ const fmt = (n: number) =>
   n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function ClientDetail() {
+  const goBack = useGoBack('/clients');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();

@@ -37,6 +37,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface LedgerItem {
   id: string;
@@ -223,6 +224,7 @@ async function fetchCajaData(dateFrom?: string, dateTo?: string) {
 }
 
 export default function CashBox() {
+  const goBack = useGoBack('/', true);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -818,11 +820,9 @@ export default function CashBox() {
       <Header />
       <div className="container mx-auto p-4 md:p-6 space-y-6 animate-fadeInUp">
         {/* Botón Volver al Dashboard */}
-        <Button asChild variant="ghost" className="gap-2 mb-2 hover:bg-muted/50 shrink-0">
-          <Link to="/">
+        <Button onClick={goBack} variant="ghost" className="gap-2 mb-2 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
-          </Link>
-        </Button>
+          </Button>
 
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

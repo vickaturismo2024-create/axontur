@@ -43,8 +43,10 @@ import {
   useDeleteReservation,
   useResolveChange,
 } from '@/hooks/useFlightReservations';
+import { useGoBack } from '@/hooks/useGoBack';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
 import { ReimportPNRDialog } from '@/components/reservations/ReimportPNRDialog';
+import { LinkReservationToFileDialog } from '@/components/reservations/LinkReservationToFileDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
@@ -58,8 +60,9 @@ import { cn } from '@/lib/utils';
 export default function ReservationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack('/reservations');
   const { user } = useAuth();
-  const { data: reservation, isLoading } = useReservationDetails(id);
+  const { data: reservation, isLoading } = useReservationDetails(id!);
   const toggleCheckin = useToggleCheckin();
   const deleteFlightSegment = useDeleteFlightSegment();
   const deleteReservation = useDeleteReservation();
@@ -264,9 +267,9 @@ export default function ReservationDetail() {
         <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
           {/* Header */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-            <div className="flex items-start gap-3 min-w-0 flex-1">
-              <Button variant="ghost" size="icon" asChild className="shrink-0">
-                <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
+            <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+              <Button variant="ghost" size="icon" onClick={goBack} className="self-start sm:self-auto shrink-0">
+                <ArrowLeft className="h-5 w-5" />
               </Button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -283,7 +286,7 @@ export default function ReservationDetail() {
                   Importada el {format(new Date(reservation.created_at), "d 'de' MMMM, HH:mm", { locale: es })}
                   {reservation.gds && ` • ${reservation.gds.toUpperCase()}`}
                 </p>
-                {linkedFile && (
+                {linkedFile ? (
                   <Link
                     to={`/files/${linkedFile.id}`}
                     className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 text-xs font-mono"
@@ -291,6 +294,8 @@ export default function ReservationDetail() {
                     <FileText className="h-3 w-3" />
                     Ver expediente FILE-{String(linkedFile.file_number).padStart(3, '0')}
                   </Link>
+                ) : (
+                  <LinkReservationToFileDialog reservationId={reservation.id} />
                 )}
               </div>
             </div>

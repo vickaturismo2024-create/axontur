@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText,
   Trash2,
@@ -11,6 +11,7 @@ import {
   RefreshCw,
   FileUp,
 } from 'lucide-react';
+import { useGoBack } from '@/hooks/useGoBack';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,6 +79,10 @@ interface EditableSegment extends ParsedSegment {
 
 export default function ReservationImport() {
   const navigate = useNavigate();
+  const goBack = useGoBack('/reservations');
+  const [searchParams] = useSearchParams();
+  const fileId = searchParams.get('file_id') || undefined;
+
   const createReservation = useCreateReservation();
   const updateFromPNR = useUpdateReservationFromPNR();
   const findByLocator = useFindReservationByLocator();
@@ -136,9 +141,14 @@ export default function ReservationImport() {
         parsed: buildParsedPayload(),
         sourceType: 'text',
         gds: gds || undefined,
+        fileId,
       });
       toast.success(`¡Vuelo guardado! Se importaron ${segments.length} segmento(s)`);
-      navigate('/reservations');
+      if (fileId) {
+        navigate(`/files/${fileId}`);
+      } else {
+        navigate('/reservations');
+      }
     } catch {
       toast.error('Error al guardar el vuelo');
     }
@@ -529,8 +539,8 @@ export default function ReservationImport() {
       <main className="container mx-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/reservations"><ArrowLeft className="h-5 w-5" /></Link>
+            <Button variant="ghost" size="icon" onClick={goBack}>
+              <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
               <h1 className="font-sans text-2xl font-bold">Importar Vuelo</h1>
