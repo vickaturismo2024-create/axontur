@@ -50,7 +50,7 @@ async function extractPdfPages(
     const Y_TOLERANCE = 2;
 
     for (const item of items) {
-      let existingLine = lines.find(l => Math.abs(l.y - item.y) < Y_TOLERANCE);
+      const existingLine = lines.find(l => Math.abs(l.y - item.y) < Y_TOLERANCE);
       if (existingLine) {
         existingLine.items.push({ x: item.x, text: item.text });
       } else {

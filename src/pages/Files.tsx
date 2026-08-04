@@ -31,6 +31,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useDebounce } from '@/hooks/useDebounce';
+import { SectionErrorBoundary } from '@/components/common/SectionErrorBoundary';
 
 interface CurrencyTotal {
   currency: string;
@@ -163,6 +165,7 @@ const Files = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
+        <SectionErrorBoundary sectionName="Sección de Expedientes">
         {/* Botón Volver al Dashboard */}
         <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
@@ -521,6 +524,7 @@ const Files = () => {
             )}
           </>
         )}
+      </SectionErrorBoundary>
       </main>
     </div>
   );

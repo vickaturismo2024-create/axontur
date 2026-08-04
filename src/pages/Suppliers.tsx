@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AdminOnly } from '@/components/auth/AdminOnly';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
@@ -22,6 +22,8 @@ import { Link } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SUPPLIER_TYPES } from './SupplierDetail';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useDebounce } from '@/hooks/useDebounce';
+import { SectionErrorBoundary } from '@/components/common/SectionErrorBoundary';
 
 interface Supplier {
   id: string;
@@ -51,23 +53,57 @@ const Suppliers = () => {
 
   const supplierStats = useSupplierAnalytics(quotes);
 
-  const { data: suppliers, isLoading } = useQuery<Supplier[]>({
-    queryKey: queryKeys.suppliers.all(user?.id),
+  const debouncedSearch = useDebounce(search, 300);
+
+  const { data: queryResult, isLoading } = useQuery({
+    queryKey: ['suppliers-paginated', user?.id, page, debouncedSearch, typeFilter],
     queryFn: async () => {
-      const all: any[] = [];
-      let from = 0;
-      const PAGE = 1000;
-      while (true) {
-        const { data } = await supabase.from('suppliers').select('*').order('name').range(from, from + PAGE - 1);
-        if (!data || data.length === 0) break;
-        all.push(...data);
-        if (data.length < PAGE) break;
-        from += PAGE;
+      let query = supabase
+        .from('suppliers')
+        .select('*', { count: 'exact' })
+        .order('name', { ascending: true });
+
+      if (typeFilter !== 'all') {
+        query = query.eq('type', typeFilter);
       }
-      return all as Supplier[];
+
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.trim();
+        query = query.or(`name.ilike.%${q}%,type.ilike.%${q}%,email.ilike.%${q}%`);
+      }
+
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.range(from, to);
+
+      const { data: suppliersData, count, error } = await query;
+      if (error) throw error;
+
+      return {
+        suppliers: (suppliersData || []) as Supplier[],
+        totalCount: count || 0,
+      };
     },
     enabled: !!user,
+    staleTime: 30_000,
   });
+
+  const suppliers = queryResult?.suppliers || [];
+  const totalCount = queryResult?.totalCount || 0;
+
+  const { data: usedTypes = [] } = useQuery({
+    queryKey: ['suppliers-types', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase.from('suppliers').select('type');
+      if (!data) return [];
+      const set = new Set(data.map((s: any) => s.type).filter(Boolean));
+      return Array.from(set) as string[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => { setPage(0); }, [debouncedSearch, typeFilter]);
 
   const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.suppliers.all(user?.id) });
 
@@ -106,26 +142,15 @@ const Suppliers = () => {
   const getStatForSupplier = (name: string): SupplierStat | undefined =>
     supplierStats.find(s => s.name.toLowerCase() === name.toLowerCase());
 
-  const filtered = useMemo(() => (suppliers || []).filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.type.toLowerCase().includes(search.toLowerCase());
-    const matchesType = typeFilter === 'all' || s.type === typeFilter;
-    return matchesSearch && matchesType;
-  }), [suppliers, search, typeFilter]);
-
-  const usedTypes = useMemo(() => {
-    const set = new Set((suppliers || []).map(s => s.type).filter(Boolean));
-    return Array.from(set);
-  }, [suppliers]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
-  const paginated = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const paginated = suppliers;
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
+        <SectionErrorBoundary sectionName="Sección de Proveedores">
         {/* Botón Volver al Dashboard */}
         <Button onClick={goBack} variant="ghost" className="gap-2 mb-4 hover:bg-muted/50 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Volver al Dashboard
@@ -191,7 +216,7 @@ const Suppliers = () => {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-36 w-full sm:h-44" />)}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : suppliers.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-muted-foreground sm:py-12">
               <Store className="mx-auto h-10 w-10 mb-3 opacity-50 sm:h-12 sm:w-12 sm:mb-4" />
@@ -287,7 +312,7 @@ const Suppliers = () => {
             {totalPages > 1 && (
               <div className="mt-4 flex items-center justify-between sm:mt-6">
                 <p className="text-xs text-muted-foreground sm:text-sm">
-                  {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
+                  {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalCount)} de {totalCount}
                 </p>
                 <div className="flex items-center gap-1 sm:gap-2">
                   <Button
@@ -318,6 +343,7 @@ const Suppliers = () => {
             )}
           </>
         )}
+      </SectionErrorBoundary>
       </main>
 
       {/* Dialog crear/editar */}

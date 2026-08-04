@@ -2,6 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import AgencySetup from '@/components/auth/AgencySetup';
+import { SectionErrorBoundary } from '@/components/common/SectionErrorBoundary';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -27,5 +28,5 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <AgencySetup />;
   }
 
-  return <>{children}</>;
+  return <SectionErrorBoundary>{children}</SectionErrorBoundary>;
 }

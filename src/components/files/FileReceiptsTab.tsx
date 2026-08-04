@@ -384,7 +384,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     }
 
     // Fetch client address & locality and file number for receipt header details
-    let extraDetails = { address: '', locality: '', file_number: undefined as number | undefined };
+    const extraDetails = { address: '', locality: '', file_number: undefined as number | undefined };
     
     let resolvedAddress = '';
     let resolvedLocality = '';

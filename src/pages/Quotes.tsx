@@ -25,6 +25,8 @@ import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/components/dashboard/DashboardFilters';
 import { defaultTemplate } from '@/data/demoData';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useDebounce } from '@/hooks/useDebounce';
+import { SectionErrorBoundary } from '@/components/common/SectionErrorBoundary';
 
 interface QuoteTag {
   id: string;
@@ -38,6 +40,7 @@ const Quotes = () => {
   const { user } = useAuth();
   const { quotes, templates, duplicateQuote, deleteQuote, updateQuote, isLoading, getDefaultTemplate } = useQuotes();
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -77,7 +80,7 @@ const Quotes = () => {
     else if (viewFilter === 'favorites') result = result.filter(q => q.favorited && !q.archived);
     else result = result.filter(q => !q.archived);
     if (statusFilter !== 'all') result = result.filter(q => (q.status || 'draft') === statusFilter);
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearch.toLowerCase();
     if (query) {
       result = result.filter(q =>
         q.client.name.toLowerCase().includes(query) ||
@@ -202,6 +205,7 @@ const Quotes = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-3 py-6 sm:px-4 sm:py-8">
+        <SectionErrorBoundary sectionName="Presupuestos">
 
         {/* Encabezado */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -381,6 +385,7 @@ const Quotes = () => {
             )}
           </div>
         )}
+        </SectionErrorBoundary>
       </main>
 
       <Dialog open={!!previewQuote} onOpenChange={() => setPreviewQuote(null)}>

@@ -27,6 +27,8 @@ import { GroupsManager } from '@/components/clients/GroupsManager';
 import { ClientInfoDialog } from '@/components/clients/ClientInfoDialog';
 import { Quote } from '@/types/quote';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useDebounce } from '@/hooks/useDebounce';
+import { SectionErrorBoundary } from '@/components/common/SectionErrorBoundary';
 
 const PAGE_SIZE = 25;
 
@@ -55,6 +57,47 @@ async function fetchAllClients(userId: string): Promise<ClientRecord[]> {
   }
   return all.map(mapRow);
 }
+async function fetchClientsPaginated(
+  userId: string,
+  page: number,
+  pageSize: number,
+  search: string,
+  docFilter: boolean
+): Promise<{ clients: ClientRecord[], totalCount: number }> {
+  let query = supabase
+    .from('clients')
+    .select('*', { count: 'exact' });
+    
+  if (search) {
+    const s = `%${search}%`;
+    query = query.or(`name.ilike.${s},email.ilike.${s},phone.ilike.${s},dni.ilike.${s}`);
+  }
+
+  if (docFilter) {
+    const today = new Date();
+    const future = new Date();
+    future.setMonth(today.getMonth() + 6);
+    const futureIso = future.toISOString().split('T')[0];
+    
+    query = query.or(`dni_expiry.lte.${futureIso},passport_expiry.lte.${futureIso}`);
+  }
+
+  query = query
+    .order('name')
+    .range((page - 1) * pageSize, page * pageSize - 1);
+
+  const { data, count, error } = await query;
+  
+  if (error) {
+    console.error('Error fetching clients paginated:', error);
+    return { clients: [], totalCount: 0 };
+  }
+  
+  return {
+    clients: (data || []).map(mapRow),
+    totalCount: count || 0
+  };
+}
 
 const Clients = () => {
   const goBack = useGoBack('/', true);
@@ -74,74 +117,59 @@ const Clients = () => {
   const [docFilter, setDocFilter] = useState<boolean>(() => searchParams.get('docs') === '1');
   const highlightName = searchParams.get('highlight');
 
-  const { data: clients = [], isLoading: loading, refetch } = useQuery({
-    queryKey: queryKeys.clients.all(user?.id),
-    queryFn: () => fetchAllClients(user!.id),
+  const debouncedSearch = useDebounce(search, 300);
+  const { data: queryResult, isLoading: loading, refetch } = useQuery({
+    queryKey: ['clients-paginated', user?.id, page, debouncedSearch, docFilter],
+    queryFn: () => fetchClientsPaginated(user!.id, page, PAGE_SIZE, debouncedSearch, docFilter),
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+
+  const clients = queryResult?.clients || [];
+  const totalCount = queryResult?.totalCount || 0;
+
+  const { data: docAlerts = { expired: 0, expiring: 0, total: 0 }, refetch: refetchAlerts } = useQuery({
+    queryKey: ['clients-doc-alerts', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('clients').select('dni_expiry, passport_expiry');
+      if (error || !data) return { expired: 0, expiring: 0, total: 0 };
+      let expired = 0, expiring = 0;
+      data.forEach(c => {
+        const dniS = getDocStatus(c.dni_expiry);
+        const pasS = getDocStatus(c.passport_expiry);
+        if (dniS === 'expired' || pasS === 'expired') expired++;
+        else if (dniS === 'expiring' || pasS === 'expiring') expiring++;
+      });
+      return { expired, expiring, total: expired + expiring };
+    },
     enabled: !!user,
     staleTime: 60_000,
   });
 
   const fetchClients = async () => {
     await refetch();
+    await refetchAlerts();
     queryClient.invalidateQueries({ queryKey: ['birthday-widget'] });
     queryClient.invalidateQueries({ queryKey: ['operational-alerts'] });
   };
 
-  const existingDnis = useMemo(() => {
-    const set = new Set<string>();
-    clients.forEach(c => { if (c.dni) set.add(c.dni); });
-    return set;
-  }, [clients]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, docFilter]);
 
-  const docAlerts = useMemo(() => {
-    let expired = 0, expiring = 0;
-    clients.forEach(c => {
-      const dniS = getDocStatus(c.dni_expiry);
-      const pasS = getDocStatus(c.passport_expiry);
-      if (dniS === 'expired' || pasS === 'expired') expired++;
-      else if (dniS === 'expiring' || pasS === 'expiring') expiring++;
-    });
-    return { expired, expiring, total: expired + expiring };
-  }, [clients]);
-
-  const filtered = useMemo(() => {
-    let list = clients;
-    if (docFilter) {
-      list = list.filter(c => {
-        const worst = getWorstStatus([getDocStatus(c.dni_expiry), getDocStatus(c.passport_expiry)]);
-        return worst === 'expired' || worst === 'expiring';
-      });
-    }
-    if (!search) return list;
-    const q = search.toLowerCase();
-    return list.filter(c =>
-      c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) ||
-      c.phone.includes(q) || c.dni.includes(q)
-    );
-  }, [clients, search, docFilter]);
-
-  // Reset page when filters/search change
-  useEffect(() => { setPage(1); }, [search, docFilter]);
-
-  // Automatically open client info modal if ?info=clientId is present
   const infoParam = searchParams.get('info');
   useEffect(() => {
-    if (infoParam && clients.length > 0) {
-      const foundClient = clients.find(c => c.id === infoParam);
-      if (foundClient) {
-        setSelectedInfoClient(foundClient);
-        setIsInfoOpen(true);
-      }
+    if (infoParam && user) {
+      supabase.from('clients').select('*').eq('id', infoParam).maybeSingle().then(({ data }) => {
+        if (data) {
+          setSelectedInfoClient(mapRow(data));
+          setIsInfoOpen(true);
+        }
+      });
     }
-  }, [infoParam, clients]);
+  }, [infoParam, user]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const paginated = useMemo(
-    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [filtered, currentPage]
-  );
-
+  const paginated = clients;
   const getClientQuotes = (client: ClientRecord): Quote[] =>
     quotes.filter(q => q.client.name === client.name || (client.email && q.client.email === client.email));
 
@@ -191,61 +219,68 @@ const Clients = () => {
   };
 
   const handleExport = async () => {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Clientes');
+    if (!user) return;
+    const toastId = toast.loading('Generando exportación de todos los clientes...');
+    try {
+      const allClients = await fetchAllClients(user.id);
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Clientes');
 
-    ws.columns = [
-      { header: 'Nombre',         key: 'Nombre',        width: 28 },
-      { header: 'Email',          key: 'Email',         width: 28 },
-      { header: 'Tel. Particular',key: 'TelPart',       width: 16 },
-      { header: 'Tel. Comercial', key: 'TelCom',        width: 16 },
-      { header: 'Celular',        key: 'Celular',       width: 16 },
-      { header: 'Dirección',      key: 'Direccion',     width: 28 },
-      { header: 'Localidad',      key: 'Localidad',     width: 18 },
-      { header: 'Nacionalidad',   key: 'Nacionalidad',  width: 16 },
-      { header: 'Fecha Nac.',     key: 'FechaNac',      width: 13 },
-      { header: 'Sexo',           key: 'Sexo',          width: 8  },
-      { header: 'DNI',            key: 'DNI',           width: 13 },
-      { header: 'Vto. DNI',       key: 'VtoDNI',        width: 13 },
-      { header: 'Pasaporte',      key: 'Pasaporte',     width: 16 },
-      { header: 'Emisión Pas.',   key: 'EmisionPas',    width: 13 },
-      { header: 'Vto. Pas.',      key: 'VtoPas',        width: 13 },
-      { header: 'CUIL/CUIT',      key: 'CuilCuit',      width: 15 },
-      { header: 'Notas',          key: 'Notas',         width: 32 },
-    ];
+      ws.columns = [
+        { header: 'Nombre',         key: 'Nombre',        width: 28 },
+        { header: 'Email',          key: 'Email',         width: 28 },
+        { header: 'Tel. Particular',key: 'TelPart',       width: 16 },
+        { header: 'Tel. Comercial', key: 'TelCom',        width: 16 },
+        { header: 'Celular',        key: 'Celular',       width: 16 },
+        { header: 'Dirección',      key: 'Direccion',     width: 28 },
+        { header: 'Localidad',      key: 'Localidad',     width: 18 },
+        { header: 'Nacionalidad',   key: 'Nacionalidad',  width: 16 },
+        { header: 'Fecha Nac.',     key: 'FechaNac',      width: 13 },
+        { header: 'Sexo',           key: 'Sexo',          width: 8  },
+        { header: 'DNI',            key: 'DNI',           width: 13 },
+        { header: 'Vto. DNI',       key: 'VtoDNI',        width: 13 },
+        { header: 'Pasaporte',      key: 'Pasaporte',     width: 16 },
+        { header: 'Emisión Pas.',   key: 'EmisionPas',    width: 13 },
+        { header: 'Vto. Pas.',      key: 'VtoPas',        width: 13 },
+        { header: 'CUIL/CUIT',      key: 'CuilCuit',      width: 15 },
+        { header: 'Notas',          key: 'Notas',         width: 32 },
+      ];
 
-    clients.forEach(c => {
-      ws.addRow({
-        Nombre:       c.name,
-        Email:        c.email,
-        TelPart:      c.phone,
-        TelCom:       c.phone_work,
-        Celular:      c.phone_mobile,
-        Direccion:    c.address,
-        Localidad:    c.locality,
-        Nacionalidad: c.nationality,
-        FechaNac:     c.birth_date,
-        Sexo:         c.sex,
-        DNI:          c.dni,
-        VtoDNI:       c.dni_expiry,
-        Pasaporte:    c.passport,
-        EmisionPas:   c.passport_issue,
-        VtoPas:       c.passport_expiry,
-        CuilCuit:     c.cuil_cuit,
-        Notas:        c.notes,
+      allClients.forEach(c => {
+        ws.addRow({
+          Nombre:       c.name,
+          Email:        c.email,
+          TelPart:      c.phone,
+          TelCom:       c.phone_work,
+          Celular:      c.phone_mobile,
+          Direccion:    c.address,
+          Localidad:    c.locality,
+          Nacionalidad: c.nationality,
+          FechaNac:     c.birth_date,
+          Sexo:         c.sex,
+          DNI:          c.dni,
+          VtoDNI:       c.dni_expiry,
+          Pasaporte:    c.passport,
+          EmisionPas:   c.passport_issue,
+          VtoPas:       c.passport_expiry,
+          CuilCuit:     c.cuil_cuit,
+          Notas:        c.notes,
+        });
       });
-    });
 
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url    = URL.createObjectURL(blob);
-    const a      = document.createElement('a');
-    a.href       = url;
-    a.download   = 'clientes.xlsx';
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.success('Clientes exportados');
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url    = URL.createObjectURL(blob);
+      const a      = document.createElement('a');
+      a.href       = url;
+      a.download   = 'clientes.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exportación completada', { id: toastId });
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al exportar clientes', { id: toastId });
+    }
   };
 
   return (
@@ -293,7 +328,7 @@ const Clients = () => {
               value="clients" 
               className="data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent rounded-none px-1 font-medium text-muted-foreground data-[state=active]:text-foreground"
             >
-              Clientes ({clients.length})
+              Clientes ({totalCount})
             </TabsTrigger>
             <TabsTrigger 
               value="groups" 
@@ -305,6 +340,7 @@ const Clients = () => {
         </div>
 
         <TabsContent value="clients" className="m-0 focus-visible:outline-none">
+          <SectionErrorBoundary sectionName="Tabla de Clientes">
           {/* Alerta documentos */}
           {docAlerts.total > 0 && (
             <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20 shadow-sm backdrop-blur-sm sm:items-center">
@@ -353,7 +389,7 @@ const Clients = () => {
           {/* Lista */}
           {loading ? (
             <PageLoadingScreen message="Cargando clientes..." />
-          ) : filtered.length === 0 ? (
+          ) : clients.length === 0 ? (
             <div className="glass-card-premium py-16 text-center rounded-2xl">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 mb-4">
                 <Users className="h-10 w-10 text-primary" />
@@ -419,7 +455,7 @@ const Clients = () => {
               {totalPages > 1 && (
                 <div className="mt-6 flex items-center justify-between gap-2 px-1">
                   <p className="text-sm font-medium text-muted-foreground">
-                    Pág. <span className="text-foreground">{currentPage}</span> de {totalPages} <span className="mx-1 text-border">|</span> {filtered.length} clientes
+                    Pág. <span className="text-foreground">{currentPage}</span> de {totalPages} <span className="mx-1 text-border">|</span> {totalCount} clientes
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
@@ -445,6 +481,7 @@ const Clients = () => {
               )}
             </>
           )}
+          </SectionErrorBoundary>
         </TabsContent>
 
         <TabsContent value="groups" className="m-0 focus-visible:outline-none">
@@ -472,7 +509,6 @@ const Clients = () => {
       open={isImportOpen}
       onOpenChange={setIsImportOpen}
       onImport={handleBulkImportDone}
-      existingDnis={existingDnis}
     />
 
     <AlertDialog open={!!deleteTargetId} onOpenChange={() => setDeleteTargetId(null)}>

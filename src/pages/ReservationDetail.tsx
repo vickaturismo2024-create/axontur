@@ -179,7 +179,7 @@ export default function ReservationDetail() {
     }
     let fileNumber = reservation.locator || reservation.id.slice(0, 8);
     let destination = '';
-    let travelers = reservation.passengers.length;
+    const travelers = reservation.passengers.length;
     if (reservation.file_id) {
       const { data: f } = await supabase.from('files').select('file_number, destination, travelers, client_name, currency, total_price, start_date, end_date').eq('id', reservation.file_id).maybeSingle();
       if (f) {

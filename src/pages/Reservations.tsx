@@ -31,6 +31,8 @@ import { toast } from 'sonner';
 import { exportPassengersToExcel } from '@/lib/exportPassengersExcel';
 import type { ReservationPassenger, FlightSegment, ReservationChange } from '@/types/reservation';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useDebounce } from '@/hooks/useDebounce';
+import { SectionErrorBoundary } from '@/components/common/SectionErrorBoundary';
 
 type DateFilter = 'all' | 'upcoming' | 'past';
 type LinkFilter = 'all' | 'linked' | 'unlinked';
@@ -41,6 +43,7 @@ export default function Reservations() {
   const { data: reservations, isLoading } = useReservationsList();
   const deleteReservation = useDeleteReservation();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [airlineFilter, setAirlineFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [linkFilter, setLinkFilter] = useState<LinkFilter>('all');

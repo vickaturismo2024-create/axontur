@@ -166,7 +166,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
 
       // Fetch view counts
       const quoteIds = (quotesData || []).map((q: any) => q.id);
-      let viewCounts: Record<string, number> = {};
+      const viewCounts: Record<string, number> = {};
       if (quoteIds.length > 0) {
         const { data: viewsData } = await supabase
           .from('quote_views' as any)
