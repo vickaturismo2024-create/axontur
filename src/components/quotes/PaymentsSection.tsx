@@ -1,4 +1,4 @@
-﻿import { localDateStr } from '@/lib/utils';
+import { localDateStr } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,13 @@ import { Plus, Trash2, CreditCard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+
+/**
+ * NOTA DE ARQUITECTURA:
+ * Este componente gestiona los cobros/pagos registrados directamente a nivel PRESUPUESTO.
+ * Realiza consultas directas a Supabase (tabla `payments`) ya que es el único componente
+ * encargado de esta lógica específica y es independiente de los recibos de expedientes (`file_receipts`).
+ */
 
 interface Payment {
   id: string;

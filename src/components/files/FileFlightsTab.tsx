@@ -67,11 +67,16 @@ export function FileFlightsTab({ fileId }: Props) {
               <CardContent className="p-4 sm:p-5">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Badge variant="outline" className="font-mono">
                         {res.locator || 'SIN PNR'}
                       </Badge>
                       {res.gds && <Badge className="text-[10px]">{res.gds}</Badge>}
+                      {(res as any).has_changes && (
+                        <Badge variant="destructive" className="text-[10px] animate-pulse">
+                          Cambio de Vuelo
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Modificado {format(new Date(res.updated_at), 'd MMM HH:mm', { locale: es })}

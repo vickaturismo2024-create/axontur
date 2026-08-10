@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
 import { ArrowLeft, FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight, Plus, Trash2, FileUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { deleteFileWithCascade } from '@/lib/fileUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { ImportFilesExcelDialog } from '@/components/files/ImportFilesExcelDialog';
 import { ImportFilePDFDialog } from '@/components/files/ImportFilePDFDialog';
@@ -122,22 +123,7 @@ const Files = () => {
 
   const handleDeleteFile = async (fileId: string) => {
     try {
-      const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fileId);
-      if (receipts && receipts.length > 0) {
-        const receiptIds = receipts.map(r => r.id);
-        await supabase.from('file_receipt_items').delete().in('receipt_id', receiptIds);
-      }
-
-      await Promise.all([
-        supabase.from('file_services').delete().eq('file_id', fileId),
-        supabase.from('file_passengers').delete().eq('file_id', fileId),
-        supabase.from('file_receipts').delete().eq('file_id', fileId),
-        supabase.from('file_supplier_payments').delete().eq('file_id', fileId),
-      ]);
-
-      const { error } = await supabase.from('files').delete().eq('id', fileId);
-      if (error) throw error;
-
+      await deleteFileWithCascade(fileId);
       toast.success('Expediente eliminado');
       refetch();
     } catch (e) {

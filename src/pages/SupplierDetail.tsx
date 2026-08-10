@@ -41,6 +41,9 @@ import {
   Check,
   Wallet,
   FolderOpen,
+  ShieldCheck,
+  ShieldAlert,
+  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -117,6 +120,9 @@ interface SupplierBankAccount {
   holder_name: string | null;
   holder_tax_id: string | null;
   is_primary: boolean;
+  is_verified?: boolean;
+  verified_at?: string | null;
+  verified_by?: string | null;
 }
 
 interface MovementRow {
@@ -138,7 +144,7 @@ export default function SupplierDetail() {
   const goBack = useGoBack('/suppliers');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, agencyId } = useAuth();
+  const { user, agencyId, role } = useAuth();
   const qc = useQueryClient();
 
   const [editing, setEditing] = useState<Supplier | null>(null);
@@ -522,19 +528,76 @@ export default function SupplierDetail() {
     if (editingBank) {
       const { error } = await supabase.from('supplier_bank_accounts' as any).update(payload).eq('id', editingBank.id);
       if (error) { toast.error('Error al actualizar cuenta'); return; }
+      if (user) {
+        await supabase.from('supplier_bank_audits' as any).insert({
+          bank_account_id: editingBank.id,
+          supplier_id: id,
+          action: 'UPDATED',
+          changed_by: user.id,
+          old_data: editingBank,
+          new_data: payload,
+        });
+      }
       toast.success('Cuenta bancaria actualizada');
     } else {
-      const { error } = await supabase.from('supplier_bank_accounts' as any).insert(payload);
+      const { data: newBank, error } = await supabase.from('supplier_bank_accounts' as any).insert(payload).select('id').maybeSingle();
       if (error) { toast.error('Error al agregar cuenta'); return; }
+      if (user && newBank) {
+        await supabase.from('supplier_bank_audits' as any).insert({
+          bank_account_id: newBank.id,
+          supplier_id: id,
+          action: 'CREATED',
+          changed_by: user.id,
+          new_data: payload,
+        });
+      }
       toast.success('Cuenta bancaria agregada');
     }
     setBankDialogOpen(false);
     refetchBankAccounts();
   };
 
+  const toggleVerifyBank = async (b: SupplierBankAccount) => {
+    if (!user) return;
+    if (b.is_verified && role !== 'admin') {
+      toast.error('Solo un administrador puede desverificar una cuenta');
+      return;
+    }
+    const newVerified = !b.is_verified;
+    const payload = {
+      is_verified: newVerified,
+      verified_at: newVerified ? new Date().toISOString() : null,
+      verified_by: newVerified ? user.id : null,
+    };
+    const { error } = await supabase.from('supplier_bank_accounts' as any).update(payload).eq('id', b.id);
+    if (error) {
+      toast.error('Error al actualizar verificación');
+      return;
+    }
+    await supabase.from('supplier_bank_audits' as any).insert({
+      bank_account_id: b.id,
+      supplier_id: id,
+      action: newVerified ? 'VERIFIED' : 'UNVERIFIED',
+      changed_by: user.id,
+      old_data: { is_verified: b.is_verified },
+      new_data: { is_verified: newVerified },
+    });
+    toast.success(newVerified ? 'Cuenta bancaria VERIFICADA' : 'Verificación removida');
+    refetchBankAccounts();
+  };
+
   const deleteBank = async (bankId: string) => {
+    const bankToDelete = bankAccounts.find(b => b.id === bankId);
     const { error } = await supabase.from('supplier_bank_accounts' as any).delete().eq('id', bankId);
     if (error) { toast.error('Error al eliminar cuenta'); return; }
+    if (user && bankToDelete) {
+      await supabase.from('supplier_bank_audits' as any).insert({
+        supplier_id: id,
+        action: 'DELETED',
+        changed_by: user.id,
+        old_data: bankToDelete,
+      });
+    }
     toast.success('Cuenta bancaria eliminada');
     refetchBankAccounts();
   };
@@ -881,19 +944,43 @@ export default function SupplierDetail() {
                                 {b.currency}
                               </Badge>
                               {b.is_primary && <Badge className="text-[10px] py-0 bg-emerald-600">Principal</Badge>}
+                              {b.is_verified ? (
+                                <Badge className="text-[10px] py-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1">
+                                  <CheckCircle2 className="h-3 w-3" /> Verificada
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] py-0 border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/10 gap-1">
+                                  <ShieldAlert className="h-3 w-3" /> No Verificada
+                                </Badge>
+                              )}
                             </div>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditBank(b)}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => deleteBank(b.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                            <div className="flex items-center gap-1">
+                              {(role === 'admin' || !b.is_verified) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`h-7 text-xs gap-1 ${b.is_verified ? 'text-muted-foreground' : 'text-emerald-600 border-emerald-500/40'}`}
+                                  onClick={() => toggleVerifyBank(b)}
+                                >
+                                  <ShieldCheck className="h-3.5 w-3.5" />
+                                  {b.is_verified ? 'Desmarcar' : 'Verificar'}
+                                </Button>
+                              )}
+                              {(!b.is_verified || role === 'admin') && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditBank(b)}>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              {(!b.is_verified || role === 'admin') && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive"
+                                  onClick={() => deleteBank(b.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                             </div>
                           </div>
 
@@ -1243,7 +1330,11 @@ export default function SupplierDetail() {
                 </div>
                 <div>
                   <Label className="text-xs">Moneda</Label>
-                  <Select value={bankForm.currency} onValueChange={(v) => setBankForm((p) => ({ ...p, currency: v }))}>
+                  <Select 
+                    value={bankForm.currency} 
+                    onValueChange={(v) => setBankForm((p) => ({ ...p, currency: v }))}
+                    disabled={!!(editingBank?.is_verified && role !== 'admin')}
+                  >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -1256,14 +1347,20 @@ export default function SupplierDetail() {
                   </Select>
                 </div>
               </div>
-              <div>
+              <div className="space-y-1">
                 <Label className="text-xs">CBU / Alias / IBAN *</Label>
-                <Input
-                  placeholder="Ej: 0070123456... o ALIAS.EJEMPLO.ARG"
-                  value={bankForm.cbu_alias_iban}
-                  onChange={(e) => setBankForm((p) => ({ ...p, cbu_alias_iban: e.target.value }))}
-                  className="h-8 text-xs font-mono"
-                />
+                <div className="relative">
+                  <Input
+                    placeholder="Ej: 0070123456... o ALIAS.EJEMPLO.ARG"
+                    value={bankForm.cbu_alias_iban}
+                    onChange={(e) => setBankForm((p) => ({ ...p, cbu_alias_iban: e.target.value }))}
+                    className="h-8 text-xs font-mono"
+                    disabled={!!(editingBank?.is_verified && role !== 'admin')}
+                  />
+                  {editingBank?.is_verified && role !== 'admin' && (
+                    <ShieldCheck className="absolute right-2 top-2 h-4 w-4 text-emerald-500" />
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -1273,15 +1370,29 @@ export default function SupplierDetail() {
                     value={bankForm.holder_name}
                     onChange={(e) => setBankForm((p) => ({ ...p, holder_name: e.target.value }))}
                     className="h-8 text-xs"
+                    disabled={!!(editingBank?.is_verified && role !== 'admin')}
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">CUIT/Tax ID del Titular</Label>
+                  <Label className="text-xs">CUIT / Identificación Fiscal</Label>
                   <Input
-                    placeholder="Ej: 30-71234567-8"
+                    placeholder="20-12345678-9"
                     value={bankForm.holder_tax_id}
                     onChange={(e) => setBankForm((p) => ({ ...p, holder_tax_id: e.target.value }))}
                     className="h-8 text-xs font-mono"
+                    disabled={!!(editingBank?.is_verified && role !== 'admin')}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Número de Cuenta</Label>
+                  <Input
+                    placeholder="Ej: CC 12345/6"
+                    value={bankForm.account_number}
+                    onChange={(e) => setBankForm((p) => ({ ...p, account_number: e.target.value }))}
+                    className="h-8 text-xs font-mono"
+                    disabled={!!(editingBank?.is_verified && role !== 'admin')}
                   />
                 </div>
               </div>

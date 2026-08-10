@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight, Eye, User, Image, Plane, Building2, Car, Shield, DollarSign, Calendar, Anchor, Compass, Palette, StickyNote, Check, Loader2 } from 'lucide-react';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { PricingSection } from '@/components/quotes/PricingSection';
-import { useOccupancyPricingCalculator, applyOccupancyPricing } from '@/hooks/useOccupancyPricingCalculator';
+import { useOccupancyPricingCalculator, applyOccupancyPricing, type OccupancyPricingCalculation } from '@/hooks/useOccupancyPricingCalculator';
+import { usePricingCalculator, applyCalculatedPricing, type PricingCalculation } from '@/hooks/usePricingCalculator';
 import { useQuotes } from '@/contexts/QuotesContext';
 
 import { TemplateStep } from './steps/TemplateStep';
@@ -28,6 +29,23 @@ interface QuoteWizardProps {
   defaultTemplate?: Template | null;
   onSave: (quote: Quote) => void;
   onCancel: () => void;
+}
+
+function buildQuoteWithPricing(quote: Quote, occupancyCalculation: OccupancyPricingCalculation, standardCalculation: PricingCalculation): Quote {
+  if (quote.pricing.calculationMode !== 'automatic') {
+    return quote;
+  }
+
+  const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
+  const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
+  
+  if (quote.flights.length > 0 || hasOccupancies) {
+    const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
+    return { ...quote, pricing: { ...quote.pricing, ...pricingUpdates } };
+  } else {
+    const pricingUpdates = applyCalculatedPricing(quote.pricing, standardCalculation, quote.trip.travelers);
+    return { ...quote, pricing: { ...quote.pricing, ...pricingUpdates } };
+  }
 }
 
 const steps = [
@@ -110,6 +128,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   });
 
   const occupancyCalculation = useOccupancyPricingCalculator(quote);
+  const standardCalculation = usePricingCalculator(quote);
   const currentTemplate = templates.find(t => t.id === quote.templateId) || defaultTemplate || (templates[0] ?? null);
 
   const previewTemplate = useMemo(() => {
@@ -117,15 +136,9 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     return { ...currentTemplate, sectionsToggles: { ...currentTemplate.sectionsToggles, itinerary: itineraryVisible } };
   }, [currentTemplate, itineraryVisible]);
 
-  const previewQuote = useMemo(() => {
-    const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
-    const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
-    if (quote.flights.length > 0 || hasOccupancies) {
-      const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
-      return { ...quote, pricing: { ...quote.pricing, ...pricingUpdates } };
-    }
-    return quote;
-  }, [quote, occupancyCalculation]);
+  const calculatedQuote = useMemo(() => {
+    return buildQuoteWithPricing(quote, occupancyCalculation, standardCalculation);
+  }, [quote, occupancyCalculation, standardCalculation]);
 
   const updateQuote = (updates: Partial<Quote>) => {
     setQuote(prev => ({ ...prev, ...updates, updatedAt: new Date().toISOString() }));
@@ -141,13 +154,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     autoSaveTimerRef.current = setTimeout(async () => {
       setSaveStatus('saving');
       try {
-        const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
-        const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
-        let quoteToSave = quote;
-        if (quote.flights.length > 0 || hasOccupancies) {
-          const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
-          quoteToSave = { ...quote, pricing: { ...quote.pricing, ...pricingUpdates } };
-        }
+        const quoteToSave = buildQuoteWithPricing(quote, occupancyCalculation, standardCalculation);
         await autoSaveQuote(quoteToSave);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
@@ -159,14 +166,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
   }, [quote, autoSaveQuote]);
 
   const handleSave = () => {
-    const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
-    const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
-    if (quote.flights.length > 0 || hasOccupancies) {
-      const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
-      onSave({ ...quote, pricing: { ...quote.pricing, ...pricingUpdates } });
-    } else {
-      onSave(quote);
-    }
+    onSave(buildQuoteWithPricing(quote, occupancyCalculation, standardCalculation));
   };
 
   const goNext = () => { if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1); };
@@ -174,17 +174,17 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0: return <TemplateStep quote={quote} templates={templates} onUpdate={updateQuote} />;
-      case 1: return <GeneralStep quote={quote} onUpdate={updateQuote} />;
-      case 2: return <CoverStep quote={quote} templates={templates} onUpdate={updateQuote} />;
-      case 3: return <FlightsStep quote={quote} onUpdate={updateQuote} />;
-      case 4: return <LodgingStep quote={quote} onUpdate={updateQuote} />;
-      case 5: return <TransportStep quote={quote} onUpdate={updateQuote} />;
-      case 6: return <CruiseStep quote={quote} onUpdate={updateQuote} />;
-      case 7: return <ActivitiesStep quote={quote} onUpdate={updateQuote} />;
-      case 8: return <InsuranceStep quote={quote} onUpdate={updateQuote} />;
-      case 9: return <PricingSection quote={quote} onUpdatePricing={(pricingUpdates) => updateQuote({ pricing: { ...quote.pricing, ...pricingUpdates } })} />;
-      case 10: return <ItineraryStep quote={quote} onUpdate={updateQuote} itineraryVisible={itineraryVisible} onItineraryVisibleChange={setItineraryVisible} />;
+      case 0: return <TemplateStep quote={calculatedQuote} templates={templates} onUpdate={updateQuote} />;
+      case 1: return <GeneralStep quote={calculatedQuote} onUpdate={updateQuote} />;
+      case 2: return <CoverStep quote={calculatedQuote} templates={templates} onUpdate={updateQuote} />;
+      case 3: return <FlightsStep quote={calculatedQuote} onUpdate={updateQuote} />;
+      case 4: return <LodgingStep quote={calculatedQuote} onUpdate={updateQuote} />;
+      case 5: return <TransportStep quote={calculatedQuote} onUpdate={updateQuote} />;
+      case 6: return <CruiseStep quote={calculatedQuote} onUpdate={updateQuote} />;
+      case 7: return <ActivitiesStep quote={calculatedQuote} onUpdate={updateQuote} />;
+      case 8: return <InsuranceStep quote={calculatedQuote} onUpdate={updateQuote} />;
+      case 9: return <PricingSection quote={calculatedQuote} onUpdatePricing={(pricingUpdates) => updateQuote({ pricing: { ...calculatedQuote.pricing, ...pricingUpdates } })} />;
+      case 10: return <ItineraryStep quote={calculatedQuote} onUpdate={updateQuote} itineraryVisible={itineraryVisible} onItineraryVisibleChange={setItineraryVisible} />;
       case 11: return (
         <div className="space-y-4">
           <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
@@ -212,7 +212,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-2 sm:p-4">
             {previewTemplate ? (
-              <PDFPreview quote={previewQuote} template={previewTemplate} />
+              <PDFPreview quote={calculatedQuote} template={previewTemplate} />
             ) : (
               <div className="text-center text-muted-foreground"><p>No hay plantilla seleccionada</p></div>
             )}

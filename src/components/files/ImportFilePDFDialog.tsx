@@ -1,4 +1,4 @@
-﻿import { localDateStr } from '@/lib/utils';
+import { localDateStr } from '@/lib/utils';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -28,8 +28,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { extractTextWithPositionsFromPDF, type PdfTextItem } from '@/lib/pdfTextExtractor';
+import { validateImportedReservation, type ImportWarning } from '@/lib/importValidators';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -444,6 +446,9 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
   const [progress, setProgress] = useState('');
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [matchedClientId, setMatchedClientId] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<ImportWarning[]>([]);
+  const [confirmedWarnings, setConfirmedWarnings] = useState(false);
+  const [rawText, setRawText] = useState('');
 
   const reset = () => {
     setReservation(null);
@@ -451,6 +456,9 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
     setProgress('');
     setIsDuplicate(false);
     setMatchedClientId(null);
+    setWarnings([]);
+    setConfirmedWarnings(false);
+    setRawText('');
   };
 
   const handleClose = (v: boolean) => {
@@ -572,6 +580,12 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
       }
 
       setReservation(parsedData);
+      setRawText(text);
+      if (parsedData) {
+        const detectedWarnings = validateImportedReservation(parsedData);
+        setWarnings(detectedWarnings);
+        setConfirmedWarnings(detectedWarnings.length === 0);
+      }
 
       // Check duplicates and client linkage
       if (user && parsedData.legacyId) {
@@ -630,6 +644,24 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
     setImporting(true);
     
     try {
+      let uploadedFileUrl: string | null = null;
+      if (pdfFile) {
+        try {
+          const fileExt = pdfFile.name.split('.').pop();
+          const filePath = `${user.id}/${Date.now()}_${pdfFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from('import_documents')
+            .upload(filePath, pdfFile);
+
+          if (!uploadErr && uploadData) {
+            const { data: pubUrlData } = supabase.storage.from('import_documents').getPublicUrl(uploadData.path);
+            uploadedFileUrl = pubUrlData?.publicUrl || null;
+          }
+        } catch (stgErr) {
+          console.warn('[Storage] No se pudo subir el PDF original:', stgErr);
+        }
+      }
+
       let clientId = matchedClientId;
 
       // 1. Create client if doesn't exist and not linked
@@ -845,6 +877,28 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
         if (payErr) throw payErr;
       }
 
+      // 8. Trazabilidad: Insertar registro en file_imports_log
+      try {
+        const { data: member } = await supabase
+          .from('agency_members')
+          .select('agency_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        await supabase.from('file_imports_log').insert({
+          agency_id: member?.agency_id || null,
+          file_id: fileId,
+          source_filename: pdfFile?.name || 'documento.pdf',
+          source_file_url: uploadedFileUrl,
+          raw_text: rawText,
+          parsed_json: reservation as any,
+          warnings_ignored: warnings as any,
+          created_by: user.id
+        });
+      } catch (logErr) {
+        console.warn('[Log] No se pudo registrar la trazabilidad:', logErr);
+      }
+
       toast.success(existing ? 'Expediente actualizado con éxito' : 'Expediente importado con éxito');
       qc.invalidateQueries({ queryKey: ['files'] });
       handleClose(false);
@@ -907,7 +961,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
 
         {reservation && (
           <>
-            {/* Alerts */}
+            {/* Alerts & Safety Warnings */}
             <div className="flex flex-col gap-2 mt-4">
               {isDuplicate && (
                 <div className="flex items-start gap-2.5 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-yellow-600 text-sm">
@@ -929,6 +983,36 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
                   <Users className="h-5 w-5 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold">Nuevo Cliente</span>: No se encontró un cliente en el CRM con el nombre <span className="font-bold">"{reservation.clientName}"</span>. Se creará un nuevo registro de cliente automáticamente para vincular la cuenta corriente.
+                  </div>
+                </div>
+              )}
+
+              {/* Detector de Incongruencias / Advertencias de Seguridad */}
+              {warnings.length > 0 && (
+                <div className="p-3.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-sm space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>Advertencias de Seguridad Detectadas ({warnings.length})</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-xs opacity-90 pl-1">
+                    {warnings.map(w => (
+                      <li key={w.id}>
+                        <span className="font-semibold uppercase text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-300 mr-1">
+                          {w.severity}
+                        </span> 
+                        {w.message}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center gap-2 pt-2 border-t border-amber-500/30">
+                    <Checkbox
+                      id="confirm-warnings-chk"
+                      checked={confirmedWarnings}
+                      onCheckedChange={(c) => setConfirmedWarnings(!!c)}
+                    />
+                    <label htmlFor="confirm-warnings-chk" className="text-xs font-semibold cursor-pointer select-none text-amber-900 dark:text-amber-100">
+                      He revisado estas advertencias y confirmo que los datos son correctos.
+                    </label>
                   </div>
                 </div>
               )}
@@ -1178,7 +1262,7 @@ export function ImportFilePDFDialog({ open, onOpenChange }: Props) {
               <Button variant="outline" onClick={() => reset()} disabled={importing}>
                 Cambiar archivo
               </Button>
-              <Button onClick={handleImport} disabled={importing} className="gap-1">
+              <Button onClick={handleImport} disabled={importing || (warnings.length > 0 && !confirmedWarnings)} className="gap-1">
                 {importing ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" /> Guardando...

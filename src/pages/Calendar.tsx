@@ -90,10 +90,9 @@ const Calendar = () => {
       if (!user) return [] as CalendarFlight[];
       const { data, error } = await supabase
         .from('flight_segments')
-        .select('id, reservation_id, airline_code, flight_number, origin_iata, destination_iata, dep_datetime_local, has_changes, reservations!inner(user_id)')
+        .select('id, reservation_id, airline_code, flight_number, origin_iata, destination_iata, dep_datetime_local, has_changes')
         .gte('dep_datetime_local', monthStart.toISOString())
         .lte('dep_datetime_local', monthEnd.toISOString())
-        .eq('reservations.user_id', user.id)
         .order('dep_datetime_local');
       if (error) {
         console.error(error);

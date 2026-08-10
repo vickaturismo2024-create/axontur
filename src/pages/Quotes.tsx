@@ -74,6 +74,21 @@ const Quotes = () => {
 
   useEffect(() => { fetchTags(); }, [fetchTags]);
 
+  const [linkedFilesMap, setLinkedFilesMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!user || quotes.length === 0) return;
+    const quoteIds = quotes.map(q => q.id);
+    supabase.from('files').select('id, quote_id').in('quote_id', quoteIds)
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, string> = {};
+          (data as any[]).forEach(f => { if (f.quote_id) map[f.quote_id] = f.id; });
+          setLinkedFilesMap(map);
+        }
+      });
+  }, [user, quotes]);
+
   const filteredQuotes = useMemo(() => {
     let result = quotes;
     if (viewFilter === 'archived') result = result.filter(q => q.archived);
@@ -325,6 +340,7 @@ const Quotes = () => {
                   assignedTags={tagAssignments[quote.id] || []}
                   allTags={allTags}
                   onTagsChanged={fetchTags}
+                  existingFileId={linkedFilesMap[quote.id] || null}
                 />
               ))}
             </div>

@@ -608,11 +608,14 @@ export function useFileReservations(fileId: string | undefined) {
       if (!fileId || !user) return [];
       const { data, error } = await supabase
         .from('reservations')
-        .select('*')
+        .select('*, flight_segments(has_changes)')
         .eq('file_id', fileId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as unknown as Reservation[];
+      return (data || []).map((res: any) => ({
+        ...res,
+        has_changes: res.flight_segments?.some((seg: any) => seg.has_changes) || false,
+      })) as unknown as (Reservation & { has_changes?: boolean })[];
     },
     enabled: !!fileId && !!user,
   });

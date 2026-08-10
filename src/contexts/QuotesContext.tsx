@@ -223,6 +223,7 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
         .from('quotes')
         .upsert([dbQuote] as any);
       if (error) throw error;
+      // Deduplicated state update: update in-place if exists, prepend only if new
       setQuotes((prev) => {
         const exists = prev.some(q => q.id === quote.id);
         if (exists) return prev.map(q => q.id === quote.id ? validatedQuote as Quote : q);
@@ -238,18 +239,11 @@ export function QuotesProvider({ children }: { children: ReactNode }) {
       toast.error('Debés iniciar sesión para crear presupuestos');
       return;
     }
-
     try {
-      // Validate input before database operation
-      const validatedQuote = validateQuote(quote);
-      const dbQuote = quoteToDb(validatedQuote as Quote, user.id);
-      const { error } = await supabase
-        .from('quotes')
-        .upsert([dbQuote] as any);
-
-      if (error) throw error;
-
-      setQuotes((prev) => [validatedQuote as Quote, ...prev]);
+      // Delegate to autoSaveQuote to avoid duplicating upsert + setState logic.
+      // autoSaveQuote already handles both insert (new) and update (existing) cases
+      // with a single source of truth, preventing visual duplication in the list.
+      await autoSaveQuote(quote);
       toast.success('Presupuesto creado');
     } catch (error) {
       logError('addQuote', error);

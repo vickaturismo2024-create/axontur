@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { AdminOnly } from '@/components/auth/AdminOnly';
 import { formatDateSafe } from '@/lib/utils';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { useGoBack } from '@/hooks/useGoBack';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -14,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ArrowLeft, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText, Mail, Send, Plane } from 'lucide-react';
 import { syncQuoteFlightsToReservation } from '@/lib/quoteFlightsToReservation';
+import { deleteFileWithCascade } from '@/lib/fileUtils';
 import type { Quote } from '@/types/quote';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -71,6 +74,8 @@ const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'o
 
 const FileDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const goBack = useGoBack('/files');
   const { user } = useAuth();
   const [file, setFile] = useState<FileRecord | null>(null);
@@ -264,25 +269,9 @@ const FileDetail = () => {
     if (!file) return;
     setDeleting(true);
     try {
-      const fileId = file.id;
-
-      const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fileId);
-      if (receipts && receipts.length > 0) {
-        const receiptIds = receipts.map(r => r.id);
-        await supabase.from('file_receipt_items').delete().in('receipt_id', receiptIds);
-      }
-
-      await Promise.all([
-        supabase.from('file_services').delete().eq('file_id', fileId),
-        supabase.from('file_passengers').delete().eq('file_id', fileId),
-        supabase.from('file_receipts').delete().eq('file_id', fileId),
-        supabase.from('file_supplier_payments').delete().eq('file_id', fileId),
-      ]);
-
-      const { error } = await supabase.from('files').delete().eq('id', fileId);
-      if (error) throw error;
-
+      await deleteFileWithCascade(file.id);
       toast.success('Expediente eliminado');
+      queryClient.invalidateQueries({ queryKey: queryKeys.files.all(user?.id) });
       navigate('/files');
     } catch (e) {
       console.error(e);

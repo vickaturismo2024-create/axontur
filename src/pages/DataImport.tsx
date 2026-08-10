@@ -26,6 +26,7 @@ import { parseFileOperators, enrichFileOperators, insertFileOperators, type File
 import { insertFiles } from '@/lib/import/importFiles';
 import { parseReservationsExcel } from '@/lib/reservationExcelParser';
 import { supabase } from '@/integrations/supabase/client';
+import { deleteFileWithCascade } from '@/lib/fileUtils';
 import { ImportFilePDFDialog } from '@/components/files/ImportFilePDFDialog';
 import { useGoBack } from '@/hooks/useGoBack';
 
@@ -81,22 +82,13 @@ export default function DataImport() {
     setDeleting(true);
     try {
       if (target === 'files') {
-        // Delete dependents first
+        // Delete dependents first via centralized cascade utility
         const { data: files } = await supabase.from('files').select('id');
         const fileIds = (files || []).map(f => f.id);
         if (fileIds.length > 0) {
           for (const fid of fileIds) {
-            // Delete receipt items via receipts
-            const { data: receipts } = await supabase.from('file_receipts').select('id').eq('file_id', fid);
-            const rcptIds = (receipts || []).map(r => r.id);
-            if (rcptIds.length) await supabase.from('file_receipt_items').delete().in('receipt_id', rcptIds);
-            await supabase.from('file_receipts').delete().eq('file_id', fid);
-            await supabase.from('file_supplier_payments').delete().eq('file_id', fid);
-            await supabase.from('account_movements').delete().eq('file_id', fid);
-            await supabase.from('file_services').delete().eq('file_id', fid);
-            await supabase.from('file_passengers').delete().eq('file_id', fid);
+            await deleteFileWithCascade(fid);
           }
-          await supabase.from('files').delete().in('id', fileIds);
         }
         toast.success(`${fileIds.length} expedientes eliminados`);
       } else if (target === 'clients') {

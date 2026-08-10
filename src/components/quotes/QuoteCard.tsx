@@ -42,6 +42,7 @@ interface QuoteCardProps {
   assignedTags?: QuoteTag[];
   allTags?: QuoteTag[];
   onTagsChanged?: () => void;
+  existingFileId?: string | null;
 }
 
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> = {
@@ -52,18 +53,20 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; className: string }> =
   cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
-export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange, onToggleArchive, onToggleFavorite, onDuplicateForClient, compareMode, isSelectedForCompare, onToggleCompare, assignedTags, allTags, onTagsChanged }: QuoteCardProps) {
+export function QuoteCard({ quote, onEdit, onDuplicate, onDelete, onPreview, onExport, onStatusChange, onToggleArchive, onToggleFavorite, onDuplicateForClient, compareMode, isSelectedForCompare, onToggleCompare, assignedTags, allTags, onTagsChanged, existingFileId: propFileId }: QuoteCardProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [creatingFile, setCreatingFile] = useState(false);
-  const [existingFileId, setExistingFileId] = useState<string | null>(null);
+  const [localFileId, setLocalFileId] = useState<string | null>(null);
+
+  const existingFileId = propFileId !== undefined ? propFileId : localFileId;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || propFileId !== undefined) return;
     supabase.from('files').select('id').eq('quote_id', quote.id).maybeSingle()
-      .then(({ data }) => { if (data) setExistingFileId(data.id); });
-  }, [quote.id, user]);
+      .then(({ data }) => { if (data) setLocalFileId(data.id); });
+  }, [quote.id, user, propFileId]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
