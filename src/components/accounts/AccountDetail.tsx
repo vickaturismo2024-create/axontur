@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Receipt, ExternalLink, Filter, FileSpreadsheet, FileDown, FileText } from 'lucide-react';
+import { Plus, Trash2, ArrowUpRight, ArrowDownRight, Receipt, ExternalLink, Filter, FileSpreadsheet, FileDown, FileText, Link2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { toast } from 'sonner';
 import { NewMovementDialog } from './NewMovementDialog';
+import { AllocationManager } from './AllocationManager';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   exportStatementExcel,
@@ -53,6 +54,7 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [allocOpen, setAllocOpen] = useState(false);
 
   // Filtros
   const [dateFrom, setDateFrom] = useState('');
@@ -216,11 +218,16 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
           <DialogHeader className="pr-10 sm:pr-0">
             <DialogTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <span className="truncate text-base sm:text-lg">{accountName} — Cuenta Corriente</span>
-              {canCreateMovements && (
-                <Button size="sm" className="h-8 text-xs w-full sm:w-auto mt-1 sm:mt-0 shrink-0 bg-primary text-primary-foreground hover:bg-primary/95" onClick={() => setAddOpen(true)}>
-                  <Plus className="mr-1 h-3.5 w-3.5" /> Movimiento
+              <div className="flex gap-2 w-full sm:w-auto mt-1 sm:mt-0">
+                <Button size="sm" variant="outline" className="h-8 text-xs flex-1 sm:flex-none" onClick={() => setAllocOpen(true)}>
+                  <Link2 className="mr-1 h-3.5 w-3.5" /> Aplicaciones
                 </Button>
-              )}
+                {canCreateMovements && (
+                  <Button size="sm" className="h-8 text-xs flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/95" onClick={() => setAddOpen(true)}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Movimiento
+                  </Button>
+                )}
+              </div>
             </DialogTitle>
           </DialogHeader>
 
@@ -417,6 +424,14 @@ export function AccountDetail({ accountId, accountName, accountType, open, onClo
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AllocationManager
+        accountId={accountId}
+        accountType={accountType}
+        accountName={accountName}
+        open={allocOpen}
+        onClose={() => setAllocOpen(false)}
+      />
     </>
   );
 }

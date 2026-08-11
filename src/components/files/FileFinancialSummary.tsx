@@ -51,26 +51,31 @@ export function FileFinancialSummary({ fileId }: Props) {
       // Receipt items (collected from client) — excluye anulados y borradores
       const { data: receipts } = await supabase
         .from('file_receipts')
-        .select('id, status')
+        .select('id, status, receipt_type')
         .eq('file_id', fileId);
-      const validReceiptIds = (receipts || [])
-        .filter((r: any) => r.status === 'issued' || r.status === 'paid' || !r.status)
-        .map((r: any) => r.id);
+      const validReceipts = (receipts || [])
+        .filter((r: any) => r.status === 'issued' || r.status === 'paid' || !r.status);
+      const validReceiptIds = validReceipts.map((r: any) => r.id);
+      // Build a map of receipt_id -> is refund
+      const refundSet = new Set(
+        validReceipts.filter((r: any) => r.receipt_type === 'refund').map((r: any) => r.id)
+      );
       if (validReceiptIds.length > 0) {
         const { data: items } = await supabase
           .from('file_receipt_items')
-          .select('amount, currency, service_currency, exchange_rate')
+          .select('receipt_id, amount, currency, service_currency, exchange_rate')
           .in('receipt_id', validReceiptIds);
         if (items) {
           items.forEach((i: any) => {
             const amt = Number(i.amount) || 0;
             const rate = Number(i.exchange_rate) || 0;
+            const sign = refundSet.has(i.receipt_id) ? -1 : 1;
             if (i.service_currency && rate > 0) {
               const d = ensure(i.service_currency);
-              d.collected += amt / rate;
+              d.collected += sign * (amt / rate);
             } else {
               const d = ensure(i.currency || 'USD');
-              d.collected += amt;
+              d.collected += sign * amt;
             }
           });
         }

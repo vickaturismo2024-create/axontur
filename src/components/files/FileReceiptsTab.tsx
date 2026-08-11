@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus } from 'lucide-react';
+import { Plus, Undo2 } from 'lucide-react';
 import { localDateStr } from '@/lib/utils';
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import { NewReceiptDialog } from './receipts/NewReceiptDialog';
 import { ReceiptDetailDialog } from './receipts/ReceiptDetailDialog';
 import { EmailReceiptDialog } from './receipts/EmailReceiptDialog';
 import { TransferBalanceDialog } from './TransferBalanceDialog';
+import { RefundDialog } from './receipts/RefundDialog';
 
 interface Props {
   fileId: string;
@@ -63,6 +64,10 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   // Transfer states
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferCurrency, setTransferCurrency] = useState('');
+
+  // Refund states
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [collectedByCurrency, setCollectedByCurrency] = useState<Record<string, number>>({});
   const [transferMaxAmount, setTransferMaxAmount] = useState(0);
 
   const loadFileDebts = async () => {
@@ -73,11 +78,12 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     
     const { data: recs } = await supabase
       .from('file_receipts')
-      .select('amount, currency, status')
+      .select('amount, currency, status, receipt_type')
       .eq('file_id', fileId);
 
     const prices: Record<string, number> = {};
     const charges: Record<string, number> = {};
+    const refunds: Record<string, number> = {};
 
     if (svcs) {
       svcs.filter(s => s.status !== 'cancelled').forEach(s => {
@@ -87,22 +93,34 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     if (recs) {
       recs.filter(r => r.status !== 'cancelled').forEach(r => {
-        charges[r.currency] = (charges[r.currency] || 0) + (r.amount || 0);
+        const isRefund = (r as any).receipt_type === 'refund';
+        if (isRefund) {
+          refunds[r.currency] = (refunds[r.currency] || 0) + (r.amount || 0);
+        } else {
+          charges[r.currency] = (charges[r.currency] || 0) + (r.amount || 0);
+        }
       });
     }
 
     const debts: Record<string, number> = {};
-    const allCurrencies = new Set([...Object.keys(prices), ...Object.keys(charges)]);
+    const collected: Record<string, number> = {};
+    const allCurrencies = new Set([...Object.keys(prices), ...Object.keys(charges), ...Object.keys(refunds)]);
     allCurrencies.forEach(cur => {
       const price = prices[cur] || 0;
       const charge = charges[cur] || 0;
-      const pending = price - charge;
+      const refund = refunds[cur] || 0;
+      const netCollected = charge - refund;
+      const pending = price - netCollected;
       if (pending !== 0) {
         debts[cur] = pending;
+      }
+      if (netCollected > 0) {
+        collected[cur] = netCollected;
       }
     });
 
     setFileDebts(debts);
+    setCollectedByCurrency(collected);
   };
 
   const load = async () => {
@@ -158,9 +176,96 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     }
   }, [fileId, clientName]);
 
+  const handleSaveRefund = async (form: any, items: ReceiptItem[], totalAmount: number) => {
+    if (!user) return;
+    if (items.every((it) => Number(it.amount) === 0)) {
+      toast.error('Al menos una línea debe tener un monto distinto de cero');
+      return;
+    }
+    if (!form.concept.trim()) {
+      toast.error('Ingresá un concepto');
+      return;
+    }
+
+    const mainCurrency = items[0].currency;
+    const mainMethod = items[0].payment_method;
+
+    const { data: nextNum } = await supabase.rpc('next_receipt_number' as any, { p_user_id: user.id });
+    const receiptNumber = (nextNum as number) || 1;
+
+    const { data: receiptData, error } = await supabase
+      .from('file_receipts')
+      .insert({
+        file_id: fileId,
+        user_id: user.id,
+        receipt_number: receiptNumber,
+        client_name: form.client_name,
+        amount: totalAmount,
+        currency: mainCurrency,
+        payment_method: mainMethod,
+        payment_date: form.payment_date,
+        concept: form.concept,
+        notes: form.notes,
+        status: 'issued',
+        receipt_type: 'refund',
+      } as any)
+      .select()
+      .single();
+
+    if (error || !receiptData) {
+      toast.error('Error al crear devolución');
+      return;
+    }
+
+    const receiptId = (receiptData as any).id;
+    const itemsToInsert = items
+      .filter((it) => Number(it.amount) !== 0)
+      .map((it) => ({
+        receipt_id: receiptId,
+        user_id: user.id,
+        amount: Number(it.amount),
+        currency: it.currency,
+        payment_method: it.payment_method,
+        exchange_rate: it.exchange_rate,
+        service_currency: it.service_currency,
+        notes: it.notes,
+      }));
+
+    if (itemsToInsert.length > 0) {
+      await supabase.from('file_receipt_items').insert(itemsToInsert as any);
+    }
+
+    // Movimiento contable inverso: debit en lugar de credit
+    if (clientId) {
+      const movements = items
+        .filter((i) => Number(i.amount) !== 0)
+        .map((it) => ({
+          user_id: user.id,
+          account_type: 'client',
+          account_id: clientId,
+          file_id: fileId,
+          receipt_id: receiptId,
+          movement_type: 'debit',
+          amount: Number(it.amount),
+          currency: it.currency,
+          concept: `Devolución DEV-${String(receiptNumber).padStart(4, '0')}: ${form.concept}`,
+          reference: `DEV-${String(receiptNumber).padStart(4, '0')}`,
+          movement_date: form.payment_date,
+        }));
+      if (movements.length > 0) {
+        await supabase.from('account_movements').insert(movements as any);
+      }
+    }
+
+    toast.success(`Devolución DEV-${String(receiptNumber).padStart(4, '0')} generada`);
+    setRefundDialogOpen(false);
+    load();
+    loadFileDebts();
+  };
+
   const handleSaveReceipt = async (form: any, items: ReceiptItem[], totalAmount: number) => {
     if (!user) return;
-    if (items.every((it) => it.amount === 0)) {
+    if (items.every((it) => Number(it.amount) === 0)) {
       toast.error('Al menos una línea debe tener un monto distinto de cero');
       return;
     }
@@ -200,11 +305,11 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     const receiptId = (receiptData as any).id;
     const itemsToInsert = items
-      .filter((it) => it.amount !== 0)
+      .filter((it) => Number(it.amount) !== 0)
       .map((it) => ({
         receipt_id: receiptId,
         user_id: user.id,
-        amount: it.amount,
+        amount: Number(it.amount),
         currency: it.currency,
         payment_method: it.payment_method,
         exchange_rate: it.exchange_rate,
@@ -246,7 +351,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     if (clientId) {
       const movements = items
-        .filter((i) => i.amount !== 0)
+        .filter((i) => Number(i.amount) !== 0)
         .map((it) => ({
           user_id: user.id,
           account_type: 'client',
@@ -254,7 +359,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
           file_id: fileId,
           receipt_id: receiptId,
           movement_type: 'credit',
-          amount: it.amount,
+          amount: Number(it.amount),
           currency: it.currency,
           concept: `Recibo REC-${String(receiptNumber).padStart(4, '0')}: ${form.concept}`,
           reference: `REC-${String(receiptNumber).padStart(4, '0')}`,
@@ -555,6 +660,9 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
               Transferir Saldo ({cur} {Math.abs(pend)})
             </Button>
           ))}
+          <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setRefundDialogOpen(true)}>
+            <Undo2 className="mr-2 h-4 w-4" />Devolución
+          </Button>
           <Button size="sm" onClick={() => setDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />Nuevo recibo
           </Button>
@@ -591,6 +699,16 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         defaultCurrency={currency}
         passengers={passengers}
         fileDebts={fileDebts}
+      />
+
+      <RefundDialog
+        open={refundDialogOpen}
+        onOpenChange={setRefundDialogOpen}
+        onSave={handleSaveRefund}
+        defaultClientName={clientName}
+        defaultCurrency={currency}
+        passengers={passengers}
+        collectedByCurrency={collectedByCurrency}
       />
 
       <ReceiptDetailDialog

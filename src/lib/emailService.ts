@@ -110,6 +110,10 @@ async function logEmail(opts: {
   fileId?: string | null;
   receiptId?: string | null;
   reservationId?: string | null;
+  agencyId?: string | null;
+  htmlBody?: string;
+  cc?: string[];
+  bcc?: string[];
 }) {
   try {
     await supabase.from('email_logs').insert({
@@ -123,6 +127,23 @@ async function logEmail(opts: {
       receipt_id: opts.receiptId ?? null,
       reservation_id: opts.reservationId ?? null,
     });
+
+    if (opts.fileId && opts.agencyId) {
+      await supabase.from('file_communications' as any).insert({
+        agency_id: opts.agencyId,
+        file_id: opts.fileId,
+        direction: 'outbound',
+        from_address: 'agencia',
+        to_addresses: [opts.to],
+        cc_addresses: opts.cc || [],
+        bcc_addresses: opts.bcc || [],
+        subject: opts.subject,
+        html_body: opts.htmlBody || '',
+        status: opts.status === 'sent' ? 'sent' : 'failed',
+        error_message: opts.errorMessage ?? null,
+        created_by: opts.userId,
+      });
+    }
   } catch (e) {
     console.error('Failed to log email', e);
   }
@@ -298,5 +319,43 @@ export async function sendSupplierVoucher(
     errorMessage: result.error,
     fileId: opts.fileId,
   });
+  return result;
+}
+
+export async function sendCustomCommunication(opts: {
+  userId: string;
+  agencyId: string;
+  fileId: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  bodyHtml: string;
+}): Promise<SendResult> {
+  const cfg = await getProfileEmailConfig(opts.userId);
+  
+  const result = await sendViaEdgeFunction({
+    to: opts.to[0], // primary recipient
+    subject: opts.subject,
+    html: opts.bodyHtml,
+    templateType: 'custom',
+    idempotencyKey: `comm-${opts.fileId}-${Date.now()}`,
+    replyTo: cfg.replyTo,
+  });
+
+  await logEmail({
+    userId: opts.userId,
+    agencyId: opts.agencyId,
+    fileId: opts.fileId,
+    to: opts.to.join(', '),
+    cc: opts.cc,
+    bcc: opts.bcc,
+    subject: opts.subject,
+    htmlBody: opts.bodyHtml,
+    templateType: 'custom',
+    status: result.success ? 'sent' : 'failed',
+    errorMessage: result.error,
+  });
+
   return result;
 }

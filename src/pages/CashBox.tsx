@@ -78,7 +78,7 @@ async function fetchCajaData(dateFrom?: string, dateTo?: string) {
   // 2. Fetch receipts to check status and get client details
   let receiptsQuery = supabase
     .from('file_receipts')
-    .select('id, status, client_name, concept, payment_date, file_id');
+    .select('id, status, client_name, concept, payment_date, file_id, receipt_type');
   if (dateFrom) receiptsQuery = receiptsQuery.gte('payment_date', dateFrom);
   if (dateTo) receiptsQuery = receiptsQuery.lte('payment_date', dateTo);
   const { data: receipts, error: receiptsError } = await receiptsQuery;
@@ -125,11 +125,12 @@ async function fetchCajaData(dateFrom?: string, dateTo?: string) {
   (receiptItems || []).forEach((item: any) => {
     const parent = receiptMap.get(item.receipt_id);
     if (parent && parent.status !== 'cancelled') {
+      const isRefund = parent.receipt_type === 'refund';
       ledger.push({
         id: item.id,
-        type: 'ingreso',
+        type: isRefund ? 'egreso' : 'ingreso',
         date: parent.payment_date || item.created_at.split('T')[0],
-        concept: parent.file_id ? `Cobro: ${parent.client_name} - ${parent.concept}` : parent.concept || 'Cobro Extra',
+        concept: parent.file_id ? `${isRefund ? 'Devolución' : 'Cobro'}: ${parent.client_name} - ${parent.concept}` : parent.concept || (isRefund ? 'Devolución Extra' : 'Cobro Extra'),
         notes: item.notes || '',
         currency: item.currency || 'USD',
         amount: Number(item.amount) || 0,

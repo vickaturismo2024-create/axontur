@@ -1,4 +1,4 @@
-﻿import { localDateStr } from '@/lib/utils';
+import { localDateStr } from '@/lib/utils';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -113,15 +113,16 @@ export function OperationalAlertsWidget({ defaultOpen, raw }: { defaultOpen?: bo
       sevenAgo.setDate(sevenAgo.getDate() - 7);
       const { data: receipts } = await supabase
         .from('file_receipts')
-        .select('id, receipt_number, client_name, file_id, created_at, status')
+        .select('id, receipt_number, client_name, file_id, created_at, status, receipt_type')
         .eq('status', 'draft')
         .lt('created_at', sevenAgo.toISOString());
       (receipts || []).forEach((r: any) => {
+        const isRefund = r.receipt_type === 'refund';
         items.push({
           id: `rec-${r.id}`,
           kind: 'receipt_draft',
-          label: 'Recibo en borrador hace +7d',
-          detail: `REC-${String(r.receipt_number).padStart(4, '0')} · ${r.client_name}`,
+          label: isRefund ? 'Devolución en borrador hace +7d' : 'Recibo en borrador hace +7d',
+          detail: `${isRefund ? 'DEV' : 'REC'}-${String(r.receipt_number).padStart(4, '0')} · ${r.client_name}`,
           severity: 'warning',
           href: `/files/${r.file_id}`,
         });

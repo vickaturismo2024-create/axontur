@@ -34,6 +34,7 @@ export function ReceiptCard({
 }: ReceiptCardProps) {
   const status = r.status || 'issued';
   const isCancelled = status === 'cancelled';
+  const isRefund = r.receipt_type === 'refund';
 
   return (
     <Card className={isCancelled ? 'opacity-60' : ''}>
@@ -45,11 +46,16 @@ export function ReceiptCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`font-mono text-sm font-bold ${isCancelled ? 'line-through' : ''}`}>
-                REC-{String(r.receipt_number).padStart(4, '0')}
+                {isRefund ? 'DEV' : 'REC'}-{String(r.receipt_number).padStart(4, '0')}
               </span>
               <Badge variant={STATUS_VARIANT[status]} className="text-[10px] px-1.5 py-0">
                 {STATUS_LABELS[status]}
               </Badge>
+              {isRefund && (
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                  DEVOLUCIÓN
+                </Badge>
+              )}
               <span className="text-xs text-muted-foreground">{new Date(r.payment_date).toLocaleDateString('es-AR')}</span>
             </div>
             <p className={`truncate text-sm ${isCancelled ? 'line-through text-muted-foreground' : ''}`}>{r.concept}</p>
@@ -60,8 +66,8 @@ export function ReceiptCard({
         </div>
         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 border-t sm:border-0 pt-2 sm:pt-0">
           <div className="text-right">
-            <p className={`font-bold ${isCancelled ? 'line-through text-muted-foreground' : ''}`}>
-              {r.currency} {r.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+            <p className={`font-bold ${isCancelled ? 'line-through text-muted-foreground' : ''} ${isRefund && !isCancelled ? 'text-destructive' : ''}`}>
+              {isRefund ? '– ' : ''}{r.currency} {r.amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
             </p>
           </div>
           <div className="flex gap-1">

@@ -1,133 +1,77 @@
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Mail, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Mail, RefreshCw, AlertCircle, CheckCircle2, ArrowUpRight, ArrowDownLeft, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  sendReservationConfirmation,
-  sendReceiptEmail,
-  sendSupplierVoucher,
-} from '@/lib/emailService';
-import { useState } from 'react';
+import { EmailComposer } from './communications/EmailComposer';
 
-interface EmailLog {
+interface Communication {
   id: string;
-  to_email: string;
+  direction: 'outbound' | 'inbound';
+  from_address: string;
+  to_addresses: any;
   subject: string;
-  template_type: string;
+  html_body: string | null;
+  text_body: string | null;
   status: string;
   error_message: string | null;
-  sent_at: string;
-  receipt_id: string | null;
+  created_at: string;
 }
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  reservation_confirmation: 'Confirmación al cliente',
-  receipt: 'Recibo de pago',
-  supplier_voucher: 'Voucher a operador',
-  custom: 'Personalizado',
-};
 
 interface Props {
   fileId: string;
+  fileNumber?: string;
+  clientEmail?: string;
 }
 
-export function FileCommunicationsTab({ fileId }: Props) {
+export function FileCommunicationsTab({ fileId, fileNumber = '', clientEmail = '' }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [selectedComm, setSelectedComm] = useState<Communication | null>(null);
 
-  const { data: logs, isLoading } = useQuery<EmailLog[]>({
-    queryKey: ['email-logs', fileId],
+  const { data: comms = [], isLoading } = useQuery<Communication[]>({
+    queryKey: ['file-communications', fileId],
     queryFn: async () => {
-      const { data } = await supabase
+      // 1. Fetch from file_communications
+      const { data: mainData } = await supabase
+        .from('file_communications' as any)
+        .select('*')
+        .eq('file_id', fileId);
+
+      // 2. Fetch from legacy email_logs
+      const { data: legacyData } = await supabase
         .from('email_logs')
         .select('*')
-        .eq('file_id', fileId)
-        .order('sent_at', { ascending: false });
-      return (data as EmailLog[]) || [];
+        .eq('file_id', fileId);
+
+      const legacyMapped: Communication[] = (legacyData || []).map((l: any) => ({
+        id: l.id,
+        direction: 'outbound',
+        from_address: 'agencia',
+        to_addresses: [l.to_email],
+        subject: l.subject,
+        html_body: null,
+        text_body: null,
+        status: l.status,
+        error_message: l.error_message,
+        created_at: l.sent_at,
+      }));
+
+      const mainMapped = (mainData || []) as Communication[];
+
+      // Merge and sort descending
+      const merged = [...mainMapped, ...legacyMapped];
+      merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      return merged;
     },
   });
-
-  const handleResend = async (log: EmailLog) => {
-    if (!user) return;
-    setResendingId(log.id);
-    try {
-      // Cargar datos del expediente para reconstruir el email
-      const { data: file } = await supabase.from('files').select('*').eq('id', fileId).maybeSingle();
-      if (!file) { toast.error('Expediente no encontrado'); return; }
-
-      let result: { success: boolean; error?: string } = { success: false, error: 'Plantilla no soportada' };
-
-      if (log.template_type === 'reservation_confirmation') {
-        result = await sendReservationConfirmation({
-          to: log.to_email,
-          userId: user.id,
-          fileId,
-          data: {
-            clientName: file.client_name,
-            fileNumber: `FILE-${String(file.file_number).padStart(3, '0')}`,
-            destination: file.destination,
-            startDate: file.start_date ?? undefined,
-            endDate: file.end_date ?? undefined,
-            travelers: file.travelers,
-            currency: file.currency,
-            totalPrice: file.total_price,
-          },
-        });
-      } else if (log.template_type === 'receipt' && log.receipt_id) {
-        const { data: receipt } = await supabase.from('file_receipts').select('*').eq('id', log.receipt_id).maybeSingle();
-        if (!receipt) { toast.error('Recibo no encontrado'); return; }
-        result = await sendReceiptEmail({
-          to: log.to_email,
-          userId: user.id,
-          fileId,
-          receiptId: log.receipt_id,
-          data: {
-            clientName: receipt.client_name,
-            receiptNumber: `REC-${String(receipt.receipt_number).padStart(4, '0')}`,
-            paymentDate: receipt.payment_date,
-            concept: receipt.concept,
-            currency: receipt.currency,
-            amount: receipt.amount,
-            paymentMethod: receipt.payment_method ?? '',
-          },
-        });
-      } else if (log.template_type === 'supplier_voucher') {
-        const { data: services } = await supabase
-          .from('file_services')
-          .select('description, supplier_name, service_date, confirmation_number')
-          .eq('file_id', fileId);
-        const svc = (services || [])[0];
-        result = await sendSupplierVoucher({
-          to: log.to_email,
-          userId: user.id,
-          fileId,
-          data: {
-            supplierName: svc?.supplier_name || '',
-            fileNumber: `FILE-${String(file.file_number).padStart(3, '0')}`,
-            serviceDescription: svc?.description || file.destination,
-            serviceDate: svc?.service_date ?? undefined,
-            passengerNames: [file.client_name],
-            confirmationNumber: svc?.confirmation_number ?? undefined,
-          },
-        });
-      }
-
-      if (result.success) {
-        toast.success('Email reenviado');
-        qc.invalidateQueries({ queryKey: ['email-logs', fileId] });
-      } else {
-        toast.error(result.error || 'No se pudo reenviar');
-      }
-    } finally {
-      setResendingId(null);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -137,60 +81,90 @@ export function FileCommunicationsTab({ fileId }: Props) {
     );
   }
 
-  if (!logs || logs.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
-          <Mail className="mx-auto mb-3 h-12 w-12 opacity-40" />
-          <p>No hay comunicaciones registradas para este expediente.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-2">
-      {logs.map(log => {
-        const ok = log.status === 'sent';
-        return (
-          <Card key={log.id}>
-            <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${ok ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-destructive/10 text-destructive'}`}>
-                  {ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-sm truncate">{log.subject || '(sin asunto)'}</span>
-                    <Badge variant={ok ? 'default' : 'destructive'} className="text-[10px]">
-                      {ok ? 'Enviado' : 'Falló'}
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px]">
-                      {TEMPLATE_LABELS[log.template_type] || log.template_type}
-                    </Badge>
+    <div className="space-y-4">
+      {/* Header bar */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+          <Mail className="h-4 w-4" /> Historial de Comunicaciones
+        </h3>
+        <Button size="sm" onClick={() => setComposerOpen(true)}>
+          <Plus className="mr-1.5 h-4 w-4" /> Nuevo correo
+        </Button>
+      </div>
+
+      {comms.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Mail className="mx-auto mb-3 h-12 w-12 opacity-30" />
+            <p className="text-sm font-medium">No hay comunicaciones registradas para este expediente.</p>
+            <p className="text-xs text-muted-foreground mt-1">Haz clic en "Nuevo correo" para enviar tu primer mensaje.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2.5">
+          {comms.map(item => {
+            const isOut = item.direction === 'outbound';
+            const ok = item.status === 'sent' || item.status === 'delivered' || item.status === 'received';
+            const toStr = Array.isArray(item.to_addresses) ? item.to_addresses.join(', ') : item.to_addresses;
+
+            return (
+              <Card key={item.id} className={`transition-colors ${selectedComm?.id === item.id ? 'border-primary' : ''}`}>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                        isOut ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                      }`}>
+                        {isOut ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-sm truncate">{item.subject || '(sin asunto)'}</span>
+                          <Badge variant={isOut ? 'outline' : 'secondary'} className="text-[10px]">
+                            {isOut ? 'Enviado' : 'Recibido'}
+                          </Badge>
+                          <Badge variant={ok ? 'default' : 'destructive'} className="text-[10px]">
+                            {item.status.toUpperCase()}
+                          </Badge>
+                        </div>
+
+                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                          <span>{isOut ? `Para: ${toStr}` : `De: ${item.from_address}`}</span>
+                          <span>{new Date(item.created_at).toLocaleString('es-AR')}</span>
+                        </div>
+
+                        {item.error_message && (
+                          <p className="mt-1 text-xs text-destructive">{item.error_message}</p>
+                        )}
+
+                        {/* HTML Preview expansion */}
+                        {item.html_body && (
+                          <div className="mt-2 text-xs bg-muted/30 p-2.5 rounded border border-border/50 max-h-32 overflow-y-auto">
+                            <div dangerouslySetInnerHTML={{ __html: item.html_body }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    <span>Para: {log.to_email}</span>
-                    <span>{new Date(log.sent_at).toLocaleString('es-AR')}</span>
-                  </div>
-                  {log.error_message && (
-                    <p className="mt-1 text-xs text-destructive">{log.error_message}</p>
-                  )}
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={resendingId === log.id}
-                onClick={() => handleResend(log)}
-              >
-                <RefreshCw className={`mr-1 h-3 w-3 ${resendingId === log.id ? 'animate-spin' : ''}`} />
-                Reenviar
-              </Button>
-            </CardContent>
-          </Card>
-        );
-      })}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Composer Modal */}
+      <EmailComposer
+        fileId={fileId}
+        fileNumber={fileNumber}
+        clientEmail={clientEmail}
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        onSent={() => qc.invalidateQueries({ queryKey: ['file-communications', fileId] })}
+      />
     </div>
   );
 }
+

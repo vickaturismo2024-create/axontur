@@ -349,6 +349,18 @@ Deno.serve(async (req) => {
 
   console.log('Transactional email enqueued', { templateName, effectiveRecipient })
 
+  // Trigger the queue processor instantly (fire and forget)
+  // This bypasses the need for pg_cron for immediate transactional sends
+  fetch(`${supabaseUrl}/functions/v1/process-email-queue`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${supabaseServiceKey}`,
+      'Content-Type': 'application/json'
+    }
+  }).catch(err => {
+    console.error('Failed to trigger process-email-queue', err)
+  })
+
   return new Response(
     JSON.stringify({ success: true, queued: true }),
     {

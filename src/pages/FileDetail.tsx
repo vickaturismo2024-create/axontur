@@ -563,7 +563,11 @@ const FileDetail = () => {
               <FileFinancialSummary fileId={file.id} />
               <div className="grid gap-6 md:grid-cols-2">
                 <FilePassengersTab fileId={file.id} />
-                <FileCommunicationsTab fileId={file.id} />
+                <FileCommunicationsTab
+                  fileId={file.id}
+                  fileNumber={`EXP-${String(file.file_number).padStart(4, '0')}`}
+                  clientEmail={file.client_email || ''}
+                />
               </div>
             </div>
           </TabsContent>

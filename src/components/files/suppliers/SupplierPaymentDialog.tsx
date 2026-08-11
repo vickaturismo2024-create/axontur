@@ -14,7 +14,7 @@ import { cn, localDateStr } from '@/lib/utils';
 import { SupplierPayment, CatalogSupplier, METHODS, CURRENCIES, isGenericName } from './types';
 
 interface PaymentLine {
-  amount: number;
+  amount: number | string;
   currency: string;
   payment_method: string;
   reference: string;
@@ -110,7 +110,7 @@ export function SupplierPaymentDialog({
       } else {
         setLines([
           {
-            amount: 0,
+            amount: '',
             currency: defaultCurrency,
             payment_method: 'transfer',
             reference: '',
@@ -130,7 +130,7 @@ export function SupplierPaymentDialog({
     setLines((prev) => [
       ...prev,
       {
-        amount: 0,
+        amount: '',
         currency: defaultCurrency,
         payment_method: 'transfer',
         reference: '',
@@ -146,12 +146,12 @@ export function SupplierPaymentDialog({
   };
 
   const handleSave = () => {
-    const validLines = lines.filter((l) => l.amount !== 0);
+    const validLines = lines.filter((l) => Number(l.amount) > 0);
     if (validLines.length === 0) return;
     onSave(validLines, paymentDate);
   };
 
-  const hasValidAmount = lines.some((l) => l.amount !== 0);
+  const hasValidAmount = lines.some((l) => Number(l.amount) !== 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -291,9 +291,9 @@ export function SupplierPaymentDialog({
                         <Input
                           type="number"
                           step="0.01"
-                          value={line.amount || ''}
+                          value={line.amount}
                           placeholder="Monto"
-                          onChange={e => updateLine(idx, { amount: Number(e.target.value) })}
+                          onChange={e => updateLine(idx, { amount: e.target.value })}
                           className="h-9"
                         />
                         <Select value={line.currency} onValueChange={v => updateLine(idx, { currency: v })}>

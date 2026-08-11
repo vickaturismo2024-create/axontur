@@ -9,6 +9,7 @@ export interface Receipt {
   concept: string;
   notes: string;
   status: string;
+  receipt_type?: 'payment' | 'refund';
   created_at: string;
   cancelled_at?: string;
   cancelled_by?: string;
@@ -38,7 +39,7 @@ export interface CardOperationDetails {
 
 export interface ReceiptItem {
   id?: string;
-  amount: number;
+  amount: number | string;
   currency: string;
   payment_method: string;
   exchange_rate: number | null;
@@ -73,7 +74,7 @@ export const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructi
 };
 
 export const emptyItem = (): ReceiptItem => ({
-  amount: 0,
+  amount: '',
   currency: 'USD',
   payment_method: 'transfer',
   exchange_rate: null,

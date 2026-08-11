@@ -1,4 +1,4 @@
-﻿import { localDateStr } from '@/lib/utils';
+import { localDateStr } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,7 +57,13 @@ const sumByCurrency = (rows: any[], amountKey = 'amount', currencyKey = 'currenc
   const out: ByCurrency = {};
   rows.forEach(r => {
     const c = r[currencyKey] || 'USD';
-    out[c] = (out[c] || 0) + Number(r[amountKey] || 0);
+    const amount = Number(r[amountKey] || 0);
+    // Para recibos, si es devolución, se resta
+    if (r.receipt_type === 'refund') {
+      out[c] = (out[c] || 0) - amount;
+    } else {
+      out[c] = (out[c] || 0) + amount;
+    }
   });
   return out;
 };
@@ -91,7 +97,7 @@ export function useOperationalReport(period: ReportPeriod, custom?: PeriodRange)
         // Collections in period
         supabase
           .from('file_receipts')
-          .select('amount, currency, payment_date, file_id, client_name')
+          .select('amount, currency, payment_date, file_id, client_name, receipt_type')
           .gte('payment_date', range.from)
           .lte('payment_date', range.to),
         // Supplier payments in period
@@ -114,7 +120,7 @@ export function useOperationalReport(period: ReportPeriod, custom?: PeriodRange)
         // ALL receipts (to compute global receivable)
         supabase
           .from('file_receipts')
-          .select('amount, currency, file_id'),
+          .select('amount, currency, file_id, receipt_type'),
         // ALL supplier payments (to compute global payable + top suppliers YTD)
         supabase
           .from('file_supplier_payments')

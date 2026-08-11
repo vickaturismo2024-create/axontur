@@ -27,7 +27,7 @@ async function fetchCashBalances(): Promise<Balances> {
   // 2. Fetch receipts to check status (to filter out cancelled receipts)
   const { data: receipts, error: receiptsError } = await supabase
     .from('file_receipts')
-    .select('id, status');
+    .select('id, status, receipt_type');
 
   if (receiptsError) throw receiptsError;
 
@@ -54,17 +54,21 @@ async function fetchCashBalances(): Promise<Balances> {
   };
 
   // Map receipt status in memory
-  const statusMap = new Map((receipts || []).map((r: any) => [r.id, r.status]));
+  const statusMap = new Map((receipts || []).map((r: any) => [r.id, { status: r.status, type: r.receipt_type }]));
 
   // Add receipts (filter out cancelled)
   (receiptItems || []).forEach((item: any) => {
-    const status = statusMap.get(item.receipt_id);
-    if (status !== 'cancelled') {
+    const rcpt = statusMap.get(item.receipt_id);
+    if (rcpt && rcpt.status !== 'cancelled') {
       const cur = item.currency || 'USD';
       if (!balances[cur]) {
         balances[cur] = { incoming: 0, outgoing: 0, balance: 0 };
       }
-      balances[cur].incoming += Number(item.amount) || 0;
+      if (rcpt.type === 'refund') {
+        balances[cur].outgoing += Number(item.amount) || 0;
+      } else {
+        balances[cur].incoming += Number(item.amount) || 0;
+      }
     }
   });
 

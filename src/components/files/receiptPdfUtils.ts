@@ -11,6 +11,7 @@ interface Receipt {
   concept: string;
   notes: string;
   status?: string;
+  receipt_type?: 'payment' | 'refund';
 }
 
 interface Agency {
@@ -444,7 +445,8 @@ function drawReceipt(
   doc.roundedRect(w - margin - 62, yOffset + 40, 62, 6, 2.2, 2.2, 'S');
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('RECIBO X:', w - margin - 59, yOffset + 44.2);
+  const receiptLabel = receipt.receipt_type === 'refund' ? 'DEVOLUCIÓN X:' : 'RECIBO X:';
+  doc.text(receiptLabel, w - margin - 59, yOffset + 44.2);
   doc.text(`N° 1000 -${String(receipt.receipt_number).padStart(8, '0')}`, w - margin - 3, yOffset + 44.2, { align: 'right' });
 
   // Línea divisoria (Gruesa)
@@ -615,5 +617,6 @@ export async function generateReceiptPDF(
   // Dibujar copia del Cliente
   drawReceipt(doc, receipt, agency, halfHeight, logoDetails, 'COPIA CLIENTE', effectiveItems, extraDetails, bannerDetails);
 
-  doc.save(`Recibo-${String(receipt.receipt_number).padStart(6, '0')}.pdf`);
+  const filePrefix = receipt.receipt_type === 'refund' ? 'Devolucion' : 'Recibo';
+  doc.save(`${filePrefix}-${String(receipt.receipt_number).padStart(6, '0')}.pdf`);
 }
