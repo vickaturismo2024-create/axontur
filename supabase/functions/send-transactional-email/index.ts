@@ -346,13 +346,15 @@ Deno.serve(async (req) => {
   // Trigger the queue processor instantly
   // We MUST await this fetch so the Edge Function doesn't terminate before it completes.
   try {
-    await fetch(`${supabaseUrl}/functions/v1/process-email-queue`, {
+    const procRes = await fetch(`${supabaseUrl}/functions/v1/process-email-queue`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${supabaseServiceKey}`,
         'Content-Type': 'application/json'
       }
     });
+    const procText = await procRes.text();
+    console.log('process-email-queue response:', procRes.status, procText);
   } catch (err) {
     console.error('Failed to trigger process-email-queue', err);
   }

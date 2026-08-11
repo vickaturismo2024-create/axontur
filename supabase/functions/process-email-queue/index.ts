@@ -136,12 +136,16 @@ Deno.serve(async (req) => {
   // callers can trigger queue processing.
   const token = authHeader.slice('Bearer '.length).trim()
   const claims = parseJwtClaims(token)
-  if (claims?.role !== 'service_role') {
+  
+  if (token !== supabaseServiceKey && claims?.role !== 'service_role') {
+    console.error('Unauthorized queue processor call. Token claims:', claims, 'Header:', authHeader.slice(0, 20))
     return new Response(
       JSON.stringify({ error: 'Forbidden' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     )
   }
+  
+  console.log('Queue processor authorized successfully. Processing queue...')
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
