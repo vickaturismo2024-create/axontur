@@ -5,15 +5,11 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
-const SITE_NAME = "axontur"
-// SENDER_DOMAIN is the verified sender subdomain FQDN (e.g., "notify.example.com").
-// It MUST match the subdomain delegated to Lovable's nameservers — never the root domain.
-// The email API looks up this exact domain; a mismatch causes "No email domain record found".
-const SENDER_DOMAIN = "mail.vickaturismo.tur.ar"
-// FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
-// When display_from_root is enabled, this can be the root domain for cleaner branding,
-// even though actual sending uses the subdomain above.
-const FROM_DOMAIN = "mail.vickaturismo.tur.ar"
+const SITE_NAME = "AxonTur"
+// Sandbox mode for testing before custom domain verification
+const SENDER_DOMAIN = "resend.dev"
+const FROM_DOMAIN = "resend.dev"
+const FROM_EMAIL = "onboarding@resend.dev"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -313,7 +309,7 @@ Deno.serve(async (req) => {
     payload: {
       message_id: messageId,
       to: effectiveRecipient,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+      from: `${SITE_NAME} <${FROM_EMAIL}>`,
       sender_domain: SENDER_DOMAIN,
       subject: resolvedSubject,
       html,
@@ -347,19 +343,19 @@ Deno.serve(async (req) => {
     })
   }
 
-  console.log('Transactional email enqueued', { templateName, effectiveRecipient })
-
-  // Trigger the queue processor instantly (fire and forget)
-  // This bypasses the need for pg_cron for immediate transactional sends
-  fetch(`${supabaseUrl}/functions/v1/process-email-queue`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${supabaseServiceKey}`,
-      'Content-Type': 'application/json'
-    }
-  }).catch(err => {
-    console.error('Failed to trigger process-email-queue', err)
-  })
+  // Trigger the queue processor instantly
+  // We MUST await this fetch so the Edge Function doesn't terminate before it completes.
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/process-email-queue`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+  } catch (err) {
+    console.error('Failed to trigger process-email-queue', err);
+  }
 
   return new Response(
     JSON.stringify({ success: true, queued: true }),
