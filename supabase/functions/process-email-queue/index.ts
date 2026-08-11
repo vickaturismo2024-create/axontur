@@ -152,6 +152,7 @@ Deno.serve(async (req) => {
     .single()
 
   if (state?.retry_after_until && new Date(state.retry_after_until) > new Date()) {
+    console.warn('Queue processor skipped due to active rate limit until:', state.retry_after_until);
     return new Response(
       JSON.stringify({ skipped: true, reason: 'rate_limited' }),
       { headers: { 'Content-Type': 'application/json' } }
@@ -180,7 +181,12 @@ Deno.serve(async (req) => {
       continue
     }
 
-    if (!messages?.length) continue
+    if (!messages?.length) {
+      console.log(`Queue '${queue}' has no pending messages to process.`);
+      continue;
+    }
+
+    console.log(`Found ${messages.length} messages in queue '${queue}'`);
 
     // Retry budget is based on real send failures, not pgmq read_ct.
     // read_ct increments for every message in a claimed batch, including
