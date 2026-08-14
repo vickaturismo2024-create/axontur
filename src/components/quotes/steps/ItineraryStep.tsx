@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ItineraryPDFDialog } from '@/components/quotes/ItineraryPDFDialog';
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionErrors';
 
 interface ItineraryStepProps {
   quote: Quote;
@@ -53,7 +54,10 @@ export function ItineraryStep({ quote, onUpdate, itineraryVisible, onItineraryVi
       const { data, error } = await supabase.functions.invoke('generate-itinerary', {
         body: { trip: quote.trip, flights: quote.flights, lodgings: quote.lodgings || [], transfers: quote.transfers, activities: quote.activities || [], trains: quote.trains || [], ferries: quote.ferries || [], cruise: quote.cruise || null },
       });
-      if (error) throw new Error(error.message || 'Error al generar el itinerario');
+      if (error) {
+        const errorMsg = await getEdgeFunctionErrorMessage(error, 'Error al generar el itinerario con IA');
+        throw new Error(errorMsg);
+      }
       if (data?.error) { toast.error(data.error); return; }
       const generatedDays: ItineraryDay[] = (data.days || []).map((day: any, idx: number) => ({
         id: crypto.randomUUID(), dayNumber: day.dayNumber || idx + 1,

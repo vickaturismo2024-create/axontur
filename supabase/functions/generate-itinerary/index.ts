@@ -129,90 +129,94 @@ Ferrys: ${JSON.stringify(ferries || [])}
 Crucero: ${JSON.stringify(cruise || null)}`;
     }
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.0-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "generate_itinerary",
-              description: "Genera el itinerario día por día del viaje",
-              parameters: {
-                type: "object",
-                properties: {
-                  days: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        dayNumber: { type: "number", description: "Número del día (1, 2, 3...)" },
-                        date: { type: "string", description: "Fecha en formato YYYY-MM-DD" },
-                        title: { type: "string", description: "Título breve del día" },
-                        description: { type: "string", description: "Descripción del día en un párrafo" },
-                        activities: {
-                          type: "array",
-                          items: { type: "string" },
-                          description: "Lista de actividades puntuales del día",
-                        },
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: userPrompt }],
+            },
+          ],
+          systemInstruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                days: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      dayNumber: { type: "INTEGER", description: "Número del día (1, 2, 3...)" },
+                      date: { type: "STRING", description: "Fecha en formato YYYY-MM-DD" },
+                      title: { type: "STRING", description: "Título breve del día" },
+                      description: { type: "STRING", description: "Descripción del día en un párrafo" },
+                      activities: {
+                        type: "ARRAY",
+                        items: { type: "STRING" },
+                        description: "Lista de actividades puntuales del día",
                       },
-                      required: ["dayNumber", "date", "title", "description", "activities"],
-                      additionalProperties: false,
                     },
+                    required: ["dayNumber", "date", "title", "description", "activities"],
                   },
                 },
-                required: ["days"],
-                additionalProperties: false,
               },
+              required: ["days"],
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "generate_itinerary" } },
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Gemini API error:", response.status, errorText);
+
+      let availableModelsMsg = "";
+      if (response.status === 404) {
+        try {
+          const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+          if (modelsRes.ok) {
+            const modelsData = await modelsRes.json();
+            const modelNames = modelsData.models?.map((m: any) => m.name).join(", ");
+            availableModelsMsg = ` Modelos disponibles para tu API Key: ${modelNames}`;
+          }
+        } catch (e) {}
+      }
+
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Límite de solicitudes excedido. Intentá de nuevo en unos segundos." }),
+          JSON.stringify({ error: "Límite de solicitudes excedido en Google Gemini. Intentá de nuevo en unos segundos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos de IA agotados. Agregá fondos en Configuración > Workspace > Uso." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
       return new Response(
-        JSON.stringify({ error: "Error al generar el itinerario" }),
+        JSON.stringify({ error: `Error de Gemini (${response.status}): ${errorText.substring(0, 300)}.${availableModelsMsg}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!toolCall?.function?.arguments) {
-      console.error("No tool call in response:", JSON.stringify(data));
+    if (!candidateText) {
+      console.error("No candidate text in response:", JSON.stringify(data));
       return new Response(
         JSON.stringify({ error: "La IA no generó un itinerario válido" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const parsed = JSON.parse(toolCall.function.arguments);
+    const parsed = JSON.parse(candidateText);
     const days = parsed.days || [];
 
     return new Response(JSON.stringify({ days }), {
