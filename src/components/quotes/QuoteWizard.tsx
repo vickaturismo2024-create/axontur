@@ -8,8 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight, Eye, User, Image, Plane, Building2, Car, Shield, DollarSign, Calendar, Anchor, Compass, Palette, StickyNote, Check, Loader2 } from 'lucide-react';
 import { PDFPreview } from '@/components/pdf/PDFPreview';
 import { PricingSection } from '@/components/quotes/PricingSection';
-import { useOccupancyPricingCalculator, applyOccupancyPricing, type OccupancyPricingCalculation } from '@/hooks/useOccupancyPricingCalculator';
-import { usePricingCalculator, applyCalculatedPricing, type PricingCalculation } from '@/hooks/usePricingCalculator';
+import { useCalculatedQuote } from '@/hooks/useCalculatedQuote';
 import { useQuotes } from '@/contexts/QuotesContext';
 
 import { TemplateStep } from './steps/TemplateStep';
@@ -29,23 +28,6 @@ interface QuoteWizardProps {
   defaultTemplate?: Template | null;
   onSave: (quote: Quote) => void;
   onCancel: () => void;
-}
-
-function buildQuoteWithPricing(quote: Quote, occupancyCalculation: OccupancyPricingCalculation, standardCalculation: PricingCalculation): Quote {
-  if (quote.pricing.calculationMode !== 'automatic') {
-    return quote;
-  }
-
-  const allLodgings = (quote.lodgings && quote.lodgings.length > 0) ? quote.lodgings : (quote.lodging?.name ? [quote.lodging] : []);
-  const hasOccupancies = allLodgings.some(l => l.useOccupancies && l.occupancies?.length);
-  
-  if (quote.flights.length > 0 || hasOccupancies) {
-    const pricingUpdates = applyOccupancyPricing(occupancyCalculation);
-    return { ...quote, pricing: { ...quote.pricing, ...pricingUpdates } };
-  } else {
-    const pricingUpdates = applyCalculatedPricing(quote.pricing, standardCalculation, quote.trip.travelers);
-    return { ...quote, pricing: { ...quote.pricing, ...pricingUpdates } };
-  }
 }
 
 const steps = [
@@ -127,8 +109,6 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     return tpl?.sectionsToggles?.itinerary ?? true;
   });
 
-  const occupancyCalculation = useOccupancyPricingCalculator(quote);
-  const standardCalculation = usePricingCalculator(quote);
   const currentTemplate = templates.find(t => t.id === quote.templateId) || defaultTemplate || (templates[0] ?? null);
 
   const previewTemplate = useMemo(() => {
@@ -136,9 +116,8 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     return { ...currentTemplate, sectionsToggles: { ...currentTemplate.sectionsToggles, itinerary: itineraryVisible } };
   }, [currentTemplate, itineraryVisible]);
 
-  const calculatedQuote = useMemo(() => {
-    return buildQuoteWithPricing(quote, occupancyCalculation, standardCalculation);
-  }, [quote, occupancyCalculation, standardCalculation]);
+  const rawCalculatedQuote = useCalculatedQuote(quote);
+  const calculatedQuote = rawCalculatedQuote || quote;
 
   const updateQuote = (updates: Partial<Quote>) => {
     setQuote(prev => ({ ...prev, ...updates, updatedAt: new Date().toISOString() }));
@@ -154,8 +133,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
     autoSaveTimerRef.current = setTimeout(async () => {
       setSaveStatus('saving');
       try {
-        const quoteToSave = buildQuoteWithPricing(quote, occupancyCalculation, standardCalculation);
-        await autoSaveQuote(quoteToSave);
+        await autoSaveQuote(calculatedQuote);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch {
@@ -163,10 +141,10 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
       }
     }, 3000);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [quote, autoSaveQuote]);
+  }, [calculatedQuote, autoSaveQuote]);
 
   const handleSave = () => {
-    onSave(buildQuoteWithPricing(quote, occupancyCalculation, standardCalculation));
+    onSave(calculatedQuote);
   };
 
   const goNext = () => { if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1); };

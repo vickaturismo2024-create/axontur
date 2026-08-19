@@ -26,6 +26,7 @@ import { DashboardFilters, DashboardFilterValues, defaultFilters } from '@/compo
 import { defaultTemplate } from '@/data/demoData';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useCalculatedQuote } from '@/hooks/useCalculatedQuote';
 import { SectionErrorBoundary } from '@/components/common/SectionErrorBoundary';
 
 interface QuoteTag {
@@ -42,6 +43,7 @@ const Quotes = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
+  const calculatedPreviewQuote = useCalculatedQuote(previewQuote);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -409,7 +411,7 @@ const Quotes = () => {
           <DialogHeader>
             <DialogTitle className="font-sans">Vista Previa — {previewQuote?.trip.destination}</DialogTitle>
           </DialogHeader>
-          {previewQuote && <PDFPreview quote={previewQuote} template={getTemplate(previewQuote.templateId)} />}
+          {calculatedPreviewQuote && <PDFPreview quote={calculatedPreviewQuote} template={getTemplate(calculatedPreviewQuote.templateId)} />}
         </DialogContent>
       </Dialog>
 

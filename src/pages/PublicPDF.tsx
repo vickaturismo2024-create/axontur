@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { generatePDF } from '@/lib/generatePDF';
+import { useCalculatedQuote } from '@/hooks/useCalculatedQuote';
 
 // Transform snake_case DB row to camelCase Quote
 function mapDbRowToQuote(row: any): Quote {
@@ -62,7 +63,9 @@ const PDF_PAGE_WIDTH = 794;
 
 const PublicPDF = () => {
   const { id } = useParams<{ id: string }>();
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [rawQuote, setQuote] = useState<Quote | null>(null);
+  const calculatedQuote = useCalculatedQuote(rawQuote);
+  const quote = calculatedQuote || rawQuote;
   const [template, setTemplate] = useState<Template>(defaultTemplate);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

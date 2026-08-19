@@ -7,6 +7,7 @@ import { PDFContactPages } from '@/components/pdf/PDFContactPages';
 import { PDFItineraryPages } from '@/components/pdf/PDFItineraryPages';
 import { PDFShareMenu } from '@/components/pdf/PDFShareMenu';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useCalculatedQuote } from '@/hooks/useCalculatedQuote';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
@@ -16,9 +17,10 @@ const ExportPDF = () => {
   const goBack = useGoBack('/quotes');
   const { quotes, templates, updateQuote } = useQuotes();
 
-  const quote = quotes.find(q => q.id === id);
-  const template = quote 
-    ? templates.find(t => t.id === quote.templateId) || defaultTemplate
+  const rawQuote = quotes.find(q => q.id === id);
+  const quote = useCalculatedQuote(rawQuote);
+  const template = rawQuote 
+    ? templates.find(t => t.id === rawQuote.templateId) || defaultTemplate
     : defaultTemplate;
 
   if (!quote) {
