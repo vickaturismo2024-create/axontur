@@ -406,6 +406,43 @@ export interface FlightOptionPricing {
   segments?: FlightSegment[];
 }
 
+export interface IntegratedOccupancyPricing {
+  occupancyId?: string;
+  roomType: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
+  customTypeName?: string;
+  occupancyLabel: string;
+  roomCount: number;
+  guestsPerRoom: number;
+  guestCount: number;
+  lodgingPricePerPerson: number;
+  lodgingCostPerPerson: number;
+  commonServicesPricePerPerson: number;
+  commonServicesCostPerPerson: number;
+  totalPricePerPerson: number;
+  totalCostPerPerson: number;
+  marginPerPerson: number;
+  marginPercentage: number;
+}
+
+export interface IntegratedOptionPricing {
+  id: string;
+  optionIndex: number;
+  optionLabel: string;
+  flightLabel?: string;
+  flightDetails?: string;
+  flightPriceTotal: number;
+  lodgingLabel?: string;
+  lodgingName?: string;
+  lodgingPriceTotal: number;
+  otherServicesPriceTotal: number;
+  totalOptionPrice: number;
+  totalOptionCost: number;
+  hasDifferentiatedOccupancies: boolean;
+  occupancies: IntegratedOccupancyPricing[];
+  // If there are no differentiated occupancies, uniform price per person:
+  uniformPricePerPerson?: number;
+}
+
 export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'expired' | 'cancelled';
 
 export interface Pricing {
@@ -430,6 +467,7 @@ export interface Pricing {
   lodgingOptionsOccupancy?: LodgingOptionOccupancyPricing[];
   occupancyTypesWithOptions?: OccupancyTypeWithOptions[];
   flightOptionsPricing?: FlightOptionPricing[];
+  integratedOptions?: IntegratedOptionPricing[];
 }
 
 export interface ItineraryDay {

@@ -324,7 +324,7 @@ export function QuoteWizard({ initialQuote, templates, defaultTemplate, onSave, 
           <div className="sticky top-4 rounded-lg border bg-card p-4">
             <h3 className="mb-4 font-semibold">Vista previa</h3>
             <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
-              <PDFPreview quote={previewQuote} template={previewTemplate} />
+              <PDFPreview quote={calculatedQuote} template={previewTemplate} />
             </div>
           </div>
         </div>
