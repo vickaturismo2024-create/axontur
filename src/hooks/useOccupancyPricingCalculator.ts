@@ -419,59 +419,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
       insurance: { cost: 0, price: 0 },
     };
 
-    // Detectar unidades de vuelo para saber si excluir vuelos de shared
-    const connGroups = new Map<string, Flight[]>();
-    const standFlights: Flight[] = [];
-    for (const flight of quote.flights) {
-      if (flight.connectionGroupId) {
-        const g = connGroups.get(flight.connectionGroupId) || [];
-        g.push(flight);
-        connGroups.set(flight.connectionGroupId, g);
-      } else {
-        standFlights.push(flight);
-      }
-    }
-
-    // Separar connection groups de 1 solo vuelo vs multi-tramo (escalas reales)
-    const singleConnGroupFlights: Flight[] = [];
-    let multiConnGroupCount = 0;
-    for (const [, groupFlights] of connGroups) {
-      if (groupFlights.length === 1) {
-        singleConnGroupFlights.push(groupFlights[0]);
-      } else {
-        multiConnGroupCount++;
-      }
-    }
-
-    // Combinar standalone + single-connection-groups para deteccion ida/vuelta
-    const allSinglesForDetection = [...standFlights, ...singleConnGroupFlights];
-    const pairedStandIds = new Set<string>();
-    const autoGroupsForDetection: Flight[][] = [];
-    for (let i = 0; i < allSinglesForDetection.length; i++) {
-      if (pairedStandIds.has(allSinglesForDetection[i].id)) continue;
-      for (let j = i + 1; j < allSinglesForDetection.length; j++) {
-        if (pairedStandIds.has(allSinglesForDetection[j].id)) continue;
-        const a = allSinglesForDetection[i];
-        const b = allSinglesForDetection[j];
-        if (
-          a.origin.toLowerCase().trim() === b.destination.toLowerCase().trim() &&
-          a.destination.toLowerCase().trim() === b.origin.toLowerCase().trim()
-        ) {
-          pairedStandIds.add(a.id);
-          pairedStandIds.add(b.id);
-          autoGroupsForDetection.push([a, b]);
-          break;
-        }
-      }
-    }
-    const remainingStandForDetection = allSinglesForDetection.filter(f => !pairedStandIds.has(f.id));
-    const autoDetectedMultipleFlights = (multiConnGroupCount + autoGroupsForDetection.length + remainingStandForDetection.length) > 1;
-
-    // Si hay auto-deteccion de multiples vuelos, NO incluir NINGUN vuelo en shared
-    // porque cada vuelo sera una opcion independiente
-    const mainFlights = autoDetectedMultipleFlights 
-      ? [] 
-      : quote.flights.filter(f => !f.isOption);
+    const mainFlights = quote.flights.filter(f => !f.isOption);
     mainFlights.forEach(f => {
       breakdown.flights.cost += f.cost || 0;
       breakdown.flights.price += f.price || 0;
@@ -676,15 +624,15 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     const fullBaseCostPerPerson = baseCostPerPersonWithoutFlights + lodgingCostPerPerson;
 
     // ============================================
-    // PASO 1: Agrupar TODOS los vuelos por connectionGroupId
+    // PASO 1: Agrupar SOLO vuelos opcionales por connectionGroupId
     // para identificar "unidades de vuelo" (un vuelo directo = 1 unidad, 
     // una conexión de 2+ tramos = 1 unidad)
     // ============================================
-    const allFlights = quote.flights;
-    const connectionGroups = new Map<string, typeof allFlights>();
-    const standaloneFlights: typeof allFlights = [];
+    const optionFlightsForPricing = quote.flights.filter(f => f.isOption);
+    const connectionGroups = new Map<string, typeof optionFlightsForPricing>();
+    const standaloneFlights: typeof optionFlightsForPricing = [];
 
-    for (const flight of allFlights) {
+    for (const flight of optionFlightsForPricing) {
       if (flight.connectionGroupId) {
         const group = connectionGroups.get(flight.connectionGroupId) || [];
         group.push(flight);
@@ -698,7 +646,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
     // Cada grupo de conexión = 1 unidad, cada vuelo standalone = 1 unidad
     interface FlightUnit {
       id: string;
-      flights: typeof allFlights;
+      flights: Flight[];
       isConnection: boolean;
       optionLabel: string;
       flightType: 'direct' | 'stopover' | 'charter';
@@ -735,7 +683,7 @@ export function useOccupancyPricingCalculator(quote: Quote): OccupancyPricingCal
 
     // Auto-detectar pares ida/vuelta entre standalone flights
     const pairedStandaloneIds = new Set<string>();
-    const autoRoundTripGroups: typeof allFlights[] = [];
+    const autoRoundTripGroups: Flight[][] = [];
     for (let i = 0; i < standaloneFlights.length; i++) {
       if (pairedStandaloneIds.has(standaloneFlights[i].id)) continue;
       for (let j = i + 1; j < standaloneFlights.length; j++) {
