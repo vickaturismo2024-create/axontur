@@ -28,6 +28,7 @@ import { ReceiptDetailDialog } from './receipts/ReceiptDetailDialog';
 import { EmailReceiptDialog } from './receipts/EmailReceiptDialog';
 import { TransferBalanceDialog } from './TransferBalanceDialog';
 import { RefundDialog } from './receipts/RefundDialog';
+import { getConvertedAmount } from '@/lib/receiptTotals';
 
 interface Props {
   fileId: string;
@@ -41,6 +42,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [fileDebts, setFileDebts] = useState<Record<string, number>>({});
+  const [services, setServices] = useState<any[]>([]);
   
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,12 +75,14 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
   const loadFileDebts = async () => {
     const { data: svcs } = await supabase
       .from('file_services')
-      .select('price, currency, status')
+      .select('id, description, price, cost, currency, status, service_type, supplier_name')
       .eq('file_id', fileId);
     
+    setServices((svcs as any[]) || []);
+
     const { data: recs } = await supabase
       .from('file_receipts')
-      .select('amount, currency, status, receipt_type')
+      .select('id, amount, currency, status, receipt_type')
       .eq('file_id', fileId);
 
     const prices: Record<string, number> = {};
@@ -87,19 +91,69 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     if (svcs) {
       svcs.filter(s => s.status !== 'cancelled').forEach(s => {
-        prices[s.currency] = (prices[s.currency] || 0) + (s.price || 0);
+        const cur = s.currency || 'USD';
+        prices[cur] = (prices[cur] || 0) + (Number(s.price) || 0);
       });
     }
 
-    if (recs) {
-      recs.filter(r => r.status !== 'cancelled').forEach(r => {
-        const isRefund = (r as any).receipt_type === 'refund';
-        if (isRefund) {
-          refunds[r.currency] = (refunds[r.currency] || 0) + (r.amount || 0);
-        } else {
-          charges[r.currency] = (charges[r.currency] || 0) + (r.amount || 0);
-        }
-      });
+    const validReceipts = (recs || []).filter(r => r.status !== 'cancelled');
+    const validReceiptIds = validReceipts.map(r => r.id);
+    const refundSet = new Set(validReceipts.filter(r => (r as any).receipt_type === 'refund').map(r => r.id));
+
+    if (validReceiptIds.length > 0) {
+      const { data: items } = await supabase
+        .from('file_receipt_items')
+        .select('receipt_id, amount, currency, service_currency, exchange_rate, service_id')
+        .in('receipt_id', validReceiptIds);
+
+      if (items && items.length > 0) {
+        const receiptsWithItems = new Set(items.map(i => i.receipt_id));
+
+        items.forEach((i: any) => {
+          const amt = Number(i.amount) || 0;
+          const rate = Number(i.exchange_rate) || 0;
+          const isRefund = refundSet.has(i.receipt_id);
+
+          let targetCurrency = i.currency || 'USD';
+          let effectiveAmt = amt;
+
+          if (i.service_currency && rate > 0) {
+            targetCurrency = i.service_currency;
+            effectiveAmt = getConvertedAmount(amt, i.currency, i.service_currency, rate);
+          }
+
+          if (isRefund) {
+            refunds[targetCurrency] = (refunds[targetCurrency] || 0) + effectiveAmt;
+          } else {
+            charges[targetCurrency] = (charges[targetCurrency] || 0) + effectiveAmt;
+          }
+        });
+
+        // Para recibos históricos sin items
+        validReceipts.forEach(r => {
+          if (!receiptsWithItems.has(r.id)) {
+            const amt = Number(r.amount) || 0;
+            const cur = r.currency || 'USD';
+            const isRefund = (r as any).receipt_type === 'refund';
+            if (isRefund) {
+              refunds[cur] = (refunds[cur] || 0) + amt;
+            } else {
+              charges[cur] = (charges[cur] || 0) + amt;
+            }
+          }
+        });
+      } else {
+        validReceipts.forEach(r => {
+          const amt = Number(r.amount) || 0;
+          const cur = r.currency || 'USD';
+          const isRefund = (r as any).receipt_type === 'refund';
+          if (isRefund) {
+            refunds[cur] = (refunds[cur] || 0) + amt;
+          } else {
+            charges[cur] = (charges[cur] || 0) + amt;
+          }
+        });
+      }
     }
 
     const debts: Record<string, number> = {};
@@ -110,12 +164,12 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
       const charge = charges[cur] || 0;
       const refund = refunds[cur] || 0;
       const netCollected = charge - refund;
-      const pending = price - netCollected;
+      const pending = Math.round((price - netCollected) * 100) / 100;
       if (pending !== 0) {
         debts[cur] = pending;
       }
       if (netCollected > 0) {
-        collected[cur] = netCollected;
+        collected[cur] = Math.round(netCollected * 100) / 100;
       }
     });
 
@@ -228,6 +282,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         payment_method: it.payment_method,
         exchange_rate: it.exchange_rate,
         service_currency: it.service_currency,
+        service_id: it.service_id || null,
         notes: it.notes,
       }));
 
@@ -314,6 +369,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         payment_method: it.payment_method,
         exchange_rate: it.exchange_rate,
         service_currency: it.service_currency,
+        service_id: it.service_id || null,
         notes: it.notes,
       }));
 
@@ -554,7 +610,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     const [itemsRes, cardsRes] = await Promise.all([
       supabase
         .from('file_receipt_items')
-        .select('*')
+        .select('*, file_services(description, service_type, supplier_name, currency, price)')
         .eq('receipt_id', r.id)
         .order('created_at', { ascending: true }),
       supabase
@@ -699,6 +755,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         defaultCurrency={currency}
         passengers={passengers}
         fileDebts={fileDebts}
+        services={services}
       />
 
       <RefundDialog
@@ -709,6 +766,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
         defaultCurrency={currency}
         passengers={passengers}
         collectedByCurrency={collectedByCurrency}
+        services={services}
       />
 
       <ReceiptDetailDialog

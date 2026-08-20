@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Trash2, CreditCard } from 'lucide-react';
 import { ReceiptItem, METHODS, CURRENCIES, emptyItem, CardOperationDetails } from './types';
-import { computeReceiptTotals } from '@/lib/receiptTotals';
+import { computeReceiptTotals, getConvertedAmount } from '@/lib/receiptTotals';
 import { supabase } from '@/integrations/supabase/client';
 import { CardDetailsDialog } from './CardDetailsDialog';
 
@@ -26,9 +26,18 @@ interface NewReceiptDialogProps {
   defaultCurrency: string;
   passengers?: string[];
   fileDebts?: Record<string, number>;
+  services?: Array<{
+    id: string;
+    description: string;
+    price: number;
+    currency: string;
+    status: string;
+    service_type?: string;
+    supplier_name?: string;
+  }>;
 }
 
-export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName, defaultCurrency, passengers = [], fileDebts = {} }: NewReceiptDialogProps) {
+export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName, defaultCurrency, passengers = [], fileDebts = {}, services = [] }: NewReceiptDialogProps) {
   const [form, setForm] = useState({
     client_name: defaultClientName,
     payment_date: localDateStr(),
@@ -174,100 +183,173 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
                 <PlusCircle className="mr-1 h-4 w-4" />Agregar línea
               </Button>
             </div>
-            {items.map((item, idx) => (
-              <Card key={idx} className="p-3">
-                <div className="grid gap-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium">Monto *</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={item.amount}
-                        onChange={(e) => updateItem(idx, { amount: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium">Moneda pago</label>
-                      <Select value={item.currency} onValueChange={(v) => updateItem(idx, { currency: v })}>
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CURRENCIES.map((c) => (
-                            <SelectItem key={c} value={c}>
-                              {c}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium">Método</label>
-                      <Select
-                        value={item.payment_method}
-                        onValueChange={(v) => updateItem(idx, { payment_method: v })}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {METHODS.map((m) => (
-                            <SelectItem key={m.value} value={m.value}>
-                              {m.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium">Moneda servicio</label>
-                      <Select
-                        value={item.service_currency || ''}
-                        onValueChange={(v) => updateItem(idx, { service_currency: v === 'none' ? null : v })}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="—" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">— Sin conversión</SelectItem>
-                          {CURRENCIES.map((c) => (
-                            <SelectItem key={c} value={c}>
-                              {c}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium">Cotización</label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        placeholder="Ej: 1200"
-                        value={item.exchange_rate ?? ''}
-                        onChange={(e) =>
-                          updateItem(idx, { exchange_rate: e.target.value ? Number(e.target.value) : null })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      {items.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-9 text-destructive"
-                          onClick={() => removeItem(idx)}
+            {items.map((item, idx) => {
+              const hasFxConversion =
+                item.service_currency &&
+                item.currency &&
+                item.service_currency !== item.currency &&
+                item.exchange_rate &&
+                Number(item.exchange_rate) > 0 &&
+                Number(item.amount) > 0;
+
+              return (
+                <Card key={idx} className="p-3">
+                  <div className="grid gap-3">
+                    {/* Selector de servicio específico */}
+                    {services && services.length > 0 && (
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground flex items-center justify-between">
+                          <span>Vincular a Servicio (opcional)</span>
+                          {item.service_id && (
+                            <span className="text-[10px] text-primary font-semibold">Servicio Vinculado</span>
+                          )}
+                        </label>
+                        <Select
+                          value={item.service_id || 'none'}
+                          onValueChange={(val) => {
+                            if (val === 'none') {
+                              updateItem(idx, { service_id: null, service_currency: null, exchange_rate: null });
+                            } else {
+                              const selectedSvc = services.find((s) => s.id === val);
+                              if (selectedSvc) {
+                                const newCurrency = selectedSvc.currency;
+                                const patch: Partial<ReceiptItem> = {
+                                  service_id: selectedSvc.id,
+                                  service_currency: newCurrency,
+                                };
+                                if (item.currency && newCurrency && item.currency !== newCurrency && window.__liveRates) {
+                                  if (item.currency === 'ARS' && newCurrency === 'USD') {
+                                    const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
+                                    if (rate?.venta) patch.exchange_rate = rate.venta;
+                                  } else if (item.currency === 'USD' && newCurrency === 'ARS') {
+                                    const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
+                                    if (rate?.compra) patch.exchange_rate = rate.compra;
+                                  }
+                                } else if (item.currency === newCurrency) {
+                                  patch.exchange_rate = null;
+                                }
+                                updateItem(idx, patch);
+                              }
+                            }
+                          }}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue placeholder="— Sin vincular (Pago general) —" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— Sin vincular (Pago general) —</SelectItem>
+                            {services
+                              .filter((s) => s.status !== 'cancelled')
+                              .map((s) => (
+                                <SelectItem key={s.id} value={s.id} className="text-xs">
+                                  [{s.currency} {Number(s.price).toLocaleString('es-AR', { minimumFractionDigits: 2 })}] {s.description || s.service_type || 'Servicio'}{s.supplier_name ? ` (${s.supplier_name})` : ''}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Monto *</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.amount}
+                          onChange={(e) => updateItem(idx, { amount: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Moneda pago</label>
+                        <Select value={item.currency} onValueChange={(v) => updateItem(idx, { currency: v })}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CURRENCIES.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Método</label>
+                        <Select
+                          value={item.payment_method}
+                          onValueChange={(v) => updateItem(idx, { payment_method: v })}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {METHODS.map((m) => (
+                              <SelectItem key={m.value} value={m.value}>
+                                {m.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Moneda servicio</label>
+                        <Select
+                          value={item.service_currency || ''}
+                          onValueChange={(v) => updateItem(idx, { service_currency: v === 'none' ? null : v })}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">— Sin conversión</SelectItem>
+                            {CURRENCIES.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium">Cotización</label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder="Ej: 1200"
+                          value={item.exchange_rate ?? ''}
+                          onChange={(e) =>
+                            updateItem(idx, { exchange_rate: e.target.value ? Number(e.target.value) : null })
+                          }
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        {items.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 text-destructive"
+                            onClick={() => removeItem(idx)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {hasFxConversion && (
+                      <div className="rounded bg-primary/10 border border-primary/20 px-2.5 py-1.5 text-xs text-primary flex items-center justify-between font-medium">
+                        <span>Equivalente cancelado del servicio ({item.service_currency}):</span>
+                        <span className="font-mono font-bold text-sm">
+                          {item.service_currency} {getConvertedAmount(Number(item.amount), item.currency, item.service_currency, Number(item.exchange_rate)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
 
                   {(item.payment_method === 'credit_card' || item.payment_method === 'debit_card') && (
                     <div className="border-t pt-2 mt-1">
@@ -312,8 +394,9 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
                   )}
                 </div>
               </Card>
-            ))}
-          </div>
+            );
+          })}
+        </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium">Notas</label>

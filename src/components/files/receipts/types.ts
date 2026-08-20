@@ -44,6 +44,7 @@ export interface ReceiptItem {
   payment_method: string;
   exchange_rate: number | null;
   service_currency: string | null;
+  service_id?: string | null;
   notes: string;
   card_details?: CardOperationDetails;
 }
@@ -79,5 +80,6 @@ export const emptyItem = (): ReceiptItem => ({
   payment_method: 'transfer',
   exchange_rate: null,
   service_currency: null,
+  service_id: null,
   notes: '',
 });

@@ -78,12 +78,17 @@ export function ReceiptDetailDialog({ receipt, items, cardOperations = [], loadi
                               <Badge variant="outline" className="text-[10px]">
                                 {getMethodLabel(it.payment_method || 'other')}
                               </Badge>
+                              {it.file_services && (
+                                <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-medium">
+                                  Servicio: {it.file_services.description || it.file_services.service_type || 'Servicio'}
+                                </Badge>
+                              )}
                               {hasFx && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className="inline-flex items-center gap-1 text-xs text-primary cursor-help">
                                       <Info className="h-3.5 w-3.5" />
-                                      TC {Number(it.exchange_rate).toFixed(2)}
+                                      TC {Number(it.exchange_rate).toFixed(2)} ({it.service_currency})
                                     </span>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-xs">
@@ -92,7 +97,7 @@ export function ReceiptDetailDialog({ receipt, items, cardOperations = [], loadi
                                       {Number(it.exchange_rate).toLocaleString('es-AR')} {it.currency}
                                     </p>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                      Fecha: {new Date(receipt.payment_date).toLocaleDateString('es-AR')} · Manual
+                                      Imputado al servicio: {it.service_currency} {(Number(it.amount) / Number(it.exchange_rate)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>

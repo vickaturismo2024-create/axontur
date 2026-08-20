@@ -56,7 +56,7 @@ export function computeReceiptTotals(
       otherCurrencyFound = true;
       const rate = num(line.exchange_rate);
       if (line.service_currency === mainCurrency && rate > 0) {
-        convertedTotal += amt / rate;
+        convertedTotal += getConvertedAmount(amt, cur, mainCurrency, rate);
       } else {
         unconvertibleLines.push(line);
       }
@@ -72,6 +72,29 @@ export function computeReceiptTotals(
     unconvertibleLines,
     isMultiCurrency: otherCurrencyFound,
   };
+}
+
+export function getConvertedAmount(
+  amount: number,
+  currency: string,
+  targetCurrency: string,
+  rate: number
+): number {
+  if (!rate || rate <= 0) return amount;
+  if (currency === targetCurrency) return amount;
+
+  // ARS a moneda extranjera: Dividimos por la cotización (ej: 100.000 ARS / 1000 = 100 USD)
+  if (currency === 'ARS' && targetCurrency !== 'ARS') {
+    return amount / rate;
+  }
+  
+  // Moneda extranjera a ARS: Multiplicamos por la cotización (ej: 100 USD * 1000 = 100.000 ARS)
+  if (currency !== 'ARS' && targetCurrency === 'ARS') {
+    return amount * rate;
+  }
+
+  // Por defecto (ej. USD a EUR) asumimos que el rate se expresa como "unidades de currency por unidad de targetCurrency"
+  return amount / rate;
 }
 
 export function formatMoney(currency: string, amount: number): string {
