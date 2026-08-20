@@ -20,6 +20,7 @@ interface PaymentLine {
   reference: string;
   notes: string;
   linked_receipt_id?: string;
+  service_id?: string;
 }
 
 interface SupplierPaymentDialogProps {
@@ -43,6 +44,16 @@ interface SupplierPaymentDialogProps {
   defaultCurrency?: string;
   supplierCosts?: Record<string, number>;
   supplierPaid?: Record<string, number>;
+  services?: Array<{
+    id: string;
+    description: string;
+    supplier_name: string;
+    supplier_id: string | null;
+    cost: number;
+    currency: string;
+    status: string;
+    pending?: number;
+  }>;
 }
 
 export function SupplierPaymentDialog({
@@ -64,6 +75,7 @@ export function SupplierPaymentDialog({
   supplierCosts = {},
   supplierPaid = {},
   fileId,
+  services = [],
 }: SupplierPaymentDialogProps) {
   const resolvedSupplierName = catalog.find(c => c.id === resolvedSupplierId)?.name;
   const showCreateOption = selectedSupplier && !findCatalogMatch(selectedSupplier.name);
@@ -116,6 +128,7 @@ export function SupplierPaymentDialog({
             reference: '',
             notes: '',
             linked_receipt_id: undefined,
+            service_id: undefined,
           },
         ]);
       }
@@ -136,6 +149,7 @@ export function SupplierPaymentDialog({
         reference: '',
         notes: '',
         linked_receipt_id: undefined,
+        service_id: undefined,
       },
     ]);
   };
@@ -320,6 +334,36 @@ export function SupplierPaymentDialog({
                       </Select>
                     </div>
                   </div>
+
+                  {resolvedSupplierId && (
+                    <div className="grid grid-cols-1 mb-2">
+                      <label className="mb-1 block text-xs font-medium text-amber-700 dark:text-amber-500">
+                        Vincular a un Servicio (opcional)
+                      </label>
+                      <Select 
+                        value={line.service_id || 'none'} 
+                        onValueChange={v => updateLine(idx, { service_id: v === 'none' ? undefined : v })}
+                      >
+                        <SelectTrigger className="h-9 border-amber-200 bg-amber-50/50">
+                          <SelectValue placeholder="Seleccionar servicio..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No vincular a servicio</SelectItem>
+                          {services
+                            .filter(s => s.supplier_id === resolvedSupplierId || s.supplier_name === selectedSupplier?.name)
+                            .map(s => {
+                              const amountToShow = s.pending !== undefined ? s.pending : s.cost;
+                              const isPaid = s.status === 'paid' || amountToShow <= 0;
+                              return (
+                                <SelectItem key={s.id} value={s.id} disabled={isPaid}>
+                                  {s.description || 'Servicio sin descripción'} - {isPaid ? 'Saldado' : `Falta ${s.currency} ${amountToShow.toLocaleString('es-AR')}`} ({s.status})
+                                </SelectItem>
+                              );
+                            })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   {line.payment_method === 'tarjeta' && cardReceipts.length > 0 && (
                     <div className="grid grid-cols-1 mb-2">

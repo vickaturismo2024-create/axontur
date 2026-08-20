@@ -10,6 +10,7 @@ export interface SupplierPayment {
   id: string;
   supplier_name: string;
   supplier_id: string | null;
+  service_id?: string | null;
   amount: number;
   currency: string;
   payment_date: string;

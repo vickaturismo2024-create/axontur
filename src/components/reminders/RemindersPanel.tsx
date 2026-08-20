@@ -57,7 +57,8 @@ export function RemindersPanel({ quoteId, quoteName, defaultOpen, raw }: Reminde
         .from('file_services')
         .select('id, description, supplier_name, payment_due_date, cost, currency, file_id, status')
         .not('payment_due_date', 'is', null)
-        .neq('status', 'cancelled');
+        .neq('status', 'cancelled')
+        .neq('status', 'paid');
       if (svcData) {
         const dues = (svcData as any[]).filter(s => {
           const days = differenceInDays(new Date(s.payment_due_date), new Date());

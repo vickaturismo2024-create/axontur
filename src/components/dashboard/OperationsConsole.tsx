@@ -1,4 +1,4 @@
-﻿import { localDateStr } from '@/lib/utils';
+import { localDateStr } from '@/lib/utils';
 import { useState } from 'react';
 import { AlertTriangle, Plane, Cake, ArrowRight, CheckSquare } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -144,7 +144,8 @@ export function OperationsConsole() {
         .from('file_services')
         .select('id, payment_due_date, status')
         .not('payment_due_date', 'is', null)
-        .neq('status', 'cancelled');
+        .neq('status', 'cancelled')
+        .neq('status', 'paid');
       if (svcData) {
         const dues = (svcData as any[]).filter(s => {
           const days = differenceInDays(new Date(s.payment_due_date), new Date());

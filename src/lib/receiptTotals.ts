@@ -97,6 +97,25 @@ export function getConvertedAmount(
   return amount / rate;
 }
 
+export function getLiveRate(currency: string, targetCurrency: string, rates: any[]): number {
+  if (currency === targetCurrency || !rates || rates.length === 0) return 1;
+  
+  if (currency === 'ARS' && targetCurrency === 'USD') {
+    return rates.find((r: any) => r.key === 'usd_blue')?.venta || 1;
+  } else if (currency === 'USD' && targetCurrency === 'ARS') {
+    return rates.find((r: any) => r.key === 'usd_blue')?.compra || 1;
+  } else if (currency === 'ARS' && targetCurrency === 'EUR') {
+    return rates.find((r: any) => r.key === 'euro_blue')?.venta || 1;
+  } else if (currency === 'EUR' && targetCurrency === 'ARS') {
+    return rates.find((r: any) => r.key === 'euro_blue')?.compra || 1;
+  } else if (currency === 'ARS' && targetCurrency === 'BRL') {
+    return rates.find((r: any) => r.key === 'real_oficial')?.venta || 1;
+  } else if (currency === 'BRL' && targetCurrency === 'ARS') {
+    return rates.find((r: any) => r.key === 'real_oficial')?.compra || 1;
+  }
+  return 1;
+}
+
 export function formatMoney(currency: string, amount: number): string {
   return `${currency} ${amount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
 }

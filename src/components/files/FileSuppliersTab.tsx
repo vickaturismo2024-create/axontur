@@ -14,6 +14,7 @@ import { ServiceRecord, SupplierPayment, CatalogSupplier, METHODS } from './supp
 import { SupplierCard } from './suppliers/SupplierCard';
 import { SupplierPaymentDialog } from './suppliers/SupplierPaymentDialog';
 import { SupplierPaymentDetailDialog } from './suppliers/SupplierPaymentDetailDialog';
+import { getConvertedAmount, getLiveRate } from '@/lib/receiptTotals';
 
 interface Props { fileId: string; currency: string; }
 
@@ -39,7 +40,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
   const load = async () => {
     if (!user) return;
     const [svcRes, payRes, supRes] = await Promise.all([
-      supabase.from('file_services').select('supplier_name,supplier_id,cost,currency,status').eq('file_id', fileId),
+      supabase.from('file_services').select('id,supplier_name,supplier_id,cost,currency,status,description').eq('file_id', fileId),
       supabase.from('file_supplier_payments' as any).select('*').eq('file_id', fileId).order('payment_date', { ascending: false }),
       supabase.from('suppliers').select('id,name').order('name'),
     ]);
@@ -112,6 +113,21 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     });
   }, [payments, suppliers, catalog]);
 
+  const servicesWithPending = useMemo(() => {
+    const rates = (window as any).__liveRates || [];
+    return services.map(svc => {
+      let totalPaid = 0;
+      payments
+        .filter(p => p.service_id === svc.id && p.status !== 'cancelled')
+        .forEach((p: any) => {
+          const rate = getLiveRate(p.currency, svc.currency, rates);
+          totalPaid += getConvertedAmount(p.amount, p.currency, svc.currency, rate);
+        });
+      const pending = Math.max(0, svc.cost - totalPaid);
+      return { ...svc, pending };
+    });
+  }, [services, payments]);
+
   const findCatalogMatch = (name: string): CatalogSupplier | null => {
     const norm = name.trim().toLowerCase();
     return catalog.find(s => s.name.trim().toLowerCase() === norm) || null;
@@ -164,6 +180,32 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
     toast.success(`Proveedor «${data.name}» creado`);
   };
 
+  const reconcileServicePaymentStatus = async (serviceId: string) => {
+    const { data: svc } = await supabase.from('file_services').select('cost, currency, status').eq('id', serviceId).single();
+    if (!svc) return;
+
+    const { data: svcPayments } = await supabase
+      .from('file_supplier_payments' as any)
+      .select('amount, currency, status')
+      .eq('service_id', serviceId)
+      .neq('status', 'cancelled');
+    
+    let totalPaid = 0;
+    const rates = (window as any).__liveRates || [];
+
+    (svcPayments || []).forEach((p: any) => {
+      const rate = getLiveRate(p.currency, svc.currency, rates);
+      totalPaid += getConvertedAmount(p.amount, p.currency, svc.currency, rate);
+    });
+
+    const isPaid = totalPaid >= (svc.cost - 0.01);
+    const newStatus = isPaid ? 'paid' : (svc.status === 'paid' ? 'confirmed' : svc.status);
+
+    if (svc.status !== newStatus) {
+      await supabase.from('file_services').update({ status: newStatus }).eq('id', serviceId);
+    }
+  };
+
   const handleSave = async (lines: any[], paymentDate: string) => {
     if (!user || !selectedSupplier || !resolvedSupplierId) return;
     const supplierName = catalog.find(c => c.id === resolvedSupplierId)?.name || selectedSupplier.name;
@@ -179,6 +221,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
         payment_method: line.payment_method,
         reference: line.reference,
         notes: line.notes,
+        service_id: line.service_id,
       };
       const { error } = await supabase.from('file_supplier_payments' as any).update(payload as any).eq('id', editingPayment.id);
       if (error) { toast.error('Error al actualizar pago'); return; }
@@ -193,6 +236,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
           payment_method: line.payment_method,
           reference: line.reference,
           notes: line.notes,
+          service_id: line.service_id,
           file_id: fileId,
           user_id: user.id,
         };
@@ -205,13 +249,29 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
     toast.success(editingPayment ? 'Pago actualizado y reflejado en cuenta corriente' : 'Pagos registrados y reflejados en cuenta corriente');
     setDialogOpen(false);
+    
+    // Reconcile affected services
+    const affectedServiceIds = new Set<string>();
+    if (editingPayment && editingPayment.service_id) affectedServiceIds.add(editingPayment.service_id);
+    lines.forEach(l => { if (l.service_id) affectedServiceIds.add(l.service_id); });
+    
+    for (const sId of affectedServiceIds) {
+      await reconcileServicePaymentStatus(sId);
+    }
+    
     setEditingPayment(null);
     load();
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
+    const payment = payments.find(p => p.id === deleteId);
     await supabase.from('file_supplier_payments' as any).delete().eq('id', deleteId);
+    
+    if (payment?.service_id) {
+      await reconcileServicePaymentStatus(payment.service_id);
+    }
+    
     setDeleteId(null);
     toast.success('Pago eliminado');
     load();
@@ -219,6 +279,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
 
   const handleCancelPayment = async () => {
     if (!cancelPaymentId || !user) return;
+    const payment = payments.find(p => p.id === cancelPaymentId);
     const { error } = await supabase
       .from('file_supplier_payments' as any)
       .update({
@@ -232,6 +293,9 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
       toast.error('Error al anular pago');
     } else {
       toast.success('Pago a proveedor anulado');
+      if (payment?.service_id) {
+        await reconcileServicePaymentStatus(payment.service_id);
+      }
     }
     setCancelPaymentId(null);
     setCancelPaymentReason('');
@@ -292,6 +356,7 @@ export function FileSuppliersTab({ fileId, currency }: Props) {
         defaultCurrency={currency}
         supplierCosts={selectedSupplier ? (suppliers.find(s => s.name === selectedSupplier.name)?.costs || {}) : {}}
         supplierPaid={selectedSupplier ? getSupplierPaid(selectedSupplier.name, selectedSupplier.id) : {}}
+        services={servicesWithPending as any}
       />
 
       <SupplierPaymentDetailDialog

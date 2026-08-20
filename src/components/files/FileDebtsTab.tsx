@@ -9,6 +9,7 @@ import { SupplierPaymentDialog } from './suppliers/SupplierPaymentDialog';
 import { CatalogSupplier, SupplierPayment } from './suppliers/types';
 import { toast } from 'sonner';
 import { TransferSupplierCreditDialog } from './TransferSupplierCreditDialog';
+import { getConvertedAmount, getLiveRate } from '@/lib/receiptTotals';
 
 interface Props {
   fileId: string;
@@ -16,6 +17,8 @@ interface Props {
 }
 
 interface ServiceRecord {
+  id: string;
+  description: string;
   supplier_name: string | null;
   supplier_id: string | null;
   cost: number;
@@ -64,7 +67,7 @@ export function FileDebtsTab({ fileId, currency }: Props) {
     const [svcRes, payRes, supRes] = await Promise.all([
       supabase
         .from('file_services')
-        .select('supplier_name, supplier_id, cost, currency, status')
+        .select('id, description, supplier_name, supplier_id, cost, currency, status')
         .eq('file_id', fileId),
       supabase
         .from('file_supplier_payments' as any)
@@ -125,6 +128,21 @@ export function FileDebtsTab({ fileId, currency }: Props) {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [services, payments]);
 
+  const servicesWithPending = useMemo(() => {
+    const rates = (window as any).__liveRates || [];
+    return services.map(svc => {
+      let totalPaid = 0;
+      payments
+        .filter(p => p.service_id === svc.id && p.status !== 'cancelled')
+        .forEach((p: any) => {
+          const rate = getLiveRate(p.currency, svc.currency, rates);
+          totalPaid += getConvertedAmount(p.amount, p.currency, svc.currency, rate);
+        });
+      const pending = Math.max(0, svc.cost - totalPaid);
+      return { ...svc, pending };
+    });
+  }, [services, payments]);
+
   const findCatalogMatch = (name: string): CatalogSupplier | null => {
     const norm = name.trim().toLowerCase();
     return catalog.find((s) => s.name.trim().toLowerCase() === norm) || null;
@@ -179,6 +197,32 @@ export function FileDebtsTab({ fileId, currency }: Props) {
     toast.success(`Proveedor «${data.name}» creado`);
   };
 
+  const reconcileServicePaymentStatus = async (serviceId: string) => {
+    const { data: svc } = await supabase.from('file_services').select('cost, currency, status').eq('id', serviceId).single();
+    if (!svc) return;
+
+    const { data: svcPayments } = await supabase
+      .from('file_supplier_payments' as any)
+      .select('amount, currency, status')
+      .eq('service_id', serviceId)
+      .neq('status', 'cancelled');
+    
+    let totalPaid = 0;
+    const rates = (window as any).__liveRates || [];
+
+    (svcPayments || []).forEach((p: any) => {
+      const rate = getLiveRate(p.currency, svc.currency, rates);
+      totalPaid += getConvertedAmount(p.amount, p.currency, svc.currency, rate);
+    });
+
+    const isPaid = totalPaid >= (svc.cost - 0.01);
+    const newStatus = isPaid ? 'paid' : (svc.status === 'paid' ? 'confirmed' : svc.status);
+
+    if (svc.status !== newStatus) {
+      await supabase.from('file_services').update({ status: newStatus }).eq('id', serviceId);
+    }
+  };
+
   const handleSavePayment = async (lines: any[], paymentDate: string) => {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData?.user || !selectedSupplier) return;
@@ -200,6 +244,7 @@ export function FileDebtsTab({ fileId, currency }: Props) {
       reference: line.reference,
       notes: line.notes,
       linked_receipt_id: line.linked_receipt_id || null,
+      service_id: line.service_id,
       file_id: fileId,
       user_id: userData.user.id,
     }));
@@ -213,6 +258,13 @@ export function FileDebtsTab({ fileId, currency }: Props) {
 
     toast.success('Pago registrado y reflejado en cuenta corriente');
     setDialogOpen(false);
+    
+    const affectedServiceIds = new Set<string>();
+    lines.forEach(l => { if (l.service_id) affectedServiceIds.add(l.service_id); });
+    for (const sId of affectedServiceIds) {
+      await reconcileServicePaymentStatus(sId);
+    }
+    
     load();
   };
 
@@ -361,6 +413,7 @@ export function FileDebtsTab({ fileId, currency }: Props) {
         comboOpen={comboOpen}
         setComboOpen={setComboOpen}
         onSave={handleSavePayment}
+        services={servicesWithPending as any}
       />
 
       {transferSupplier && (
