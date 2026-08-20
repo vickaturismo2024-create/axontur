@@ -9,8 +9,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { PageLoadingScreen } from '@/components/ui/PageLoadingScreen';
-import { ArrowLeft, FolderOpen, Search, Calendar, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight, Plus, Trash2, FileUp } from 'lucide-react';
+import { ArrowLeft, FolderOpen, Search, Calendar as CalendarIcon, MapPin, Users, ArrowRight, FileSpreadsheet, ChevronLeft, ChevronRight, Plus, Trash2, FileUp, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { deleteFileWithCascade } from '@/lib/fileUtils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,7 +20,9 @@ import { ImportFilesExcelDialog } from '@/components/files/ImportFilesExcelDialo
 import { ImportFilePDFDialog } from '@/components/files/ImportFilePDFDialog';
 import { NewFileDialog } from '@/components/files/NewFileDialog';
 import { AdminOnly } from '@/components/auth/AdminOnly';
-import { formatDateSafe } from '@/lib/utils';
+import { formatDateSafe, localDateStr, cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +79,7 @@ const Files = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [importOpen, setImportOpen] = useState(false);
   const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [newFileOpen, setNewFileOpen] = useState(false);
@@ -132,6 +137,8 @@ const Files = () => {
     }
   };
 
+  const selectedDateStr = dateFilter ? localDateStr(dateFilter) : null;
+
   const filtered = useMemo(() => {
     return (files || []).filter(f => {
       const matchesSearch = !search ||
@@ -139,9 +146,10 @@ const Files = () => {
         f.destination.toLowerCase().includes(search.toLowerCase()) ||
         `FILE-${String(f.file_number).padStart(3, '0')}`.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === 'all' || f.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesDate = !selectedDateStr || (f.start_date ? f.start_date.startsWith(selectedDateStr) : false);
+      return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [files, search, statusFilter]);
+  }, [files, search, statusFilter, selectedDateStr]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
@@ -220,6 +228,53 @@ const Files = () => {
               className="pl-10 h-9 sm:h-10"
             />
           </div>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full h-9 sm:h-10 sm:w-56 justify-start text-left font-normal text-xs sm:text-sm",
+                  !dateFilter && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                {dateFilter ? (
+                  <span className="flex-1 truncate">
+                    {format(dateFilter, "dd/MM/yyyy")}
+                  </span>
+                ) : (
+                  <span className="flex-1 truncate">Fecha de salida</span>
+                )}
+                {dateFilter && (
+                  <span
+                    role="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDateFilter(undefined);
+                      setPage(0);
+                    }}
+                    className="ml-auto rounded-full p-0.5 hover:bg-accent/80 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFilter}
+                onSelect={(d) => {
+                  setDateFilter(d);
+                  setPage(0);
+                }}
+                initialFocus
+                locale={es}
+              />
+            </PopoverContent>
+          </Popover>
+
           <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
             <SelectTrigger className="w-full h-9 sm:h-10 sm:w-48">
               <SelectValue placeholder="Estado" />
@@ -425,7 +480,7 @@ const Files = () => {
                           )}
                           {file.start_date && (
                             <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3 flex-shrink-0" />
+                              <CalendarIcon className="h-3 w-3 flex-shrink-0" />
                               {formatDateSafe(file.start_date)}
                             </span>
                           )}

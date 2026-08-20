@@ -14,11 +14,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText, Mail, Send, Plane } from 'lucide-react';
+import { ArrowLeft, FolderOpen, MapPin, Calendar, Users, Trash2, ExternalLink, FileText, Mail, Send, Plane, Pencil } from 'lucide-react';
 import { syncQuoteFlightsToReservation } from '@/lib/quoteFlightsToReservation';
 import { deleteFileWithCascade } from '@/lib/fileUtils';
 import type { Quote } from '@/types/quote';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { NewFileDialog } from '@/components/files/NewFileDialog';
 
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
@@ -85,6 +86,8 @@ const FileDetail = () => {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('confirmed');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [reloadCounter, setReloadCounter] = useState(0);
   const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
 
@@ -139,7 +142,7 @@ const FileDetail = () => {
       }
     };
     load();
-  }, [user, id]);
+  }, [user, id, reloadCounter]);
 
   useEffect(() => {
     if (loading || !file || isInitialLoad.current) {
@@ -385,6 +388,15 @@ const FileDetail = () => {
                     <span className={STATUS_PILL_CLASS[status] || 'status-pill'}>
                       {statusInfo?.label}
                     </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditDialogOpen(true)}
+                      className="h-7 px-2.5 text-xs gap-1.5 ml-1 border-border/80 hover:bg-accent/60"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Editar
+                    </Button>
                   </div>
 
                   {/* Metadatos */}
@@ -618,6 +630,18 @@ const FileDetail = () => {
         setVoucherEmail={setVoucherEmail}
         handleSendVoucher={handleSendVoucher}
       />
+
+      {file && (
+        <NewFileDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          editFileId={file.id}
+          onSaveSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['files'] });
+            setReloadCounter(c => c + 1);
+          }}
+        />
+      )}
     </div>
   );
 };

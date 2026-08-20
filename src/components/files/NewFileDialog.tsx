@@ -42,6 +42,7 @@ interface NewFileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveSuccess: () => void;
+  editFileId?: string;
 }
 
 interface ClientOption {
@@ -222,10 +223,11 @@ const LABELS: Record<string, { dateFrom: string; dateTo: string; supplier: strin
   other:      { dateFrom: 'Fecha de inicio',    dateTo: 'Fecha de fin',       supplier: 'Proveedor',   confirmation: 'Referencia'          },
 };
 
-export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDialogProps) {
+export function NewFileDialog({ open, onOpenChange, onSaveSuccess, editFileId }: NewFileDialogProps) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('info');
   const [saving, setSaving] = useState(false);
+  const [loadingEditData, setLoadingEditData] = useState(false);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
 
@@ -270,23 +272,6 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
   useEffect(() => {
     if (open) {
       setActiveTab('info');
-      setForm({
-        client_id: 'new',
-        client_name: '',
-        destination: '',
-        start_date: '',
-        end_date: '',
-        travelers: '1',
-        currency: 'USD',
-        total_price: '0',
-        total_cost: '0',
-        status: 'confirmed',
-        internal_notes: '',
-      });
-      setSelectedMainClient(null);
-      setMainClientSearch('');
-      setPassengersList([]);
-      setServicesList([]);
 
       // Load clients
       (async () => {
@@ -319,8 +304,156 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
         .then(({ data }) => {
           if (data) setSuppliers(data);
         });
+
+      if (editFileId) {
+        setLoadingEditData(true);
+        (async () => {
+          try {
+            // 1. Fetch file
+            const { data: fileData, error: fErr } = await supabase
+              .from('files')
+              .select('*')
+              .eq('id', editFileId)
+              .single();
+            if (fErr || !fileData) throw fErr || new Error('No se pudo cargar el expediente');
+
+            setForm({
+              client_id: fileData.client_id || 'new',
+              client_name: fileData.client_name || '',
+              destination: fileData.destination || '',
+              start_date: fileData.start_date || '',
+              end_date: fileData.end_date || '',
+              travelers: String(fileData.travelers || 1),
+              currency: fileData.currency || 'USD',
+              total_price: String(fileData.total_price || 0),
+              total_cost: String(fileData.total_cost || 0),
+              status: fileData.status || 'confirmed',
+              internal_notes: fileData.internal_notes || '',
+            });
+
+            if (fileData.client_id) {
+              const { data: clientInfo } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('id', fileData.client_id)
+                .maybeSingle();
+              if (clientInfo) {
+                setSelectedMainClient(clientInfo as ClientOption);
+              } else {
+                setSelectedMainClient({ id: fileData.client_id, name: fileData.client_name || '' });
+              }
+            } else {
+              setSelectedMainClient(null);
+            }
+
+            // 2. Fetch passengers
+            const { data: passData } = await supabase
+              .from('file_passengers')
+              .select('*')
+              .eq('file_id', editFileId)
+              .order('created_at', { ascending: true });
+
+            if (passData && passData.length > 0) {
+              setPassengersList(passData.map((p: any) => ({
+                client_id: p.client_id || null,
+                name: p.name || '',
+                sex: p.sex || '',
+                birth_date: p.birth_date || null,
+                nationality: p.nationality || '',
+                notes: p.notes || '',
+                dni: p.dni || '',
+                dni_expiry: p.dni_expiry || null,
+                passport: p.passport || '',
+                passport_issue: p.passport_issue || null,
+                passport_expiry: p.passport_expiry || null,
+                cuil_cuit: p.cuil_cuit || '',
+                email: p.email || '',
+                phone: p.phone || '',
+                phone_work: p.phone_work || '',
+                phone_mobile: p.phone_mobile || '',
+                address: p.address || '',
+                locality: p.locality || '',
+              })));
+            } else {
+              setPassengersList([]);
+            }
+
+            // 3. Fetch services
+            const { data: servData } = await supabase
+              .from('file_services')
+              .select('*')
+              .eq('file_id', editFileId)
+              .order('created_at', { ascending: true });
+
+            if (servData && servData.length > 0) {
+              setServicesList(servData.map((s: any) => ({
+                service_type: (s.service_type as ServiceType) || 'other',
+                description: s.description || '',
+                supplier_name: s.supplier_name || '',
+                supplier_id: s.supplier_id || null,
+                status: s.status || 'pending',
+                confirmation_number: s.confirmation_number || '',
+                cost: s.cost !== undefined && s.cost !== null ? String(s.cost) : '',
+                price: s.price !== undefined && s.price !== null ? String(s.price) : '',
+                currency: s.currency || 'USD',
+                service_date: s.service_date || null,
+                end_date: s.end_date || null,
+                payment_due_date: s.payment_due_date || null,
+                notes: s.notes || '',
+                origin: s.origin || '',
+                destination: s.destination || '',
+                airline: s.airline || '',
+                flight_number: s.flight_number || '',
+                cabin_class: s.cabin_class || 'Economy',
+                regime: s.regime || 'Sin régimen',
+                room_type: s.room_type || '',
+                pickup_location: s.pickup_location || '',
+                dropoff_location: s.dropoff_location || '',
+                company: s.company || '',
+                departure_time: s.departure_time || '',
+                arrival_time: s.arrival_time || '',
+                luggage: s.luggage || '',
+                luggage_type: s.luggage_type || 'personal',
+                hotel_category: s.hotel_category || '',
+                ship_name: s.ship_name || '',
+                embarkation_port: s.embarkation_port || '',
+                disembarkation_port: s.disembarkation_port || '',
+                deck: s.deck || '',
+                cabin_number: s.cabin_number || '',
+                coverage: s.coverage || '',
+                insurance_plan: s.insurance_plan || '',
+              })));
+            } else {
+              setServicesList([]);
+            }
+          } catch (err: any) {
+            console.error('Error loading file for edit:', err);
+            toast.error('Error al cargar datos del expediente para edición');
+          } finally {
+            setLoadingEditData(false);
+          }
+        })();
+      } else {
+        setForm({
+          client_id: 'new',
+          client_name: '',
+          destination: '',
+          start_date: '',
+          end_date: '',
+          travelers: '1',
+          currency: 'USD',
+          total_price: '0',
+          total_cost: '0',
+          status: 'confirmed',
+          internal_notes: '',
+        });
+        setSelectedMainClient(null);
+        setMainClientSearch('');
+        setPassengersList([]);
+        setServicesList([]);
+      }
     }
-  }, [open]);
+  }, [open, editFileId]);
 
   // Auto-calculate travelers count when passengers list changes
   useEffect(() => {
@@ -542,13 +675,35 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
         internal_notes: form.internal_notes.trim(),
       };
 
-      const { data: fileData, error: fileErr } = await supabase
-        .from('files')
-        .insert(payload)
-        .select('id, file_number')
-        .single();
+      let fileId = editFileId;
+      let fileNumber: number | string = '';
 
-      if (fileErr || !fileData) throw fileErr || new Error('No se pudo crear el expediente principal');
+      if (editFileId) {
+        const { data: fileData, error: fileErr } = await supabase
+          .from('files')
+          .update(payload)
+          .eq('id', editFileId)
+          .select('id, file_number')
+          .single();
+
+        if (fileErr || !fileData) throw fileErr || new Error('No se pudo actualizar el expediente');
+        fileId = fileData.id;
+        fileNumber = fileData.file_number;
+
+        // Clean previous passengers and services for a clean sync
+        await supabase.from('file_passengers').delete().eq('file_id', editFileId);
+        await supabase.from('file_services').delete().eq('file_id', editFileId);
+      } else {
+        const { data: fileData, error: fileErr } = await supabase
+          .from('files')
+          .insert(payload)
+          .select('id, file_number')
+          .single();
+
+        if (fileErr || !fileData) throw fileErr || new Error('No se pudo crear el expediente principal');
+        fileId = fileData.id;
+        fileNumber = fileData.file_number;
+      }
 
       // 2. Insert Passengers (Sync with CRM)
       for (const pass of passengersList) {
@@ -599,7 +754,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
 
         // Write passenger row (guard all optional columns with || null)
         const passPayload = {
-          file_id: fileData.id,
+          file_id: fileId,
           user_id: user.id,
           client_id: clientId || null,
           name: pass.name.trim(),
@@ -616,7 +771,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
       // 3. Insert Services (clean all string & date fields to avoid syntax format errors)
       if (servicesList.length > 0) {
         const servicesPayload = servicesList.map(svc => ({
-          file_id: fileData.id,
+          file_id: fileId,
           user_id: user.id,
           service_type: svc.service_type,
           description: svc.description?.trim() || '',
@@ -658,12 +813,12 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
         if (svcErr) throw svcErr;
       }
 
-      toast.success(`Expediente FILE-${String(fileData.file_number).padStart(3, '0')} creado con éxito`);
+      toast.success(`Expediente FILE-${String(fileNumber).padStart(3, '0')} ${editFileId ? 'actualizado' : 'creado'} con éxito`);
       onSaveSuccess();
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
-      toast.error(`Error al crear expediente: ${e.message || 'Error desconocido'}`);
+      toast.error(`Error al ${editFileId ? 'actualizar' : 'crear'} expediente: ${e.message || 'Error desconocido'}`);
     } finally {
       setSaving(false);
     }
@@ -686,10 +841,21 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" />
-              Nuevo Expediente Completo
+              {editFileId ? (
+                <>
+                  <Pencil className="h-5 w-5 text-primary" />
+                  Editar Expediente
+                </>
+              ) : (
+                <>
+                  <Plus className="h-5 w-5 text-primary" />
+                  Nuevo Expediente Completo
+                </>
+              )}
             </DialogTitle>
-            <DialogDescription className="sr-only">Formulario para crear un nuevo expediente</DialogDescription>
+            <DialogDescription className="sr-only">
+              {editFileId ? 'Formulario para editar el expediente' : 'Formulario para crear un nuevo expediente'}
+            </DialogDescription>
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2">
@@ -1021,14 +1187,26 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess }: NewFileDial
               </div>
 
               <div className="flex gap-2">
-                {activeTab !== 'services' ? (
-                  <Button onClick={() => setActiveTab(activeTab === 'info' ? 'passengers' : 'services')}>
-                    Siguiente <ChevronRight className="ml-1.5 h-4 w-4" />
+                {editFileId ? (
+                  <Button
+                    onClick={handleSave}
+                    disabled={saving || loadingEditData}
+                    className="bg-primary hover:bg-primary/95 text-primary-foreground font-bold shadow-md"
+                  >
+                    {saving ? 'Guardando cambios...' : 'Guardar Cambios'}
                   </Button>
                 ) : (
-                  <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/95 text-primary-foreground font-bold shadow-md">
-                    {saving ? 'Guardando expediente...' : 'Crear Expediente'}
-                  </Button>
+                  <>
+                    {activeTab !== 'services' ? (
+                      <Button onClick={() => setActiveTab(activeTab === 'info' ? 'passengers' : 'services')}>
+                        Siguiente <ChevronRight className="ml-1.5 h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/95 text-primary-foreground font-bold shadow-md">
+                        {saving ? 'Guardando expediente...' : 'Crear Expediente'}
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
