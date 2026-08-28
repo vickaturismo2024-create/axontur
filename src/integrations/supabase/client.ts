@@ -15,3 +15,33 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// Interceptor Global (Monkey-Patch) para forzar auto-refresco en operaciones CRUD
+const originalFrom = supabase.from.bind(supabase);
+(supabase as any).from = (table: any) => {
+  const queryBuilder = originalFrom(table);
+  
+  const intercept = (methodName: 'insert' | 'update' | 'delete' | 'upsert') => {
+    const originalMethod = (queryBuilder as any)[methodName].bind(queryBuilder);
+    (queryBuilder as any)[methodName] = (...args: any[]) => {
+      const promise = originalMethod(...args);
+      // Solo interceptamos Promesas
+      if (promise && typeof promise.then === 'function') {
+        promise.then((res: any) => {
+          // Si no hubo error en la base de datos, emitimos el evento de éxito global
+          if (!res.error) {
+             window.dispatchEvent(new CustomEvent('global-crud-success'));
+          }
+        }).catch(() => {}); // Prevenir unhandled rejections
+      }
+      return promise;
+    };
+  };
+
+  intercept('insert');
+  intercept('update');
+  intercept('delete');
+  intercept('upsert');
+  
+  return queryBuilder;
+};

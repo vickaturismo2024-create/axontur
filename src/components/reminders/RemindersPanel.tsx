@@ -71,6 +71,13 @@ export function RemindersPanel({ quoteId, quoteName, defaultOpen, raw }: Reminde
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Escuchar el evento global de CRUD para auto-refrescar las alertas (por ej. cuando se paga un servicio)
+  useEffect(() => {
+    const handleGlobalUpdate = () => fetchData();
+    window.addEventListener('global-crud-success', handleGlobalUpdate);
+    return () => window.removeEventListener('global-crud-success', handleGlobalUpdate);
+  }, [fetchData]);
+
   const addReminder = async () => {
     if (!user || !newMessage.trim() || !newDate) return;
     const { error } = await supabase.from('reminders').insert({

@@ -122,6 +122,18 @@ const queryClient = new QueryClient({
   }),
 });
 
+const GlobalCrudListener = () => {
+  useEffect(() => {
+    const handleCrudSuccess = () => {
+      // Invalida silenciosamente todas las consultas en segundo plano
+      queryClient.invalidateQueries();
+    };
+    window.addEventListener('global-crud-success', handleCrudSuccess);
+    return () => window.removeEventListener('global-crud-success', handleCrudSuccess);
+  }, []);
+  return null;
+};
+
 // ── App ──────────────────────────────────────────────────────────────────────
 const App = () => (
   <Sentry.ErrorBoundary fallback={
@@ -162,6 +174,7 @@ const App = () => (
               <Sonner />
               <BrowserRouter>
                 <TourProvider>
+                  <GlobalCrudListener />
                   <GlobalHistoryTracker />
                   <TourOverlay />
                   <BirthdayNotifier />
