@@ -189,6 +189,11 @@ export default function Reservations() {
         return true;
       })
       .sort((a, b) => {
+        if (dateFilter === 'upcoming') {
+          const depA = earliestDepByRes.get(a.id) ?? Infinity;
+          const depB = earliestDepByRes.get(b.id) ?? Infinity;
+          return depA - depB; // Orden ascendente: los más próximos a la fecha actual primero
+        }
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
   }, [reservations, search, airlineFilter, dateFilter, linkFilter, onlyChanges, segmentsByRes, passengersByRes, pendingChangesByRes, earliestDepByRes]);
