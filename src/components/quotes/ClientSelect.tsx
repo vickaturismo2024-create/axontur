@@ -46,7 +46,7 @@ export function ClientSelect({ onSelect, onSelectGroup }: ClientSelectProps) {
     const fetchClients = async () => {
       let query = supabase
         .from('clients')
-        .select('id, name, email, phone, dni')
+        .select('id, name, email, phone, phone_mobile, phone_work, dni')
         .order('name')
         .limit(20);
 
@@ -62,7 +62,7 @@ export function ClientSelect({ onSelect, onSelectGroup }: ClientSelectProps) {
             id: c.id,
             name: c.name || '',
             email: c.email || '',
-            phone: c.phone || '',
+            phone: c.phone || c.phone_mobile || c.phone_work || '',
             dni: c.dni || '',
           }))
         );
@@ -85,7 +85,7 @@ export function ClientSelect({ onSelect, onSelectGroup }: ClientSelectProps) {
       if (gData && gData.length > 0) {
         const { data: mData } = await supabase
           .from('client_group_members')
-          .select('group_id, clients(id, name, email, phone, dni)');
+          .select('group_id, clients(id, name, email, phone, phone_mobile, phone_work, dni)');
         const members = mData || [];
         setGroups(
           gData.map((g: any) => ({
@@ -97,7 +97,7 @@ export function ClientSelect({ onSelect, onSelectGroup }: ClientSelectProps) {
                 id: m.clients.id,
                 name: m.clients.name || '',
                 email: m.clients.email || '',
-                phone: m.clients.phone || '',
+                phone: m.clients.phone || m.clients.phone_mobile || m.clients.phone_work || '',
                 dni: m.clients.dni || '',
               })),
           }))

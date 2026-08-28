@@ -27,7 +27,13 @@ export function GeneralStep({ quote, onUpdate }: GeneralStepProps) {
         <div className="flex items-center justify-between">
           <h4 className="font-medium">Datos del Cliente</h4>
           <ClientSelect
-            onSelect={(c) => onUpdate({ client: { ...quote.client, ...c } })}
+            onSelect={(c) => {
+              const updatedClient = { ...quote.client, name: c.name, email: c.email };
+              if (c.phone) {
+                updatedClient.phone = c.phone;
+              }
+              onUpdate({ client: updatedClient });
+            }}
             onSelectGroup={handleSelectGroup}
           />
         </div>
