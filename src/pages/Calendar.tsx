@@ -45,6 +45,8 @@ interface CalendarFlight {
   origin_iata: string;
   destination_iata: string;
   dep_datetime_local: string;
+  dep_datetime_utc?: string | null;
+  origin_timezone?: string | null;
   has_changes: boolean;
 }
 
@@ -90,13 +92,19 @@ const Calendar = () => {
       if (!user) return [] as CalendarFlight[];
       const { data, error } = await supabase
         .from('flight_segments')
-        .select('id, reservation_id, airline_code, flight_number, origin_iata, destination_iata, dep_datetime_local, has_changes')
-        .gte('dep_datetime_local', monthStart.toISOString())
-        .lte('dep_datetime_local', monthEnd.toISOString())
+        .select('id, reservation_id, airline_code, flight_number, origin_iata, destination_iata, dep_datetime_local, dep_datetime_utc, origin_timezone, has_changes')
+        .or(`dep_datetime_local.gte.${monthStart.toISOString()},dep_datetime_utc.gte.${monthStart.toISOString()}`)
+        .or(`dep_datetime_local.lte.${monthEnd.toISOString()},dep_datetime_utc.lte.${monthEnd.toISOString()}`)
         .order('dep_datetime_local');
       if (error) {
-        console.error(error);
-        return [] as CalendarFlight[];
+        // Fallback simple query if OR syntax encounters any issue
+        const { data: fallbackData } = await supabase
+          .from('flight_segments')
+          .select('id, reservation_id, airline_code, flight_number, origin_iata, destination_iata, dep_datetime_local, dep_datetime_utc, origin_timezone, has_changes')
+          .gte('dep_datetime_local', monthStart.toISOString())
+          .lte('dep_datetime_local', monthEnd.toISOString())
+          .order('dep_datetime_local');
+        return (fallbackData || []) as unknown as CalendarFlight[];
       }
       return (data || []) as unknown as CalendarFlight[];
     },
@@ -161,7 +169,9 @@ const Calendar = () => {
                 });
                 const flightsOnDay = flights.filter((f) => {
                   try {
-                    return isSameDay(parseISO(f.dep_datetime_local), day);
+                    const rawDate = f.dep_datetime_local || f.dep_datetime_utc;
+                    if (!rawDate) return false;
+                    return isSameDay(parseISO(rawDate), day);
                   } catch {
                     return false;
                   }

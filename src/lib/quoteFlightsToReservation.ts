@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Quote } from '@/types/quote';
+import { convertLocalToUtc, getAirportTimezone } from '@/lib/airportTimezones';
 
 /**
  * Extract IATA code from a location string like "Buenos Aires (AEP)" → "AEP".
@@ -108,15 +109,26 @@ export async function syncQuoteFlightsToReservation(
     const airlineCode = airlineRaw.length <= 3
       ? airlineRaw.toUpperCase()
       : airlineRaw.split(' ').map((w: string) => w[0]).join('').slice(0, 3).toUpperCase() || 'XX';
+    const originIata = parseIataFromLocation(f.origin);
+    const destIata = parseIataFromLocation(f.destination);
+    const depLocal = combineLocalDateTime(f.date, f.departureTime);
+    const arrLocal = combineLocalDateTime(f.date, f.arrivalTime);
+    const depUtc = depLocal ? convertLocalToUtc(depLocal, originIata).isoUtc : null;
+    const arrUtc = arrLocal ? convertLocalToUtc(arrLocal, destIata).isoUtc : null;
+
     return {
       reservation_id: reservationId,
       seq: idx + 1,
       airline_code: airlineCode,
       flight_number: (f.flightNumber || '').toString(),
-      origin_iata: parseIataFromLocation(f.origin),
-      destination_iata: parseIataFromLocation(f.destination),
-      dep_datetime_local: combineLocalDateTime(f.date, f.departureTime),
-      arr_datetime_local: combineLocalDateTime(f.date, f.arrivalTime),
+      origin_iata: originIata,
+      destination_iata: destIata,
+      dep_datetime_local: depLocal,
+      arr_datetime_local: arrLocal,
+      dep_datetime_utc: depUtc,
+      arr_datetime_utc: arrUtc,
+      origin_timezone: getAirportTimezone(originIata),
+      destination_timezone: getAirportTimezone(destIata),
       booking_class: null,
       segment_status: 'HK',
       airline_locator: null,

@@ -13,6 +13,7 @@ import {
   UpcomingFlight,
 } from '@/types/reservation';
 import { ParsedReservation, getStatusMeaning, toLocalISOString } from '@/lib/pnrParser';
+import { convertLocalToUtc, getAirportTimezone } from '@/lib/airportTimezones';
 import { diffReservation, DiffChange } from '@/lib/pnrDiff';
 import { ParsedLegacyReservation, buildLegacyNotes, normalizeName } from '@/lib/reservationExcelParser';
 
@@ -182,6 +183,11 @@ export function useCreateReservation() {
         const seg = parsed.segments[i];
         const statusInfo = getStatusMeaning(seg.segmentStatus);
 
+        const originTz = getAirportTimezone(seg.originIata);
+        const destTz = getAirportTimezone(seg.destinationIata);
+        const depUtc = seg.depDatetime ? convertLocalToUtc(seg.depDatetime, seg.originIata).isoUtc : null;
+        const arrUtc = seg.arrDatetime ? convertLocalToUtc(seg.arrDatetime, seg.destinationIata).isoUtc : null;
+
         const { data: segment, error: segError } = await supabase
           .from('flight_segments')
           .insert({
@@ -193,6 +199,10 @@ export function useCreateReservation() {
             destination_iata: seg.destinationIata,
             dep_datetime_local: seg.depDatetime ? toLocalISOString(seg.depDatetime) : null,
             arr_datetime_local: seg.arrDatetime ? toLocalISOString(seg.arrDatetime) : null,
+            dep_datetime_utc: depUtc,
+            arr_datetime_utc: arrUtc,
+            origin_timezone: originTz,
+            destination_timezone: destTz,
             booking_class: seg.bookingClass,
             segment_status: seg.segmentStatus,
             airline_locator: seg.airlineLocator,
@@ -348,14 +358,49 @@ export function useUpdateFlightSegment() {
       id: string;
       updates: Partial<Pick<FlightSegment,
         'airline_code' | 'flight_number' | 'origin_iata' | 'destination_iata' |
-        'dep_datetime_local' | 'arr_datetime_local' | 'booking_class' |
-        'segment_status' | 'airline_locator'
+        'dep_datetime_local' | 'arr_datetime_local' | 'dep_datetime_utc' | 'arr_datetime_utc' |
+        'origin_timezone' | 'destination_timezone' | 'booking_class' |
+        'segment_status' | 'airline_locator' | 'has_changes'
       >>;
     }) => {
-      const { error } = await supabase.from('flight_segments').update(updates).eq('id', id);
+      const finalUpdates = { ...updates };
+      if (updates.dep_datetime_local && !updates.dep_datetime_utc) {
+        finalUpdates.dep_datetime_utc = convertLocalToUtc(updates.dep_datetime_local, updates.origin_iata).isoUtc;
+        if (!finalUpdates.origin_timezone) {
+          finalUpdates.origin_timezone = getAirportTimezone(updates.origin_iata);
+        }
+      }
+      if (updates.arr_datetime_local && !updates.arr_datetime_utc) {
+        finalUpdates.arr_datetime_utc = convertLocalToUtc(updates.arr_datetime_local, updates.destination_iata).isoUtc;
+        if (!finalUpdates.destination_timezone) {
+          finalUpdates.destination_timezone = getAirportTimezone(updates.destination_iata);
+        }
+      }
+      const { error } = await supabase.from('flight_segments').update(finalUpdates).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
+    },
+  });
+}
+
+// Clear / resolve flight changes
+export function useResolveFlightChanges() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ reservationId, segmentId }: { reservationId: string; segmentId?: string }) => {
+      if (segmentId) {
+        await supabase.from('flight_segments').update({ has_changes: false }).eq('id', segmentId);
+      } else {
+        await supabase.from('flight_segments').update({ has_changes: false }).eq('reservation_id', reservationId);
+      }
+      await supabase.from('reservation_changes').update({ status: 'resolved' }).eq('reservation_id', reservationId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
     },
@@ -418,14 +463,29 @@ export function useResolveChange() {
 
   return useMutation({
     mutationFn: async (changeId: string) => {
+      const { data: changeData } = await supabase
+        .from('reservation_changes')
+        .select('flight_segment_id, reservation_id')
+        .eq('id', changeId)
+        .single();
+
       const { error } = await supabase
         .from('reservation_changes')
         .update({ status: 'resolved' })
         .eq('id', changeId);
       if (error) throw error;
+
+      if (changeData?.flight_segment_id) {
+        await supabase
+          .from('flight_segments')
+          .update({ has_changes: false })
+          .eq('id', changeData.flight_segment_id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reservations.detail() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.all() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reservations.upcomingFlights() });
     },
   });
 }
@@ -527,6 +587,11 @@ export function useUpdateReservationFromPNR() {
           c => c.flightSegmentId === matched?.id || (c.matchKey === key && c.changeType === 'new_segment')
         );
 
+        const originTz = getAirportTimezone(seg.originIata);
+        const destTz = getAirportTimezone(seg.destinationIata);
+        const depUtc = seg.depDatetime ? convertLocalToUtc(seg.depDatetime, seg.originIata).isoUtc : null;
+        const arrUtc = seg.arrDatetime ? convertLocalToUtc(seg.arrDatetime, seg.destinationIata).isoUtc : null;
+
         const payload = {
           seq: i + 1,
           airline_code: seg.airlineCode,
@@ -535,6 +600,10 @@ export function useUpdateReservationFromPNR() {
           destination_iata: seg.destinationIata,
           dep_datetime_local: seg.depDatetime ? toLocalISOString(seg.depDatetime) : null,
           arr_datetime_local: seg.arrDatetime ? toLocalISOString(seg.arrDatetime) : null,
+          dep_datetime_utc: depUtc,
+          arr_datetime_utc: arrUtc,
+          origin_timezone: originTz,
+          destination_timezone: destTz,
           booking_class: seg.bookingClass,
           segment_status: seg.segmentStatus,
           airline_locator: seg.airlineLocator,
@@ -608,14 +677,22 @@ export function useFileReservations(fileId: string | undefined) {
       if (!fileId || !user) return [];
       const { data, error } = await supabase
         .from('reservations')
-        .select('*, flight_segments(has_changes)')
+        .select(`
+          *,
+          flight_segments(id, seq, airline_code, flight_number, origin_iata, destination_iata, dep_datetime_local, dep_datetime_utc, origin_timezone, has_changes),
+          reservation_passengers(id, first_name, last_name, document)
+        `)
         .eq('file_id', fileId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []).map((res: any) => ({
         ...res,
         has_changes: res.flight_segments?.some((seg: any) => seg.has_changes) || false,
-      })) as unknown as (Reservation & { has_changes?: boolean })[];
+      })) as unknown as (Reservation & {
+        has_changes?: boolean;
+        flight_segments?: FlightSegment[];
+        reservation_passengers?: ReservationPassenger[];
+      })[];
     },
     enabled: !!fileId && !!user,
   });

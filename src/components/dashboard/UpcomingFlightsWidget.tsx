@@ -14,8 +14,9 @@ export function UpcomingFlightsWidget({ defaultOpen, raw }: { defaultOpen?: bool
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
   const upcoming = (data || []).filter(f => {
-    if (!f.segment.dep_datetime_local) return false;
-    return new Date(f.segment.dep_datetime_local) <= sevenDaysFromNow;
+    const depStr = f.segment.dep_datetime_utc || f.segment.dep_datetime_local;
+    if (!depStr) return false;
+    return new Date(depStr) <= sevenDaysFromNow;
   });
 
   const renderContent = () => {

@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, MutationCache } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Plane } from "lucide-react";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -113,6 +113,13 @@ const queryClient = new QueryClient({
       retry: 1,
     },
   },
+  mutationCache: new MutationCache({
+    onSuccess: () => {
+      // Auto-refresco global tras operaciones CRUD (POST, PUT, DELETE):
+      // Invalida automáticamente todas las consultas activas para refrescar los datos en pantalla
+      queryClient.invalidateQueries();
+    },
+  }),
 });
 
 // ── App ──────────────────────────────────────────────────────────────────────

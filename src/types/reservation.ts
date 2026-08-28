@@ -35,6 +35,10 @@ export interface FlightSegment {
   destination_iata: string;
   dep_datetime_local?: string | null;
   arr_datetime_local?: string | null;
+  dep_datetime_utc?: string | null;
+  arr_datetime_utc?: string | null;
+  origin_timezone?: string | null;
+  destination_timezone?: string | null;
   booking_class?: string | null;
   segment_status?: string | null;
   airline_locator?: string | null;

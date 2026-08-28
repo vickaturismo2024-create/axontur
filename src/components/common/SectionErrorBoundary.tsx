@@ -1,7 +1,8 @@
-﻿import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { logSystemError } from '@/lib/errorLogger';
 
 interface Props {
   children: ReactNode;
@@ -24,7 +25,12 @@ export class SectionErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error(`Error in section ${this.props.sectionName || ''}:`, error, errorInfo);
+    // Registrar el error de forma segura en la base de datos
+    logSystemError({
+      error,
+      errorInfo,
+      componentName: this.props.sectionName || 'SectionErrorBoundary',
+    });
   }
 
   private handleRetry = () => {

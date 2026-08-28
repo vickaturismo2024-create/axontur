@@ -23,8 +23,9 @@ export function OperationsConsole() {
   const sevenDaysFromNow = new Date();
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
   const flightsCount = (flightsData || []).filter(f => {
-    if (!f.segment.dep_datetime_local) return false;
-    return new Date(f.segment.dep_datetime_local) <= sevenDaysFromNow;
+    const depStr = f.segment.dep_datetime_utc || f.segment.dep_datetime_local;
+    if (!depStr) return false;
+    return new Date(depStr) <= sevenDaysFromNow;
   }).length;
 
   // 2. Birthdays Count
