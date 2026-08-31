@@ -64,7 +64,7 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || loading) return;
     if (!destFileId) {
       toast.error('Seleccioná un expediente destino');
       return;
@@ -75,21 +75,28 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
     }
 
     setLoading(true);
+    let transferId: string | null = null;
+    let sourceReceiptId: string | null = null;
+    let destReceiptId: string | null = null;
+
     try {
       // 1. Registrar la transferencia en file_transfers
-      const { error: transferError } = await supabase
+      const { data: transferData, error: transferError } = await supabase
         .from('file_transfers' as any)
         .insert({
           source_file_id: sourceFileId,
           dest_file_id: destFileId,
-          amount,
-          currency,
-          payment_method: paymentMethod,
+          amount: Number(amount) || 0,
+          currency: currency || 'USD',
+          payment_method: paymentMethod || 'transfer',
           user_id: user.id,
           notes: notes || `Transferencia de saldo desde el expediente de ${sourceClientName}`,
-        });
+        })
+        .select('id')
+        .single();
 
-      if (transferError) throw transferError;
+      if (transferError || !transferData) throw transferError || new Error('Error al registrar transferencia');
+      transferId = (transferData as any).id;
 
       // 2. Crear recibo negativo en el expediente origen (para descontar el saldo a favor)
       const { data: sourceReceipt, error: sourceError } = await supabase
@@ -98,17 +105,18 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
           file_id: sourceFileId,
           user_id: user.id,
           client_name: sourceClientName,
-          amount: -amount,
-          currency,
-          payment_method: paymentMethod,
+          amount: -Number(amount),
+          currency: currency || 'USD',
+          payment_method: paymentMethod || 'transfer',
           concept: 'Transferencia de saldo a otro expediente',
-          notes: notes,
+          notes: notes || null,
           status: 'confirmed'
         })
         .select('id')
         .single();
 
-      if (sourceError) throw sourceError;
+      if (sourceError || !sourceReceipt) throw sourceError || new Error('Error al crear recibo origen');
+      sourceReceiptId = sourceReceipt.id;
 
       // 3. Crear recibo positivo en el expediente destino (para usar el saldo)
       const destFile = files.find(f => f.id === destFileId);
@@ -120,17 +128,18 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
           file_id: destFileId,
           user_id: user.id,
           client_name: destClientName,
-          amount: amount,
-          currency,
-          payment_method: paymentMethod,
+          amount: Number(amount),
+          currency: currency || 'USD',
+          payment_method: paymentMethod || 'transfer',
           concept: `Saldo transferido desde expediente de ${sourceClientName}`,
-          notes: notes,
+          notes: notes || null,
           status: 'confirmed'
         })
         .select('id')
         .single();
 
-      if (destError) throw destError;
+      if (destError || !destReceipt) throw destError || new Error('Error al crear recibo destino');
+      destReceiptId = destReceipt.id;
 
       // 4. Inyectar movimientos contables (account_movements) para mantener la contabilidad limpia
       const { data: sourceFileData } = await supabase.from('files').select('client_id, file_number').eq('id', sourceFileId).single();
@@ -145,10 +154,10 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
           account_type: 'client',
           account_id: sourceFileData.client_id,
           file_id: sourceFileId,
-          receipt_id: sourceReceipt.id,
+          receipt_id: sourceReceiptId,
           movement_type: 'debit',
-          amount: amount,
-          currency,
+          amount: Number(amount),
+          currency: currency || 'USD',
           concept: `Transferencia de saldo a expediente FILE-${String(destFileData?.file_number || '?').padStart(3, '0')}`,
           reference: `TRANSF-OUT`,
           movement_date: todayStr,
@@ -162,10 +171,10 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
           account_type: 'client',
           account_id: destFileData.client_id,
           file_id: destFileId,
-          receipt_id: destReceipt.id,
+          receipt_id: destReceiptId,
           movement_type: 'credit',
-          amount: amount,
-          currency,
+          amount: Number(amount),
+          currency: currency || 'USD',
           concept: `Saldo transferido desde expediente FILE-${String(sourceFileData?.file_number || '?').padStart(3, '0')}`,
           reference: `TRANSF-IN`,
           movement_date: todayStr,
@@ -174,7 +183,8 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
       }
 
       if (movementsToInsert.length > 0) {
-        await supabase.from('account_movements').insert(movementsToInsert as any);
+        const { error: movErr } = await supabase.from('account_movements').insert(movementsToInsert as any);
+        if (movErr) throw movErr;
       }
 
       toast.success('Saldo transferido exitosamente');
@@ -182,6 +192,22 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
       onOpenChange(false);
     } catch (error: any) {
       console.error(error);
+      // Clean up on error
+      try {
+        if (sourceReceiptId) {
+          await supabase.from('account_movements').delete().eq('receipt_id', sourceReceiptId);
+          await supabase.from('file_receipts').delete().eq('id', sourceReceiptId);
+        }
+        if (destReceiptId) {
+          await supabase.from('account_movements').delete().eq('receipt_id', destReceiptId);
+          await supabase.from('file_receipts').delete().eq('id', destReceiptId);
+        }
+        if (transferId) {
+          await supabase.from('file_transfers' as any).delete().eq('id', transferId);
+        }
+      } catch (cleanErr) {
+        console.error('Error rolling back balance transfer', cleanErr);
+      }
       toast.error(error.message || 'Error al transferir saldo');
     } finally {
       setLoading(false);

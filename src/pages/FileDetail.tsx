@@ -145,29 +145,36 @@ const FileDetail = () => {
   }, [user, id, reloadCounter]);
 
   useEffect(() => {
-    if (loading || !file || isInitialLoad.current) {
-      isInitialLoad.current = false;
-      return;
-    }
+    if (loading || !file) return;
+    // Only auto-save if notes actually changed from what is stored in file
+    if (notes === (file.internal_notes || '')) return;
+
     if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
     notesDebounceRef.current = setTimeout(async () => {
-      const { error } = await supabase.from('files').update({ internal_notes: notes }).eq('id', file.id);
-      if (!error) setLastSaved(new Date());
+      const { error } = await supabase.from('files').update({ internal_notes: notes.trim() }).eq('id', file.id);
+      if (!error) {
+        setFile(prev => prev ? { ...prev, internal_notes: notes.trim() } : null);
+        setLastSaved(new Date());
+      }
     }, 1000);
     return () => { if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current); };
   }, [notes, file?.id, loading]);
 
-  useEffect(() => {
-    if (loading || !file || file.status === status) return;
-    supabase.from('files').update({ status }).eq('id', file.id).then(({ error }) => {
-      if (!error) {
-        setFile({ ...file, status });
-        toast.success('Estado actualizado');
-      } else {
-        toast.error('Error al cambiar estado');
-      }
-    });
-  }, [status]);
+  const handleStatusChange = async (newStatus: string) => {
+    if (!file || file.status === newStatus) return;
+    const validStatuses = ['confirmed', 'in_progress', 'completed', 'cancelled'];
+    if (!validStatuses.includes(newStatus)) return;
+
+    setStatus(newStatus);
+    const { error } = await supabase.from('files').update({ status: newStatus }).eq('id', file.id);
+    if (!error) {
+      setFile(prev => prev ? { ...prev, status: newStatus } : null);
+      toast.success('Estado actualizado');
+    } else {
+      toast.error('Error al cambiar estado');
+      setStatus(file.status);
+    }
+  };
 
   const openConfirmEmail = () => setConfirmEmailOpen(true);
 
@@ -521,7 +528,7 @@ const FileDetail = () => {
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Estado del expediente
               </label>
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={handleStatusChange}>
                 <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {STATUS_OPTIONS.map(s => (

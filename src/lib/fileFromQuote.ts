@@ -328,11 +328,12 @@ export async function createFileFromQuote(quote: Quote, userId: string): Promise
     status: 'confirmed',
   } as any).select('id,file_number').single();
 
-  if (error || !fileData) return null;
+  let fileId = (fileData as any).id;
+  let fileNumber = (fileData as any).file_number;
 
-  // Sync passenger group members (CRM) to file_passengers
-  if (resolvedClientId) {
-    try {
+  try {
+    // Sync passenger group members (CRM) to file_passengers
+    if (resolvedClientId) {
       // Find the groups this client belongs to
       const { data: memberOfGroups } = await supabase
         .from('client_group_members')
@@ -363,7 +364,7 @@ export async function createFileFromQuote(quote: Quote, userId: string): Promise
 
             if (otherClients && otherClients.length > 0) {
               const passengersToInsert = otherClients.map((c) => ({
-                file_id: (fileData as any).id,
+                file_id: fileId,
                 user_id: userId,
                 agency_id: agencyId,
                 client_id: c.id,
@@ -383,24 +384,33 @@ export async function createFileFromQuote(quote: Quote, userId: string): Promise
           }
         }
       }
-    } catch (err) {
-      console.error('[createFileFromQuote] failed to sync group passengers', err);
     }
-  }
 
-  if (services.length > 0) {
-    const withFileId = services.map(s => ({ ...s, file_id: (fileData as any).id }));
-    await supabase.from('file_services').insert(withFileId);
-  }
+    if (services.length > 0) {
+      const withFileId = services.map(s => ({ ...s, file_id: fileId }));
+      const { error: svcErr } = await supabase.from('file_services').insert(withFileId);
+      if (svcErr) throw svcErr;
+    }
 
-  // Sync quote flights into reservations + flight_segments so they show up
-  // in the calendar and upcoming flights widget / alerts.
-  try {
-    await syncQuoteFlightsToReservation(quote, (fileData as any).id, userId);
-  } catch (e) {
-    console.error('[createFileFromQuote] sync flights (new file) failed', e);
-  }
+    // Sync quote flights into reservations + flight_segments so they show up
+    // in the calendar and upcoming flights widget / alerts.
+    try {
+      await syncQuoteFlightsToReservation(quote, fileId, userId);
+    } catch (e) {
+      console.error('[createFileFromQuote] sync flights (new file) failed', e);
+    }
 
-  return { fileId: (fileData as any).id, fileNumber: (fileData as any).file_number };
+    return { fileId, fileNumber };
+  } catch (err) {
+    console.error('[createFileFromQuote] failed midway, rolling back created file', err);
+    try {
+      await supabase.from('file_passengers').delete().eq('file_id', fileId);
+      await supabase.from('file_services').delete().eq('file_id', fileId);
+      await supabase.from('files').delete().eq('id', fileId);
+    } catch (cleanErr) {
+      console.error('[createFileFromQuote] rollback failed', cleanErr);
+    }
+    return null;
+  }
 }
 

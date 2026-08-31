@@ -40,9 +40,10 @@ interface Props {
   client: ClientRecord | null;
   onClientChange: (c: ClientRecord) => void;
   onSave: () => void;
+  saving?: boolean;
 }
 
-export function ClientFormDialog({ open, onOpenChange, client, onClientChange, onSave }: Props) {
+export function ClientFormDialog({ open, onOpenChange, client, onClientChange, onSave, saving = false }: Props) {
   if (!client) return null;
   const upd = (field: keyof ClientRecord, value: string) => onClientChange({ ...client, [field]: value });
 
@@ -163,7 +164,9 @@ export function ClientFormDialog({ open, onOpenChange, client, onClientChange, o
         </Tabs>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={onSave} disabled={!client.name}>Guardar</Button>
+          <Button onClick={onSave} disabled={!client.name || saving}>
+            {saving ? 'Guardando...' : 'Guardar'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

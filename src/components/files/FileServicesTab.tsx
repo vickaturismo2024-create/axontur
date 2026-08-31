@@ -145,6 +145,7 @@ export function FileServicesTab({ fileId, currency }: Props) {
   const [editing, setEditing]     = useState<ServiceRecord | null>(null);
   const [form, setForm]           = useState({ ...emptyService, currency });
   const [deleteId, setDeleteId]   = useState<string | null>(null);
+  const [saving, setSaving]       = useState(false);
 
   // Voucher Email Dialog States
   const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
@@ -349,63 +350,71 @@ export function FileServicesTab({ fileId, currency }: Props) {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || saving) return;
     
     const finalDesc = form.description.trim() || enrichDescription(form);
     if (!finalDesc) { toast.error('Ingresá una descripción'); return; }
 
-    const payload = {
-      service_type:        form.service_type,
-      description:         finalDesc,
-      supplier_name:       selectedSupplier ? selectedSupplier.name : supplierSearch.trim(),
-      supplier_id:         selectedSupplier ? selectedSupplier.id : null,
-      status:              form.status,
-      confirmation_number: form.confirmation_number,
-      cost:                Number(form.cost) || 0,
-      price:               Number(form.price) || 0,
-      currency:            form.currency,
-      service_date:        form.service_date        || null,
-      end_date:            form.end_date            || null,
-      payment_due_date:    form.payment_due_date    || null,
-      notes:               form.notes,
-      
-      // 23 Columnas de base de datos
-      origin:              form.origin || null,
-      destination:         form.destination || null,
-      airline:             form.airline || null,
-      flight_number:       form.flight_number || null,
-      cabin_class:         form.cabin_class || null,
-      regime:              form.regime || null,
-      room_type:           form.room_type || null,
-      pickup_location:     form.pickup_location || null,
-      dropoff_location:    form.dropoff_location || null,
-      company:             form.company || null,
-      departure_time:      form.departure_time || null,
-      arrival_time:        form.arrival_time || null,
-      luggage:             form.luggage || null,
-      luggage_type:        form.luggage_type || null,
-      hotel_category:      form.hotel_category || null,
-      ship_name:           form.ship_name || null,
-      embarkation_port:    form.embarkation_port || null,
-      disembarkation_port: form.disembarkation_port || null,
-      deck:                form.deck || null,
-      cabin_number:        form.cabin_number || null,
-      coverage:            form.coverage || null,
-      insurance_plan:      form.insurance_plan || null,
-    };
+    setSaving(true);
+    try {
+      const payload = {
+        service_type:        form.service_type,
+        description:         finalDesc,
+        supplier_name:       selectedSupplier ? selectedSupplier.name : supplierSearch.trim(),
+        supplier_id:         selectedSupplier ? selectedSupplier.id : null,
+        status:              form.status,
+        confirmation_number: form.confirmation_number || null,
+        cost:                Number(form.cost) || 0,
+        price:               Number(form.price) || 0,
+        currency:            form.currency || 'USD',
+        service_date:        form.service_date        || null,
+        end_date:            form.end_date            || null,
+        payment_due_date:    form.payment_due_date    || null,
+        notes:               form.notes || null,
+        
+        // 23 Columnas de base de datos
+        origin:              form.origin || null,
+        destination:         form.destination || null,
+        airline:             form.airline || null,
+        flight_number:       form.flight_number || null,
+        cabin_class:         form.cabin_class || null,
+        regime:              form.regime || null,
+        room_type:           form.room_type || null,
+        pickup_location:     form.pickup_location || null,
+        dropoff_location:    form.dropoff_location || null,
+        company:             form.company || null,
+        departure_time:      form.departure_time || null,
+        arrival_time:        form.arrival_time || null,
+        luggage:             form.luggage || null,
+        luggage_type:        form.luggage_type || null,
+        hotel_category:      form.hotel_category || null,
+        ship_name:           form.ship_name || null,
+        embarkation_port:    form.embarkation_port || null,
+        disembarkation_port: form.disembarkation_port || null,
+        deck:                form.deck || null,
+        cabin_number:        form.cabin_number || null,
+        coverage:            form.coverage || null,
+        insurance_plan:      form.insurance_plan || null,
+      };
 
-    if (editing) {
-      const { error } = await supabase.from('file_services').update(payload as any).eq('id', editing.id);
-      if (error) { toast.error('Error al actualizar'); return; }
-      toast.success('Servicio actualizado');
-    } else {
-      const { error } = await supabase.from('file_services')
-        .insert({ ...payload, file_id: fileId, user_id: user.id } as any);
-      if (error) { toast.error('Error al crear servicio'); return; }
-      toast.success('Servicio agregado');
+      if (editing) {
+        const { error } = await supabase.from('file_services').update(payload as any).eq('id', editing.id);
+        if (error) { toast.error('Error al actualizar'); return; }
+        toast.success('Servicio actualizado');
+      } else {
+        const { error } = await supabase.from('file_services')
+          .insert({ ...payload, file_id: fileId, user_id: user.id } as any);
+        if (error) { toast.error('Error al crear servicio'); return; }
+        toast.success('Servicio agregado');
+      }
+      setDialogOpen(false);
+      load();
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Error al procesar el servicio');
+    } finally {
+      setSaving(false);
     }
-    setDialogOpen(false);
-    load();
   };
 
   const handleDelete = async () => {
@@ -753,7 +762,9 @@ export function FileServicesTab({ fileId, currency }: Props) {
               <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
 
-            <Button onClick={handleSave} className="h-11 text-sm font-semibold">{editing ? 'Actualizar servicio' : 'Agregar servicio'}</Button>
+            <Button onClick={handleSave} disabled={saving} className="h-11 text-sm font-semibold">
+              {saving ? 'Guardando...' : (editing ? 'Actualizar servicio' : 'Agregar servicio')}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

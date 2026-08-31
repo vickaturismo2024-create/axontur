@@ -329,107 +329,127 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
       return;
     }
 
-    const mainCurrency = items[0].currency;
-    const mainMethod = items[0].payment_method;
+    const mainCurrency = items[0].currency || 'USD';
+    const mainMethod = items[0].payment_method || 'efectivo';
 
-    const { data: nextNum } = await supabase.rpc('next_receipt_number' as any, { p_user_id: user.id });
-    const receiptNumber = (nextNum as number) || 1;
+    let receiptId: string | null = null;
+    let receiptNumber = 1;
 
-    const { data: receiptData, error } = await supabase
-      .from('file_receipts')
-      .insert({
-        file_id: fileId,
-        user_id: user.id,
-        receipt_number: receiptNumber,
-        client_name: form.client_name,
-        amount: totalAmount,
-        currency: mainCurrency,
-        payment_method: mainMethod,
-        payment_date: form.payment_date,
-        concept: form.concept,
-        notes: form.notes,
-        status: 'issued',
-      } as any)
-      .select()
-      .single();
+    try {
+      const { data: nextNum } = await supabase.rpc('next_receipt_number' as any, { p_user_id: user.id });
+      receiptNumber = (nextNum as number) || 1;
 
-    if (error || !receiptData) {
-      toast.error('Error al crear recibo');
-      return;
-    }
-
-    const receiptId = (receiptData as any).id;
-    const itemsToInsert = items
-      .filter((it) => Number(it.amount) !== 0)
-      .map((it) => ({
-        receipt_id: receiptId,
-        user_id: user.id,
-        amount: Number(it.amount),
-        currency: it.currency,
-        payment_method: it.payment_method,
-        exchange_rate: it.exchange_rate,
-        service_currency: it.service_currency,
-        service_id: it.service_id || null,
-        notes: it.notes,
-      }));
-
-    if (itemsToInsert.length > 0) {
-      await supabase.from('file_receipt_items').insert(itemsToInsert as any);
-    }
-
-    const cardOpsToInsert = items
-      .filter((it) => (it.payment_method === 'credit_card' || it.payment_method === 'debit_card') && it.card_details)
-      .map((it) => ({
-        receipt_id: receiptId,
-        agency_id: agencyId,
-        card_type: it.card_details!.card_type,
-        brand: it.card_details!.brand,
-        bank: it.card_details!.bank || null,
-        cardholder_name: it.card_details!.cardholder_name || null,
-        last_four: it.card_details!.last_four || null,
-        installments: it.card_details!.installments,
-        calculation_method: it.card_details!.calculation_method,
-        base_amount: it.card_details!.base_amount,
-        surcharge_percentage: it.card_details!.surcharge_percentage,
-        surcharge_amount: it.card_details!.surcharge_amount,
-        total_charged: it.card_details!.total_charged,
-        installment_amount: it.card_details!.installment_amount,
-        processor_fee_percentage: it.card_details!.processor_fee_percentage,
-        processor_fee_amount: it.card_details!.processor_fee_amount,
-        net_amount: it.card_details!.net_amount,
-        settlement_date: it.card_details!.settlement_date || null,
-        status: 'pending',
-      }));
-
-    if (cardOpsToInsert.length > 0) {
-      await supabase.from('receipt_card_operations' as any).insert(cardOpsToInsert as any);
-    }
-
-    if (clientId) {
-      const movements = items
-        .filter((i) => Number(i.amount) !== 0)
-        .map((it) => ({
-          user_id: user.id,
-          account_type: 'client',
-          account_id: clientId,
+      const { data: receiptData, error } = await supabase
+        .from('file_receipts')
+        .insert({
           file_id: fileId,
-          receipt_id: receiptId,
-          movement_type: 'credit',
-          amount: Number(it.amount),
-          currency: it.currency,
-          concept: `Recibo REC-${String(receiptNumber).padStart(4, '0')}: ${form.concept}`,
-          reference: `REC-${String(receiptNumber).padStart(4, '0')}`,
-          movement_date: form.payment_date,
-        }));
-      if (movements.length > 0) {
-        await supabase.from('account_movements').insert(movements as any);
-      }
-    }
+          user_id: user.id,
+          receipt_number: receiptNumber,
+          client_name: form.client_name || 'Sin cliente',
+          amount: Number(totalAmount) || 0,
+          currency: mainCurrency,
+          payment_method: mainMethod,
+          payment_date: form.payment_date || null,
+          concept: form.concept.trim(),
+          notes: form.notes?.trim() || null,
+          status: 'issued',
+        } as any)
+        .select()
+        .single();
 
-    toast.success(`Recibo REC-${String(receiptNumber).padStart(4, '0')} generado`);
-    setDialogOpen(false);
-    load();
-    loadFileDebts();
+      if (error || !receiptData) {
+        throw error || new Error('Error al crear el recibo');
+      }
+
+      receiptId = (receiptData as any).id;
+      const itemsToInsert = items
+        .filter((it) => Number(it.amount) !== 0)
+        .map((it) => ({
+          receipt_id: receiptId,
+          user_id: user.id,
+          amount: Number(it.amount) || 0,
+          currency: it.currency || 'USD',
+          payment_method: it.payment_method,
+          exchange_rate: Number(it.exchange_rate) || null,
+          service_currency: it.service_currency || null,
+          service_id: it.service_id || null,
+          notes: it.notes?.trim() || null,
+        }));
+
+      if (itemsToInsert.length > 0) {
+        const { error: itemsErr } = await supabase.from('file_receipt_items').insert(itemsToInsert as any);
+        if (itemsErr) throw itemsErr;
+      }
+
+      const cardOpsToInsert = items
+        .filter((it) => (it.payment_method === 'credit_card' || it.payment_method === 'debit_card') && it.card_details)
+        .map((it) => ({
+          receipt_id: receiptId,
+          agency_id: agencyId,
+          card_type: it.card_details!.card_type,
+          brand: it.card_details!.brand,
+          bank: it.card_details!.bank || null,
+          cardholder_name: it.card_details!.cardholder_name || null,
+          last_four: it.card_details!.last_four || null,
+          installments: Number(it.card_details!.installments) || 1,
+          calculation_method: it.card_details!.calculation_method,
+          base_amount: Number(it.card_details!.base_amount) || 0,
+          surcharge_percentage: Number(it.card_details!.surcharge_percentage) || 0,
+          surcharge_amount: Number(it.card_details!.surcharge_amount) || 0,
+          total_charged: Number(it.card_details!.total_charged) || 0,
+          installment_amount: Number(it.card_details!.installment_amount) || 0,
+          processor_fee_percentage: Number(it.card_details!.processor_fee_percentage) || 0,
+          processor_fee_amount: Number(it.card_details!.processor_fee_amount) || 0,
+          net_amount: Number(it.card_details!.net_amount) || 0,
+          settlement_date: it.card_details!.settlement_date || null,
+          status: 'pending',
+        }));
+
+      if (cardOpsToInsert.length > 0) {
+        const { error: cardErr } = await supabase.from('receipt_card_operations' as any).insert(cardOpsToInsert as any);
+        if (cardErr) throw cardErr;
+      }
+
+      if (clientId) {
+        const movements = items
+          .filter((i) => Number(i.amount) !== 0)
+          .map((it) => ({
+            user_id: user.id,
+            account_type: 'client',
+            account_id: clientId,
+            file_id: fileId,
+            receipt_id: receiptId,
+            movement_type: 'credit',
+            amount: Number(it.amount) || 0,
+            currency: it.currency || 'USD',
+            concept: `Recibo REC-${String(receiptNumber).padStart(4, '0')}: ${form.concept}`,
+            reference: `REC-${String(receiptNumber).padStart(4, '0')}`,
+            movement_date: form.payment_date || null,
+          }));
+        if (movements.length > 0) {
+          const { error: movErr } = await supabase.from('account_movements').insert(movements as any);
+          if (movErr) throw movErr;
+        }
+      }
+
+      toast.success(`Recibo REC-${String(receiptNumber).padStart(4, '0')} generado`);
+      setDialogOpen(false);
+      load();
+      loadFileDebts();
+    } catch (err: any) {
+      console.error(err);
+      if (receiptId) {
+        try {
+          await supabase.from('file_receipt_items').delete().eq('receipt_id', receiptId);
+          await supabase.from('receipt_card_operations' as any).delete().eq('receipt_id', receiptId);
+          await supabase.from('account_movements').delete().eq('receipt_id', receiptId);
+          await supabase.from('file_receipts').delete().eq('id', receiptId);
+        } catch (cleanupErr) {
+          console.error('Error rolling back receipt', cleanupErr);
+        }
+      }
+      toast.error(`Error al generar recibo: ${err.message || 'Error desconocido'}`);
+    }
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {

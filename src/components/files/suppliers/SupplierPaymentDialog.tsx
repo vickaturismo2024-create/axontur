@@ -94,6 +94,7 @@ export function SupplierPaymentDialog({
   const [paymentDate, setPaymentDate] = useState('');
   const [lines, setLines] = useState<PaymentLine[]>([]);
   const [cardReceipts, setCardReceipts] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open && fileId) {
@@ -159,10 +160,16 @@ export function SupplierPaymentDialog({
     setLines((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
     const validLines = lines.filter((l) => Number(l.amount) > 0);
     if (validLines.length === 0) return;
-    onSave(validLines, paymentDate);
+    setSaving(true);
+    try {
+      await onSave(validLines, paymentDate);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const hasValidAmount = lines.some((l) => Number(l.amount) !== 0);
@@ -422,10 +429,10 @@ export function SupplierPaymentDialog({
 
           <Button
             onClick={handleSave}
-            disabled={!resolvedSupplierId || !hasValidAmount}
+            disabled={!resolvedSupplierId || !hasValidAmount || saving}
             className="w-full mt-4"
           >
-            {editingPayment ? 'Guardar cambios' : 'Registrar pago(s)'}
+            {saving ? 'Guardando...' : (editingPayment ? 'Guardar cambios' : 'Registrar pago(s)')}
           </Button>
         </div>
       </DialogContent>

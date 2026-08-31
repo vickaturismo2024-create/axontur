@@ -632,8 +632,11 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess, editFileId }:
 
   // Main CRUD Save action
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || saving) return;
     setSaving(true);
+    let fileId = editFileId;
+    let fileNumber: number | string = '';
+
     try {
       let mainClientId = (!form.client_id || form.client_id === 'new') ? null : form.client_id;
       const mainClientName = form.client_name.trim();
@@ -660,6 +663,7 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess, editFileId }:
         }
       }
 
+      const validStatuses = ['confirmed', 'in_progress', 'completed', 'cancelled'];
       const payload: any = {
         user_id: user.id,
         client_name: mainClientName || 'Sin cliente',
@@ -668,15 +672,12 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess, editFileId }:
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         travelers: parseInt(form.travelers, 10) || 1,
-        currency: form.currency,
-        total_price: parseFloat(form.total_price) || 0,
-        total_cost: parseFloat(form.total_cost) || 0,
-        status: form.status,
+        currency: form.currency || 'USD',
+        total_price: Number(form.total_price) || 0,
+        total_cost: Number(form.total_cost) || 0,
+        status: validStatuses.includes(form.status) ? form.status : 'confirmed',
         internal_notes: form.internal_notes.trim(),
       };
-
-      let fileId = editFileId;
-      let fileNumber: number | string = '';
 
       if (editFileId) {
         const { data: fileData, error: fileErr } = await supabase
@@ -765,7 +766,8 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess, editFileId }:
           nationality: pass.nationality || null,
           notes: pass.notes || null,
         };
-        await supabase.from('file_passengers').insert(passPayload);
+        const { error: passErr } = await supabase.from('file_passengers').insert(passPayload);
+        if (passErr) throw passErr;
       }
 
       // 3. Insert Services (clean all string & date fields to avoid syntax format errors)
@@ -818,6 +820,16 @@ export function NewFileDialog({ open, onOpenChange, onSaveSuccess, editFileId }:
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
+      // Clean up orphan file if this was a new file creation that failed midway
+      if (!editFileId && fileId) {
+        try {
+          await supabase.from('file_passengers').delete().eq('file_id', fileId);
+          await supabase.from('file_services').delete().eq('file_id', fileId);
+          await supabase.from('files').delete().eq('id', fileId);
+        } catch (cleanupErr) {
+          console.error('Error cleaning up orphan file', cleanupErr);
+        }
+      }
       toast.error(`Error al ${editFileId ? 'actualizar' : 'crear'} expediente: ${e.message || 'Error desconocido'}`);
     } finally {
       setSaving(false);

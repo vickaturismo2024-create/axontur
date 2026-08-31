@@ -65,7 +65,7 @@ export function TransferSupplierCreditDialog({ open, onOpenChange, sourceFileId,
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || loading) return;
     if (!destFileId) {
       toast.error('Seleccioná un expediente destino');
       return;
@@ -76,62 +76,88 @@ export function TransferSupplierCreditDialog({ open, onOpenChange, sourceFileId,
     }
 
     setLoading(true);
+    let transferId: string | null = null;
+    let sourcePaymentId: string | null = null;
+    let destPaymentId: string | null = null;
+
     try {
       // 1. Registrar la transferencia en supplier_credit_transfers
-      const { error: transferError } = await supabase
+      const { data: transferData, error: transferError } = await supabase
         .from('supplier_credit_transfers' as any)
         .insert({
           supplier_id: supplierId,
           source_file_id: sourceFileId,
           dest_file_id: destFileId,
-          amount,
-          currency,
-          payment_method: paymentMethod,
+          amount: Number(amount) || 0,
+          currency: currency || 'USD',
+          payment_method: paymentMethod || 'transfer',
           user_id: user.id,
           notes: notes || `Crédito a favor de ${supplierName} transferido a otro expediente`,
-        });
+        })
+        .select('id')
+        .single();
 
-      if (transferError) throw transferError;
+      if (transferError || !transferData) throw transferError || new Error('Error al registrar transferencia');
+      transferId = (transferData as any).id;
 
       // 2. Crear un pago a proveedor NEGATIVO en el origen (para descontar el saldo a favor)
-      const { error: sourceError } = await supabase
+      const { data: sourcePayment, error: sourceError } = await supabase
         .from('file_supplier_payments' as any)
         .insert({
           file_id: sourceFileId,
           user_id: user.id,
           supplier_id: supplierId,
           supplier_name: supplierName,
-          amount: -amount,
-          currency,
-          payment_method: paymentMethod,
+          amount: -Number(amount),
+          currency: currency || 'USD',
+          payment_method: paymentMethod || 'transfer',
           reference: 'TRANSF-CREDITO-OUT',
           notes: notes || 'Traspaso de saldo a otro exp.',
-        });
+        })
+        .select('id')
+        .single();
 
-      if (sourceError) throw sourceError;
+      if (sourceError || !sourcePayment) throw sourceError || new Error('Error al crear pago origen');
+      sourcePaymentId = (sourcePayment as any).id;
 
       // 3. Crear un pago a proveedor POSITIVO en el destino (para usar el saldo a favor ahí)
-      const { error: destError } = await supabase
+      const { data: destPayment, error: destError } = await supabase
         .from('file_supplier_payments' as any)
         .insert({
           file_id: destFileId,
           user_id: user.id,
           supplier_id: supplierId,
           supplier_name: supplierName,
-          amount: amount,
-          currency,
-          payment_method: paymentMethod,
+          amount: Number(amount),
+          currency: currency || 'USD',
+          payment_method: paymentMethod || 'transfer',
           reference: 'TRANSF-CREDITO-IN',
           notes: notes || `Saldo a favor recibido desde el expediente original`,
-        });
+        })
+        .select('id')
+        .single();
 
-      if (destError) throw destError;
+      if (destError || !destPayment) throw destError || new Error('Error al crear pago destino');
+      destPaymentId = (destPayment as any).id;
 
       toast.success('Saldo de proveedor transferido exitosamente');
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       console.error(error);
+      try {
+        if (sourcePaymentId) {
+          await supabase.from('file_supplier_payments' as any).delete().eq('id', sourcePaymentId);
+        }
+        if (destPaymentId) {
+          await supabase.from('file_supplier_payments' as any).delete().eq('id', destPaymentId);
+        }
+        if (transferId) {
+          await supabase.from('supplier_credit_transfers' as any).delete().eq('id', transferId);
+        }
+      } catch (cleanErr) {
+        console.error('Error rolling back credit transfer', cleanErr);
+      }
       toast.error(error.message || 'Error al transferir saldo');
     } finally {
       setLoading(false);

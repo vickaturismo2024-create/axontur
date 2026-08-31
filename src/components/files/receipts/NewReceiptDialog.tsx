@@ -102,9 +102,13 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
   const totalAmount = totals.convertedTotal;
 
   const handleSave = async () => {
+    if (saving) return;
     setSaving(true);
-    await onSave(form, items, totalAmount);
-    setSaving(false);
+    try {
+      await onSave(form, items, totalAmount);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

@@ -107,28 +107,50 @@ const Suppliers = () => {
 
   const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.suppliers.all(user?.id) });
 
+  const [saving, setSaving] = useState(false);
+
   const handleSave = async () => {
-    if (!editing || !user || !editing.name?.trim()) return;
-    if (editing.id) {
-      const { error } = await supabase.from('suppliers').update({
-        name: editing.name, email: editing.email || '', phone: editing.phone || '',
-        type: editing.type || '', notes: editing.notes || '',
-        cuit_tax_id: editing.cuit_tax_id || null,
-      } as any).eq('id', editing.id);
-      if (error) { toast.error('Error al actualizar'); return; }
-      toast.success('Proveedor actualizado');
-    } else {
-      const { error } = await supabase.from('suppliers').insert({
-        name: editing.name, email: editing.email || '', phone: editing.phone || '',
-        type: editing.type || '', notes: editing.notes || '', user_id: user.id,
-        cuit_tax_id: editing.cuit_tax_id || null,
-      } as any);
-      if (error) { toast.error('Error al crear'); return; }
-      toast.success('Proveedor creado');
+    if (!editing || !user || !editing.name?.trim() || saving) return;
+    setSaving(true);
+    try {
+      if (editing.id) {
+        const { error } = await supabase.from('suppliers').update({
+          name: editing.name.trim(), email: editing.email?.trim() || '', phone: editing.phone?.trim() || '',
+          type: editing.type || '', notes: editing.notes?.trim() || '',
+          cuit_tax_id: editing.cuit_tax_id?.trim() || null,
+        } as any).eq('id', editing.id);
+        if (error) { toast.error(`Error al actualizar: ${error.message || 'desconocido'}`); return; }
+        toast.success('Proveedor actualizado');
+      } else {
+        // Prevent 409 duplicate name conflict
+        const { data: existing } = await supabase
+          .from('suppliers')
+          .select('id')
+          .ilike('name', editing.name.trim())
+          .maybeSingle();
+
+        if (existing) {
+          toast.error('Ya existe un proveedor con este nombre');
+          return;
+        }
+
+        const { error } = await supabase.from('suppliers').insert({
+          name: editing.name.trim(), email: editing.email?.trim() || '', phone: editing.phone?.trim() || '',
+          type: editing.type || '', notes: editing.notes?.trim() || '', user_id: user.id,
+          cuit_tax_id: editing.cuit_tax_id?.trim() || null,
+        } as any);
+        if (error) { toast.error(`Error al crear: ${error.message || 'desconocido'}`); return; }
+        toast.success('Proveedor creado');
+      }
+      setIsDialogOpen(false);
+      setEditing(null);
+      refresh();
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Error al guardar el proveedor');
+    } finally {
+      setSaving(false);
     }
-    setIsDialogOpen(false);
-    setEditing(null);
-    refresh();
   };
 
   const handleDelete = async () => {
@@ -377,8 +399,8 @@ const Suppliers = () => {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={!editing?.name?.trim()} className="w-full sm:w-auto">
-              Guardar
+            <Button onClick={handleSave} disabled={!editing?.name?.trim() || saving} className="w-full sm:w-auto">
+              {saving ? 'Guardando...' : 'Guardar'}
             </Button>
           </DialogFooter>
         </DialogContent>

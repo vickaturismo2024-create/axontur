@@ -8,40 +8,29 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+const customFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
+  const response = await fetch(url, options);
+  if (options?.method && ['POST', 'PATCH', 'DELETE'].includes(options.method)) {
+    const urlStr = url instanceof Request ? url.url : url.toString();
+    // Only dispatch on actual PostgREST table CRUD operations.
+    // We exclude /auth/v1/, /functions/v1/, and /rpc/ to prevent infinite loops
+    // where a read operation (like an Edge Function or RPC) triggers a global refresh.
+    if (urlStr.includes('/rest/v1/') && !urlStr.includes('/rest/v1/rpc/')) {
+      if (response.ok && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('global-crud-success'));
+      }
+    }
+  }
+  return response;
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+  },
+  global: {
+    fetch: customFetch,
   }
 });
-
-// Interceptor Global (Monkey-Patch) para forzar auto-refresco en operaciones CRUD
-const originalFrom = supabase.from.bind(supabase);
-(supabase as any).from = (table: any) => {
-  const queryBuilder = originalFrom(table);
-  
-  const intercept = (methodName: 'insert' | 'update' | 'delete' | 'upsert') => {
-    const originalMethod = (queryBuilder as any)[methodName].bind(queryBuilder);
-    (queryBuilder as any)[methodName] = (...args: any[]) => {
-      const promise = originalMethod(...args);
-      // Solo interceptamos Promesas
-      if (promise && typeof promise.then === 'function') {
-        promise.then((res: any) => {
-          // Si no hubo error en la base de datos, emitimos el evento de éxito global
-          if (!res.error) {
-             window.dispatchEvent(new CustomEvent('global-crud-success'));
-          }
-        }).catch(() => {}); // Prevenir unhandled rejections
-      }
-      return promise;
-    };
-  };
-
-  intercept('insert');
-  intercept('update');
-  intercept('delete');
-  intercept('upsert');
-  
-  return queryBuilder;
-};

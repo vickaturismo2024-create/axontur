@@ -177,8 +177,11 @@ const Clients = () => {
   const handleEdit = (client: ClientRecord) => { setEditingClient({ ...client }); setIsDialogOpen(true); };
   const handleViewInfo = (client: ClientRecord) => { setSelectedInfoClient(client); setIsInfoOpen(true); };
 
+  const [saving, setSaving] = useState(false);
+
   const handleSave = async () => {
-    if (!editingClient || !user) return;
+    if (!editingClient || !user || saving) return;
+    setSaving(true);
     const payload: any = { ...editingClient };
     delete payload.id;
     ['birth_date', 'dni_expiry', 'passport_issue', 'passport_expiry'].forEach(f => {
@@ -198,7 +201,12 @@ const Clients = () => {
       setIsDialogOpen(false);
       setEditingClient(null);
       fetchClients();
-    } catch (e) { console.error(e); toast.error('Error al guardar el cliente'); }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`Error al guardar el cliente: ${e.message || 'Error desconocido'}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -496,6 +504,7 @@ const Clients = () => {
       client={editingClient}
       onClientChange={setEditingClient}
       onSave={handleSave}
+      saving={saving}
     />
 
     <ClientInfoDialog
