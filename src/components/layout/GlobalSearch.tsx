@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuotesSafe } from '@/contexts/QuotesContext';
-import { Search, FileText, Users, Truck, ArrowRight } from 'lucide-react';
+import { Search, FileText, Users, Truck, ArrowRight, FolderOpen } from 'lucide-react';
 
 interface SearchResult {
-  type: 'quote' | 'client' | 'supplier';
+  type: 'quote' | 'client' | 'supplier' | 'file';
   id: string;
   title: string;
   subtitle: string;
@@ -23,6 +23,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const [query, setQuery] = useState('');
   const [clients, setClients] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [files, setFiles] = useState<any[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -40,8 +41,28 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
         }
         return all;
       };
+
+      const fetchFiles = async () => {
+        const PAGE = 1000;
+        let from = 0;
+        const all: any[] = [];
+        while (true) {
+          const { data } = await supabase
+            .from('files')
+            .select('id, file_number, client_name, destination, file_passengers(name, dni)')
+            .order('file_number', { ascending: false })
+            .range(from, from + PAGE - 1);
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < PAGE) break;
+          from += PAGE;
+        }
+        return all;
+      };
+
       fetchAll('clients', 'id, name, email, phone').then(setClients);
       fetchAll('suppliers', 'id, name, type, email').then(setSuppliers);
+      fetchFiles().then(setFiles);
     }
   }, [open]);
 
@@ -103,14 +124,35 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
         title: s.name,
         subtitle: s.type || '',
       }));
+
+    // Files (Expedientes)
+    files
+      .filter((f: any) => {
+        const fileNumMatch = f.file_number?.toString().includes(q);
+        const clientMatch = f.client_name?.toLowerCase().includes(q);
+        const destMatch = f.destination?.toLowerCase().includes(q);
+        const paxMatch = f.file_passengers?.some((p: any) => 
+          p.name?.toLowerCase().includes(q) || 
+          p.dni?.toLowerCase().includes(q)
+        );
+        return fileNumMatch || clientMatch || destMatch || paxMatch;
+      })
+      .slice(0, 5)
+      .forEach((f: any) => results.push({
+        type: 'file',
+        id: f.id,
+        title: `Expediente #${f.file_number} — ${f.client_name}`,
+        subtitle: f.destination || '',
+      }));
   }
 
   const handleSelect = (result: SearchResult) => {
     onOpenChange(false);
     switch (result.type) {
       case 'quote': navigate(`/quote/${result.id}`); break;
-      case 'client': navigate('/clients'); break;
-      case 'supplier': navigate('/suppliers'); break;
+      case 'client': navigate(`/clients/${result.id}`); break;
+      case 'supplier': navigate(`/suppliers/${result.id}`); break;
+      case 'file': navigate(`/files/${result.id}`); break;
     }
   };
 
@@ -119,6 +161,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
       case 'quote': return <FileText className="h-4 w-4" />;
       case 'client': return <Users className="h-4 w-4" />;
       case 'supplier': return <Truck className="h-4 w-4" />;
+      case 'file': return <FolderOpen className="h-4 w-4" />;
       default: return null;
     }
   };
@@ -128,6 +171,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
       case 'quote': return 'bg-primary/10 text-primary group-hover:bg-primary/20';
       case 'client': return 'bg-blue-500/10 text-blue-500 group-hover:bg-blue-500/20';
       case 'supplier': return 'bg-orange-500/10 text-orange-500 group-hover:bg-orange-500/20';
+      case 'file': return 'bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20';
       default: return '';
     }
   };
@@ -137,6 +181,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
       case 'quote': return 'Presupuestos';
       case 'client': return 'Clientes';
       case 'supplier': return 'Proveedores';
+      case 'file': return 'Expedientes';
       default: return '';
     }
   };

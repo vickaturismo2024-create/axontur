@@ -100,8 +100,8 @@ const Quotes = () => {
     const query = debouncedSearch.toLowerCase();
     if (query) {
       result = result.filter(q =>
-        q.client.name.toLowerCase().includes(query) ||
-        q.trip.destination.toLowerCase().includes(query)
+        q.client?.name?.toLowerCase().includes(query) ||
+        q.trip?.destination?.toLowerCase().includes(query)
       );
     }
     if (filters.dateFrom) result = result.filter(q => q.createdAt >= filters.dateFrom);
@@ -115,7 +115,7 @@ const Quotes = () => {
     if (filters.priceMax) result = result.filter(q => (q.pricing.totalPrice || 0) <= Number(filters.priceMax));
     if (filters.clientName) {
       const cn = filters.clientName.toLowerCase();
-      result = result.filter(q => q.client.name.toLowerCase().includes(cn));
+      result = result.filter(q => q.client?.name?.toLowerCase().includes(cn));
     }
     if (tagFilter) result = result.filter(q => tagAssignments[q.id]?.some(t => t.id === tagFilter));
     return [...result].sort((a, b) => {
@@ -127,14 +127,14 @@ const Quotes = () => {
         default: return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir;
       }
     });
-  }, [quotes, searchQuery, statusFilter, viewFilter, filters, tagFilter, tagAssignments]);
+  }, [quotes, debouncedSearch, statusFilter, viewFilter, filters, tagFilter, tagAssignments]);
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 6;
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, statusFilter, viewFilter, filters, tagFilter]);
+  }, [debouncedSearch, statusFilter, viewFilter, filters, tagFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredQuotes.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
