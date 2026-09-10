@@ -20,6 +20,8 @@ import { deleteFileWithCascade } from '@/lib/fileUtils';
 import type { Quote } from '@/types/quote';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { NewFileDialog } from '@/components/files/NewFileDialog';
+import { ClientInfoDialog } from '@/components/clients/ClientInfoDialog';
+import { ClientRecord } from '@/components/clients/ClientFormDialog';
 
 import { FileServicesTab } from '@/components/files/FileServicesTab';
 import { FilePassengersTab } from '@/components/files/FilePassengersTab';
@@ -98,6 +100,24 @@ const FileDetail = () => {
 
   // Email dialogs
   const [confirmEmailOpen, setConfirmEmailOpen] = useState(false);
+  
+  // Client Info dialog
+  const [clientInfoOpen, setClientInfoOpen] = useState(false);
+  const [clientData, setClientData] = useState<ClientRecord | null>(null);
+
+  const handleClientClick = async () => {
+    if (!file?.client_id) {
+      navigate(`/clients?highlight=${encodeURIComponent(file.client_name)}`);
+      return;
+    }
+    const { data, error } = await supabase.from('clients').select('*').eq('id', file.client_id).maybeSingle();
+    if (error || !data) {
+      toast.error('No se pudo cargar la ficha del cliente');
+      return;
+    }
+    setClientData(data as any as ClientRecord);
+    setClientInfoOpen(true);
+  };
   const [voucherEmailOpen, setVoucherEmailOpen] = useState(false);
   const [clientEmail, setClientEmail] = useState('');
   const [voucherEmail, setVoucherEmail] = useState('');
@@ -409,13 +429,7 @@ const FileDetail = () => {
                   {/* Metadatos */}
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
                     <button
-                      onClick={() => {
-                        if (file.client_id) {
-                          navigate(`/clients/${file.client_id}`);
-                        } else {
-                          navigate(`/clients?highlight=${encodeURIComponent(file.client_name)}`);
-                        }
-                      }}
+                      onClick={handleClientClick}
                       className="flex items-center gap-1 font-semibold text-foreground hover:text-primary transition-colors"
                     >
                       {file.client_name || 'Sin cliente'}
@@ -655,6 +669,16 @@ const FileDetail = () => {
           }}
         />
       )}
+
+      <ClientInfoDialog 
+        open={clientInfoOpen} 
+        onOpenChange={setClientInfoOpen} 
+        client={clientData} 
+        onEdit={() => {
+          setClientInfoOpen(false);
+          navigate(`/clients/${file?.client_id}`);
+        }}
+      />
     </div>
   );
 };
