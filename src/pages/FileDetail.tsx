@@ -409,7 +409,13 @@ const FileDetail = () => {
                   {/* Metadatos */}
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
                     <button
-                      onClick={() => navigate(`/clients?highlight=${encodeURIComponent(file.client_name)}`)}
+                      onClick={() => {
+                        if (file.client_id) {
+                          navigate(`/clients/${file.client_id}`);
+                        } else {
+                          navigate(`/clients?highlight=${encodeURIComponent(file.client_name)}`);
+                        }
+                      }}
                       className="flex items-center gap-1 font-semibold text-foreground hover:text-primary transition-colors"
                     >
                       {file.client_name || 'Sin cliente'}

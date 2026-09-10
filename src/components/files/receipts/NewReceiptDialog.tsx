@@ -1,5 +1,6 @@
 import { localDateStr } from '@/lib/utils';
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -30,6 +31,7 @@ interface NewReceiptDialogProps {
     id: string;
     description: string;
     price: number;
+    pending_amount?: number;
     currency: string;
     status: string;
     service_type?: string;
@@ -103,6 +105,36 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
 
   const handleSave = async () => {
     if (saving) return;
+
+    if (!form.client_name.trim() || !form.payment_date) {
+      toast.error('Debes ingresar el nombre y la fecha de pago');
+      return;
+    }
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.service_id) {
+        const svc = services.find((s) => s.id === it.service_id);
+        if (svc) {
+          if (it.currency !== svc.currency && (!it.exchange_rate || Number(it.exchange_rate) <= 0)) {
+            toast.error(`La línea ${i + 1} requiere un tipo de cambio válido para el servicio seleccionado`);
+            return;
+          }
+          
+          let effectiveAmt = Number(it.amount) || 0;
+          if (it.currency !== svc.currency) {
+            effectiveAmt = getConvertedAmount(effectiveAmt, it.currency || 'USD', svc.currency, Number(it.exchange_rate));
+          }
+          
+          const pending = svc.pending_amount ?? svc.price;
+          if (effectiveAmt > pending + 0.01) {
+            toast.error(`El monto de la línea ${i + 1} supera el saldo pendiente del servicio (${svc.currency} ${pending.toLocaleString('es-AR', { minimumFractionDigits: 2 })})`);
+            return;
+          }
+        }
+      }
+    }
+
     setSaving(true);
     try {
       await onSave(form, items, totalAmount);
@@ -243,10 +275,10 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
                           <SelectContent>
                             <SelectItem value="none">— Sin vincular (Pago general) —</SelectItem>
                             {services
-                              .filter((s) => s.status !== 'cancelled')
+                              .filter((s) => s.status !== 'cancelled' && (s.pending_amount === undefined || s.pending_amount > 0))
                               .map((s) => (
                                 <SelectItem key={s.id} value={s.id} className="text-xs">
-                                  [{s.currency} {Number(s.price).toLocaleString('es-AR', { minimumFractionDigits: 2 })}] {s.description || s.service_type || 'Servicio'}{s.supplier_name ? ` (${s.supplier_name})` : ''}
+                                  [{s.currency} {Number(s.pending_amount ?? s.price).toLocaleString('es-AR', { minimumFractionDigits: 2 })}] {s.description || s.service_type || 'Servicio'}{s.supplier_name ? ` (${s.supplier_name})` : ''}
                                 </SelectItem>
                               ))}
                           </SelectContent>

@@ -1,14 +1,17 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plane, ChevronRight, ArrowRight } from 'lucide-react';
+import { Plane, ChevronRight, ArrowRight, ChevronLeft } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { CollapsibleWidget } from '@/components/dashboard/CollapsibleWidget';
 import { useUpcomingFlights } from '@/hooks/useFlightReservations';
 
 export function UpcomingFlightsWidget({ defaultOpen, raw }: { defaultOpen?: boolean; raw?: boolean }) {
-  const { data, isLoading } = useUpcomingFlights(20);
+  const [page, setPage] = useState(0);
+  const { data, isLoading } = useUpcomingFlights(50);
 
   const sevenDaysFromNow = new Date();
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
@@ -47,7 +50,7 @@ export function UpcomingFlightsWidget({ defaultOpen, raw }: { defaultOpen?: bool
         </div>
 
         <div className="space-y-2">
-          {upcoming.slice(0, 5).map(f => {
+          {upcoming.slice(page * 5, (page + 1) * 5).map(f => {
             const dep = f.segment.dep_datetime_local
               ? new Date(f.segment.dep_datetime_local)
               : null;
@@ -101,6 +104,31 @@ export function UpcomingFlightsWidget({ defaultOpen, raw }: { defaultOpen?: bool
             );
           })}
         </div>
+        {upcoming.length > 5 && (
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="h-7 text-[10px]"
+            >
+              <ChevronLeft className="h-3 w-3 mr-1" /> Anterior
+            </Button>
+            <span className="text-[10px] font-medium text-muted-foreground">
+              Página {page + 1} de {Math.ceil(upcoming.length / 5)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.min(Math.ceil(upcoming.length / 5) - 1, p + 1))}
+              disabled={page >= Math.ceil(upcoming.length / 5) - 1}
+              className="h-7 text-[10px]"
+            >
+              Siguiente <ChevronRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
+        )}
       </div>
     );
   };

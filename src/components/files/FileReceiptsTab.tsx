@@ -77,8 +77,6 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
       .from('file_services')
       .select('id, description, price, cost, currency, status, service_type, supplier_name')
       .eq('file_id', fileId);
-    
-    setServices((svcs as any[]) || []);
 
     const { data: recs } = await supabase
       .from('file_receipts')
@@ -88,6 +86,7 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
     const prices: Record<string, number> = {};
     const charges: Record<string, number> = {};
     const refunds: Record<string, number> = {};
+    const servicePaid: Record<string, number> = {};
 
     if (svcs) {
       svcs.filter(s => s.status !== 'cancelled').forEach(s => {
@@ -124,8 +123,14 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
           if (isRefund) {
             refunds[targetCurrency] = (refunds[targetCurrency] || 0) + effectiveAmt;
+            if (i.service_id) {
+              servicePaid[i.service_id] = (servicePaid[i.service_id] || 0) - effectiveAmt;
+            }
           } else {
             charges[targetCurrency] = (charges[targetCurrency] || 0) + effectiveAmt;
+            if (i.service_id) {
+              servicePaid[i.service_id] = (servicePaid[i.service_id] || 0) + effectiveAmt;
+            }
           }
         });
 
@@ -175,6 +180,13 @@ export function FileReceiptsTab({ fileId, clientName, currency, clientId }: Prop
 
     setFileDebts(debts);
     setCollectedByCurrency(collected);
+
+    const enrichedServices = (svcs || []).map((s: any) => {
+      const paid = servicePaid[s.id] || 0;
+      const pending = (Number(s.price) || 0) - paid;
+      return { ...s, pending_amount: Math.round(pending * 100) / 100 };
+    });
+    setServices(enrichedServices);
   };
 
   const load = async () => {
