@@ -110,7 +110,7 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
           payment_method: paymentMethod || 'transfer',
           concept: 'Transferencia de saldo a otro expediente',
           notes: notes || null,
-          status: 'confirmed'
+          status: 'issued'
         })
         .select('id')
         .single();
@@ -133,7 +133,7 @@ export function TransferBalanceDialog({ open, onOpenChange, sourceFileId, source
           payment_method: paymentMethod || 'transfer',
           concept: `Saldo transferido desde expediente de ${sourceClientName}`,
           notes: notes || null,
-          status: 'confirmed'
+          status: 'issued'
         })
         .select('id')
         .single();
