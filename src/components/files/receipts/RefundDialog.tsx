@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Trash2, Undo2 } from 'lucide-react';
 import { ReceiptItem, METHODS, CURRENCIES, emptyItem } from './types';
-import { computeReceiptTotals, getConvertedAmount } from '@/lib/receiptTotals';
+import { computeReceiptTotals, getConvertedAmount, getLiveRate } from '@/lib/receiptTotals';
 import { supabase } from '@/integrations/supabase/client';
 
 interface RefundDialogProps {
@@ -203,13 +203,8 @@ export function RefundDialog({
                                   service_currency: newCurrency,
                                 };
                                 if (item.currency && newCurrency && item.currency !== newCurrency && window.__liveRates) {
-                                  if (item.currency === 'ARS' && newCurrency === 'USD') {
-                                    const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
-                                    if (rate?.venta) patch.exchange_rate = rate.venta;
-                                  } else if (item.currency === 'USD' && newCurrency === 'ARS') {
-                                    const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
-                                    if (rate?.compra) patch.exchange_rate = rate.compra;
-                                  }
+                                  const liveRate = getLiveRate(item.currency, newCurrency, window.__liveRates);
+                                  if (liveRate && liveRate !== 1) patch.exchange_rate = liveRate;
                                 } else if (item.currency === newCurrency) {
                                   patch.exchange_rate = null;
                                 }

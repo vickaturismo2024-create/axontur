@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info, CreditCard } from 'lucide-react';
 import { Receipt } from './types';
-import { computeReceiptTotals, formatMoney } from '@/lib/receiptTotals';
+import { computeReceiptTotals, formatMoney, getConvertedAmount } from '@/lib/receiptTotals';
 
 interface ReceiptDetailDialogProps {
   receipt: Receipt | null;
@@ -92,13 +92,22 @@ export function ReceiptDetailDialog({ receipt, items, cardOperations = [], loadi
                                     </span>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-xs">
-                                    <p className="text-xs">
-                                      <strong>TC aplicado:</strong> 1 {it.service_currency} ={' '}
-                                      {Number(it.exchange_rate).toLocaleString('es-AR')} {it.currency}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      Imputado al servicio: {it.service_currency} {(Number(it.amount) / Number(it.exchange_rate)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                    </p>
+                                    {(() => {
+                                      const baseCur = it.service_currency === 'ARS' ? it.currency : it.service_currency;
+                                      const targetCur = it.service_currency === 'ARS' ? it.service_currency : it.currency;
+                                      const imputedAmt = getConvertedAmount(Number(it.amount), it.currency, it.service_currency, Number(it.exchange_rate));
+                                      return (
+                                        <>
+                                          <p className="text-xs">
+                                            <strong>TC aplicado:</strong> 1 {baseCur} ={' '}
+                                            {Number(it.exchange_rate).toLocaleString('es-AR')} {targetCur}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground mt-1">
+                                            Imputado al servicio: {it.service_currency} {imputedAmt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                          </p>
+                                        </>
+                                      );
+                                    })()}
                                   </TooltipContent>
                                 </Tooltip>
                               )}

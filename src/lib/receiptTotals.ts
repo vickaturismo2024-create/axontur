@@ -55,7 +55,7 @@ export function computeReceiptTotals(
     } else {
       otherCurrencyFound = true;
       const rate = num(line.exchange_rate);
-      if (line.service_currency === mainCurrency && rate > 0) {
+      if ((!line.service_currency || line.service_currency === mainCurrency) && rate > 0) {
         convertedTotal += getConvertedAmount(amt, cur, mainCurrency, rate);
       } else {
         unconvertibleLines.push(line);
@@ -97,21 +97,28 @@ export function getConvertedAmount(
   return amount / rate;
 }
 
-export function getLiveRate(currency: string, targetCurrency: string, rates: any[]): number {
+export interface LiveRateItem {
+  key?: string;
+  compra?: number;
+  venta?: number;
+  [key: string]: unknown;
+}
+
+export function getLiveRate(currency: string, targetCurrency: string, rates: LiveRateItem[]): number {
   if (currency === targetCurrency || !rates || rates.length === 0) return 1;
   
   if (currency === 'ARS' && targetCurrency === 'USD') {
-    return rates.find((r: any) => r.key === 'usd_blue')?.venta || 1;
+    return rates.find((r) => r.key === 'usd_blue')?.venta || 1;
   } else if (currency === 'USD' && targetCurrency === 'ARS') {
-    return rates.find((r: any) => r.key === 'usd_blue')?.compra || 1;
+    return rates.find((r) => r.key === 'usd_blue')?.compra || 1;
   } else if (currency === 'ARS' && targetCurrency === 'EUR') {
-    return rates.find((r: any) => r.key === 'euro_blue')?.venta || 1;
+    return rates.find((r) => r.key === 'euro_blue')?.venta || 1;
   } else if (currency === 'EUR' && targetCurrency === 'ARS') {
-    return rates.find((r: any) => r.key === 'euro_blue')?.compra || 1;
+    return rates.find((r) => r.key === 'euro_blue')?.compra || 1;
   } else if (currency === 'ARS' && targetCurrency === 'BRL') {
-    return rates.find((r: any) => r.key === 'real_oficial')?.venta || 1;
+    return rates.find((r) => r.key === 'real_oficial')?.venta || 1;
   } else if (currency === 'BRL' && targetCurrency === 'ARS') {
-    return rates.find((r: any) => r.key === 'real_oficial')?.compra || 1;
+    return rates.find((r) => r.key === 'real_oficial')?.compra || 1;
   }
   return 1;
 }

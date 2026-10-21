@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Trash2, CreditCard } from 'lucide-react';
 import { ReceiptItem, METHODS, CURRENCIES, emptyItem, CardOperationDetails } from './types';
-import { computeReceiptTotals, getConvertedAmount } from '@/lib/receiptTotals';
+import { computeReceiptTotals, getConvertedAmount, getLiveRate } from '@/lib/receiptTotals';
 import { supabase } from '@/integrations/supabase/client';
 import { CardDetailsDialog } from './CardDetailsDialog';
 
@@ -79,13 +79,8 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
       // Auto-fill exchange rate if currencies are changed and live rates are available
       if (patch.currency !== undefined || patch.service_currency !== undefined) {
         if (updated.currency && updated.service_currency && updated.currency !== updated.service_currency && window.__liveRates) {
-          if (updated.currency === 'ARS' && updated.service_currency === 'USD') {
-            const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
-            if (rate?.venta) updated.exchange_rate = rate.venta;
-          } else if (updated.currency === 'USD' && updated.service_currency === 'ARS') {
-            const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
-            if (rate?.compra) updated.exchange_rate = rate.compra;
-          }
+          const liveRate = getLiveRate(updated.currency, updated.service_currency, window.__liveRates);
+          if (liveRate && liveRate !== 1) updated.exchange_rate = liveRate;
         }
       }
       
@@ -254,13 +249,8 @@ export function NewReceiptDialog({ open, onOpenChange, onSave, defaultClientName
                                   service_currency: newCurrency,
                                 };
                                 if (item.currency && newCurrency && item.currency !== newCurrency && window.__liveRates) {
-                                  if (item.currency === 'ARS' && newCurrency === 'USD') {
-                                    const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
-                                    if (rate?.venta) patch.exchange_rate = rate.venta;
-                                  } else if (item.currency === 'USD' && newCurrency === 'ARS') {
-                                    const rate = window.__liveRates.find((r: any) => r.key === 'usd_blue');
-                                    if (rate?.compra) patch.exchange_rate = rate.compra;
-                                  }
+                                  const liveRate = getLiveRate(item.currency, newCurrency, window.__liveRates);
+                                  if (liveRate && liveRate !== 1) patch.exchange_rate = liveRate;
                                 } else if (item.currency === newCurrency) {
                                   patch.exchange_rate = null;
                                 }

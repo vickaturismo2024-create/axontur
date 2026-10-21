@@ -38,6 +38,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useGoBack } from '@/hooks/useGoBack';
+import { getConvertedAmount } from '@/lib/receiptTotals';
 
 interface LedgerItem {
   id: string;
@@ -286,10 +287,7 @@ export default function CashBox() {
     const amt = parseFloat(transferAmount);
     const rate = parseFloat(transferExchangeRate);
     if (!isNaN(amt) && amt > 0 && !isNaN(rate) && rate > 0 && transferFromCurrency !== transferToCurrency) {
-      // Rate means: 1 unit of fromCurrency = rate units of toCurrency
-      // e.g. 1 ARS -> rate USD? No. For ARS->USD, rate = how many ARS per 1 USD (e.g. 1200)
-      // So convertedAmount = amt / rate
-      setTransferConvertedAmount((amt / rate).toFixed(2));
+      setTransferConvertedAmount(getConvertedAmount(amt, transferFromCurrency, transferToCurrency, rate).toFixed(2));
     } else if (transferFromCurrency === transferToCurrency) {
       setTransferConvertedAmount(transferAmount);
     } else {
@@ -349,7 +347,7 @@ export default function CashBox() {
       toast.error('La cotización debe ser mayor a 0 para convertir monedas');
       return;
     }
-    const destAmount = isCrossCurrency ? parseFloat((amt / rate).toFixed(2)) : amt;
+    const destAmount = isCrossCurrency ? parseFloat(getConvertedAmount(amt, transferFromCurrency, transferToCurrency, rate).toFixed(2)) : amt;
 
     setIsSavingTransfer(true);
     try {

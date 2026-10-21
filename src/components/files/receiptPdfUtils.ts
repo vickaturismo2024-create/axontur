@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { computeReceiptTotals } from '@/lib/receiptTotals';
+import { computeReceiptTotals, getConvertedAmount } from '@/lib/receiptTotals';
 
 interface Receipt {
   receipt_number: number;
@@ -538,7 +538,7 @@ function drawReceipt(
       let rightAmount = it.amount;
       let rightCurrency = it.currency;
       if (it.service_currency && it.exchange_rate && it.exchange_rate > 0 && it.service_currency !== it.currency) {
-        rightAmount = it.amount / it.exchange_rate;
+        rightAmount = getConvertedAmount(it.amount, it.currency, it.service_currency, it.exchange_rate);
         rightCurrency = it.service_currency;
       }
       const formattedRight = rightAmount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

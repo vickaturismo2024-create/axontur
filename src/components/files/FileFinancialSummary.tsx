@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { isPast, differenceInDays } from 'date-fns';
+import { getConvertedAmount } from '@/lib/receiptTotals';
 
 interface Props {
   fileId: string;
@@ -72,7 +73,7 @@ export function FileFinancialSummary({ fileId }: Props) {
             const sign = refundSet.has(i.receipt_id) ? -1 : 1;
             if (i.service_currency && rate > 0) {
               const d = ensure(i.service_currency);
-              d.collected += sign * (amt / rate);
+              d.collected += sign * getConvertedAmount(amt, i.currency || 'USD', i.service_currency, rate);
             } else {
               const d = ensure(i.currency || 'USD');
               d.collected += sign * amt;
